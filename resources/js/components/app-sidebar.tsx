@@ -1,7 +1,6 @@
 import { Link } from '@inertiajs/react';
-import { BookOpen, FolderGit2, LayoutGrid } from 'lucide-react';
+import { LayoutGrid, ShieldCheck } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
-import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
 import {
@@ -16,30 +15,34 @@ import {
 import { dashboard } from '@/routes';
 import type { NavItem } from '@/types';
 
+/**
+ * Éléments du menu de navigation principal de la barre latérale.
+ * Comprend le Tableau de bord et l'accès à l'Administration.
+ */
 const mainNavItems: NavItem[] = [
     {
-        title: 'Dashboard',
+        title: 'Tableau de bord',
         href: dashboard(),
         icon: LayoutGrid,
     },
-];
-
-const footerNavItems: NavItem[] = [
     {
-        title: 'Repository',
-        href: 'https://github.com/laravel/react-starter-kit',
-        icon: FolderGit2,
-    },
-    {
-        title: 'Documentation',
-        href: 'https://laravel.com/docs/starter-kits#react',
-        icon: BookOpen,
+        title: 'Administration',
+        href: '/administration',
+        icon: ShieldCheck,
     },
 ];
 
+/**
+ * Composant principal de la barre latérale (Sidebar) de l'application SYGES.
+ * Organise la navigation par groupe et intègre le profil utilisateur dans le pied de page.
+ * Les liens externes (Repository, Documentation) ont été retirés pour un rendu épuré.
+ *
+ * @returns {JSX.Element} La barre latérale de navigation.
+ */
 export function AppSidebar() {
     return (
         <Sidebar collapsible="icon" variant="inset">
+            {/* En-tête de la barre latérale avec Logo SYGES */}
             <SidebarHeader>
                 <SidebarMenu>
                     <SidebarMenuItem>
@@ -52,12 +55,13 @@ export function AppSidebar() {
                 </SidebarMenu>
             </SidebarHeader>
 
+            {/* Corps de navigation principale */}
             <SidebarContent>
                 <NavMain items={mainNavItems} />
             </SidebarContent>
 
+            {/* Pied de page de la barre latérale : profil utilisateur uniquement */}
             <SidebarFooter>
-                <NavFooter items={footerNavItems} className="mt-auto" />
                 <NavUser />
             </SidebarFooter>
         </Sidebar>

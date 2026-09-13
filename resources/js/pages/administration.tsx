@@ -1,4 +1,4 @@
-import { Head } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
 import {
     School,
     Users,
@@ -59,7 +59,7 @@ const adminModules: AdminModule[] = [
         icon: ShieldCheck,
         color: 'text-amber-600 dark:text-amber-400',
         bgColor: 'bg-amber-50 dark:bg-amber-950/50 border border-amber-100 dark:border-amber-900/40',
-        href: '#',
+        href: '/administration/roles',
     },
     {
         title: 'Classes & Niveaux',
@@ -137,9 +137,13 @@ export default function Administration() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                     {adminModules.map((module) => {
                         const IconComponent = module.icon;
+                        const isClickable = module.href && module.href !== '#';
+                        const CardWrapper = isClickable ? Link : 'div';
+
                         return (
-                            <div
+                            <CardWrapper
                                 key={module.title}
+                                href={isClickable ? module.href : undefined}
                                 className="group flex items-center justify-between rounded-2xl border border-border/80 bg-card p-5 transition-all duration-200 hover:border-slate-300 hover:shadow-sm dark:hover:border-slate-700 cursor-pointer"
                             >
                                 {/* Côté gauche : Icône badge + Titre et Description */}
@@ -161,7 +165,7 @@ export default function Administration() {
 
                                 {/* Côté droit : Flèche discrète */}
                                 <ChevronRight className="size-4 text-muted-foreground/50 group-hover:text-foreground group-hover:translate-x-0.5 transition-all shrink-0 ml-3" />
-                            </div>
+                            </CardWrapper>
                         );
                     })}
                 </div>

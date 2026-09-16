@@ -170,6 +170,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('discipline/assiduites/{assiduite}', [\App\Http\Controllers\Administration\DisciplineController::class, 'destroyAssiduite'])->name('discipline.assiduites.destroy');
         Route::post('discipline/sanctions', [\App\Http\Controllers\Administration\DisciplineController::class, 'storeSanction'])->name('discipline.sanctions.store');
         Route::delete('discipline/sanctions/{sanction}', [\App\Http\Controllers\Administration\DisciplineController::class, 'destroySanction'])->name('discipline.sanctions.destroy');
+
+        // Module 13 : Emplois du Temps & Gestion des Salles (Gesco 13)
+        Route::get('emplois-du-temps', [\App\Http\Controllers\Administration\EmploiDuTempsController::class, 'index'])->name('emplois-du-temps.index');
+        Route::post('emplois-du-temps/seances', [\App\Http\Controllers\Administration\EmploiDuTempsController::class, 'storeSeance'])->name('emplois-du-temps.seances.store');
+        Route::put('emplois-du-temps/seances/{seance}', [\App\Http\Controllers\Administration\EmploiDuTempsController::class, 'updateSeance'])->name('emplois-du-temps.seances.update');
+        Route::delete('emplois-du-temps/seances/{seance}', [\App\Http\Controllers\Administration\EmploiDuTempsController::class, 'destroySeance'])->name('emplois-du-temps.seances.destroy');
+        Route::post('emplois-du-temps/seances/{seance}/annuler', [\App\Http\Controllers\Administration\EmploiDuTempsController::class, 'annulerSeance'])->name('emplois-du-temps.seances.annuler');
+        Route::post('emplois-du-temps/seances/{seance}/remplacer', [\App\Http\Controllers\Administration\EmploiDuTempsController::class, 'remplacerSeance'])->name('emplois-du-temps.seances.remplacer');
+        Route::post('emplois-du-temps/seances/{seance}/retablir', [\App\Http\Controllers\Administration\EmploiDuTempsController::class, 'retablirSeance'])->name('emplois-du-temps.seances.retablir');
+        Route::post('emplois-du-temps/salles', [\App\Http\Controllers\Administration\EmploiDuTempsController::class, 'storeSalle'])->name('emplois-du-temps.salles.store');
+        Route::put('emplois-du-temps/salles/{salle}', [\App\Http\Controllers\Administration\EmploiDuTempsController::class, 'updateSalle'])->name('emplois-du-temps.salles.update');
+        Route::delete('emplois-du-temps/salles/{salle}', [\App\Http\Controllers\Administration\EmploiDuTempsController::class, 'destroySalle'])->name('emplois-du-temps.salles.destroy');
     });
 });
 

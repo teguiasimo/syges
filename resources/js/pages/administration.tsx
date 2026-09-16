@@ -17,6 +17,7 @@ import {
     FileText,
     Wallet,
     ShieldAlert,
+    CalendarDays,
 } from 'lucide-react';
 import { useTranslation } from '@/contexts/language-context';
 import type { User } from '@/types';
@@ -137,6 +138,15 @@ const adminModules: AdminModule[] = [
         bgColor: 'bg-rose-50 dark:bg-rose-950/50 border border-rose-100 dark:border-rose-900/40',
         href: '/administration/discipline',
         permission: 'discipline.view',
+    },
+    {
+        titleKey: 'admin.emplois_du_temps_title',
+        descKey: 'admin.emplois_du_temps_desc',
+        icon: CalendarDays,
+        color: 'text-indigo-600 dark:text-indigo-400',
+        bgColor: 'bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-100 dark:border-indigo-900/40',
+        href: '/administration/emplois-du-temps',
+        permission: 'emplois_du_temps.view',
     },
     {
         titleKey: 'admin.users_title',

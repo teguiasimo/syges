@@ -108,6 +108,9 @@ export const fr = {
         discipline_title: 'Absences, Retards & Discipline',
         discipline_desc: 'Pointage d\'assiduité, justifications, sanctions disciplinaires et contrôle de déchéance des mentions honorifiques.',
 
+        emplois_du_temps_title: 'Emplois du Temps & Salles',
+        emplois_du_temps_desc: 'Planning hebdomadaire, détection anti-conflits, gestion des locaux et décompte des heures de vacation RH.',
+
         roles_title: 'Rôles & Permissions',
         roles_desc: 'Définir les profils et niveaux d\'accès au système.',
     },

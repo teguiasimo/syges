@@ -110,6 +110,9 @@ export const en: Translations = {
         discipline_title: 'Absences, Lateness & Discipline',
         discipline_desc: 'Attendance tracking, justifications, disciplinary sanctions and honor roll forfeiture checks.',
 
+        emplois_du_temps_title: 'Timetables & Classrooms',
+        emplois_du_temps_desc: 'Weekly timetable, conflict detection, classroom assignment and HR substitute workload tracking.',
+
         roles_title: 'Roles & Permissions',
         roles_desc: 'Define system access levels and permissions.',
     },

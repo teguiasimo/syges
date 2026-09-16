@@ -111,6 +111,9 @@ export const fr = {
         emplois_du_temps_title: 'Emplois du Temps & Salles',
         emplois_du_temps_desc: 'Planning hebdomadaire, détection anti-conflits, gestion des locaux et décompte des heures de vacation RH.',
 
+        communication_title: 'Communication & Notifications SMS',
+        communication_desc: 'Diffusion de campagnes SMS groupées, alertes automatiques d\'absences/notes et passerelle GSM 7-bit.',
+
         roles_title: 'Rôles & Permissions',
         roles_desc: 'Définir les profils et niveaux d\'accès au système.',
     },

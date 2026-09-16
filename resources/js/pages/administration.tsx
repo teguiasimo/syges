@@ -18,6 +18,7 @@ import {
     Wallet,
     ShieldAlert,
     CalendarDays,
+    MessageSquare,
 } from 'lucide-react';
 import { useTranslation } from '@/contexts/language-context';
 import type { User } from '@/types';
@@ -147,6 +148,15 @@ const adminModules: AdminModule[] = [
         bgColor: 'bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-100 dark:border-indigo-900/40',
         href: '/administration/emplois-du-temps',
         permission: 'emplois_du_temps.view',
+    },
+    {
+        titleKey: 'admin.communication_title',
+        descKey: 'admin.communication_desc',
+        icon: MessageSquare,
+        color: 'text-sky-600 dark:text-sky-400',
+        bgColor: 'bg-sky-50 dark:bg-sky-950/50 border border-sky-100 dark:border-sky-900/40',
+        href: '/administration/communication',
+        permission: 'communication.view',
     },
     {
         titleKey: 'admin.users_title',

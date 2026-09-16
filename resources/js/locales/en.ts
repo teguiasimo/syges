@@ -113,6 +113,9 @@ export const en: Translations = {
         emplois_du_temps_title: 'Timetables & Classrooms',
         emplois_du_temps_desc: 'Weekly timetable, conflict detection, classroom assignment and HR substitute workload tracking.',
 
+        communication_title: 'Communication & SMS Notifications',
+        communication_desc: 'Bulk SMS campaigns, automatic attendance/grade alerts and GSM 7-bit gateway management.',
+
         roles_title: 'Roles & Permissions',
         roles_desc: 'Define system access levels and permissions.',
     },

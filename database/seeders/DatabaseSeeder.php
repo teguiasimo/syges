@@ -100,6 +100,11 @@ class DatabaseSeeder extends Seeder
             // Module Emplois du Temps & Salles (Gesco 13)
             'emplois_du_temps.view' => 'web',
             'emplois_du_temps.manage' => 'web',
+
+            // Module Communication & Notifications SMS (Gesco 14)
+            'communication.view' => 'web',
+            'communication.send' => 'web',
+            'communication.manage' => 'web',
         ];
 
         // Création ou persistance des permissions actives
@@ -136,6 +141,7 @@ class DatabaseSeeder extends Seeder
             'finances.view',
             'discipline.view', 'discipline.manage', 'discipline.sanction',
             'emplois_du_temps.view', 'emplois_du_temps.manage',
+            'communication.view', 'communication.send', 'communication.manage',
         ]);
         $intendantRole->syncPermissions([
             'eleves.view',

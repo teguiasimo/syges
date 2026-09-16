@@ -182,6 +182,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('emplois-du-temps/salles', [\App\Http\Controllers\Administration\EmploiDuTempsController::class, 'storeSalle'])->name('emplois-du-temps.salles.store');
         Route::put('emplois-du-temps/salles/{salle}', [\App\Http\Controllers\Administration\EmploiDuTempsController::class, 'updateSalle'])->name('emplois-du-temps.salles.update');
         Route::delete('emplois-du-temps/salles/{salle}', [\App\Http\Controllers\Administration\EmploiDuTempsController::class, 'destroySalle'])->name('emplois-du-temps.salles.destroy');
+
+        // Module 14 : Communication & Notifications SMS (Gesco 14)
+        Route::get('communication', [\App\Http\Controllers\Administration\CommunicationSmsController::class, 'index'])->name('communication.index');
+        Route::post('communication/campagnes', [\App\Http\Controllers\Administration\CommunicationSmsController::class, 'storeCampagne'])->name('communication.campagnes.store');
+        Route::post('communication/sms-direct', [\App\Http\Controllers\Administration\CommunicationSmsController::class, 'storeSmsDirect'])->name('communication.sms-direct.store');
+        Route::put('communication/config', [\App\Http\Controllers\Administration\CommunicationSmsController::class, 'updateConfig'])->name('communication.config.update');
+        Route::post('communication/recharger', [\App\Http\Controllers\Administration\CommunicationSmsController::class, 'rechargerCredits'])->name('communication.recharger');
     });
 });
 

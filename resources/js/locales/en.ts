@@ -116,6 +116,12 @@ export const en: Translations = {
         communication_title: 'Communication & SMS Notifications',
         communication_desc: 'Bulk SMS campaigns, automatic attendance/grade alerts and GSM 7-bit gateway management.',
 
+        deliberations_title: 'Deliberations & Class Council',
+        deliberations_desc: 'Official minutes, honor roll calculation/forfeiture and human promotion validation.',
+
+        statistiques_title: 'Statistics & Official Reports',
+        statistiques_desc: 'Enrollment statistics, gender parity and MINESEC / MINEDUB regulatory exam sheets.',
+
         roles_title: 'Roles & Permissions',
         roles_desc: 'Define system access levels and permissions.',
     },

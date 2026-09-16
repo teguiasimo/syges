@@ -105,6 +105,12 @@ class DatabaseSeeder extends Seeder
             'communication.view' => 'web',
             'communication.send' => 'web',
             'communication.manage' => 'web',
+
+            // Module Tableau de Bord, Statistiques & Conseil de Classe (Gesco 15)
+            'statistiques.view' => 'web',
+            'deliberations.view' => 'web',
+            'deliberations.manage' => 'web',
+            'deliberations.valider' => 'web',
         ];
 
         // Création ou persistance des permissions actives
@@ -142,15 +148,18 @@ class DatabaseSeeder extends Seeder
             'discipline.view', 'discipline.manage', 'discipline.sanction',
             'emplois_du_temps.view', 'emplois_du_temps.manage',
             'communication.view', 'communication.send', 'communication.manage',
+            'statistiques.view', 'deliberations.view', 'deliberations.manage', 'deliberations.valider',
         ]);
         $intendantRole->syncPermissions([
             'eleves.view',
             'finances.view', 'finances.manage', 'finances.cloture', 'finances.annuler',
+            'statistiques.view',
         ]);
         $teacherRole->syncPermissions([
             'matieres.view',
             'eleves.view',
             'notes.view', 'notes.manage',
+            'deliberations.view',
         ]);
         $secretaryRole->syncPermissions([
             'users.view', 'users.create', 'users.edit', 'institutions.view', 'periodes.view', 'matieres.view',

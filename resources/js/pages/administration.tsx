@@ -19,6 +19,8 @@ import {
     ShieldAlert,
     CalendarDays,
     MessageSquare,
+    Award,
+    BarChart3,
 } from 'lucide-react';
 import { useTranslation } from '@/contexts/language-context';
 import type { User } from '@/types';
@@ -157,6 +159,24 @@ const adminModules: AdminModule[] = [
         bgColor: 'bg-sky-50 dark:bg-sky-950/50 border border-sky-100 dark:border-sky-900/40',
         href: '/administration/communication',
         permission: 'communication.view',
+    },
+    {
+        titleKey: 'admin.deliberations_title',
+        descKey: 'admin.deliberations_desc',
+        icon: Award,
+        color: 'text-amber-600 dark:text-amber-400',
+        bgColor: 'bg-amber-50 dark:bg-amber-950/50 border border-amber-100 dark:border-amber-900/40',
+        href: '/administration/deliberations',
+        permission: 'deliberations.view',
+    },
+    {
+        titleKey: 'admin.statistiques_title',
+        descKey: 'admin.statistiques_desc',
+        icon: BarChart3,
+        color: 'text-blue-600 dark:text-blue-400',
+        bgColor: 'bg-blue-50 dark:bg-blue-950/50 border border-blue-100 dark:border-blue-900/40',
+        href: '/administration/statistiques',
+        permission: 'statistiques.view',
     },
     {
         titleKey: 'admin.users_title',

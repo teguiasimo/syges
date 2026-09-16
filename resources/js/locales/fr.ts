@@ -114,6 +114,12 @@ export const fr = {
         communication_title: 'Communication & Notifications SMS',
         communication_desc: 'Diffusion de campagnes SMS groupées, alertes automatiques d\'absences/notes et passerelle GSM 7-bit.',
 
+        deliberations_title: 'Délibérations & Conseil de Classe',
+        deliberations_desc: 'Procès-verbal officiel, calcul et déchéance des mentions, validation humaine des promotions.',
+
+        statistiques_title: 'Statistiques & Bordereaux',
+        statistiques_desc: 'Rapports de rentrée, parité de genre, formulaires réglementaires MINESEC / MINEDUB.',
+
         roles_title: 'Rôles & Permissions',
         roles_desc: 'Définir les profils et niveaux d\'accès au système.',
     },

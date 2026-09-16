@@ -32,8 +32,8 @@ Route::post('locale', function (\Illuminate\Http\Request $request) {
 })->name('locale.update');
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    // Page du Tableau de bord utilisateur
-    Route::inertia('dashboard', 'dashboard')->name('dashboard');
+    // Page du Tableau de bord exécutif (Module 15)
+    Route::get('dashboard', [\App\Http\Controllers\Administration\TableauDeBordController::class, 'index'])->name('dashboard');
 
     // Page d'accueil du module d'Administration
     Route::inertia('administration', 'administration')->name('administration');
@@ -189,6 +189,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('communication/sms-direct', [\App\Http\Controllers\Administration\CommunicationSmsController::class, 'storeSmsDirect'])->name('communication.sms-direct.store');
         Route::put('communication/config', [\App\Http\Controllers\Administration\CommunicationSmsController::class, 'updateConfig'])->name('communication.config.update');
         Route::post('communication/recharger', [\App\Http\Controllers\Administration\CommunicationSmsController::class, 'rechargerCredits'])->name('communication.recharger');
+
+        // Module 15 : Tableau de Bord, Statistiques & Conseil de Classe (Gesco 15 & 2.6)
+        Route::get('statistiques', [\App\Http\Controllers\Administration\TableauDeBordController::class, 'statistiquesAvancees'])->name('statistiques.index');
+        Route::get('statistiques/bordereau', [\App\Http\Controllers\Administration\TableauDeBordController::class, 'exportBordereau'])->name('statistiques.bordereau');
+        Route::get('deliberations', [\App\Http\Controllers\Administration\ConseilClasseController::class, 'index'])->name('deliberations.index');
+        Route::post('deliberations/sauvegarder', [\App\Http\Controllers\Administration\ConseilClasseController::class, 'sauvegarder'])->name('deliberations.sauvegarder');
+        Route::post('deliberations/valider-promotion', [\App\Http\Controllers\Administration\ConseilClasseController::class, 'validerPromotion'])->name('deliberations.valider-promotion');
+        Route::get('deliberations/pv-pdf', [\App\Http\Controllers\Administration\ConseilClasseController::class, 'exportPv'])->name('deliberations.pv-pdf');
     });
 });
 

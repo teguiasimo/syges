@@ -2,11 +2,218 @@
 
 namespace Tests;
 
+use AllowDynamicProperties;
+use App\Models\AnneeScolaire;
+use App\Models\Attribution;
+use App\Models\Classe;
+use App\Models\Cycle;
+use App\Models\Eleve;
+use App\Models\Etablissement;
+use App\Models\Evaluation;
+use App\Models\GroupeMatiere;
+use App\Models\Inscription;
+use App\Models\Institution;
+use App\Models\Matiere;
+use App\Models\Niveau;
+use App\Models\Periode;
+use App\Models\Personnel;
+use App\Models\Section;
+use App\Models\User;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Laravel\Fortify\Features;
 
+/**
+ * Classe de base pour tous les tests d'intégration et de fonctionnalités de SYGES.
+ * Déclare explicitement les propriétés dynamiques récurrentes utilisées par les suites Pest
+ * afin de satisfaire l'analyse statique Intelephense / PHPStan.
+ *
+ * @property User|null $adminUser
+ * @property AnneeScolaire|null $annee
+ * @property AnneeScolaire|null $anneeScolaire
+ * @property Classe|null $classe
+ * @property Institution|null $institution
+ * @property Etablissement|null $etablissement
+ * @property Section|null $section
+ * @property Cycle|null $cycle
+ * @property Niveau|null $niveau
+ * @property Matiere|null $matiere
+ * @property Matiere|null $matiere2
+ * @property GroupeMatiere|null $groupeMatiere
+ * @property Personnel|null $enseignant
+ * @property Periode|null $periode
+ * @property Evaluation|null $seq1
+ * @property Evaluation|null $seq2
+ * @property Inscription|null $inscription1
+ * @property Inscription|null $inscription2
+ * @property Eleve|null $eleve1
+ * @property Eleve|null $eleve2
+ * @property Attribution|null $attributionMath
+ * @property Attribution|null $attributionFran
+ */
+#[AllowDynamicProperties]
 abstract class TestCase extends BaseTestCase
 {
+    /**
+     * Administrateur avec profil super-admin utilisé pour authentifier les requêtes.
+     *
+     * @var User|null
+     */
+    public ?User $adminUser = null;
+
+    /**
+     * Année scolaire active utilisée dans les contextes de tests académiques.
+     *
+     * @var AnneeScolaire|null
+     */
+    public ?AnneeScolaire $annee = null;
+
+    /**
+     * Alias d'année scolaire pour les tests d'attribution.
+     *
+     * @var AnneeScolaire|null
+     */
+    public ?AnneeScolaire $anneeScolaire = null;
+
+    /**
+     * Classe pédagogique de référence pour les inscriptions et matières.
+     *
+     * @var Classe|null
+     */
+    public ?Classe $classe = null;
+
+    /**
+     * Institution scolaire principale de référence.
+     *
+     * @var Institution|null
+     */
+    public ?Institution $institution = null;
+
+    /**
+     * Établissement scolaire de référence rattaché à l'institution.
+     *
+     * @var Etablissement|null
+     */
+    public ?Etablissement $etablissement = null;
+
+    /**
+     * Section linguistique ou pédagogique (ex: Francophone / Anglophone).
+     *
+     * @var Section|null
+     */
+    public ?Section $section = null;
+
+    /**
+     * Cycle d'enseignement (ex: Premier Cycle, Second Cycle).
+     *
+     * @var Cycle|null
+     */
+    public ?Cycle $cycle = null;
+
+    /**
+     * Niveau d'enseignement associé aux cycles et classes (ex: 6ème, 5ème).
+     *
+     * @var Niveau|null
+     */
+    public ?Niveau $niveau = null;
+
+    /**
+     * Matière principale d'enseignement pour les tests d'attribution et de notes.
+     *
+     * @var Matiere|null
+     */
+    public ?Matiere $matiere = null;
+
+    /**
+     * Seconde matière d'enseignement pour les tests de répartition.
+     *
+     * @var Matiere|null
+     */
+    public ?Matiere $matiere2 = null;
+
+    /**
+     * Groupe de matières pédagogique (ex: Sciences, Littéraire).
+     *
+     * @var GroupeMatiere|null
+     */
+    public ?GroupeMatiere $groupeMatiere = null;
+
+    /**
+     * Personnel enseignant utilisé pour les affectations pédagogiques.
+     *
+     * @var Personnel|null
+     */
+    public ?Personnel $enseignant = null;
+
+    /**
+     * Période trimestrielle pour les tests de bulletins.
+     *
+     * @var Periode|null
+     */
+    public ?Periode $periode = null;
+
+    /**
+     * Première séquence d'évaluation.
+     *
+     * @var Evaluation|null
+     */
+    public ?Evaluation $seq1 = null;
+
+    /**
+     * Seconde séquence d'évaluation.
+     *
+     * @var Evaluation|null
+     */
+    public ?Evaluation $seq2 = null;
+
+    /**
+     * Première inscription d'élève de référence.
+     *
+     * @var Inscription|null
+     */
+    public ?Inscription $inscription1 = null;
+
+    /**
+     * Seconde inscription d'élève de référence.
+     *
+     * @var Inscription|null
+     */
+    public ?Inscription $inscription2 = null;
+
+    /**
+     * Élève de référence 1.
+     *
+     * @var Eleve|null
+     */
+    public ?Eleve $eleve1 = null;
+
+    /**
+     * Élève de référence 2.
+     *
+     * @var Eleve|null
+     */
+    public ?Eleve $eleve2 = null;
+
+    /**
+     * Attribution de mathématiques.
+     *
+     * @var Attribution|null
+     */
+    public ?Attribution $attributionMath = null;
+
+    /**
+     * Attribution de français.
+     *
+     * @var Attribution|null
+     */
+    public ?Attribution $attributionFran = null;
+
+    /**
+     * Ignore le test courant si la fonctionnalité Fortify requise n'est pas activée.
+     *
+     * @param string $feature Nom de la fonctionnalité Fortify
+     * @param string|null $message Motif facultatif d'exclusion
+     * @return void
+     */
     protected function skipUnlessFortifyHas(string $feature, ?string $message = null): void
     {
         if (! Features::enabled($feature)) {

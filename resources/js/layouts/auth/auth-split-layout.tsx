@@ -1,17 +1,17 @@
 import { Link, usePage } from '@inertiajs/react';
-import { GraduationCap, Users, ShieldCheck, Sparkles } from 'lucide-react';
-import AppLogoIcon from '@/components/app-logo-icon';
+import { GraduationCap, Sparkles, Users, ShieldCheck } from 'lucide-react';
+import { LanguageSwitcher } from '@/components/language-switcher';
+import { useTranslation } from '@/contexts/language-context';
 import { home } from '@/routes';
 import type { AuthLayoutProps } from '@/types';
 
 /**
- * Layout d'authentification "Split" à deux colonnes pour l'application SYGES :
- * - Colonne gauche (écrans larges) : vitrine visuelle présentant SYGES avec dégradés,
- *   effets de flou ambient, logo académique et mise en avant des fonctionnalités clés.
- * - Colonne droite : conteneur de formulaire centré (connexion, réinitialisation, etc.).
+ * Layout d'authentification bicolore moderne et immersif (AuthSplitLayout).
+ * Colonne de gauche dédiée à l'identité visuelle de SYGES avec les atouts phares.
+ * Colonne de droite accueillant le formulaire d'authentification avec sélecteur de langue.
  *
- * @param {AuthLayoutProps} props - Propriétés contenant les enfants, le titre et la description.
- * @returns {JSX.Element} Le composant de mise en page d'authentification scindé.
+ * @param {AuthLayoutProps} props Les propriétés du layout.
+ * @returns {JSX.Element} Le layout scindé.
  */
 export default function AuthSplitLayout({
     children,
@@ -19,12 +19,18 @@ export default function AuthSplitLayout({
     description,
 }: AuthLayoutProps) {
     const { name } = usePage().props;
+    const { t } = useTranslation();
 
     return (
         <div className="relative grid min-h-dvh flex-col items-center justify-center px-8 sm:px-0 lg:max-w-none lg:grid-cols-2 lg:px-0">
-            {/* Section 1 (Gauche) : Vitrine visuelle et identité SYGES (Desktop uniquement) */}
+            {/* Bouton de langue placé en haut à droite */}
+            <div className="absolute top-4 right-4 z-30">
+                <LanguageSwitcher />
+            </div>
+
+            {/* Section 1 (Gauche) : Présentation visuelle & Atouts du produit */}
             <div className="relative hidden h-full flex-col justify-between overflow-hidden bg-slate-950 p-12 text-white lg:flex dark:border-r dark:border-slate-800">
-                {/* Arrière-plan avec dégradés riches et effets de lumière ambiants */}
+                {/* Dégradé d'arrière-plan avec orbes lumineux floutés */}
                 <div className="absolute inset-0 bg-linear-to-br from-slate-950 via-slate-900 to-indigo-950" />
                 <div className="absolute -top-24 -left-24 size-96 rounded-full bg-indigo-600/15 blur-3xl pointer-events-none" />
                 <div className="absolute -bottom-24 -right-24 size-96 rounded-full bg-blue-500/15 blur-3xl pointer-events-none" />
@@ -44,14 +50,14 @@ export default function AuthSplitLayout({
                                 {name ?? 'SYGES'}
                             </span>
                             <span className="text-xs font-normal text-indigo-200/70">
-                                Gestion Académique & Scolaire
+                                {t('auth.welcome_subtitle')}
                             </span>
                         </div>
                     </Link>
 
                     <div className="flex items-center gap-1.5 rounded-full border border-indigo-500/20 bg-indigo-500/10 px-3 py-1 text-xs font-medium text-indigo-300 backdrop-blur-sm">
                         <Sparkles className="size-3.5 text-indigo-400" />
-                        Portail Sécurisé
+                        {t('auth.school_edition')}
                     </div>
                 </div>
 
@@ -59,10 +65,10 @@ export default function AuthSplitLayout({
                 <div className="relative z-20 my-auto py-10">
                     <div className="space-y-4 max-w-lg">
                         <h2 className="text-3xl font-extrabold tracking-tight text-white sm:text-4xl leading-tight">
-                            L'excellence au service du pilotage scolaire.
+                            {t('auth.welcome_title')}
                         </h2>
                         <p className="text-base text-slate-300 leading-relaxed">
-                            Simplifiez la vie de votre établissement : suivi pédagogique des apprenants, gestion des évaluations, relevés de notes et communication centralisée.
+                            {t('auth.login_subtitle')}
                         </p>
                     </div>
 
@@ -73,8 +79,8 @@ export default function AuthSplitLayout({
                                 <GraduationCap className="size-5" />
                             </div>
                             <div className="text-sm">
-                                <div className="font-semibold text-white">Suivi Pédagogique & Notes</div>
-                                <div className="text-xs text-slate-400 mt-0.5">Calcul automatique des moyennes, bulletins scolaires et statistiques.</div>
+                                <div className="font-semibold text-white">{t('auth.feature_grades')}</div>
+                                <div className="text-xs text-slate-400 mt-0.5">{t('auth.feature_grades_desc')}</div>
                             </div>
                         </div>
 
@@ -83,8 +89,8 @@ export default function AuthSplitLayout({
                                 <Users className="size-5" />
                             </div>
                             <div className="text-sm">
-                                <div className="font-semibold text-white">Gestion des Élèves & Classes</div>
-                                <div className="text-xs text-slate-400 mt-0.5">Dossiers administratifs, inscriptions et contrôle des présences.</div>
+                                <div className="font-semibold text-white">{t('auth.feature_students')}</div>
+                                <div className="text-xs text-slate-400 mt-0.5">{t('auth.feature_students_desc')}</div>
                             </div>
                         </div>
 
@@ -93,8 +99,8 @@ export default function AuthSplitLayout({
                                 <ShieldCheck className="size-5" />
                             </div>
                             <div className="text-sm">
-                                <div className="font-semibold text-white">Sécurité & Confidentialité</div>
-                                <div className="text-xs text-slate-400 mt-0.5">Accès par profil : administration, enseignants, élèves et parents.</div>
+                                <div className="font-semibold text-white">{t('auth.feature_security')}</div>
+                                <div className="text-xs text-slate-400 mt-0.5">{t('auth.feature_security_desc')}</div>
                             </div>
                         </div>
                     </div>

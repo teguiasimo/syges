@@ -1,0 +1,161 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
+
+/**
+ * Modèle représentant une Inscription Scolaire.
+ * Lie un élève de la Base Élève Globale à une classe spécifique
+ * pour une année scolaire donnée avec son statut (Gesco 5.3).
+ *
+ * @property int $id
+ * @property int $eleve_id Clé étrangère vers eleves
+ * @property int $classe_id Clé étrangère vers classes
+ * @property int $annee_scolaire_id Clé étrangère vers annees_scolaires
+ * @property string $type_inscription 'nouveau' ou 'reinscription'
+ * @property bool $is_redoublant Indique si l'élève redouble sa classe
+ * @property string $statut 'en_attente', 'validee', 'suspendue', 'exclu', 'transfere'
+ * @property Carbon $date_inscription Date de validation de l'inscription
+ * @property string|null $motif_sortie Raison de départ ou transfert
+ * @property string|null $etablissement_provenance Établissement précédent en cas d'admission extérieure
+ * @property string|null $observations Remarques administratives
+ * @property Carbon $created_at
+ * @property Carbon $updated_at
+ *
+ * @property-read Eleve $eleve
+ * @property-read Classe $classe
+ * @property-read AnneeScolaire $anneeScolaire
+ */
+class Inscription extends Model
+{
+    use HasFactory;
+
+    /**
+     * Les attributs assignables en masse.
+     *
+     * @var array<int, string>
+     */
+    protected $fillable = [
+        'eleve_id',
+        'classe_id',
+        'annee_scolaire_id',
+        'type_inscription',
+        'is_redoublant',
+        'statut',
+        'date_inscription',
+        'motif_sortie',
+        'etablissement_provenance',
+        'observations',
+    ];
+
+    /**
+     * Les attributs convertis en types natifs.
+     *
+     * @var array<string, string>
+     */
+    protected $casts = [
+        'is_redoublant' => 'boolean',
+        'date_inscription' => 'date',
+    ];
+
+    /**
+     * Relation vers l'élève rattaché.
+     *
+     * @return BelongsTo
+     */
+    public function eleve(): BelongsTo
+    {
+        return $this->belongsTo(Eleve::class, 'eleve_id');
+    }
+
+    /**
+     * Relation vers la classe d'affectation.
+     *
+     * @return BelongsTo
+     */
+    public function classe(): BelongsTo
+    {
+        return $this->belongsTo(Classe::class, 'classe_id');
+    }
+
+    /**
+     * Relation vers l'année scolaire de rattachement.
+     *
+     * @return BelongsTo
+     */
+    public function anneeScolaire(): BelongsTo
+    {
+        return $this->belongsTo(AnneeScolaire::class, 'annee_scolaire_id');
+    }
+
+    /**
+     * Scope pour filtrer les inscriptions validées (officielles).
+     *
+     * @param Builder $query
+     * @return Builder
+     */
+    public function scopeValidee(Builder $query): Builder
+    {
+        return $query->where('statut', 'validee');
+    }
+
+    /**
+     * Scope pour filtrer les inscriptions en attente.
+     *
+     * @param Builder $query
+     * @return Builder
+     */
+    public function scopeEnAttente(Builder $query): Builder
+    {
+        return $query->where('statut', 'en_attente');
+    }
+
+    /**
+     * Scope pour filtrer par année scolaire.
+     *
+     * @param Builder $query
+     * @param int $anneeId
+     * @return Builder
+     */
+    public function scopeForAnnee(Builder $query, int $anneeId): Builder
+    {
+        return $query->where('annee_scolaire_id', $anneeId);
+    }
+
+    /**
+     * Scope pour filtrer par classe.
+     *
+     * @param Builder $query
+     * @param int $classeId
+     * @return Builder
+     */
+    public function scopeForClasse(Builder $query, int $classeId): Builder
+    {
+        return $query->where('classe_id', $classeId);
+    }
+
+    /**
+     * Relation vers toutes les notes obtenues par l'élève dans cette inscription.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany<Note>
+     */
+    public function notes(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Note::class, 'inscription_id');
+    }
+
+    /**
+     * Relation vers les synthèses disciplinaires trimestrielles du bulletin.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany<DisciplineBulletin>
+     */
+    public function disciplinesBulletins(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(DisciplineBulletin::class, 'inscription_id');
+    }
+}

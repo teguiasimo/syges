@@ -35,11 +35,21 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
+        $user = $request->user();
+
         return [
             ...parent::share($request),
             'name' => config('app.name'),
+            'locale' => app()->getLocale(),
             'auth' => [
-                'user' => $request->user(),
+                'user' => $user ? [
+                    ...$user->toArray(),
+                    'is_super_admin' => $user->hasRole('super-admin') || $user->email === 'admin@gmail.com',
+                    'roles' => $user->roles->pluck('name')->toArray(),
+                    'permissions' => ($user->hasRole('super-admin') || $user->email === 'admin@gmail.com')
+                        ? \Spatie\Permission\Models\Permission::pluck('name')->toArray()
+                        : $user->getAllPermissions()->pluck('name')->toArray(),
+                ] : null,
             ],
             'flash' => [
                 'success' => $request->session()->get('success'),

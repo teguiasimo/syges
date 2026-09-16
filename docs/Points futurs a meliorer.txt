@@ -1,0 +1,8 @@
+Point d'attention pour la mise à l'échelle (Scalability) :
+Actuellement, les utilisateurs sont chargés en bloc côté client et paginés par TanStack Table.
+Pour le personnel administratif et enseignant (50 à 300 utilisateurs) : C'est idéal, la réactivité est instantanée (recherche en mémoire sans latence réseau).
+Si vous comptez intégrer un jour les élèves et parents dans cette même table (2 000 à 10 000 comptes) : Il faudra alors basculer sur une pagination côté serveur (User::paginate()). Note : Généralement, dans un ERP scolaire, les élèves et tuteurs disposent d'un module dédié et ne sont pas mélangés dans l'administration des personnels.
+
+
+
+Pour l'instant, le mot de passe est défini par l'administrateur à la création (avec un minimum de 6 caractères). C'est très pratique en interne au démarrage, mais prévoyez à terme la possibilité pour l'utilisateur de forcer un changement de mot de passe à sa première connexion.

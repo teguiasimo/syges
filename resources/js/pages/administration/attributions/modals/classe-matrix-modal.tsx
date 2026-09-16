@@ -1,0 +1,328 @@
+import { router } from '@inertiajs/react';
+import { BookOpen, Check, Clock, Layers, Save, School, UserCheck, Users, X } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { toast } from 'sonner';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import type {
+    ClasseWithAttributions,
+    EnseignantWithWorkload,
+    MatiereNiveauRef,
+} from '@/types/attribution';
+
+/**
+ * Propriétés attendues par la matrice d'attribution par classe.
+ */
+interface ClasseMatrixModalProps {
+    classe: ClasseWithAttributions | null;
+    isOpen: boolean;
+    onClose: () => void;
+    anneeScolaireId: number;
+    enseignants: EnseignantWithWorkload[];
+    matieres: { id: number; code: string; nom: string }[];
+    matiereNiveaux: MatiereNiveauRef[];
+}
+
+/**
+ * Ligne d'affectation dans la matrice de classe.
+ */
+interface MatrixRowState {
+    matiere_id: number;
+    code: string;
+    nom: string;
+    coefficient: number;
+    groupe_nom: string;
+    personnel_id: number | null;
+    volume_horaire_reel: number;
+}
+
+/**
+ * Modale de matrice d'attribution par classe (Outil principal du Censeur).
+ * Permet de visualiser et de compléter en une seule vue l'ensemble des matières au programme
+ * pour une classe donnée.
+ */
+export function ClasseMatrixModal({
+    classe,
+    isOpen,
+    onClose,
+    anneeScolaireId,
+    enseignants,
+    matieres,
+    matiereNiveaux,
+}: ClasseMatrixModalProps) {
+    const [rows, setRows] = useState<MatrixRowState[]>([]);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Construction dynamique des lignes de matières de la classe
+    useEffect(() => {
+        if (!classe) {
+            setRows([]);
+            return;
+        }
+
+        const niveauId = classe.niveau_id;
+        const serie = classe.serie;
+
+        // Matières requises pour le niveau et la série
+        const relevantMatiereNiveaux = matiereNiveaux.filter((mn) => {
+            return (
+                mn.niveau_id === niveauId &&
+                (mn.serie === 'Toutes' || mn.serie === null || mn.serie === '' || mn.serie === serie)
+            );
+        });
+
+        const newRows: MatrixRowState[] = relevantMatiereNiveaux.map((mn) => {
+            // Recherche si une attribution existe déjà dans cette classe
+            const existingAttr = classe.attributions.find((a) => a.matiere_id === mn.matiere_id);
+
+            return {
+                matiere_id: mn.matiere_id,
+                code: mn.matiere?.code || 'DISC',
+                nom: mn.matiere?.nom || 'Matière inconnue',
+                coefficient: mn.coefficient,
+                groupe_nom: mn.groupe_matiere?.nom || 'Général',
+                personnel_id: existingAttr ? existingAttr.personnel_id : null,
+                volume_horaire_reel: existingAttr ? Number(existingAttr.volume_horaire_reel) : (mn.coefficient >= 3 ? 4.0 : 2.0),
+            };
+        });
+
+        // Tri par groupe et coefficient
+        newRows.sort((a, b) => b.coefficient - a.coefficient);
+        setRows(newRows);
+    }, [classe, matiereNiveaux, isOpen]);
+
+    /**
+     * Modification d'un enseignant ou volume horaire dans une ligne.
+     */
+    const handleRowChange = (
+        matiereId: number,
+        field: 'personnel_id' | 'volume_horaire_reel',
+        value: any
+    ) => {
+        setRows((prev) =>
+            prev.map((r) => {
+                if (r.matiere_id === matiereId) {
+                    return { ...r, [field]: value };
+                }
+                return r;
+            })
+        );
+    };
+
+    /**
+     * Soumission de l'ensemble de la grille en une seule transaction.
+     */
+    const handleSaveBatch = () => {
+        if (!classe) return;
+        setIsSubmitting(true);
+
+        const assignments = rows.map((r) => ({
+            matiere_id: r.matiere_id,
+            personnel_id: r.personnel_id,
+            volume_horaire_reel: r.volume_horaire_reel,
+        }));
+
+        router.post(
+            `/administration/attributions/classes/${classe.id}/batch`,
+            {
+                annee_scolaire_id: anneeScolaireId,
+                assignments,
+            },
+            {
+                onSuccess: () => {
+                    toast.success('Répartition de la classe enregistrée !', {
+                        description: `Les attributions pour la classe ${classe.nom} ont été mises à jour.`,
+                    });
+                    setIsSubmitting(false);
+                    onClose();
+                },
+                onError: () => {
+                    toast.error('Erreur lors de l\'enregistrement de la matrice');
+                    setIsSubmitting(false);
+                },
+            }
+        );
+    };
+
+    if (!classe) return null;
+
+    // Statistiques de pourvoi de la classe
+    const pourvuesCount = rows.filter((r) => r.personnel_id !== null).length;
+    const totalCount = rows.length;
+    const pourvoiPercent = totalCount > 0 ? Math.round((pourvuesCount / totalCount) * 100) : 100;
+
+    return (
+        <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-6 sm:p-8">
+                <DialogHeader className="border-b pb-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 border border-indigo-200 dark:border-indigo-900/50">
+                                <Layers className="size-6" />
+                            </div>
+                            <div>
+                                <DialogTitle className="text-xl font-bold text-foreground flex items-center gap-2">
+                                    <span>Grille des Attributions : {classe.nom}</span>
+                                    {classe.serie && (
+                                        <Badge variant="outline" className="text-xs">
+                                            Série {classe.serie}
+                                        </Badge>
+                                    )}
+                                </DialogTitle>
+                                <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+                                    Niveau : {classe.niveau?.nom} | Campus : {classe.niveau?.cycle?.section?.etablissement?.nom || 'Principal'}
+                                </DialogDescription>
+                            </div>
+                        </div>
+
+                        {/* Taux de couverture de la classe */}
+                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/60 border text-xs font-semibold">
+                            <span className="text-muted-foreground">Couverture :</span>
+                            <span className={pourvoiPercent === 100 ? 'text-emerald-600' : 'text-amber-600'}>
+                                {pourvuesCount} / {totalCount} ({pourvoiPercent}%)
+                            </span>
+                        </div>
+                    </div>
+                </DialogHeader>
+
+                {/* TABLEAU DES MATIÈRES AU PROGRAMME */}
+                <div className="space-y-4 pt-2">
+                    <div className="overflow-x-auto rounded-lg border">
+                        <table className="w-full text-xs text-left">
+                            <thead className="bg-muted/50 text-muted-foreground font-semibold uppercase text-[10px] tracking-wider border-b">
+                                <tr>
+                                    <th className="py-2.5 px-3">Matière au programme</th>
+                                    <th className="py-2.5 px-2 text-center">Coeff</th>
+                                    <th className="py-2.5 px-3 min-w-[260px]">Enseignant Affecté</th>
+                                    <th className="py-2.5 px-2 text-center w-[110px]">Heures/sem</th>
+                                    <th className="py-2.5 px-3 text-right">Statut</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-border">
+                                {rows.map((row) => (
+                                    <tr key={row.matiere_id} className="hover:bg-muted/30 transition-colors">
+                                        {/* Matière & Code */}
+                                        <td className="py-2.5 px-3">
+                                            <div className="font-semibold text-foreground text-xs">
+                                                {row.nom}
+                                            </div>
+                                            <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-muted-foreground">
+                                                <span className="font-mono bg-muted px-1 rounded border">
+                                                    {row.code}
+                                                </span>
+                                                <span>•</span>
+                                                <span className="truncate max-w-[150px]">{row.groupe_nom}</span>
+                                            </div>
+                                        </td>
+
+                                        {/* Coefficient */}
+                                        <td className="py-2.5 px-2 text-center font-bold text-xs text-foreground">
+                                            {Number(row.coefficient).toFixed(1)}
+                                        </td>
+
+                                        {/* Sélecteur de l'Enseignant */}
+                                        <td className="py-2.5 px-3">
+                                            <Select
+                                                value={row.personnel_id ? String(row.personnel_id) : 'none'}
+                                                onValueChange={(val) =>
+                                                    handleRowChange(
+                                                        row.matiere_id,
+                                                        'personnel_id',
+                                                        val === 'none' ? null : Number(val)
+                                                    )
+                                                }
+                                            >
+                                                <SelectTrigger className="h-8 text-xs bg-background">
+                                                    <SelectValue placeholder="Choisir un enseignant" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="none">
+                                                        <em className="text-muted-foreground">Non attribué (vacant)</em>
+                                                    </SelectItem>
+                                                    {enseignants.map((ens) => (
+                                                        <SelectItem key={ens.id} value={String(ens.id)}>
+                                                            {ens.nom} {ens.prenom} ({ens.matricule}) [{ens.heures_attribuees}h / {ens.volume_horaire_hebdo}h]
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </td>
+
+                                        {/* Volume horaire réel */}
+                                        <td className="py-2.5 px-2 text-center">
+                                            <Input
+                                                type="number"
+                                                step="0.5"
+                                                min="0"
+                                                max="30"
+                                                value={row.volume_horaire_reel}
+                                                onChange={(e) =>
+                                                    handleRowChange(
+                                                        row.matiere_id,
+                                                        'volume_horaire_reel',
+                                                        parseFloat(e.target.value) || 0
+                                                    )
+                                                }
+                                                className="h-8 text-xs text-center font-mono w-20 mx-auto"
+                                            />
+                                        </td>
+
+                                        {/* Statut d'attribution */}
+                                        <td className="py-2.5 px-3 text-right">
+                                            {row.personnel_id ? (
+                                                <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-400 dark:border-emerald-800 text-[10px] font-semibold">
+                                                    Pourvu
+                                                </Badge>
+                                            ) : (
+                                                <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/50 dark:text-amber-400 dark:border-amber-800 text-[10px] font-semibold">
+                                                    Non pourvu
+                                                </Badge>
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <DialogFooter className="gap-2 border-t pt-4">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={onClose}
+                        className="cursor-pointer"
+                    >
+                        Annuler
+                    </Button>
+                    <Button
+                        type="button"
+                        onClick={handleSaveBatch}
+                        disabled={isSubmitting}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer font-semibold"
+                    >
+                        <Save className="size-4 mr-1.5" />
+                        {isSubmitting ? 'Enregistrement en cours...' : 'Enregistrer la répartition'}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}

@@ -9,12 +9,14 @@ import {
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { UserInfo } from '@/components/user-info';
 import { UserMenuContent } from '@/components/user-menu-content';
+import { LanguageSwitcher } from '@/components/language-switcher';
 import type { BreadcrumbItem as BreadcrumbItemType } from '@/types';
 
 /**
  * En-tête de la mise en page avec barre latérale (AppSidebarHeader).
  * Affiche le déclencheur de barre latérale et le fil d'Ariane à gauche,
- * et le bloc profil utilisateur avec menu déroulant des paramètres dans le coin supérieur droit.
+ * et à droite le sélecteur de langue (icône de traduction) placé immédiatement à côté
+ * du bloc profil utilisateur (avatar, nom, email), reproduisant fidèlement Capture.PNG.
  *
  * @param {{ breadcrumbs?: BreadcrumbItemType[] }} props - Les éléments du fil d'Ariane.
  * @returns {JSX.Element} L'en-tête supérieur de l'application.
@@ -34,9 +36,13 @@ export function AppSidebarHeader({
                 <Breadcrumbs breadcrumbs={breadcrumbs} />
             </div>
 
-            {/* Section droite : Bloc utilisateur et paramètres (conforme au modèle Capture.PNG) */}
+            {/* Section droite : Sélecteur de langue et bloc utilisateur (conforme au modèle Capture.PNG) */}
             {auth.user && (
                 <div className="flex items-center gap-2">
+                    {/* Icône de traduction (i18n) immédiatement à côté du nom de l'utilisateur */}
+                    <LanguageSwitcher />
+
+                    {/* Bloc profil utilisateur avec menu déroulant */}
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <button

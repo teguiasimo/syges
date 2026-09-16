@@ -1,4 +1,5 @@
 import AuthLayoutTemplate from '@/layouts/auth/auth-split-layout';
+import { LanguageProvider } from '@/contexts/language-context';
 
 /**
  * Propriétés attendues par le composant englobant d'authentification.
@@ -15,7 +16,7 @@ type AuthLayoutProps = {
 
 /**
  * Layout principal pour les pages d'authentification.
- * Utilise la variante "split" (disposition en 2 sections : marque/visuel à gauche, formulaire à droite).
+ * Utilise la variante "split" enveloppée dans le LanguageProvider.
  *
  * @param {AuthLayoutProps} props - Les propriétés passées au layout.
  * @returns {JSX.Element} Le template d'authentification split rendu.
@@ -26,8 +27,10 @@ export default function AuthLayout({
     children,
 }: AuthLayoutProps) {
     return (
-        <AuthLayoutTemplate title={title} description={description}>
-            {children}
-        </AuthLayoutTemplate>
+        <LanguageProvider>
+            <AuthLayoutTemplate title={title} description={description}>
+                {children}
+            </AuthLayoutTemplate>
+        </LanguageProvider>
     );
 }

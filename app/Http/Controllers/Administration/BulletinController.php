@@ -1,0 +1,349 @@
+<?php
+
+namespace App\Http\Controllers\Administration;
+
+use App\Http\Controllers\Controller;
+use App\Models\AnneeScolaire;
+use App\Models\Classe;
+use App\Models\DisciplineBulletin;
+use App\Models\Evaluation;
+use App\Models\Inscription;
+use App\Models\Periode;
+use App\Services\BulletinCalculationService;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Contracts\View\View;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use Inertia\Inertia;
+use Inertia\Response as InertiaResponse;
+
+/**
+ * Contrôleur pour la Gestion et la Génération des Bulletins Scolaires (Module 10 Gesco V1.1).
+ *
+ * Prend en charge les 3 vagues de bulletins officiels :
+ * 1. Bulletins Séquentiels (par évaluation / séquence individuelle).
+ * 2. Bulletins Trimestriels (bilan de chaque trimestre avec synthèse des évaluations).
+ * 3. Bulletins Annuels (bilan complet de fin d'année, MGA, et décision du conseil de classe).
+ *
+ * Inclut également la configurabilité du format (avec compétences APC ou format standard).
+ */
+class BulletinController extends Controller
+{
+    /**
+     * Service de calcul des résultats pédagogiques.
+     */
+    protected BulletinCalculationService $calculationService;
+
+    /**
+     * Constructeur injectant le service de calcul.
+     */
+    public function __construct(BulletinCalculationService $calculationService)
+    {
+        $this->calculationService = $calculationService;
+    }
+
+    /**
+     * Centre de consultation et de gestion des bulletins.
+     */
+    public function index(Request $request): InertiaResponse
+    {
+        $annees = AnneeScolaire::orderByDesc('date_debut')->get();
+        $anneeActive = AnneeScolaire::current() ?? $annees->first();
+        $anneeId = $request->query('annee_id', $anneeActive?->id);
+
+        $periodes = Periode::with(['evaluations' => fn ($q) => $q->orderBy('ordre')])
+            ->where('annee_scolaire_id', $anneeId)
+            ->orderBy('date_debut')
+            ->get();
+
+        $classes = Classe::with(['niveau'])
+            ->where('is_active', true)
+            ->orderBy('nom')
+            ->get();
+
+        $typeBulletin = $request->query('type_bulletin', 'trimestriel');
+        $classeId = $request->query('classe_id');
+        $periodeId = $request->query('periode_id');
+        $evaluationId = $request->query('evaluation_id');
+        $modeBulletin = $request->query('mode_bulletin');
+
+        $donneesClasse = null;
+
+        if ($classeId) {
+            $classe = Classe::with(['niveau.cycle.section.etablissement.institution', 'professeurPrincipal'])
+                ->findOrFail($classeId);
+
+            $modeBulletin = $modeBulletin ?: ($classe->niveau->cycle->section->etablissement->mode_bulletin_defaut ?? 'avec_competences');
+
+            if ($typeBulletin === 'sequentiel' && $evaluationId) {
+                $evaluation = Evaluation::with('periode.anneeScolaire')->findOrFail($evaluationId);
+                $donneesClasse = $this->calculationService->calculerSequentiel($classe, $evaluation, $modeBulletin);
+            } elseif ($typeBulletin === 'annuel' && $anneeId) {
+                $annee = AnneeScolaire::findOrFail($anneeId);
+                $donneesClasse = $this->calculationService->calculerAnnuel($classe, $annee, $modeBulletin);
+            } elseif ($typeBulletin === 'trimestriel' && $periodeId) {
+                $periode = Periode::with('anneeScolaire')->findOrFail($periodeId);
+                $donneesClasse = $this->calculationService->calculerTrimestre($classe, $periode, null, $modeBulletin);
+            }
+        }
+
+        return Inertia::render('administration/bulletins/index', [
+            'annees' => $annees,
+            'anneeActiveId' => (int) $anneeId,
+            'periodes' => $periodes,
+            'classes' => $classes,
+            'donneesClasse' => $donneesClasse,
+            'filters' => [
+                'type_bulletin' => $typeBulletin,
+                'annee_id' => $anneeId,
+                'classe_id' => $classeId,
+                'periode_id' => $periodeId,
+                'evaluation_id' => $evaluationId,
+                'mode_bulletin' => $modeBulletin ?? 'avec_competences',
+            ],
+        ]);
+    }
+
+    /**
+     * Prévisualise le bulletin d'un élève dans le navigateur.
+     *
+     * @return View
+     */
+    public function previsualiser(Request $request, Inscription $inscription, ?Periode $periode = null)
+    {
+        $classe = $inscription->classe()->with(['niveau.cycle.section.etablissement.institution', 'professeurPrincipal'])->firstOrFail();
+        $mode = $request->query('mode', $classe->niveau->cycle->section->etablissement->mode_bulletin_defaut ?? 'avec_competences');
+        $type = $request->query('type_bulletin', 'trimestriel');
+
+        if ($type === 'sequentiel') {
+            $evaluationId = $request->query('evaluation_id');
+            $evaluation = Evaluation::with('periode.anneeScolaire')->findOrFail($evaluationId);
+            $resultat = $this->calculationService->calculerSequentiel($classe, $evaluation, $mode);
+            $eleveData = collect($resultat['eleves'])->firstWhere('inscription_id', $inscription->id);
+
+            abort_if(! $eleveData, 404, 'Données introuvables pour cet élève.');
+
+            return view('bulletins.bulletin_sequentiel', [
+                'eleve' => $eleveData,
+                'classe' => $resultat['classe'],
+                'evaluation' => $resultat['evaluation'],
+                'periode' => $resultat['periode'],
+                'annee_scolaire' => $resultat['annee_scolaire'],
+                'stats_classe' => $resultat['stats_classe'],
+                'mode_bulletin' => $mode,
+            ]);
+        } elseif ($type === 'annuel') {
+            $anneeId = $request->query('annee_id', $inscription->annee_scolaire_id);
+            $annee = AnneeScolaire::findOrFail($anneeId);
+            $resultat = $this->calculationService->calculerAnnuel($classe, $annee, $mode);
+            $eleveData = collect($resultat['eleves'])->firstWhere('inscription_id', $inscription->id);
+
+            abort_if(! $eleveData, 404, 'Données introuvables pour cet élève.');
+
+            return view('bulletins.bulletin_annuel', [
+                'eleve' => $eleveData,
+                'classe' => $resultat['classe'],
+                'periodes' => $resultat['periodes'],
+                'annee_scolaire' => $resultat['annee_scolaire'],
+                'stats_classe' => $resultat['stats_classe'],
+                'mode_bulletin' => $mode,
+            ]);
+        }
+
+        // Trimestriel par défaut
+        $periode = $periode ?? Periode::with('anneeScolaire')->findOrFail($request->query('periode_id'));
+        $resultat = $this->calculationService->calculerTrimestre($classe, $periode, null, $mode);
+        $eleveData = collect($resultat['eleves'])->firstWhere('inscription_id', $inscription->id);
+
+        abort_if(! $eleveData, 404, 'Données introuvables pour cet élève.');
+
+        return view('bulletins.bulletin_trimestriel', [
+            'eleve' => $eleveData,
+            'classe' => $resultat['classe'],
+            'periode' => $resultat['periode'],
+            'annee_scolaire' => $resultat['annee_scolaire'],
+            'stats_classe' => $resultat['stats_classe'],
+            'mode_bulletin' => $mode,
+        ]);
+    }
+
+    /**
+     * Télécharge le bulletin officiel scellé d'un élève au format PDF.
+     */
+    public function telechargerPdf(Request $request, Inscription $inscription, ?Periode $periode = null): Response
+    {
+        $classe = $inscription->classe()->with(['niveau.cycle.section.etablissement.institution', 'professeurPrincipal'])->firstOrFail();
+        $mode = $request->query('mode', $classe->niveau->cycle->section->etablissement->mode_bulletin_defaut ?? 'avec_competences');
+        $type = $request->query('type_bulletin', 'trimestriel');
+
+        if ($type === 'sequentiel') {
+            $evaluationId = $request->query('evaluation_id');
+            $evaluation = Evaluation::with('periode.anneeScolaire')->findOrFail($evaluationId);
+            $resultat = $this->calculationService->calculerSequentiel($classe, $evaluation, $mode);
+            $eleveData = collect($resultat['eleves'])->firstWhere('inscription_id', $inscription->id);
+            abort_if(! $eleveData, 404, 'Données introuvables pour cet élève.');
+
+            $viewData = [
+                'eleve' => $eleveData,
+                'classe' => $resultat['classe'],
+                'evaluation' => $resultat['evaluation'],
+                'periode' => $resultat['periode'],
+                'annee_scolaire' => $resultat['annee_scolaire'],
+                'stats_classe' => $resultat['stats_classe'],
+                'mode_bulletin' => $mode,
+            ];
+            $viewName = 'bulletins.bulletin_sequentiel';
+            $nomFichier = 'Bulletin_Seq_'.str_replace(['/', ' '], '_', $eleveData['matricule']).'_'.$evaluation->code.'.pdf';
+        } elseif ($type === 'annuel') {
+            $anneeId = $request->query('annee_id', $inscription->annee_scolaire_id);
+            $annee = AnneeScolaire::findOrFail($anneeId);
+            $resultat = $this->calculationService->calculerAnnuel($classe, $annee, $mode);
+            $eleveData = collect($resultat['eleves'])->firstWhere('inscription_id', $inscription->id);
+            abort_if(! $eleveData, 404, 'Données introuvables pour cet élève.');
+
+            $viewData = [
+                'eleve' => $eleveData,
+                'classe' => $resultat['classe'],
+                'periodes' => $resultat['periodes'],
+                'annee_scolaire' => $resultat['annee_scolaire'],
+                'stats_classe' => $resultat['stats_classe'],
+                'mode_bulletin' => $mode,
+            ];
+            $viewName = 'bulletins.bulletin_annuel';
+            $nomFichier = 'Bulletin_Annuel_'.str_replace(['/', ' '], '_', $eleveData['matricule']).'_'.$annee->code.'.pdf';
+        } else {
+            $periode = $periode ?? Periode::with('anneeScolaire')->findOrFail($request->query('periode_id'));
+            $resultat = $this->calculationService->calculerTrimestre($classe, $periode, null, $mode);
+            $eleveData = collect($resultat['eleves'])->firstWhere('inscription_id', $inscription->id);
+            abort_if(! $eleveData, 404, 'Données introuvables pour cet élève.');
+
+            $viewData = [
+                'eleve' => $eleveData,
+                'classe' => $resultat['classe'],
+                'periode' => $resultat['periode'],
+                'annee_scolaire' => $resultat['annee_scolaire'],
+                'stats_classe' => $resultat['stats_classe'],
+                'mode_bulletin' => $mode,
+            ];
+            $viewName = 'bulletins.bulletin_trimestriel';
+            $nomFichier = 'Bulletin_Trim_'.str_replace(['/', ' '], '_', $eleveData['matricule']).'_'.$periode->code.'.pdf';
+        }
+
+        $pdf = Pdf::loadView($viewName, $viewData);
+        $pdf->setPaper('a4', 'portrait')
+            ->setOption('isRemoteEnabled', true)
+            ->setOption('isHtml5ParserEnabled', true);
+
+        return $pdf->download($nomFichier);
+    }
+
+    /**
+     * Télécharge l'ensemble des bulletins de la classe dans un seul fichier PDF (Cahier de bulletins).
+     */
+    public function telechargerClassePdf(Request $request, Classe $classe, ?Periode $periode = null): Response
+    {
+        $classeWithRel = Classe::with(['niveau.cycle.section.etablissement.institution', 'professeurPrincipal'])
+            ->findOrFail($classe->id);
+
+        $mode = $request->query('mode', $classeWithRel->niveau->cycle->section->etablissement->mode_bulletin_defaut ?? 'avec_competences');
+        $type = $request->query('type_bulletin', 'trimestriel');
+
+        if ($type === 'sequentiel') {
+            $evaluationId = $request->query('evaluation_id');
+            $evaluation = Evaluation::with('periode.anneeScolaire')->findOrFail($evaluationId);
+            $resultat = $this->calculationService->calculerSequentiel($classeWithRel, $evaluation, $mode);
+            $nomFichier = 'Cahier_Bulletins_Seq_'.$classe->code.'_'.$evaluation->code.'.pdf';
+            $viewData = [
+                'eleves' => $resultat['eleves'],
+                'classe' => $resultat['classe'],
+                'evaluation' => $resultat['evaluation'],
+                'periode' => $resultat['periode'],
+                'annee_scolaire' => $resultat['annee_scolaire'],
+                'stats_classe' => $resultat['stats_classe'],
+                'mode_bulletin' => $mode,
+                'type_bulletin' => 'sequentiel',
+            ];
+        } elseif ($type === 'annuel') {
+            $anneeId = $request->query('annee_id');
+            $annee = AnneeScolaire::findOrFail($anneeId);
+            $resultat = $this->calculationService->calculerAnnuel($classeWithRel, $annee, $mode);
+            $nomFichier = 'Cahier_Bulletins_Annuel_'.$classe->code.'_'.$annee->code.'.pdf';
+            $viewData = [
+                'eleves' => $resultat['eleves'],
+                'classe' => $resultat['classe'],
+                'periodes' => $resultat['periodes'],
+                'annee_scolaire' => $resultat['annee_scolaire'],
+                'stats_classe' => $resultat['stats_classe'],
+                'mode_bulletin' => $mode,
+                'type_bulletin' => 'annuel',
+            ];
+        } else {
+            $periode = $periode ?? Periode::with('anneeScolaire')->findOrFail($request->query('periode_id'));
+            $resultat = $this->calculationService->calculerTrimestre($classeWithRel, $periode, null, $mode);
+            $nomFichier = 'Cahier_Bulletins_Trim_'.$classe->code.'_'.$periode->code.'.pdf';
+            $viewData = [
+                'eleves' => $resultat['eleves'],
+                'classe' => $resultat['classe'],
+                'periode' => $resultat['periode'],
+                'annee_scolaire' => $resultat['annee_scolaire'],
+                'stats_classe' => $resultat['stats_classe'],
+                'mode_bulletin' => $mode,
+                'type_bulletin' => 'trimestriel',
+            ];
+        }
+
+        $pdf = Pdf::loadView('bulletins.bulletin_classe_bundle', $viewData);
+        $pdf->setPaper('a4', 'portrait')
+            ->setOption('isRemoteEnabled', true)
+            ->setOption('isHtml5ParserEnabled', true);
+
+        return $pdf->download($nomFichier);
+    }
+
+    /**
+     * Enregistre ou met à jour les données disciplinaires d'un élève pour le bulletin.
+     */
+    public function sauvegarderDiscipline(Request $request): RedirectResponse|JsonResponse
+    {
+        $validated = $request->validate([
+            'inscription_id' => 'required|exists:inscriptions,id',
+            'periode_id' => 'required|exists:periodes,id',
+            'absences_justifiees' => 'nullable|integer|min:0',
+            'absences_non_justifiees' => 'nullable|integer|min:0',
+            'retards' => 'nullable|integer|min:0',
+            'consignes' => 'nullable|integer|min:0',
+            'avertissements_conduite' => 'nullable|integer|min:0',
+            'blames_conduite' => 'nullable|integer|min:0',
+            'exclusions_jours' => 'nullable|integer|min:0',
+            'decision_conseil' => 'nullable|string',
+        ]);
+
+        DisciplineBulletin::updateOrCreate(
+            [
+                'inscription_id' => $validated['inscription_id'],
+                'periode_id' => $validated['periode_id'],
+            ],
+            [
+                'absences_justifiees' => $validated['absences_justifiees'] ?? 0,
+                'absences_non_justifiees' => $validated['absences_non_justifiees'] ?? 0,
+                'retards' => $validated['retards'] ?? 0,
+                'consignes' => $validated['consignes'] ?? 0,
+                'avertissements_conduite' => $validated['avertissements_conduite'] ?? 0,
+                'blames_conduite' => $validated['blames_conduite'] ?? 0,
+                'exclusions_jours' => $validated['exclusions_jours'] ?? 0,
+                'decision_conseil' => $validated['decision_conseil'] ?? null,
+            ]
+        );
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Données disciplinaires enregistrées avec succès.',
+            ]);
+        }
+
+        return redirect()->back()->with('success', 'Données disciplinaires enregistrées avec succès.');
+    }
+}

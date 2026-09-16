@@ -39,11 +39,11 @@ class RolePermissionController extends Controller
      * @var array<string, array{module: string, label: string, description: string}>
      */
     protected array $permissionDefinitions = [
-        // Module Utilisateurs
+        // Module Utilisateurs & Profils
         'users.view' => [
             'module' => 'users',
             'label' => 'Consulter les utilisateurs',
-            'description' => 'Visualiser les listes et les fiches des personnels et élèves.',
+            'description' => 'Visualiser les listes et les fiches des personnels et utilisateurs.',
         ],
         'users.create' => [
             'module' => 'users',
@@ -55,15 +55,10 @@ class RolePermissionController extends Controller
             'label' => 'Modifier les utilisateurs',
             'description' => 'Mettre à jour les coordonnées et les informations des comptes.',
         ],
-        'users.delete' => [
+        'users.block' => [
             'module' => 'users',
-            'label' => 'Supprimer des utilisateurs',
-            'description' => 'Désactiver ou supprimer un compte utilisateur.',
-        ],
-        'users.roles' => [
-            'module' => 'users',
-            'label' => 'Assigner les rôles',
-            'description' => 'Modifier les attributions de rôles pour les utilisateurs.',
+            'label' => 'Bloquer des utilisateurs',
+            'description' => 'Suspendre ou réactiver l\'accès d\'un utilisateur à la plateforme.',
         ],
 
         // Module Rôles & Permissions
@@ -88,80 +83,170 @@ class RolePermissionController extends Controller
             'description' => 'Supprimer les rôles personnalisés non utilisés.',
         ],
 
-        // Module Pédagogie & Classes
-        'classes.view' => [
-            'module' => 'classes',
-            'label' => 'Consulter les classes',
-            'description' => 'Visualiser la structure des classes, niveaux et séries.',
+        // Module Institution & Structure Pédagogique
+        'institutions.view' => [
+            'module' => 'institution',
+            'label' => 'Consulter l\'institution',
+            'description' => 'Visualiser les informations officielles de l\'institution et de ses campus.',
+        ],
+        'institutions.edit' => [
+            'module' => 'institution',
+            'label' => 'Modifier l\'institution',
+            'description' => 'Mettre à jour les coordonnées globales, le logo et les tutelles administratives.',
+        ],
+        'etablissements.manage' => [
+            'module' => 'institution',
+            'label' => 'Gérer les établissements',
+            'description' => 'Créer, modifier et paramétrer les campus scolaires.',
+        ],
+        'structures.manage' => [
+            'module' => 'institution',
+            'label' => 'Gérer l\'arborescence pédagogique',
+            'description' => 'Créer et configurer les sections, cycles et niveaux d\'étude.',
         ],
         'classes.manage' => [
-            'module' => 'classes',
+            'module' => 'institution',
             'label' => 'Gérer les classes',
-            'description' => 'Créer, modifier et organiser les classes et promotions.',
-        ],
-        'subjects.manage' => [
-            'module' => 'classes',
-            'label' => 'Gérer les matières',
-            'description' => 'Paramétrer les disciplines, matières et coefficients.',
+            'description' => 'Créer, configurer et administrer les classes de l\'établissement.',
         ],
 
-        // Module Évaluations & Notes
-        'grades.view' => [
-            'module' => 'grades',
-            'label' => 'Consulter les notes',
-            'description' => 'Voir les notes et moyennes des évaluations scolaires.',
+        // Module Périodes & Paramètres d'Évaluation (Gesco 3)
+        'periodes.view' => [
+            'module' => 'periodes',
+            'label' => 'Consulter les années & périodes',
+            'description' => 'Consulter les années scolaires, trimestres, séquences et modes de calcul.',
         ],
-        'grades.edit' => [
-            'module' => 'grades',
-            'label' => 'Saisir & modifier les notes',
-            'description' => 'Enregistrer ou modifier les évaluations des élèves.',
+        'periodes.manage' => [
+            'module' => 'periodes',
+            'label' => 'Gérer les années & périodes',
+            'description' => 'Créer, modifier, basculer l\'année courante et paramétrer les trimestres et séquences.',
         ],
-        'report-cards.generate' => [
-            'module' => 'grades',
-            'label' => 'Générer les bulletins',
-            'description' => 'Éditer et exporter les bulletins scolaires officiels.',
-        ],
-
-        // Module Présences & Discipline
-        'attendance.view' => [
-            'module' => 'attendance',
-            'label' => 'Consulter les présences',
-            'description' => 'Visualiser l\'historique des absences et retards.',
-        ],
-        'attendance.record' => [
-            'module' => 'attendance',
-            'label' => 'Saisir les présences',
-            'description' => 'Enregistrer les appels, retards et motifs disciplinaires.',
+        'periodes.lock' => [
+            'module' => 'periodes',
+            'label' => 'Verrouiller / Déverrouiller les notes',
+            'description' => 'Ouvrir ou verrouiller manuellement la saisie des notes pour les enseignants.',
         ],
 
-        // Module Configuration Système
-        'settings.view' => [
-            'module' => 'settings',
-            'label' => 'Consulter la configuration',
-            'description' => 'Accéder aux paramètres généraux de l\'établissement.',
+        // Module Matières & Coefficients (Gesco 4)
+        'matieres.view' => [
+            'module' => 'matieres',
+            'label' => 'Consulter les matières & coefficients',
+            'description' => 'Visualiser le catalogue des disciplines, les blocs pédagogiques et les coefficients.',
         ],
-        'settings.edit' => [
-            'module' => 'settings',
-            'label' => 'Modifier la configuration',
-            'description' => 'Changer les réglages système, années et identité visuelle.',
+        'matieres.manage' => [
+            'module' => 'matieres',
+            'label' => 'Gérer les matières & coefficients',
+            'description' => 'Créer et modifier les matières du catalogue, les blocs et configurer les coefficients par niveau/série.',
         ],
-        'backups.manage' => [
-            'module' => 'settings',
-            'label' => 'Gérer les sauvegardes',
-            'description' => 'Lancer des sauvegardes et exporter la base de données.',
+
+        // Module 8 : Personnel & Ressources Humaines (Gesco 8)
+        'personnels.view' => [
+            'module' => 'personnels',
+            'label' => 'Consulter le personnel & RH',
+            'description' => 'Visualiser le registre des employés, fiches administratives et départements.',
+        ],
+        'personnels.manage' => [
+            'module' => 'personnels',
+            'label' => 'Gérer le personnel & RH',
+            'description' => 'Créer, modifier les membres du personnel et créer leurs comptes d\'accès.',
+        ],
+        'personnels.delete' => [
+            'module' => 'personnels',
+            'label' => 'Supprimer un membre du personnel',
+            'description' => 'Archiver ou supprimer une fiche de personnel.',
+        ],
+        'departements.manage' => [
+            'module' => 'personnels',
+            'label' => 'Gérer les départements pédagogiques',
+            'description' => 'Créer, modifier et désigner les animateurs des départements.',
+        ],
+
+        // Module 9 : Attribution des Classes & Matières (Gesco 9)
+        'attributions.view' => [
+            'module' => 'attributions',
+            'label' => 'Consulter les attributions de cours',
+            'description' => 'Visualiser la répartition des cours par classe et la charge de travail des enseignants.',
+        ],
+        'attributions.manage' => [
+            'module' => 'attributions',
+            'label' => 'Gérer les attributions & professeurs principaux',
+            'description' => 'Affecter les enseignants aux classes/matières et désigner les professeurs principaux.',
+        ],
+        'attributions.delete' => [
+            'module' => 'attributions',
+            'label' => 'Révoquer une attribution de cours',
+            'description' => 'Supprimer ou dissocier l\'affectation d\'un enseignant à une classe.',
+        ],
+
+        // Module 10 : Saisie des Notes & Calcul des Bulletins (Gesco 10)
+        'notes.view' => [
+            'module' => 'evaluations',
+            'label' => 'Consulter les grilles de notes',
+            'description' => 'Visualiser les notes d\'évaluation et bilans séquentiels.',
+        ],
+        'notes.enter' => [
+            'module' => 'evaluations',
+            'label' => 'Saisir et modifier les notes',
+            'description' => 'Enregistrer les notes, présences, appréciations et compétences APC.',
+        ],
+        'notes.lock' => [
+            'module' => 'evaluations',
+            'label' => 'Verrouiller / Déverrouiller la saisie',
+            'description' => 'Verrouiller définitivement ou autoriser la modification exceptionnelle des notes.',
+        ],
+        'bulletins.view' => [
+            'module' => 'bulletins',
+            'label' => 'Consulter les bulletins scolaires',
+            'description' => 'Visualiser les moyennes générales, rangs et synthèses trimestrielles.',
+        ],
+        'bulletins.generate' => [
+            'module' => 'bulletins',
+            'label' => 'Générer et exporter les bulletins PDF',
+            'description' => 'Télécharger les bulletins individuels scellés ou le cahier complet de la classe.',
         ],
     ];
 
     /**
-     * Structure des modules thématiques regroupant les permissions.
+     * Structure des modules thématiques regroupant les permissions disponibles.
+     * Seuls les modules actuellement implémentés sont conservés.
      *
      * @var array<string, array{id: string, name: string, description: string, icon: string}>
      */
     protected array $modules = [
+        'institution' => [
+            'id' => 'institution',
+            'name' => 'Institution & Structure Pédagogique',
+            'description' => 'Organisation de l\'institution, campus, sections, cycles, niveaux et classes.',
+            'icon' => 'School',
+        ],
+        'periodes' => [
+            'id' => 'periodes',
+            'name' => 'Périodes & Évaluation',
+            'description' => 'Années scolaires, trimestres, séquences d\'évaluation et règles de calcul des moyennes.',
+            'icon' => 'CalendarRange',
+        ],
+        'matieres' => [
+            'id' => 'matieres',
+            'name' => 'Matières & Coefficients',
+            'description' => 'Catalogue des disciplines, blocs pédagogiques et grille des coefficients.',
+            'icon' => 'BookOpen',
+        ],
+        'personnels' => [
+            'id' => 'personnels',
+            'name' => 'Personnel & Ressources Humaines (RH)',
+            'description' => 'Registre des employés, fiches administratives, contrats et départements pédagogiques.',
+            'icon' => 'Briefcase',
+        ],
+        'attributions' => [
+            'id' => 'attributions',
+            'name' => 'Attribution des Classes & Matières',
+            'description' => 'Répartition pédagogique des enseignements, charges horaires et professeurs principaux.',
+            'icon' => 'Layers',
+        ],
         'users' => [
             'id' => 'users',
             'name' => 'Utilisateurs & Profils',
-            'description' => 'Gestion des comptes, des enseignants et des élèves.',
+            'description' => 'Gestion des comptes, des personnels et des utilisateurs.',
             'icon' => 'Users',
         ],
         'roles' => [
@@ -170,39 +255,19 @@ class RolePermissionController extends Controller
             'description' => 'Contrôle d\'accès granulaire et gestion des profils de sécurité.',
             'icon' => 'ShieldCheck',
         ],
-        'classes' => [
-            'id' => 'classes',
-            'name' => 'Classes & Pédagogie',
-            'description' => 'Structure des classes, filières et coefficients des matières.',
-            'icon' => 'GraduationCap',
-        ],
-        'grades' => [
-            'id' => 'grades',
-            'name' => 'Évaluations & Bulletins',
-            'description' => 'Saisie des notes, calculs de moyennes et bulletins scolaires.',
-            'icon' => 'FileSpreadsheet',
-        ],
-        'attendance' => [
-            'id' => 'attendance',
-            'name' => 'Présences & Vie Scolaire',
-            'description' => 'Suivi des retards, des absences et de la discipline.',
-            'icon' => 'CalendarRange',
-        ],
-        'settings' => [
-            'id' => 'settings',
-            'name' => 'Configuration Système',
-            'description' => 'Paramètres de l\'établissement et maintenance des données.',
-            'icon' => 'Settings',
-        ],
     ];
 
     /**
      * Affiche la liste des rôles avec leurs statistiques et l'ensemble des permissions structurées.
      *
-     * @return Response La vue Inertia avec la liste des rôles et la structure des modules.
+     * @param Request $request La requête HTTP entrante.
+     * @return Response La vue Inertia avec la liste des rôles, la structure des modules et les droits d'action.
      */
-    public function index(): Response
+    public function index(Request $request): Response
     {
+        // Contrôle d'habilitation : consultation des rôles & permissions
+        abort_unless($request->user()->can('roles.view'), 403, 'Accès non autorisé : vous ne disposez pas de la permission requise pour consulter les rôles.');
+
         // 1. Récupération des rôles existants avec le comptage des utilisateurs associés
         $roles = Role::with('permissions')
             ->withCount('users')
@@ -252,6 +317,11 @@ class RolePermissionController extends Controller
             'roles' => $roles,
             'modules' => $groupedModules,
             'totalPermissions' => $allPermissions->count(),
+            'can' => [
+                'create' => $request->user()->can('roles.create'),
+                'edit' => $request->user()->can('roles.edit'),
+                'delete' => $request->user()->can('roles.delete'),
+            ],
         ]);
     }
 
@@ -263,6 +333,9 @@ class RolePermissionController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
+        // Contrôle d'habilitation : création de rôle
+        abort_unless($request->user()->can('roles.create'), 403, 'Accès non autorisé : vous ne disposez pas de la permission requise pour créer un rôle.');
+
         $validated = $request->validate([
             'name' => [
                 'required',
@@ -313,10 +386,14 @@ class RolePermissionController extends Controller
      */
     public function update(Request $request, Role $role): RedirectResponse
     {
+        // Contrôle d'habilitation : modification de rôle
+        abort_unless($request->user()->can('roles.edit'), 403, 'Accès non autorisé : vous ne disposez pas de la permission requise pour modifier les permissions de ce rôle.');
+
         $isSuperAdmin = $role->name === 'super-admin';
 
         $validated = $request->validate([
             'name' => [
+                'sometimes',
                 'required',
                 'string',
                 'min:2',
@@ -332,15 +409,17 @@ class RolePermissionController extends Controller
             'name.regex' => 'Le nom contient des caractères non autorisés.',
         ]);
 
-        // Protection : Le rôle super-admin ne peut jamais être renommé
-        if ($isSuperAdmin && Str::slug($validated['name']) !== 'super-admin') {
-            return back()->withErrors(['name' => 'Le rôle Super Administrateur est protégé et ne peut pas être renommé.']);
-        }
+        // Mise à jour du nom du rôle si fourni
+        if (isset($validated['name'])) {
+            // Protection : Le rôle super-admin ne peut jamais être renommé
+            if ($isSuperAdmin && Str::slug($validated['name']) !== 'super-admin') {
+                return back()->withErrors(['name' => 'Le rôle Super Administrateur est protégé et ne peut pas être renommé.']);
+            }
 
-        // Mise à jour du nom pour les autres rôles
-        if (! $isSuperAdmin) {
-            $role->name = Str::slug($validated['name']);
-            $role->save();
+            if (! $isSuperAdmin) {
+                $role->name = Str::slug($validated['name']);
+                $role->save();
+            }
         }
 
         // Synchronisation des permissions (le super-admin conserve toujours toutes les permissions)
@@ -350,19 +429,25 @@ class RolePermissionController extends Controller
             $role->syncPermissions($validated['permissions'] ?? []);
         }
 
+        $displayName = $this->roleLabels[$role->name] ?? $role->name;
+
         return redirect()->route('administration.roles.index')
-            ->with('success', "Le rôle « {$role->name} » a été mis à jour avec succès.");
+            ->with('success', "Les permissions du rôle « {$displayName} » ont été enregistrées avec succès.");
     }
 
     /**
      * Supprime un rôle personnalisé.
      * Empêche la suppression des rôles système et des rôles actuellement assignés à des utilisateurs.
      *
+     * @param Request $request La requête HTTP entrante.
      * @param Role $role Le rôle à supprimer.
      * @return RedirectResponse Redirection avec message de succès ou d'erreur.
      */
-    public function destroy(Role $role): RedirectResponse
+    public function destroy(Request $request, Role $role): RedirectResponse
     {
+        // Contrôle d'habilitation : suppression de rôle
+        abort_unless($request->user()->can('roles.delete'), 403, 'Accès non autorisé : vous ne disposez pas de la permission requise pour supprimer un rôle.');
+
         // 1. Interdiction stricte de supprimer les rôles fondamentaux du système
         if (in_array($role->name, ['super-admin', 'admin'])) {
             return back()->with('error', "Le rôle système « {$role->name} » est protégé et ne peut pas être supprimé.");

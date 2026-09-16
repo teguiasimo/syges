@@ -20,8 +20,10 @@ use Spatie\Permission\Traits\HasRoles;
  * Intègre la gestion des rôles et permissions (Spatie), l'authentification à deux facteurs et les passkeys.
  *
  * @property int $id
+ * @property string|null $login
  * @property string $name
  * @property string $email
+ * @property bool $is_active
  * @property Carbon|null $email_verified_at
  * @property string $password
  * @property string|null $two_factor_secret
@@ -31,7 +33,7 @@ use Spatie\Permission\Traits\HasRoles;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['name', 'email', 'password'])]
+#[Fillable(['name', 'email', 'password', 'login', 'is_active'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
 class User extends Authenticatable implements PasskeyUser
 {
@@ -48,7 +50,28 @@ class User extends Authenticatable implements PasskeyUser
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_active' => 'boolean',
             'two_factor_confirmed_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Vérifie si le compte utilisateur est actuellement actif.
+     *
+     * @return bool
+     */
+    public function isActive(): bool
+    {
+        return (bool) $this->is_active;
+    }
+
+    /**
+     * Fiche de personnel associée à cet utilisateur (si l'utilisateur est un employé de l'établissement).
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasOne
+     */
+    public function personnel(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(Personnel::class, 'user_id');
     }
 }

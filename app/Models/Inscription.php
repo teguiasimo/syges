@@ -158,4 +158,24 @@ class Inscription extends Model
     {
         return $this->hasMany(DisciplineBulletin::class, 'inscription_id');
     }
+
+    /**
+     * Relation vers le compte financier scolaire de l'inscription (Gesco V1.1 - Module 11).
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasOne<CompteFinancierEleve>
+     */
+    public function compteFinancier(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(CompteFinancierEleve::class, 'inscription_id');
+    }
+
+    /**
+     * Relation vers l'historique des versements de caisse effectués pour cette inscription.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany<VersementCaisse>
+     */
+    public function versements(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(VersementCaisse::class, 'inscription_id');
+    }
 }

@@ -57,6 +57,22 @@ class Etablissement extends Model
         'logo',
         'mode_bulletin_defaut',
         'type_calcul_trimestre',
+        'verrou_solvabilite_actif',
+        'bonus_paiement_anticipe_actif',
+        'montant_bonus_anticipe',
+        'date_limite_bonus',
+    ];
+
+    /**
+     * Les attributs convertis dans des types natifs.
+     *
+     * @var array<string, string>
+     */
+    protected $casts = [
+        'verrou_solvabilite_actif' => 'boolean',
+        'bonus_paiement_anticipe_actif' => 'boolean',
+        'montant_bonus_anticipe' => 'float',
+        'date_limite_bonus' => 'date',
     ];
 
     /**
@@ -87,5 +103,45 @@ class Etablissement extends Model
     public function personnels(): HasMany
     {
         return $this->hasMany(Personnel::class, 'etablissement_id');
+    }
+
+    /**
+     * Référentiel des types de frais de cet établissement.
+     *
+     * @return HasMany<TypeFrais>
+     */
+    public function typesFrais(): HasMany
+    {
+        return $this->hasMany(TypeFrais::class);
+    }
+
+    /**
+     * Tarifs et échéanciers scolaires de l'établissement.
+     *
+     * @return HasMany<FraisScolaire>
+     */
+    public function fraisScolaires(): HasMany
+    {
+        return $this->hasMany(FraisScolaire::class);
+    }
+
+    /**
+     * Comptes financiers des élèves de l'établissement.
+     *
+     * @return HasMany<CompteFinancierEleve>
+     */
+    public function comptesFinanciers(): HasMany
+    {
+        return $this->hasMany(CompteFinancierEleve::class);
+    }
+
+    /**
+     * Clôtures journalières de caisse de l'établissement.
+     *
+     * @return HasMany<ClotureCaisse>
+     */
+    public function cloturesCaisse(): HasMany
+    {
+        return $this->hasMany(ClotureCaisse::class);
     }
 }

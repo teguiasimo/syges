@@ -104,6 +104,9 @@ export const en: Translations = {
         bulletins_title: 'Report Cards & Academic Results',
         bulletins_desc: 'Term average calculations, class rankings, honors and official PDF generation.',
 
+        finances_title: 'Cashier & Fee Payments',
+        finances_desc: 'Cashier desk, student ledger accounts, tamper-proof receipts, cash closing and solvency lock.',
+
         roles_title: 'Roles & Permissions',
         roles_desc: 'Define system access levels and permissions.',
     },

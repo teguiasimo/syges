@@ -102,6 +102,9 @@ export const fr = {
         bulletins_title: 'Bulletins Scolaires & Résultats',
         bulletins_desc: 'Calcul des moyennes trimestrielles, rangs, mentions et génération des PDF officiels.',
 
+        finances_title: 'Caisse & Paiements Scolaires',
+        finances_desc: 'Guichet d\'encaissement, comptes courants élèves, reçus infalsifiables, journal de caisse et verrou de solvabilité.',
+
         roles_title: 'Rôles & Permissions',
         roles_desc: 'Définir les profils et niveaux d\'accès au système.',
     },

@@ -103,4 +103,14 @@ class Classe extends Model
     {
         return $this->hasMany(Attribution::class, 'classe_id');
     }
+
+    /**
+     * Récupère l'établissement scolaire auquel appartient cette classe.
+     *
+     * @return Etablissement|null
+     */
+    public function getEtablissementAttribute(): ?Etablissement
+    {
+        return $this->niveau?->cycle?->section?->etablissement;
+    }
 }

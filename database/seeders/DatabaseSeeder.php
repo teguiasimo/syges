@@ -64,6 +64,33 @@ class DatabaseSeeder extends Seeder
             'eleves.delete' => 'web',
             'inscriptions.manage' => 'web',
             'inscriptions.transfer' => 'web',
+
+            // Module Personnel & Ressources Humaines (Gesco 8)
+            'personnels.view' => 'web',
+            'personnels.create' => 'web',
+            'personnels.edit' => 'web',
+            'personnels.delete' => 'web',
+
+            // Module Attribution des Classes & Matières (Gesco 9)
+            'attributions.view' => 'web',
+            'attributions.manage' => 'web',
+            'attributions.delete' => 'web',
+
+            // Module Saisie des Notes & Évaluations (Gesco 10)
+            'notes.view' => 'web',
+            'notes.manage' => 'web',
+            'notes.lock' => 'web',
+
+            // Module Bulletins Scolaires (Gesco 10)
+            'bulletins.view' => 'web',
+            'bulletins.generate' => 'web',
+            'bulletins.lock' => 'web',
+
+            // Module Gestion de la Caisse & Paiements (Gesco 11)
+            'finances.view' => 'web',
+            'finances.manage' => 'web',
+            'finances.cloture' => 'web',
+            'finances.annuler' => 'web',
         ];
 
         // Création ou persistance des permissions actives
@@ -78,6 +105,7 @@ class DatabaseSeeder extends Seeder
         $superAdminRole = Role::firstOrCreate(['name' => 'super-admin', 'guard_name' => 'web']);
         $adminRole = Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
         $directorRole = Role::firstOrCreate(['name' => 'directeur-etudes', 'guard_name' => 'web']);
+        $intendantRole = Role::firstOrCreate(['name' => 'intendant', 'guard_name' => 'web']);
         $teacherRole = Role::firstOrCreate(['name' => 'enseignant', 'guard_name' => 'web']);
         $secretaryRole = Role::firstOrCreate(['name' => 'secretaire', 'guard_name' => 'web']);
 
@@ -94,14 +122,23 @@ class DatabaseSeeder extends Seeder
             'periodes.view', 'periodes.manage', 'periodes.lock',
             'matieres.view', 'matieres.manage',
             'eleves.view', 'eleves.create', 'eleves.edit', 'inscriptions.manage', 'inscriptions.transfer',
+            'personnels.view', 'attributions.view', 'attributions.manage',
+            'notes.view', 'notes.manage', 'bulletins.view', 'bulletins.generate',
+            'finances.view',
+        ]);
+        $intendantRole->syncPermissions([
+            'eleves.view',
+            'finances.view', 'finances.manage', 'finances.cloture', 'finances.annuler',
         ]);
         $teacherRole->syncPermissions([
             'matieres.view',
             'eleves.view',
+            'notes.view', 'notes.manage',
         ]);
         $secretaryRole->syncPermissions([
             'users.view', 'users.create', 'users.edit', 'institutions.view', 'periodes.view', 'matieres.view',
             'eleves.view', 'eleves.create', 'eleves.edit', 'inscriptions.manage',
+            'finances.view',
         ]);
 
         // 3. Création ou mise à jour du Super Administrateur principal
@@ -579,5 +616,8 @@ class DatabaseSeeder extends Seeder
 
         // 11. Exécution du Seeder de Démonstration Académique Avancée (Enseignants, Attributions, Notes APC, Bulletins)
         $this->call(DemoAcademicSeeder::class);
+
+        // 12. Exécution du Seeder de Démonstration Financière & Caisse (Frais, Comptes élèves, Versements, Reçus)
+        $this->call(DemoFinanceSeeder::class);
     }
 }

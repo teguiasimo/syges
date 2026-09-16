@@ -149,6 +149,19 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('bulletins/pdf/{inscription}/{periode?}', [BulletinController::class, 'telechargerPdf'])->name('bulletins.pdf');
         Route::get('bulletins/classe-pdf/{classe}/{periode?}', [BulletinController::class, 'telechargerClassePdf'])->name('bulletins.classe-pdf');
         Route::post('bulletins/discipline', [BulletinController::class, 'sauvegarderDiscipline'])->name('bulletins.discipline');
+
+        // Module 11 : Gestion de la Caisse & Paiements (Gesco 11)
+        Route::get('finances', [\App\Http\Controllers\Administration\FinanceController::class, 'index'])->name('finances.index');
+        Route::post('finances/versements', [\App\Http\Controllers\Administration\FinanceController::class, 'storeVersement'])->name('finances.versements.store');
+        Route::get('finances/versements/{versement}/recu', [\App\Http\Controllers\Administration\FinanceController::class, 'imprimerRecu'])->name('finances.versements.recu');
+        Route::post('finances/versements/{versement}/annuler', [\App\Http\Controllers\Administration\FinanceController::class, 'annulerVersement'])->name('finances.versements.annuler');
+        Route::post('finances/comptes/{compte}/ajuster', [\App\Http\Controllers\Administration\FinanceController::class, 'ajusterCompte'])->name('finances.comptes.ajuster');
+        Route::post('finances/cloturer-journee', [\App\Http\Controllers\Administration\FinanceController::class, 'cloturerJournee'])->name('finances.cloturer-journee');
+        Route::post('finances/types-frais', [\App\Http\Controllers\Administration\FinanceController::class, 'storeTypeFrais'])->name('finances.types-frais.store');
+        Route::delete('finances/types-frais/{typeFrais}', [\App\Http\Controllers\Administration\FinanceController::class, 'destroyTypeFrais'])->name('finances.types-frais.destroy');
+        Route::post('finances/tarifs', [\App\Http\Controllers\Administration\FinanceController::class, 'storeTarif'])->name('finances.tarifs.store');
+        Route::delete('finances/tarifs/{fraisScolaire}', [\App\Http\Controllers\Administration\FinanceController::class, 'destroyTarif'])->name('finances.tarifs.destroy');
+        Route::post('finances/etablissements/{etablissement}/verrou-solvabilite', [\App\Http\Controllers\Administration\FinanceController::class, 'toggleVerrouSolvabilite'])->name('finances.verrou-solvabilite');
     });
 });
 

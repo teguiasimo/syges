@@ -15,6 +15,7 @@ import {
     Lock,
     Edit3,
     FileText,
+    Wallet,
 } from 'lucide-react';
 import { useTranslation } from '@/contexts/language-context';
 import type { User } from '@/types';
@@ -117,6 +118,15 @@ const adminModules: AdminModule[] = [
         bgColor: 'bg-sky-50 dark:bg-sky-950/50 border border-sky-100 dark:border-sky-900/40',
         href: '/administration/bulletins',
         permission: 'bulletins.view',
+    },
+    {
+        titleKey: 'admin.finances_title',
+        descKey: 'admin.finances_desc',
+        icon: Wallet,
+        color: 'text-emerald-600 dark:text-emerald-400',
+        bgColor: 'bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-100 dark:border-emerald-900/40',
+        href: '/administration/finances',
+        permission: 'finances.view',
     },
     {
         titleKey: 'admin.users_title',

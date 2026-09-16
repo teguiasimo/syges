@@ -1,5 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
-import { LayoutGrid, ShieldCheck } from 'lucide-react';
+import { LayoutGrid, ShieldCheck, Users } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
@@ -61,6 +61,11 @@ export function AppSidebar() {
             title: t('nav.dashboard'),
             href: dashboard(),
             icon: LayoutGrid,
+        },
+        {
+            title: 'Portail Parents & Élèves',
+            href: '/portail',
+            icon: Users,
         },
         ...(hasAdminAccess
             ? [

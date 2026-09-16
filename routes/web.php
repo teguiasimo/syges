@@ -198,6 +198,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('deliberations/valider-promotion', [\App\Http\Controllers\Administration\ConseilClasseController::class, 'validerPromotion'])->name('deliberations.valider-promotion');
         Route::get('deliberations/pv-pdf', [\App\Http\Controllers\Administration\ConseilClasseController::class, 'exportPv'])->name('deliberations.pv-pdf');
     });
+
+    // Module 16 : Portail Parents & Élèves (Gesco 16)
+    Route::prefix('portail')->name('portail.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Portail\PortailParentController::class, 'index'])->name('index');
+        Route::get('enfant/{eleve}', [\App\Http\Controllers\Portail\PortailParentController::class, 'selectEnfant'])->name('select-enfant');
+        Route::get('bulletin/{inscription}', [\App\Http\Controllers\Portail\PortailParentController::class, 'telechargerBulletin'])->name('bulletin.download');
+        Route::get('recu/{versement}', [\App\Http\Controllers\Portail\PortailParentController::class, 'telechargerRecu'])->name('recu.download');
+    });
 });
 
 require __DIR__.'/settings.php';

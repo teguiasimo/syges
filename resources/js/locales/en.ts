@@ -107,6 +107,9 @@ export const en: Translations = {
         finances_title: 'Cashier & Fee Payments',
         finances_desc: 'Cashier desk, student ledger accounts, tamper-proof receipts, cash closing and solvency lock.',
 
+        discipline_title: 'Absences, Lateness & Discipline',
+        discipline_desc: 'Attendance tracking, justifications, disciplinary sanctions and honor roll forfeiture checks.',
+
         roles_title: 'Roles & Permissions',
         roles_desc: 'Define system access levels and permissions.',
     },

@@ -105,6 +105,9 @@ export const fr = {
         finances_title: 'Caisse & Paiements Scolaires',
         finances_desc: 'Guichet d\'encaissement, comptes courants élèves, reçus infalsifiables, journal de caisse et verrou de solvabilité.',
 
+        discipline_title: 'Absences, Retards & Discipline',
+        discipline_desc: 'Pointage d\'assiduité, justifications, sanctions disciplinaires et contrôle de déchéance des mentions honorifiques.',
+
         roles_title: 'Rôles & Permissions',
         roles_desc: 'Définir les profils et niveaux d\'accès au système.',
     },

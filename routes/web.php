@@ -162,6 +162,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('finances/tarifs', [\App\Http\Controllers\Administration\FinanceController::class, 'storeTarif'])->name('finances.tarifs.store');
         Route::delete('finances/tarifs/{fraisScolaire}', [\App\Http\Controllers\Administration\FinanceController::class, 'destroyTarif'])->name('finances.tarifs.destroy');
         Route::post('finances/etablissements/{etablissement}/verrou-solvabilite', [\App\Http\Controllers\Administration\FinanceController::class, 'toggleVerrouSolvabilite'])->name('finances.verrou-solvabilite');
+
+        // Module 12 : Absences, Retards & Discipline (Gesco 12)
+        Route::get('discipline', [\App\Http\Controllers\Administration\DisciplineController::class, 'index'])->name('discipline.index');
+        Route::post('discipline/assiduites', [\App\Http\Controllers\Administration\DisciplineController::class, 'storeAssiduite'])->name('discipline.assiduites.store');
+        Route::match(['post', 'patch'], 'discipline/assiduites/{assiduite}/justifier', [\App\Http\Controllers\Administration\DisciplineController::class, 'justifierAssiduite'])->name('discipline.assiduites.justifier');
+        Route::delete('discipline/assiduites/{assiduite}', [\App\Http\Controllers\Administration\DisciplineController::class, 'destroyAssiduite'])->name('discipline.assiduites.destroy');
+        Route::post('discipline/sanctions', [\App\Http\Controllers\Administration\DisciplineController::class, 'storeSanction'])->name('discipline.sanctions.store');
+        Route::delete('discipline/sanctions/{sanction}', [\App\Http\Controllers\Administration\DisciplineController::class, 'destroySanction'])->name('discipline.sanctions.destroy');
     });
 });
 

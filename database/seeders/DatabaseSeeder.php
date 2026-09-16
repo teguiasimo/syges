@@ -91,6 +91,11 @@ class DatabaseSeeder extends Seeder
             'finances.manage' => 'web',
             'finances.cloture' => 'web',
             'finances.annuler' => 'web',
+
+            // Module Absences, Retards & Discipline (Gesco 12)
+            'discipline.view' => 'web',
+            'discipline.manage' => 'web',
+            'discipline.sanction' => 'web',
         ];
 
         // Création ou persistance des permissions actives
@@ -125,6 +130,7 @@ class DatabaseSeeder extends Seeder
             'personnels.view', 'attributions.view', 'attributions.manage',
             'notes.view', 'notes.manage', 'bulletins.view', 'bulletins.generate',
             'finances.view',
+            'discipline.view', 'discipline.manage', 'discipline.sanction',
         ]);
         $intendantRole->syncPermissions([
             'eleves.view',

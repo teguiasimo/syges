@@ -40,11 +40,11 @@ class FinanceCaisseTest extends TestCase
 {
     use \Illuminate\Foundation\Testing\RefreshDatabase;
 
-    protected User $unauthorizedUser;
-    protected Inscription $inscription;
-    protected TypeFrais $typeFrais;
-    protected FraisScolaire $fraisScolaire;
-    protected Personnel $caissier;
+    public ?User $unauthorizedUser = null;
+    public ?Inscription $inscription = null;
+    public ?TypeFrais $typeFrais = null;
+    public ?FraisScolaire $fraisScolaire = null;
+    public ?Personnel $caissier = null;
 
     protected function setUp(): void
     {
@@ -219,6 +219,37 @@ class FinanceCaisseTest extends TestCase
         $this->assertEquals(0, $compte->total_paye);
         $this->assertEquals(90000, $compte->solde_restant);
         $this->assertEquals('insolvable', $compte->statut_financier);
+    }
+
+    /**
+     * Vérifie l'initialisation avec arriérés antérieurs et l'ajustement depuis le contrôleur finance.
+     */
+    public function test_initialisation_avec_arrieres_et_ajustement_compte_financier(): void
+    {
+        $financeService = app(FinanceService::class);
+        $compte = $financeService->initialiserCompteEleve($this->inscription, 5000, 25000); // 5000 bourse, 25000 arriérés
+
+        $this->assertEquals(100000, $compte->debit_initial);
+        $this->assertEquals(25000, $compte->arrieres_anterieurs);
+        $this->assertEquals(5000, $compte->remise_bourse);
+        // Net exigible = 100 000 + 25 000 - 5 000 = 120 000
+        $this->assertEquals(120000, $compte->montant_net_exigible);
+        $this->assertEquals(120000, $compte->solde_restant);
+
+        // Test de l'ajustement via route HTTP
+        $response = $this->actingAs($this->adminUser)
+            ->post(route('administration.finances.comptes.ajuster', $compte), [
+                'remise_bourse' => 10000,
+                'arrieres_anterieurs' => 30000,
+                'observations' => 'Mise à jour manuelle de la dette',
+            ]);
+
+        $response->assertRedirect();
+        $compte->refresh();
+        $this->assertEquals(30000, $compte->arrieres_anterieurs);
+        $this->assertEquals(10000, $compte->remise_bourse);
+        // Net exigible = 100 000 + 30 000 - 10 000 = 120 000
+        $this->assertEquals(120000, $compte->montant_net_exigible);
     }
 
     /**

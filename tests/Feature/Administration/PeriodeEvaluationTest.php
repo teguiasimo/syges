@@ -23,6 +23,7 @@ use Spatie\Permission\Models\Role;
  */
 
 beforeEach(function () {
+    /** @var \Tests\TestCase $this */
     Role::firstOrCreate(['name' => 'super-admin', 'guard_name' => 'web']);
 
     $permissions = [

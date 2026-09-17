@@ -101,6 +101,7 @@ export interface CompteFinancierEleve {
     etablissement_id: number;
     annee_scolaire_id: number;
     debit_initial: number;
+    arrieres_anterieurs?: number;
     remise_bourse: number;
     montant_net_exigible: number;
     total_paye: number;

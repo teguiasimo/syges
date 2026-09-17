@@ -171,7 +171,7 @@ export default function Dashboard({
                                     value={currentEtablissement?.id.toString()}
                                     onValueChange={(val) => handleFilterChange('etablissement_id', val)}
                                 >
-                                    <SelectTrigger className="w-[200px]">
+                                    <SelectTrigger className="w-50">
                                         <SelectValue placeholder="Établissement" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -191,7 +191,7 @@ export default function Dashboard({
                                 value={currentAnneeId.toString()}
                                 onValueChange={(val) => handleFilterChange('annee_id', val)}
                             >
-                                <SelectTrigger className="w-[150px]">
+                                <SelectTrigger className="w-37.5">
                                     <SelectValue placeholder="Année Scolaire" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -394,7 +394,7 @@ export default function Dashboard({
                                 )}
                             </div>
                         </CardHeader>
-                        <CardContent className="space-y-3.5 max-h-[420px] overflow-y-auto pr-1">
+                        <CardContent className="space-y-3.5 max-h-105 overflow-y-auto pr-1">
                             {demographie.densite.details.map((cls) => (
                                 <div key={cls.id} className="space-y-1 rounded-lg border p-2.5">
                                     <div className="flex items-center justify-between text-xs">

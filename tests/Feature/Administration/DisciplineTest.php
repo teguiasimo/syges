@@ -27,7 +27,7 @@ class DisciplineTest extends TestCase
 {
     use \Illuminate\Foundation\Testing\RefreshDatabase;
 
-    protected User $unauthorizedUser;
+    public ?User $unauthorizedUser = null;
 
     protected function setUp(): void
     {

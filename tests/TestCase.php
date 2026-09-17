@@ -10,6 +10,7 @@ use App\Models\Cycle;
 use App\Models\Eleve;
 use App\Models\Etablissement;
 use App\Models\Evaluation;
+use App\Models\FraisScolaire;
 use App\Models\GroupeMatiere;
 use App\Models\Inscription;
 use App\Models\Institution;
@@ -18,7 +19,9 @@ use App\Models\Niveau;
 use App\Models\Periode;
 use App\Models\Personnel;
 use App\Models\Section;
+use App\Models\TypeFrais;
 use App\Models\User;
+use App\Models\VersementCaisse;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Laravel\Fortify\Features;
 
@@ -28,6 +31,9 @@ use Laravel\Fortify\Features;
  * afin de satisfaire l'analyse statique Intelephense / PHPStan.
  *
  * @property User|null $adminUser
+ * @property User|null $unauthorizedUser
+ * @property User|null $directorUser
+ * @property User|null $parentUser
  * @property AnneeScolaire|null $annee
  * @property AnneeScolaire|null $anneeScolaire
  * @property Classe|null $classe
@@ -38,17 +44,27 @@ use Laravel\Fortify\Features;
  * @property Niveau|null $niveau
  * @property Matiere|null $matiere
  * @property Matiere|null $matiere2
+ * @property GroupeMatiere|null $groupe
  * @property GroupeMatiere|null $groupeMatiere
  * @property Personnel|null $enseignant
+ * @property Personnel|null $caissier
  * @property Periode|null $periode
+ * @property Periode|null $trimestre1
  * @property Evaluation|null $seq1
  * @property Evaluation|null $seq2
+ * @property Inscription|null $inscription
  * @property Inscription|null $inscription1
  * @property Inscription|null $inscription2
+ * @property Inscription|null $inscription3
  * @property Eleve|null $eleve1
  * @property Eleve|null $eleve2
+ * @property Eleve|null $enfant1
+ * @property Eleve|null $enfant2
  * @property Attribution|null $attributionMath
  * @property Attribution|null $attributionFran
+ * @property TypeFrais|null $typeFrais
+ * @property FraisScolaire|null $fraisScolaire
+ * @property VersementCaisse|null $versement1
  */
 #[AllowDynamicProperties]
 abstract class TestCase extends BaseTestCase
@@ -59,6 +75,27 @@ abstract class TestCase extends BaseTestCase
      * @var User|null
      */
     public ?User $adminUser = null;
+
+    /**
+     * Utilisateur sans autorisations spécifiques pour tester les accès interdits (403 Forbidden).
+     *
+     * @var User|null
+     */
+    public ?User $unauthorizedUser = null;
+
+    /**
+     * Utilisateur avec profil directeur des études pour tester les accès pédagogiques et délibérations.
+     *
+     * @var User|null
+     */
+    public ?User $directorUser = null;
+
+    /**
+     * Utilisateur avec profil parent d'élève pour tester le portail parent.
+     *
+     * @var User|null
+     */
+    public ?User $parentUser = null;
 
     /**
      * Année scolaire active utilisée dans les contextes de tests académiques.
@@ -138,6 +175,13 @@ abstract class TestCase extends BaseTestCase
     public ?GroupeMatiere $groupeMatiere = null;
 
     /**
+     * Groupe de matières de test (alias court utilisé dans certains tests d'administration).
+     *
+     * @var GroupeMatiere|null
+     */
+    public ?GroupeMatiere $groupe = null;
+
+    /**
      * Personnel enseignant utilisé pour les affectations pédagogiques.
      *
      * @var Personnel|null
@@ -145,11 +189,25 @@ abstract class TestCase extends BaseTestCase
     public ?Personnel $enseignant = null;
 
     /**
+     * Personnel avec profil caissier pour les tests financiers.
+     *
+     * @var Personnel|null
+     */
+    public ?Personnel $caissier = null;
+
+    /**
      * Période trimestrielle pour les tests de bulletins.
      *
      * @var Periode|null
      */
     public ?Periode $periode = null;
+
+    /**
+     * Période trimestrielle 1 pour les tests de statistiques et portail.
+     *
+     * @var Periode|null
+     */
+    public ?Periode $trimestre1 = null;
 
     /**
      * Première séquence d'évaluation.
@@ -166,6 +224,13 @@ abstract class TestCase extends BaseTestCase
     public ?Evaluation $seq2 = null;
 
     /**
+     * Inscription d'élève générique de référence.
+     *
+     * @var Inscription|null
+     */
+    public ?Inscription $inscription = null;
+
+    /**
      * Première inscription d'élève de référence.
      *
      * @var Inscription|null
@@ -178,6 +243,13 @@ abstract class TestCase extends BaseTestCase
      * @var Inscription|null
      */
     public ?Inscription $inscription2 = null;
+
+    /**
+     * Troisième inscription d'élève de référence.
+     *
+     * @var Inscription|null
+     */
+    public ?Inscription $inscription3 = null;
 
     /**
      * Élève de référence 1.
@@ -194,6 +266,20 @@ abstract class TestCase extends BaseTestCase
     public ?Eleve $eleve2 = null;
 
     /**
+     * Premier enfant rattaché pour les tests du portail parent.
+     *
+     * @var Eleve|null
+     */
+    public ?Eleve $enfant1 = null;
+
+    /**
+     * Second enfant rattaché pour les tests du portail parent.
+     *
+     * @var Eleve|null
+     */
+    public ?Eleve $enfant2 = null;
+
+    /**
      * Attribution de mathématiques.
      *
      * @var Attribution|null
@@ -206,6 +292,27 @@ abstract class TestCase extends BaseTestCase
      * @var Attribution|null
      */
     public ?Attribution $attributionFran = null;
+
+    /**
+     * Type de frais scolaire pour les tests financiers.
+     *
+     * @var TypeFrais|null
+     */
+    public ?TypeFrais $typeFrais = null;
+
+    /**
+     * Frais scolaire configuré pour une classe ou un établissement.
+     *
+     * @var FraisScolaire|null
+     */
+    public ?FraisScolaire $fraisScolaire = null;
+
+    /**
+     * Versement effectué en caisse pour les tests de solvabilité et reçus.
+     *
+     * @var VersementCaisse|null
+     */
+    public ?VersementCaisse $versement1 = null;
 
     /**
      * Ignore le test courant si la fonctionnalité Fortify requise n'est pas activée.

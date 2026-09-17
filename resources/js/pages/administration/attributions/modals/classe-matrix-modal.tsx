@@ -210,8 +210,8 @@ export function ClasseMatrixModal({
                                 <tr>
                                     <th className="py-2.5 px-3">Matière au programme</th>
                                     <th className="py-2.5 px-2 text-center">Coeff</th>
-                                    <th className="py-2.5 px-3 min-w-[260px]">Enseignant Affecté</th>
-                                    <th className="py-2.5 px-2 text-center w-[110px]">Heures/sem</th>
+                                    <th className="py-2.5 px-3 min-w-65">Enseignant Affecté</th>
+                                    <th className="py-2.5 px-2 text-center w-27.5">Heures/sem</th>
                                     <th className="py-2.5 px-3 text-right">Statut</th>
                                 </tr>
                             </thead>
@@ -228,7 +228,7 @@ export function ClasseMatrixModal({
                                                     {row.code}
                                                 </span>
                                                 <span>•</span>
-                                                <span className="truncate max-w-[150px]">{row.groupe_nom}</span>
+                                                <span className="truncate max-w-37.5">{row.groupe_nom}</span>
                                             </div>
                                         </td>
 

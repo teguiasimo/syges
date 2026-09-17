@@ -40,7 +40,7 @@ class EmploiDuTempsTest extends TestCase
 {
     use \Illuminate\Foundation\Testing\RefreshDatabase;
 
-    protected User $unauthorizedUser;
+    public ?User $unauthorizedUser = null;
     protected Salle $salle1;
     protected Salle $salle2;
     protected Classe $classe2;

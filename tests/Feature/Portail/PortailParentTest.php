@@ -44,17 +44,17 @@ class PortailParentTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected User $parentUser;
+    public ?User $parentUser = null;
     public ?User $adminUser = null;
     public ?Etablissement $etablissement = null;
     public ?AnneeScolaire $anneeScolaire = null;
     public ?Classe $classe = null;
     public ?Inscription $inscription1 = null;
     public ?Inscription $inscription2 = null;
-    protected Eleve $enfant1;
-    protected Eleve $enfant2;
-    protected Periode $trimestre1;
-    protected VersementCaisse $versement1;
+    public ?Eleve $enfant1 = null;
+    public ?Eleve $enfant2 = null;
+    public ?Periode $trimestre1 = null;
+    public ?VersementCaisse $versement1 = null;
 
     /**
      * Configuration initiale du jeu de données pour les tests du portail.

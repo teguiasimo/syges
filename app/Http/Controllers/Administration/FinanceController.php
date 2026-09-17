@@ -336,7 +336,10 @@ class FinanceController extends Controller
     }
 
     /**
-     * Ajuste la remise / bourse accordée à un élève sur son compte financier.
+     * Ajuste la remise/bourse ou les arriérés antérieurs reportés sur le compte financier d'un élève.
+     *
+     * Permet au service comptable d'enregistrer manuellement une dette antérieure,
+     * d'accorder une réduction financière ou de modifier les observations de l'élève.
      *
      * @param Request $request
      * @param CompteFinancierEleve $compte
@@ -345,17 +348,23 @@ class FinanceController extends Controller
     public function ajusterCompte(Request $request, CompteFinancierEleve $compte): RedirectResponse
     {
         $validated = $request->validate([
-            'remise_bourse' => 'required|numeric|min:0',
+            'remise_bourse' => 'nullable|numeric|min:0',
+            'arrieres_anterieurs' => 'nullable|numeric|min:0',
             'observations' => 'nullable|string|max:500',
         ]);
 
-        $compte->remise_bourse = $validated['remise_bourse'];
+        if (isset($validated['remise_bourse'])) {
+            $compte->remise_bourse = (float) $validated['remise_bourse'];
+        }
+        if (isset($validated['arrieres_anterieurs'])) {
+            $compte->arrieres_anterieurs = (float) $validated['arrieres_anterieurs'];
+        }
         if (isset($validated['observations'])) {
             $compte->observations = $validated['observations'];
         }
         $compte->actualiserSolde();
 
-        return back()->with('success', "Le compte financier de l'élève a été mis à jour (Remise: " . number_format($compte->remise_bourse, 0) . " FCFA).");
+        return back()->with('success', "Le compte financier de l'élève a été ajusté avec succès (Arriérés: " . number_format($compte->arrieres_anterieurs, 0, ',', ' ') . " FCFA, Remise: " . number_format($compte->remise_bourse, 0, ',', ' ') . " FCFA).");
     }
 
     /**

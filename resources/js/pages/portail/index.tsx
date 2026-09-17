@@ -336,7 +336,7 @@ export default function PortailParentIndex({
                 {profil ? (
                     <>
                         {/* Carte récapitulative de l'enfant */}
-                        <Card className="border-border/80 bg-gradient-to-r from-card via-card to-primary/5">
+                        <Card className="border-border/80 bg-linear-to-r from-card via-card to-primary/5">
                             <CardContent className="p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                                 <div className="flex items-center gap-4">
                                     <div className="flex size-14 items-center justify-center rounded-2xl bg-primary/10 border border-primary/20 text-primary font-bold text-xl">
@@ -408,7 +408,7 @@ export default function PortailParentIndex({
                                             value={profil.active_periode_id ? profil.active_periode_id.toString() : ''}
                                             onValueChange={(val) => handleNavigation({ periode_id: val })}
                                         >
-                                            <SelectTrigger className="w-[180px] h-8 text-xs">
+                                            <SelectTrigger className="w-45 h-8 text-xs">
                                                 <SelectValue placeholder="Choisir un trimestre" />
                                             </SelectTrigger>
                                             <SelectContent>

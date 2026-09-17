@@ -254,7 +254,7 @@ export default function DeliberationsIndex({
                 accessorKey: 'nom_complet',
                 header: 'Élève',
                 cell: ({ row }) => (
-                    <div className="flex flex-col min-w-[150px]">
+                    <div className="flex flex-col min-w-37.5">
                         <span className="font-semibold text-sm text-foreground">
                             {row.original.nom_complet}
                         </span>
@@ -365,7 +365,7 @@ export default function DeliberationsIndex({
                             onValueChange={(val) => handleLineChange(l.inscription_id, 'statut_retenu', val)}
                             disabled={!canManage || l.est_valide}
                         >
-                            <SelectTrigger className="h-8 w-[130px] text-xs">
+                            <SelectTrigger className="h-8 w-32.5 text-xs">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -393,7 +393,7 @@ export default function DeliberationsIndex({
                             value={l.appreciation_globale}
                             onChange={(e) => handleLineChange(l.inscription_id, 'appreciation_globale', e.target.value)}
                             disabled={!canManage || l.est_valide}
-                            className="h-8 text-xs min-w-[240px]"
+                            className="h-8 text-xs min-w-60"
                             placeholder="Avis motivé du conseil de classe..."
                         />
                     );

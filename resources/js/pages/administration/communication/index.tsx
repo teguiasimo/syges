@@ -115,7 +115,7 @@ export default function CommunicationIndex({
             cell: ({ row }) => (
                 <div>
                     <span className="font-bold text-xs text-slate-900 dark:text-slate-100">{row.original.titre}</span>
-                    <p className="text-[10px] text-slate-500 line-clamp-1 max-w-[280px]" title={row.original.message_sanitise}>
+                    <p className="text-[10px] text-slate-500 line-clamp-1 max-w-70" title={row.original.message_sanitise}>
                         {row.original.message_sanitise}
                     </p>
                 </div>
@@ -231,7 +231,7 @@ export default function CommunicationIndex({
             accessorKey: 'message',
             header: 'Message (GSM 7-bit)',
             cell: ({ row }) => (
-                <p className="text-xs text-slate-700 dark:text-slate-300 max-w-[340px] truncate" title={row.original.message}>
+                <p className="text-xs text-slate-700 dark:text-slate-300 max-w-85 truncate" title={row.original.message}>
                     {row.original.message}
                 </p>
             ),
@@ -440,7 +440,7 @@ export default function CommunicationIndex({
                     {/* Barre d'outils de filtres */}
                     {activeTab !== 'passerelle' && (
                         <div className="flex flex-wrap items-center gap-3">
-                            <div className="relative flex-1 min-w-[200px]">
+                            <div className="relative flex-1 min-w-50">
                                 <Search className="w-4 h-4 absolute left-2.5 top-2.5 text-slate-400" />
                                 <Input
                                     placeholder="Rechercher par titre, destinataire ou contenu..."
@@ -526,7 +526,7 @@ export default function CommunicationIndex({
                                         </div>
                                         <div className="flex justify-between py-1">
                                             <span className="text-slate-500">URL Endpoint :</span>
-                                            <span className="font-mono text-slate-600 truncate max-w-[200px]">{config.api_url || 'Par défaut SDK'}</span>
+                                            <span className="font-mono text-slate-600 truncate max-w-50">{config.api_url || 'Par défaut SDK'}</span>
                                         </div>
                                     </div>
 

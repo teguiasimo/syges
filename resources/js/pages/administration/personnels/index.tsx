@@ -304,7 +304,7 @@ export default function PersonnelsIndex({
                             <span className="font-medium text-xs text-foreground block">
                                 {p.fonction_principale}
                             </span>
-                            <span className="text-[11px] text-muted-foreground block truncate max-w-[140px]">
+                            <span className="text-[11px] text-muted-foreground block truncate max-w-35">
                                 {p.type_contrat}
                             </span>
                         </div>
@@ -318,10 +318,10 @@ export default function PersonnelsIndex({
                     const p = row.original;
                     return (
                         <div className="space-y-0.5 text-xs">
-                            <span className="font-medium text-foreground block truncate max-w-[130px]">
+                            <span className="font-medium text-foreground block truncate max-w-32.5">
                                 {p.etablissement ? p.etablissement.nom : '-'}
                             </span>
-                            <span className="text-[11px] text-muted-foreground block truncate max-w-[130px]">
+                            <span className="text-[11px] text-muted-foreground block truncate max-w-32.5">
                                 {p.departement ? p.departement.nom : <em className="text-muted-foreground/60">Sans département</em>}
                             </span>
                         </div>
@@ -343,7 +343,7 @@ export default function PersonnelsIndex({
                                 {p.volume_horaire_hebdo}h / sem.
                             </Badge>
                             {p.specialite && (
-                                <span className="text-[11px] text-muted-foreground block truncate max-w-[120px]">
+                                <span className="text-[11px] text-muted-foreground block truncate max-w-30">
                                     {p.specialite}
                                 </span>
                             )}
@@ -358,12 +358,12 @@ export default function PersonnelsIndex({
                     const p = row.original;
                     return (
                         <div className="text-xs space-y-0.5">
-                            <a href={`tel:${p.telephone}`} className="text-foreground hover:text-teal-600 block flex items-center gap-1 font-mono">
+                            <a href={`tel:${p.telephone}`} className="text-foreground hover:text-teal-600 flex items-center gap-1 font-mono">
                                 <Phone className="size-3 text-muted-foreground" />
                                 {p.telephone}
                             </a>
                             {p.email && (
-                                <span className="text-[11px] text-muted-foreground block truncate max-w-[130px]">
+                                <span className="text-[11px] text-muted-foreground block truncate max-w-32.5">
                                     {p.email}
                                 </span>
                             )}
@@ -748,7 +748,7 @@ export default function PersonnelsIndex({
                                         value={filterEtablissement}
                                         onValueChange={setFilterEtablissement}
                                     >
-                                        <SelectTrigger className="h-9 w-[150px] text-xs bg-card">
+                                        <SelectTrigger className="h-9 w-37.5 text-xs bg-card">
                                             <SelectValue placeholder="Établissement" />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -766,7 +766,7 @@ export default function PersonnelsIndex({
                                         value={filterDepartement}
                                         onValueChange={setFilterDepartement}
                                     >
-                                        <SelectTrigger className="h-9 w-[150px] text-xs bg-card">
+                                        <SelectTrigger className="h-9 w-37.5 text-xs bg-card">
                                             <SelectValue placeholder="Département" />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -785,7 +785,7 @@ export default function PersonnelsIndex({
                                         value={filterFonction}
                                         onValueChange={setFilterFonction}
                                     >
-                                        <SelectTrigger className="h-9 w-[140px] text-xs bg-card">
+                                        <SelectTrigger className="h-9 w-35 text-xs bg-card">
                                             <SelectValue placeholder="Fonction" />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -803,7 +803,7 @@ export default function PersonnelsIndex({
                                         value={filterStatut}
                                         onValueChange={setFilterStatut}
                                     >
-                                        <SelectTrigger className="h-9 w-[120px] text-xs bg-card">
+                                        <SelectTrigger className="h-9 w-30 text-xs bg-card">
                                             <SelectValue placeholder="Statut" />
                                         </SelectTrigger>
                                         <SelectContent>

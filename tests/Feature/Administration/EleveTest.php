@@ -262,6 +262,104 @@ test('on peut réinscrire un ancien élève dans une nouvelle classe', function 
     expect($inscription->type_inscription)->toBe('reinscription');
 });
 
+test('on peut réinscrire un ancien élève avec report manuel des arriérés antérieurs', function () {
+    /** @var \Tests\TestCase $this */
+    $eleve = Eleve::create([
+        'matricule' => 'GS25-5678',
+        'nom' => 'KAMGA',
+        'prenom' => 'Paul',
+        'sexe' => 'M',
+        'telephone_parent' => '+237 699 00 11 22',
+    ]);
+
+    actingAs($this->adminUser)
+        ->post(route('administration.eleves.reinscrire'), [
+            'eleve_id' => $eleve->id,
+            'classe_id' => $this->classe->id,
+            'annee_scolaire_id' => $this->annee->id,
+            'is_redoublant' => false,
+            'statut' => 'validee',
+            'arrieres_anterieurs' => 15000,
+            'observations' => 'Report impayé an passé',
+        ])
+        ->assertRedirect();
+
+    $inscription = Inscription::where('eleve_id', $eleve->id)
+        ->where('annee_scolaire_id', $this->annee->id)
+        ->first();
+
+    expect($inscription)->not->toBeNull();
+    expect($inscription->compteFinancier)->not->toBeNull();
+    expect($inscription->compteFinancier->arrieres_anterieurs)->toEqual(15000);
+    expect($inscription->compteFinancier->montant_net_exigible)->toBeGreaterThanOrEqual(15000);
+});
+
+test('searchAnciens renvoie la dernière classe fréquentée et la décision du conseil', function () {
+    /** @var \Tests\TestCase $this */
+    // Année précédente
+    $anneePrecedente = \App\Models\AnneeScolaire::create([
+        'code' => '2024-2025',
+        'nom' => 'Année Scolaire 2024/2025',
+        'date_debut' => '2024-09-01',
+        'date_fin' => '2025-06-30',
+        'statut' => 'cloturee',
+        'mode_calcul_moyenne' => 'arithmetique_simple',
+        'is_current' => false,
+    ]);
+
+    $eleve = Eleve::create([
+        'matricule' => 'GS24-9999',
+        'nom' => 'FOKOU',
+        'prenom' => 'David',
+        'sexe' => 'M',
+        'telephone_parent' => '+237 655 44 33 22',
+    ]);
+
+    $inscriptionPassée = Inscription::create([
+        'eleve_id' => $eleve->id,
+        'classe_id' => $this->classe->id,
+        'annee_scolaire_id' => $anneePrecedente->id,
+        'type_inscription' => 'nouveau',
+        'is_redoublant' => false,
+        'statut' => 'validee',
+        'date_inscription' => '2024-09-10',
+    ]);
+
+    // Délibération de fin d'année passée
+    \App\Models\DeliberationConseil::create([
+        'etablissement_id' => $this->classe->niveau->cycle->section->etablissement_id,
+        'inscription_id' => $inscriptionPassée->id,
+        'classe_id' => $this->classe->id,
+        'annee_scolaire_id' => $anneePrecedente->id,
+        'type_deliberation' => 'annuelle',
+        'moyenne_obtenue' => 14.5,
+        'rang' => 3,
+        'statut_propose' => 'promu',
+        'statut_retenu' => 'promu',
+        'decision_conseil' => 'Promu en 5ème',
+        'est_valide' => true,
+    ]);
+
+    $response = actingAs($this->adminUser)
+        ->getJson(route('administration.eleves.search-anciens', [
+            'q' => 'FOKOU',
+            'annee_id' => $this->annee->id,
+        ]))
+        ->assertOk();
+
+    $data = $response->json();
+    expect($data)->toBeArray();
+    expect(count($data))->toBeGreaterThanOrEqual(1);
+
+    $eleveTrouve = collect($data)->firstWhere('matricule', 'GS24-9999');
+    expect($eleveTrouve)->not->toBeNull();
+    expect($eleveTrouve['derniere_classe'])->not->toBeNull();
+    expect($eleveTrouve['derniere_classe']['classe_nom'])->toBe($this->classe->nom);
+    expect($eleveTrouve['derniere_classe']['annee_nom'])->toBe('Année Scolaire 2024/2025');
+    expect($eleveTrouve['derniere_classe']['statut_retenu'])->toBe('promu');
+    expect($eleveTrouve['derniere_classe']['is_redoublant_preconise'])->toBeFalse();
+});
+
 test('on peut transférer des élèves d une classe vers une autre classe', function () {
     /** @var \Tests\TestCase $this */
     $classeCible = Classe::create([

@@ -178,4 +178,14 @@ class Inscription extends Model
     {
         return $this->hasMany(VersementCaisse::class, 'inscription_id');
     }
+
+    /**
+     * Relation vers les délibérations et décisions du conseil de classe pour cette inscription.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany<DeliberationConseil>
+     */
+    public function deliberations(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(DeliberationConseil::class, 'inscription_id');
+    }
 }

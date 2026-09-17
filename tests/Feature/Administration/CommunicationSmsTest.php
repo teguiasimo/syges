@@ -39,7 +39,7 @@ class CommunicationSmsTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected User $unauthorizedUser;
+    public ?User $unauthorizedUser = null;
     protected User $operatorUser;
     public ?User $adminUser = null;
     public ?Etablissement $etablissement = null;

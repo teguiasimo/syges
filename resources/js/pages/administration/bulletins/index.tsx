@@ -1023,7 +1023,7 @@ export default function BulletinsIndex({
                         <Label className="text-xs">{t('bulletins.decision_conseil')}</Label>
                         <Textarea
                             placeholder="Avis ou décision officielle du conseil de classe..."
-                            className="text-xs mt-1 min-h-[60px]"
+                            className="text-xs mt-1 min-h-15"
                             value={disciplineForm.decision_conseil}
                             onChange={(e) =>
                                 setDisciplineForm({

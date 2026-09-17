@@ -203,7 +203,7 @@ export default function StatistiquesIndex({
                                 value={currentEtablissement?.id.toString()}
                                 onValueChange={(val) => handleNavigation({ etablissement_id: val })}
                             >
-                                <SelectTrigger className="w-[190px] h-9">
+                                <SelectTrigger className="w-47.5 h-9">
                                     <SelectValue placeholder="Établissement" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -220,7 +220,7 @@ export default function StatistiquesIndex({
                             value={currentAnneeId.toString()}
                             onValueChange={(val) => handleNavigation({ annee_id: val })}
                         >
-                            <SelectTrigger className="w-[140px] h-9">
+                            <SelectTrigger className="w-35 h-9">
                                 <SelectValue placeholder="Année" />
                             </SelectTrigger>
                             <SelectContent>
@@ -347,7 +347,7 @@ export default function StatistiquesIndex({
                                             value={selectedClasseId ? selectedClasseId.toString() : 'all'}
                                             onValueChange={(val) => handleNavigation({ classe_id: val === 'all' ? null : val })}
                                         >
-                                            <SelectTrigger className="w-[180px] h-9">
+                                            <SelectTrigger className="w-45 h-9">
                                                 <SelectValue placeholder="Filtrer par classe" />
                                             </SelectTrigger>
                                             <SelectContent>

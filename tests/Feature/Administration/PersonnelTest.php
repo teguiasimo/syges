@@ -27,6 +27,7 @@ use Spatie\Permission\Models\Role;
  */
 
 beforeEach(function () {
+    /** @var \Tests\TestCase $this */
     // Initialisation des rôles de base
     Role::firstOrCreate(['name' => 'super-admin', 'guard_name' => 'web']);
     Role::firstOrCreate(['name' => 'enseignant', 'guard_name' => 'web']);

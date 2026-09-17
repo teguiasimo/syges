@@ -34,10 +34,14 @@ class FinanceService
      *
      * @param Inscription $inscription Inscription validée ou en cours
      * @param float $remiseBourse Remise ou bourse éventuelle accordée
+     * @param float $arrieresAnterieurs Dette ou reliquat d'une année précédente reporté manuellement
      * @return CompteFinancierEleve
      */
-    public function initialiserCompteEleve(Inscription $inscription, float $remiseBourse = 0): CompteFinancierEleve
-    {
+    public function initialiserCompteEleve(
+        Inscription $inscription,
+        float $remiseBourse = 0,
+        float $arrieresAnterieurs = 0
+    ): CompteFinancierEleve {
         $classe = $inscription->classe()->with('niveau.cycle.section.etablissement')->first();
         $niveauId = $classe?->niveau_id;
         $serie = $classe?->serie;
@@ -76,6 +80,9 @@ class FinanceService
         $compte->etablissement_id = $etablissementId;
         $compte->annee_scolaire_id = $anneeId;
         $compte->debit_initial = $debitInitial;
+        if ($arrieresAnterieurs > 0) {
+            $compte->arrieres_anterieurs = $arrieresAnterieurs;
+        }
         if ($remiseBourse > 0) {
             $compte->remise_bourse = $remiseBourse;
         }

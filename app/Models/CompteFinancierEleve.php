@@ -24,6 +24,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int $etablissement_id Établissement
  * @property int $annee_scolaire_id Année scolaire
  * @property float $debit_initial Montant total initial dû
+ * @property float $arrieres_anterieurs Arriérés ou dettes reportées de l'année précédente
  * @property float $remise_bourse Réduction financière ou bourse accordée
  * @property float $montant_net_exigible Montant net dû après remise
  * @property float $total_paye Cumul des versements validés
@@ -53,6 +54,7 @@ class CompteFinancierEleve extends Model
         'etablissement_id',
         'annee_scolaire_id',
         'debit_initial',
+        'arrieres_anterieurs',
         'remise_bourse',
         'montant_net_exigible',
         'total_paye',
@@ -68,6 +70,7 @@ class CompteFinancierEleve extends Model
      */
     protected $casts = [
         'debit_initial' => 'float',
+        'arrieres_anterieurs' => 'float',
         'remise_bourse' => 'float',
         'montant_net_exigible' => 'float',
         'total_paye' => 'float',
@@ -131,8 +134,8 @@ class CompteFinancierEleve extends Model
      */
     public function actualiserSolde(): void
     {
-        // 1. Calcul du montant net exigible
-        $this->montant_net_exigible = max(0, (float) $this->debit_initial - (float) $this->remise_bourse);
+        // 1. Calcul du montant net exigible (frais annuels bruts + arriérés antérieurs - remise ou bourse)
+        $this->montant_net_exigible = max(0, (float) $this->debit_initial + (float) ($this->arrieres_anterieurs ?? 0) - (float) $this->remise_bourse);
 
         // 2. Cumul des versements au statut 'valide'
         $this->total_paye = (float) $this->versements()

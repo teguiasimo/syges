@@ -267,7 +267,12 @@
     <table class="balance-table">
         <tr>
             <td class="balance-label">Total Exigible Net :</td>
-            <td class="balance-val">{{ number_format($compte->montant_net_exigible, 0, ',', ' ') }} FCFA</td>
+            <td class="balance-val">
+                {{ number_format($compte->montant_net_exigible, 0, ',', ' ') }} FCFA
+                @if(!empty($compte->arrieres_anterieurs) && $compte->arrieres_anterieurs > 0)
+                    <br><span style="font-size: 7pt; color: #b45309; font-weight: normal;">(dont {{ number_format($compte->arrieres_anterieurs, 0, ',', ' ') }} FCFA d'arriérés)</span>
+                @endif
+            </td>
             <td class="balance-label">Cumul Total Payé :</td>
             <td class="balance-val" style="color: #047857;">{{ number_format($compte->total_paye, 0, ',', ' ') }} FCFA</td>
         </tr>

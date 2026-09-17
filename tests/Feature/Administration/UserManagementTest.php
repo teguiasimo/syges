@@ -22,6 +22,7 @@ use Spatie\Permission\Models\Role;
  */
 
 beforeEach(function () {
+    /** @var \Tests\TestCase $this */
     Role::firstOrCreate(['name' => 'super-admin', 'guard_name' => 'web']);
     foreach (['users.view', 'users.create', 'users.edit', 'users.block'] as $perm) {
         Permission::firstOrCreate(['name' => $perm, 'guard_name' => 'web']);

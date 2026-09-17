@@ -388,10 +388,10 @@ export default function AttributionsIndex({
                     const e = row.original;
                     return (
                         <div className="text-xs space-y-0.5">
-                            <span className="font-medium text-foreground block truncate max-w-[150px]">
+                            <span className="font-medium text-foreground block truncate max-w-37.5">
                                 {e.departement ? e.departement.nom : <em className="text-muted-foreground">Aucun département</em>}
                             </span>
-                            <span className="text-[11px] text-muted-foreground block truncate max-w-[150px]">
+                            <span className="text-[11px] text-muted-foreground block truncate max-w-37.5">
                                 {e.etablissement ? e.etablissement.nom : '-'}
                             </span>
                         </div>
@@ -473,7 +473,7 @@ export default function AttributionsIndex({
                         return <span className="text-xs text-muted-foreground/60 italic">Aucun cours affecté</span>;
                     }
                     return (
-                        <div className="flex flex-wrap gap-1 max-w-[280px]">
+                        <div className="flex flex-wrap gap-1 max-w-70">
                             {attributions.map((a) => (
                                 <div
                                     key={a.id}
@@ -481,7 +481,7 @@ export default function AttributionsIndex({
                                 >
                                     <span className="font-bold text-indigo-600 dark:text-indigo-400">{a.classe?.code || 'CL'}</span>
                                     <span>:</span>
-                                    <span className="truncate max-w-[70px]">{a.matiere?.code || 'DISC'}</span>
+                                    <span className="truncate max-w-17.5">{a.matiere?.code || 'DISC'}</span>
                                     <span className="text-muted-foreground">({Number(a.volume_horaire_reel)}h)</span>
                                     {can.delete && (
                                         <button
@@ -670,7 +670,7 @@ export default function AttributionsIndex({
                                         value={filterEtablissement}
                                         onValueChange={setFilterEtablissement}
                                     >
-                                        <SelectTrigger className="h-9 w-[170px] text-xs bg-card">
+                                        <SelectTrigger className="h-9 w-42.5 text-xs bg-card">
                                             <SelectValue placeholder="Établissement" />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -701,7 +701,7 @@ export default function AttributionsIndex({
                                         value={filterCharge}
                                         onValueChange={setFilterCharge}
                                     >
-                                        <SelectTrigger className="h-9 w-[160px] text-xs bg-card">
+                                        <SelectTrigger className="h-9 w-40 text-xs bg-card">
                                             <SelectValue placeholder="Charge horaire" />
                                         </SelectTrigger>
                                         <SelectContent>

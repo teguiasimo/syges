@@ -109,6 +109,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         // Module 5 : Gestion des Élèves & Inscriptions (Gesco 5 & SAGEES)
         Route::get('eleves/search-anciens', [EleveController::class, 'searchAnciens'])->name('eleves.search-anciens');
+        Route::get('/api/search-anciens-eleves', [EleveController::class, 'searchAnciens'])->name('eleves.api-search-anciens');
         Route::get('eleves', [EleveController::class, 'index'])->name('eleves.index');
         Route::post('eleves', [EleveController::class, 'store'])->name('eleves.store');
         Route::put('eleves/{eleve}', [EleveController::class, 'update'])->name('eleves.update');

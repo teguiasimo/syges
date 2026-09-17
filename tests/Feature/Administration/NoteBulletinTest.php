@@ -42,6 +42,7 @@ use Tests\TestCase;
  * - La génération des exports PDF (individuel et classe complète).
  */
 beforeEach(function () {
+    /** @var \Tests\TestCase $this */
     Role::firstOrCreate(['name' => 'super-admin', 'guard_name' => 'web']);
     Role::firstOrCreate(['name' => 'enseignant', 'guard_name' => 'web']);
 

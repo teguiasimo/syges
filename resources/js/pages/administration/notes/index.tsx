@@ -451,7 +451,7 @@ export default function NotesIndex({
                                 disabled={isLocked}
                                 type="text"
                                 placeholder="Appréciation..."
-                                className="h-8 text-xs min-w-[160px]"
+                                className="h-8 text-xs min-w-40"
                                 value={item.appreciation}
                                 onChange={(e) =>
                                     updateLigne(item.inscription_id, 'appreciation', e.target.value)
@@ -471,7 +471,7 @@ export default function NotesIndex({
                             disabled={isLocked}
                             type="text"
                             placeholder="Compétence spécifique APC..."
-                            className="h-8 text-xs min-w-[200px]"
+                            className="h-8 text-xs min-w-50"
                             value={item.competence_evaluee}
                             onChange={(e) =>
                                 updateLigne(item.inscription_id, 'competence_evaluee', e.target.value)

@@ -334,8 +334,11 @@ class EleveController extends Controller
     /**
      * Réinscrit un ancien élève existant dans une nouvelle classe pour une année scolaire donnée.
      *
-     * @param Request $request
-     * @return RedirectResponse
+     * Initialise automatiquement son compte financier scolaire en intégrant optionnellement
+     * les arriérés ou dettes antérieures reportées manuellement par le comptable ou la secrétaire.
+     *
+     * @param Request $request Requête HTTP contenant les paramètres d'affectation et les arriérés.
+     * @return RedirectResponse Redirection avec message de succès ou d'erreur.
      */
     public function reinscrire(Request $request): RedirectResponse
     {
@@ -345,6 +348,7 @@ class EleveController extends Controller
             'annee_scolaire_id' => ['required', 'exists:annees_scolaires,id'],
             'is_redoublant' => ['required', 'boolean'],
             'statut' => ['required', 'in:validee,en_attente'],
+            'arrieres_anterieurs' => ['nullable', 'numeric', 'min:0'],
             'observations' => ['nullable', 'string'],
         ]);
 
@@ -358,7 +362,7 @@ class EleveController extends Controller
             return back()->with('error', 'Cet élève dispose déjà d\'une inscription active pour cette année scolaire.');
         }
 
-        Inscription::create([
+        $inscription = Inscription::create([
             'eleve_id' => $validated['eleve_id'],
             'classe_id' => $validated['classe_id'],
             'annee_scolaire_id' => $validated['annee_scolaire_id'],
@@ -368,6 +372,10 @@ class EleveController extends Controller
             'date_inscription' => now()->toDateString(),
             'observations' => $validated['observations'] ?? null,
         ]);
+
+        // Initialisation automatique du compte financier avec report des arriérés antérieurs
+        $arrieres = (float) ($validated['arrieres_anterieurs'] ?? 0);
+        app(\App\Services\FinanceService::class)->initialiserCompteEleve($inscription, 0, $arrieres);
 
         return back()->with('success', 'Réinscription effectuée avec succès !');
     }
@@ -597,15 +605,20 @@ class EleveController extends Controller
 
     /**
      * Recherche d'anciens élèves non encore inscrits pour une année scolaire donnée.
-     * Utilisé pour la réinscription rapide via autocomplétion.
+     * Utilisé pour la réinscription rapide via autocomplétion avec affichage ergonomique
+     * de la dernière classe fréquentée, de la décision du conseil et du reliquat financier antérieur.
      *
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
      */
     public function searchAnciens(Request $request): \Illuminate\Http\JsonResponse
     {
-        $q = $request->input('q');
-        $anneeId = $request->input('annee_id');
+        $q = trim((string) $request->input('q', ''));
+        $anneeId = $request->integer('annee_id');
+
+        if (empty($q)) {
+            return response()->json([]);
+        }
 
         $eleves = Eleve::search($q)
             ->whereDoesntHave('inscriptions', function ($sub) use ($anneeId) {
@@ -614,9 +627,53 @@ class EleveController extends Controller
                         ->whereIn('statut', ['validee', 'en_attente']);
                 }
             })
+            ->with([
+                'inscriptions' => function ($iq) use ($anneeId) {
+                    if ($anneeId) {
+                        $iq->where('annee_scolaire_id', '!=', $anneeId);
+                    }
+                    $iq->with([
+                        'classe.niveau.cycle.section.etablissement',
+                        'anneeScolaire',
+                        'compteFinancier',
+                        'deliberations' => fn ($dq) => $dq->where('type_deliberation', 'annuelle'),
+                    ])->latest('date_inscription');
+                },
+            ])
             ->take(15)
-            ->get(['id', 'matricule', 'matricule_national', 'nom', 'prenom', 'sexe', 'date_naissance', 'telephone_parent']);
+            ->get();
 
-        return response()->json($eleves);
+        $payload = $eleves->map(function ($eleve) {
+            $derniereInscription = $eleve->inscriptions->first();
+            $delib = $derniereInscription?->deliberations?->first();
+
+            $statutRetenu = $delib?->statut_retenu ?? null;
+            $isRedoublant = ($statutRetenu === 'redouble');
+            $soldeRestantPrecedent = (float) ($derniereInscription?->compteFinancier?->solde_restant ?? 0);
+
+            return [
+                'id' => $eleve->id,
+                'matricule' => $eleve->matricule,
+                'matricule_national' => $eleve->matricule_national,
+                'nom' => $eleve->nom,
+                'prenom' => $eleve->prenom,
+                'nom_complet' => $eleve->nom_complet,
+                'sexe' => $eleve->sexe,
+                'date_naissance' => $eleve->date_naissance?->format('Y-m-d'),
+                'telephone_parent' => $eleve->telephone_parent,
+                'derniere_classe' => $derniereInscription ? [
+                    'classe_id' => $derniereInscription->classe_id,
+                    'classe_nom' => $derniereInscription->classe?->nom ?? 'N/A',
+                    'niveau_nom' => $derniereInscription->classe?->niveau?->nom ?? 'N/A',
+                    'annee_nom' => $derniereInscription->anneeScolaire?->nom ?? $derniereInscription->anneeScolaire?->code ?? 'N/A',
+                    'decision_conseil' => $delib?->decision_conseil ?? ($statutRetenu === 'promu' ? 'Promu en classe supérieure' : ($statutRetenu === 'redouble' ? 'Autorisé à redoubler' : null)),
+                    'statut_retenu' => $statutRetenu,
+                    'is_redoublant_preconise' => $isRedoublant,
+                    'solde_impaye_precedent' => $soldeRestantPrecedent,
+                ] : null,
+            ];
+        });
+
+        return response()->json($payload);
     }
 }

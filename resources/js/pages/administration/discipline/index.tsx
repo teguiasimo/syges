@@ -220,7 +220,7 @@ export default function DisciplineIndex({
                             </Badge>
                         )}
                         {row.original.motif_justification && (
-                            <p className="text-[10px] text-slate-500 italic mt-0.5 max-w-[200px] truncate" title={row.original.motif_justification}>
+                            <p className="text-[10px] text-slate-500 italic mt-0.5 max-w-50 truncate" title={row.original.motif_justification}>
                                 {row.original.motif_justification}
                             </p>
                         )}
@@ -323,7 +323,7 @@ export default function DisciplineIndex({
             accessorKey: 'motif',
             header: 'Motif',
             cell: ({ row }) => (
-                <span className="text-xs text-slate-700 dark:text-slate-300 max-w-[260px] line-clamp-2" title={row.original.motif}>
+                <span className="text-xs text-slate-700 dark:text-slate-300 max-w-65 line-clamp-2" title={row.original.motif}>
                     {row.original.motif}
                 </span>
             ),
@@ -709,7 +709,7 @@ export default function DisciplineIndex({
 
                     {/* Barre d'outils de filtres communs */}
                     <div className="flex flex-wrap items-center gap-3">
-                        <div className="relative flex-1 min-w-[200px]">
+                        <div className="relative flex-1 min-w-50">
                             <Search className="w-4 h-4 absolute left-2.5 top-2.5 text-slate-400" />
                             <Input
                                 placeholder="Rechercher par élève ou matricule..."

@@ -344,7 +344,7 @@ export default function EmploiDuTempsIndex({
                 <div>
                     <span className="font-bold text-xs text-slate-900 dark:text-slate-100">{row.original.nom}</span>
                     {row.original.description && (
-                        <p className="text-[10px] text-slate-500 truncate max-w-[200px]">{row.original.description}</p>
+                        <p className="text-[10px] text-slate-500 truncate max-w-50">{row.original.description}</p>
                     )}
                 </div>
             ),
@@ -711,7 +711,7 @@ export default function EmploiDuTempsIndex({
 
                     {/* Barre de filtres contextuels */}
                     <div className="flex flex-wrap items-center gap-3">
-                        <div className="relative flex-1 min-w-[200px]">
+                        <div className="relative flex-1 min-w-50">
                             <Search className="w-4 h-4 absolute left-2.5 top-2.5 text-slate-400" />
                             <Input
                                 placeholder="Rechercher matière, enseignant ou salle..."

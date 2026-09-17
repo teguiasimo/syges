@@ -46,8 +46,8 @@ class StatistiqueConseilTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected User $unauthorizedUser;
-    protected User $directorUser;
+    public ?User $unauthorizedUser = null;
+    public ?User $directorUser = null;
     public ?User $adminUser = null;
     public ?Etablissement $etablissement = null;
     public ?AnneeScolaire $anneeScolaire = null;
@@ -55,7 +55,7 @@ class StatistiqueConseilTest extends TestCase
     public ?Inscription $inscription1 = null;
     public ?Inscription $inscription2 = null;
     public ?Inscription $inscription3 = null;
-    protected Periode $trimestre1;
+    public ?Periode $trimestre1 = null;
 
     /**
      * Initialisation de l'environnement de test du Module 15.

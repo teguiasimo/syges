@@ -160,15 +160,14 @@
     </style>
 </head>
 <body>
-    {{-- En-tête officiel MINESEC / Établissement --}}
+    {{-- En-tête financier officiel sans la devise nationale (allégé pour optimiser l'espace) --}}
     <table class="header-table">
         <tr>
             <td class="header-left">
                 <strong>RÉPUBLIQUE DU CAMEROUN</strong><br>
-                <em>Paix – Travail – Patrie</em><br>
                 MINISTÈRE DES ENSEIGNEMENTS SECONDAIRES<br>
-                DÉLÉGATION RÉGIONALE DU CENTRE<br>
-                DÉLÉGATION DÉPARTEMENTALE DU MFOUNDI
+                {{ $etablissement->institution?->delegation_regionale ?? 'DÉLÉGATION RÉGIONALE DES ENSEIGNEMENTS SECONDAIRES' }}<br>
+                {{ $etablissement->institution?->delegation_departementale ?? 'DÉLÉGATION DÉPARTEMENTALE' }}
             </td>
             <td class="header-center">
                 @if(!empty($etablissement->logo) && file_exists(public_path($etablissement->logo)))
@@ -182,10 +181,9 @@
             </td>
             <td class="header-right">
                 <strong>REPUBLIC OF CAMEROON</strong><br>
-                <em>Peace – Work – Fatherland</em><br>
                 MINISTRY OF SECONDARY EDUCATION<br>
-                REGIONAL DELEGATION OF CENTER<br>
-                MFOUNDI DIVISIONAL DELEGATION
+                {{ $etablissement->institution?->delegation_regionale_en ?? 'REGIONAL DELEGATION OF SECONDARY EDUCATION' }}<br>
+                {{ $etablissement->institution?->delegation_departementale_en ?? 'DIVISIONAL DELEGATION' }}
             </td>
         </tr>
     </table>

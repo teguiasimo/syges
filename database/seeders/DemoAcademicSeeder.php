@@ -136,7 +136,7 @@ class DemoAcademicSeeder extends Seeder
                 'nom' => 'Collège Saint Joseph Bilingue',
                 'nom_en' => 'Saint Joseph Bilingual College',
                 'statut_juridique' => 'Prive_Confessionnel',
-                'mode_bulletin_defaut' => 'avec_competences',
+                'mode_bulletin_defaut' => 'sans_competences',
                 'type_calcul_trimestre' => 'arithmetique',
                 'ordre_enseignement' => 'Secondaire_General',
                 'nom_chef_etablissement' => 'Mme Ndongo Célestine (Principale)',
@@ -147,7 +147,7 @@ class DemoAcademicSeeder extends Seeder
         );
 
         // Mise à jour de sécurité des options de bulletin
-        $college->mode_bulletin_defaut = 'avec_competences';
+        $college->mode_bulletin_defaut = 'sans_competences';
         $college->type_calcul_trimestre = 'arithmetique';
         $college->save();
 
@@ -157,10 +157,17 @@ class DemoAcademicSeeder extends Seeder
             ['nom' => 'Section Francophone', 'nom_en' => 'Francophone Section', 'langue' => 'fr']
         );
 
-        $cycle1 = Cycle::firstOrCreate(
-            ['section_id' => $sectionFr->id, 'code' => 'CYC1-FR'],
-            ['nom' => 'Premier Cycle', 'nom_en' => 'First Cycle', 'diplome_fin_cycle' => 'BEPC', 'ordre' => 1]
-        );
+        $cycle1 = Cycle::where('section_id', $sectionFr->id)
+            ->where('nom', 'Premier Cycle')
+            ->first() ?? Cycle::create([
+                'section_id' => $sectionFr->id,
+                'etablissement_id' => $college->id,
+                'code' => 'CYC1',
+                'nom' => 'Premier Cycle',
+                'nom_en' => 'First Cycle',
+                'diplome_fin_cycle' => 'BEPC',
+                'ordre' => 1,
+            ]);
 
         $niv6eme = Niveau::firstOrCreate(
             ['code' => '6EME'],

@@ -134,4 +134,86 @@ class SeanceEmploiTemps extends Model
     {
         return round($this->duree_minutes / 60, 2);
     }
+
+    /**
+     * Détermine si la séance d'emploi du temps est annulée.
+     *
+     * @return bool
+     */
+    public function isAnnule(): bool
+    {
+        return $this->statut === 'annule';
+    }
+
+    /**
+     * Détermine si la séance est active (cours normal non annulé).
+     *
+     * @return bool
+     */
+    public function isActif(): bool
+    {
+        return $this->statut === 'actif';
+    }
+
+    /**
+     * Détermine si la séance fait l'objet d'un remplacement enseignant.
+     *
+     * @return bool
+     */
+    public function isRemplace(): bool
+    {
+        return $this->statut === 'remplace';
+    }
+
+    /**
+     * Récupère le personnel enseignant qui assure réellement le cours (remplaçant ou titulaire).
+     *
+     * @return Personnel|null
+     */
+    public function getEnseignantActuelAttribute(): ?Personnel
+    {
+        return $this->remplacant ?? $this->attribution?->personnel;
+    }
+
+    /**
+     * Retourne le libellé formaté en français du jour de la semaine.
+     *
+     * @return string
+     */
+    public function getJourLibelleAttribute(): string
+    {
+        return match ($this->jour_semaine) {
+            'lundi' => 'Lundi',
+            'mardi' => 'Mardi',
+            'mercredi' => 'Mercredi',
+            'jeudi' => 'Jeudi',
+            'vendredi' => 'Vendredi',
+            'samedi' => 'Samedi',
+            default => ucfirst((string) $this->jour_semaine),
+        };
+    }
+
+    /**
+     * Retourne la plage horaire formatée au format HH:MM - HH:MM.
+     *
+     * @return string
+     */
+    public function getPlageHoraireAttribute(): string
+    {
+        $debut = substr((string) $this->heure_debut, 0, 5);
+        $fin = substr((string) $this->heure_fin, 0, 5);
+
+        return "{$debut} - {$fin}";
+    }
+
+    /**
+     * Scope Eloquent pour filtrer les séances non annulées (séances valides).
+     *
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopeActif(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
+    {
+        return $query->where('statut', '!=', 'annule');
+    }
 }

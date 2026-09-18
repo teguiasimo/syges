@@ -21,6 +21,7 @@ import {
     ShieldAlert,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useConfirmDelete } from '@/components/confirm-delete-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -92,6 +93,9 @@ export default function EmploiDuTempsIndex({
         (filters.tab as any) || 'grille_classe'
     );
 
+    // Boîte de dialogue unifiée de confirmation de suppression
+    const { confirmDelete, ConfirmDialog } = useConfirmDelete();
+
     // Modales
     const [isSeanceModalOpen, setIsSeanceModalOpen] = useState(false);
     const [isSalleModalOpen, setIsSalleModalOpen] = useState(false);
@@ -110,17 +114,28 @@ export default function EmploiDuTempsIndex({
 
     // Suppression d'une séance
     const handleDeleteSeance = (seance: SeanceEmploiTemps) => {
-        if (!confirm('Êtes-vous certain de vouloir supprimer cette séance de l\'emploi du temps ?')) return;
-
-        router.delete(`/administration/emplois-du-temps/seances/${seance.id}`, {
-            onSuccess: () => {
-                toast.success('Séance retirée de la grille hebdomadaire.', {
-                    position: 'top-right',
-                    className: 'bg-emerald-600 text-white border-none',
+        const seanceNom = `${seance.attribution?.matiere?.nom ?? 'Cours'} - ${seance.jour_semaine} (${seance.heure_debut?.substring(0, 5)} - ${seance.heure_fin?.substring(0, 5)})`;
+        confirmDelete({
+            title: 'Supprimer la séance',
+            itemType: 'la séance',
+            itemName: seanceNom,
+            description: "Cette séance sera définitivement retirée de l'emploi du temps et les décomptes d'heures seront actualisés.",
+            onConfirm: () => {
+                router.delete(`/administration/emplois-du-temps/seances/${seance.id}`, {
+                    onSuccess: () => {
+                        toast.success('Séance retirée de la grille hebdomadaire.', {
+                            position: 'top-right',
+                            style: {
+                                backgroundColor: '#10b981',
+                                color: '#ffffff',
+                                border: '1px solid #059669',
+                            },
+                        });
+                    },
+                    onError: () => {
+                        toast.error('Erreur lors de la suppression de la séance.', { position: 'top-right' });
+                    },
                 });
-            },
-            onError: () => {
-                toast.error('Erreur lors de la suppression de la séance.', { position: 'top-right' });
             },
         });
     };
@@ -131,7 +146,11 @@ export default function EmploiDuTempsIndex({
             onSuccess: () => {
                 toast.success('Séance rétablie au statut actif.', {
                     position: 'top-right',
-                    className: 'bg-emerald-600 text-white border-none',
+                    style: {
+                        backgroundColor: '#10b981',
+                        color: '#ffffff',
+                        border: '1px solid #059669',
+                    },
                 });
             },
             onError: () => {
@@ -142,17 +161,27 @@ export default function EmploiDuTempsIndex({
 
     // Suppression d'une salle
     const handleDeleteSalle = (salle: Salle) => {
-        if (!confirm(`Supprimer la salle "${salle.nom}" ? Cette action est irréversible.`)) return;
-
-        router.delete(`/administration/emplois-du-temps/salles/${salle.id}`, {
-            onSuccess: () => {
-                toast.success('Salle retirée du répertoire.', {
-                    position: 'top-right',
-                    className: 'bg-emerald-600 text-white border-none',
+        confirmDelete({
+            title: 'Supprimer la salle',
+            itemType: 'la salle',
+            itemName: salle.nom,
+            description: `La salle sera définitivement supprimée du répertoire. Assurez-vous qu'aucun cours n'y est actuellement programmé.`,
+            onConfirm: () => {
+                router.delete(`/administration/emplois-du-temps/salles/${salle.id}`, {
+                    onSuccess: () => {
+                        toast.success('Salle retirée du répertoire.', {
+                            position: 'top-right',
+                            style: {
+                                backgroundColor: '#10b981',
+                                color: '#ffffff',
+                                border: '1px solid #059669',
+                            },
+                        });
+                    },
+                    onError: () => {
+                        toast.error('Erreur lors de la suppression de la salle.', { position: 'top-right' });
+                    },
                 });
-            },
-            onError: () => {
-                toast.error('Erreur lors de la suppression de la salle.', { position: 'top-right' });
             },
         });
     };
@@ -842,6 +871,9 @@ export default function EmploiDuTempsIndex({
                 onOpenChange={setIsSalleModalOpen}
                 etablissementId={currentEtablissement?.id ?? 0}
             />
+
+            {/* Dialogue de confirmation de suppression unifié */}
+            <ConfirmDialog />
         </>
     );
 }

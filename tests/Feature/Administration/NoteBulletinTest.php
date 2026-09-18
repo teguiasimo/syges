@@ -564,8 +564,9 @@ test('generation et telechargement du bulletin officiel en PDF individuel et cah
         ->assertSee('KAMGA Arthur');
 
     // 2. Prévisualisation HTML du bulletin en mode Standard (absence de la colonne Compétences APC)
+    $this->etablissement->update(['mode_bulletin_defaut' => 'sans_competences']);
     $this->actingAs($this->adminUser)
-        ->get("/administration/bulletins/previsualiser/{$this->inscription1->id}/{$this->periode->id}?mode=sans_competences")
+        ->get("/administration/bulletins/previsualiser/{$this->inscription1->id}/{$this->periode->id}")
         ->assertOk()
         ->assertSee('BULLETIN SCOLAIRE')
         ->assertDontSee('Compétences Évaluées (APC)');

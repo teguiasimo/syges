@@ -10,6 +10,8 @@ use App\Models\Personnel;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
@@ -25,8 +27,23 @@ use Spatie\Permission\Models\Role;
  * la qualification des enseignants (charge horaire, vacation) et la création / liaison fluide
  * avec les comptes d'accès utilisateurs (`users`).
  */
-class PersonnelController extends Controller
+class PersonnelController extends Controller implements HasMiddleware
 {
+    /**
+     * Définition de la matrice des middlewares d'autorisation pour le module Personnel & RH.
+     *
+     * @return array<int, Middleware>
+     */
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('can:personnels.view', only: ['index']),
+            new Middleware('can:personnels.manage', only: ['store', 'update', 'toggleStatus']),
+            new Middleware('can:personnels.delete', only: ['destroy']),
+            new Middleware('can:departements.manage', only: ['storeDepartement', 'updateDepartement', 'destroyDepartement']),
+        ];
+    }
+
     /**
      * Affiche la liste du personnel et des départements pédagogiques avec filtres avancés.
      *

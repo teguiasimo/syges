@@ -4,10 +4,13 @@ namespace App\Http\Controllers\Administration;
 
 use App\Http\Controllers\Controller;
 use App\Models\AnneeScolaire;
+use App\Models\Etablissement;
 use App\Models\Evaluation;
 use App\Models\Periode;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -16,26 +19,55 @@ use Inertia\Response;
  * Contrôleur d'administration des Années Scolaires, Périodes et Paramètres d'Évaluation.
  *
  * Implémente le Module 3 du cahier des charges Gesco :
- * - Cadre temporel (Années scolaires, statut, indicateur d'année active).
- * - Découpage périodique (Trimestres et Séquences d'évaluation).
- * - Mode de calcul de la moyenne trimestrielle (Option A : Arithmétique, Option B : Pondérée 100%).
- * - Verrouillage temporel et manuel de la saisie des notes pour les enseignants.
+ * - Cadre temporel global (Années scolaires, statut, indicateur d'année active).
+ * - Découpage périodique par établissement (Trimestres et Séquences d'évaluation).
+ * - Verrouillage temporel et manuel de la saisie des notes pour les enseignants par campus.
  */
-class PeriodeEvaluationController extends Controller
+class PeriodeEvaluationController extends Controller implements HasMiddleware
 {
     /**
-     * Affiche l'interface de gestion des périodes et évaluations.
+     * Définition de la matrice des middlewares d'autorisation pour le module Périodes & Évaluations.
+     *
+     * @return array<int, Middleware>
+     */
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('can:periodes.view', only: ['index']),
+            new Middleware('can:periodes.manage', only: [
+                'storeAnnee',
+                'updateAnnee',
+                'setCurrentAnnee',
+                'updateModeCalcul',
+                'generateStandardStructure',
+                'storeTrimestre',
+                'updateTrimestre',
+                'destroyTrimestre',
+                'storeEvaluation',
+                'updateEvaluation',
+                'destroyEvaluation',
+            ]),
+            new Middleware('can:periodes.lock', only: ['toggleLockEvaluation']),
+        ];
+    }
+
+    /**
+     * Affiche l'interface de gestion des périodes et évaluations par établissement.
      *
      * @param Request $request Requête HTTP entrante.
-     * @return Response Vue Inertia avec les années, trimestres et séquences.
+     * @return Response Vue Inertia avec les établissements, années, trimestres et séquences.
      */
     public function index(Request $request): Response
     {
         abort_unless($request->user()->can('periodes.view'), 403, 'Accès non autorisé au module Périodes.');
 
-        $annees = AnneeScolaire::orderByDesc('date_debut')->get();
+        // Récupération de tous les campus / établissements de l'institution
+        $etablissements = Etablissement::orderBy('nom')->get();
+        $etablissementId = $request->query('etablissement_id');
+        $selectedEtablissement = $etablissementId ? Etablissement::find($etablissementId) : $etablissements->first();
 
-        // Récupération de l'année sélectionnée ou de l'année active par défaut
+        // Récupération des années scolaires
+        $annees = AnneeScolaire::orderByDesc('date_debut')->get();
         $anneeId = $request->query('annee_id');
         $selectedAnnee = $anneeId ? AnneeScolaire::find($anneeId) : AnneeScolaire::current();
 
@@ -43,10 +75,11 @@ class PeriodeEvaluationController extends Controller
             $selectedAnnee = $annees->first();
         }
 
-        // Chargement des périodes et évaluations rattachées
+        // Chargement des périodes et évaluations rattachées à la fois à l'année et à l'établissement actif
         $periodes = collect();
-        if ($selectedAnnee) {
+        if ($selectedAnnee && $selectedEtablissement) {
             $periodes = Periode::where('annee_scolaire_id', $selectedAnnee->id)
+                ->where('etablissement_id', $selectedEtablissement->id)
                 ->with(['evaluations' => function ($query) {
                     $query->orderBy('ordre');
                 }])
@@ -55,6 +88,8 @@ class PeriodeEvaluationController extends Controller
         }
 
         return Inertia::render('administration/periodes/index', [
+            'etablissements' => $etablissements,
+            'selectedEtablissement' => $selectedEtablissement,
             'annees' => $annees,
             'selectedAnnee' => $selectedAnnee,
             'periodes' => $periodes,
@@ -77,15 +112,27 @@ class PeriodeEvaluationController extends Controller
 
         $validated = $request->validate([
             'code' => ['required', 'string', 'max:30', 'unique:annees_scolaires,code'],
-            'nom' => ['required', 'string', 'max:120'],
+            'nom' => ['nullable', 'string', 'max:120'],
             'nom_en' => ['nullable', 'string', 'max:120'],
             'date_debut' => ['required', 'date'],
             'date_fin' => ['required', 'date', 'after:date_debut'],
             'statut' => ['required', 'string', 'in:en_preparation,en_cours,cloturee'],
-            'mode_calcul_moyenne' => ['required', 'string', 'in:arithmetique_simple,ponderee_pourcentage'],
+            'mode_calcul_moyenne' => ['nullable', 'string', 'in:arithmetique_simple,ponderee_pourcentage'],
             'is_current' => ['boolean'],
             'auto_generate_structure' => ['boolean'],
+            'etablissement_id' => ['nullable', 'exists:etablissements,id'],
         ]);
+
+        if (empty($validated['nom'])) {
+            $validated['nom'] = "Année Scolaire {$validated['code']}";
+        }
+        if (empty($validated['nom_en'])) {
+            $validated['nom_en'] = "Academic Year {$validated['code']}";
+        }
+
+        if (empty($validated['mode_calcul_moyenne'])) {
+            $validated['mode_calcul_moyenne'] = 'arithmetique_simple';
+        }
 
         $isCurrent = $validated['is_current'] ?? false;
         if ($isCurrent) {
@@ -93,17 +140,20 @@ class PeriodeEvaluationController extends Controller
         }
 
         $autoGenerate = $validated['auto_generate_structure'] ?? false;
-        unset($validated['auto_generate_structure']);
+        $etablissementId = $validated['etablissement_id'] ?? Etablissement::first()?->id;
+        unset($validated['auto_generate_structure'], $validated['etablissement_id']);
 
         $annee = AnneeScolaire::create($validated);
 
-        // Auto-génération de la structure camerounaise standard (3 Trimestres / 6 Séquences)
+        // Auto-génération de la structure camerounaise standard (3 Trimestres / 6 Séquences) pour l'établissement cible
         if ($autoGenerate) {
-            $this->seedStandardPeriodes($annee);
+            $this->seedStandardPeriodes($annee, $etablissementId);
         }
 
-        return redirect()->route('administration.periodes.index', ['annee_id' => $annee->id])
-            ->with('success', "L'année scolaire « {$annee->nom} » a été créée avec succès.");
+        return redirect()->route('administration.periodes.index', [
+            'annee_id' => $annee->id,
+            'etablissement_id' => $etablissementId,
+        ])->with('success', "L'année scolaire « {$annee->nom} » a été créée avec succès.");
     }
 
     /**
@@ -119,14 +169,25 @@ class PeriodeEvaluationController extends Controller
 
         $validated = $request->validate([
             'code' => ['required', 'string', 'max:30', Rule::unique('annees_scolaires', 'code')->ignore($anneeScolaire->id)],
-            'nom' => ['required', 'string', 'max:120'],
+            'nom' => ['nullable', 'string', 'max:120'],
             'nom_en' => ['nullable', 'string', 'max:120'],
             'date_debut' => ['required', 'date'],
             'date_fin' => ['required', 'date', 'after:date_debut'],
             'statut' => ['required', 'string', 'in:en_preparation,en_cours,cloturee'],
-            'mode_calcul_moyenne' => ['required', 'string', 'in:arithmetique_simple,ponderee_pourcentage'],
+            'mode_calcul_moyenne' => ['nullable', 'string', 'in:arithmetique_simple,ponderee_pourcentage'],
             'is_current' => ['boolean'],
         ]);
+
+        if (empty($validated['nom'])) {
+            $validated['nom'] = $anneeScolaire->nom ?: "Année Scolaire {$validated['code']}";
+        }
+        if (empty($validated['nom_en'])) {
+            $validated['nom_en'] = $anneeScolaire->nom_en ?: "Academic Year {$validated['code']}";
+        }
+
+        if (empty($validated['mode_calcul_moyenne'])) {
+            unset($validated['mode_calcul_moyenne']);
+        }
 
         if (! empty($validated['is_current']) && ! $anneeScolaire->is_current) {
             AnneeScolaire::where('is_current', true)->update(['is_current' => false]);
@@ -181,7 +242,7 @@ class PeriodeEvaluationController extends Controller
     }
 
     /**
-     * Génère la structure officielle camerounaise (3 trimestres, 6 séquences) pour une année vide.
+     * Génère la structure officielle camerounaise (3 trimestres, 6 séquences) pour un établissement et une année cible.
      *
      * @param Request $request Requête HTTP.
      * @param AnneeScolaire $anneeScolaire Année cible.
@@ -191,17 +252,23 @@ class PeriodeEvaluationController extends Controller
     {
         abort_unless($request->user()->can('periodes.manage'), 403, 'Permission requise : periodes.manage');
 
-        if ($anneeScolaire->periodes()->exists()) {
-            return back()->with('error', 'Cette année scolaire contient déjà des trimestres configurés.');
+        $etablissementId = $request->input('etablissement_id') ?? Etablissement::first()?->id;
+
+        $hasPeriodes = $anneeScolaire->periodes()
+            ->when($etablissementId, fn ($q) => $q->where('etablissement_id', $etablissementId))
+            ->exists();
+
+        if ($hasPeriodes) {
+            return back()->with('error', 'Cet établissement contient déjà des trimestres configurés pour cette année scolaire.');
         }
 
-        $this->seedStandardPeriodes($anneeScolaire);
+        $this->seedStandardPeriodes($anneeScolaire, $etablissementId);
 
-        return back()->with('success', 'La structure officielle (3 Trimestres et 6 Séquences) a été générée avec succès.');
+        return back()->with('success', 'La structure officielle (3 Trimestres et 6 Séquences) a été générée avec succès pour cet établissement.');
     }
 
     /**
-     * Enregistre un nouveau trimestre.
+     * Enregistre un nouveau trimestre pour un établissement donné.
      *
      * @param Request $request Requête HTTP.
      * @return RedirectResponse Redirection.
@@ -211,6 +278,7 @@ class PeriodeEvaluationController extends Controller
         abort_unless($request->user()->can('periodes.manage'), 403, 'Permission requise : periodes.manage');
 
         $validated = $request->validate([
+            'etablissement_id' => ['nullable', 'exists:etablissements,id'],
             'annee_scolaire_id' => ['required', 'exists:annees_scolaires,id'],
             'code' => ['required', 'string', 'max:30'],
             'nom' => ['required', 'string', 'max:100'],
@@ -221,12 +289,16 @@ class PeriodeEvaluationController extends Controller
             'statut' => ['required', 'string', 'in:a_venir,en_cours,cloturee'],
         ]);
 
+        $etablissementId = $validated['etablissement_id'] ?? Etablissement::first()?->id;
+        $validated['etablissement_id'] = $etablissementId;
+
         $exists = Periode::where('annee_scolaire_id', $validated['annee_scolaire_id'])
+            ->where('etablissement_id', $etablissementId)
             ->where('code', $validated['code'])
             ->exists();
 
         if ($exists) {
-            return back()->with('error', 'Un trimestre portant ce code existe déjà dans cette année scolaire.');
+            return back()->with('error', 'Un trimestre portant ce code existe déjà dans cet établissement pour cette année scolaire.');
         }
 
         Periode::create($validated);
@@ -252,6 +324,7 @@ class PeriodeEvaluationController extends Controller
                 'max:30',
                 Rule::unique('periodes', 'code')
                     ->where('annee_scolaire_id', $periode->annee_scolaire_id)
+                    ->where('etablissement_id', $periode->etablissement_id)
                     ->ignore($periode->id),
             ],
             'nom' => ['required', 'string', 'max:100'],
@@ -401,12 +474,14 @@ class PeriodeEvaluationController extends Controller
     }
 
     /**
-     * Méthode d'aide privée : Génère 3 trimestres et 6 séquences standards.
+     * Méthode d'aide privée : Génère 3 trimestres et 6 séquences standards pour un établissement.
      *
      * @param AnneeScolaire $annee L'année scolaire cible.
+     * @param int|null $etablissementId Identifiant de l'établissement cible.
      */
-    private function seedStandardPeriodes(AnneeScolaire $annee): void
+    private function seedStandardPeriodes(AnneeScolaire $annee, ?int $etablissementId = null): void
     {
+        $etablissementId = $etablissementId ?? Etablissement::first()?->id;
         $yearStart = $annee->date_debut ? $annee->date_debut->year : 2026;
         $yearEnd = $annee->date_fin ? $annee->date_fin->year : 2027;
 
@@ -457,6 +532,7 @@ class PeriodeEvaluationController extends Controller
             unset($tData['sequences']);
 
             $tData['annee_scolaire_id'] = $annee->id;
+            $tData['etablissement_id'] = $etablissementId;
             $trimestre = Periode::create($tData);
 
             foreach ($sequences as $sData) {

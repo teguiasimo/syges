@@ -35,7 +35,6 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type {
     EnfantResume,
@@ -288,7 +287,7 @@ export default function PortailParentIndex({
     }, [profil]);
 
     return (
-        <AppLayout breadcrumbs={breadcrumbs}>
+        <>
             <Head title="Portail Parents & Élèves" />
 
             <div className="flex flex-1 flex-col gap-6 p-4 md:p-6">
@@ -646,6 +645,14 @@ export default function PortailParentIndex({
                     </Card>
                 )}
             </div>
-        </AppLayout>
+        </>
     );
 }
+
+/**
+ * Configuration du layout persistant et des fils d'Ariane pour le Portail Parents & Élèves.
+ */
+PortailParentIndex.layout = {
+    breadcrumbs,
+};
+

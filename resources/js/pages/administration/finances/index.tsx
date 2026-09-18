@@ -22,6 +22,7 @@ import {
     Trash2,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useConfirmDelete } from '@/components/confirm-delete-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -89,6 +90,9 @@ export default function FinancesIndex({
     const [activeTab, setActiveTab] = useState<'versements' | 'comptes' | 'journal' | 'tarifs'>(
         (filters.tab as any) || 'versements'
     );
+
+    // Boîte de dialogue unifiée de confirmation de suppression
+    const { confirmDelete, ConfirmDialog } = useConfirmDelete();
 
     // États des modales
     const [isVersementModalOpen, setIsVersementModalOpen] = useState(false);
@@ -414,13 +418,28 @@ export default function FinancesIndex({
                     <Button
                         variant="ghost"
                         size="sm"
-                        className="h-7 text-xs text-red-500 hover:text-red-700"
+                        className="h-7 text-xs text-red-500 hover:text-red-700 cursor-pointer"
                         onClick={() => {
-                            if (confirm('Supprimer cette ligne tarifaire ?')) {
-                                router.delete(`/administration/finances/tarifs/${row.original.id}`, {
-                                    onSuccess: () => toast.success('Tarif supprimé.', { position: 'top-right', className: 'bg-emerald-600 text-white' }),
-                                });
-                            }
+                            const tarifNom = `${row.original.type_frais?.libelle ?? 'Frais'} - ${row.original.niveau?.nom ?? 'Tous niveaux'}`;
+                            confirmDelete({
+                                title: 'Supprimer la ligne tarifaire',
+                                itemType: 'le tarif',
+                                itemName: tarifNom,
+                                description: 'Cette ligne de tarification sera supprimée. Les comptes élèves existants conserveront leur historique comptable.',
+                                onConfirm: () => {
+                                    router.delete(`/administration/finances/tarifs/${row.original.id}`, {
+                                        onSuccess: () =>
+                                            toast.success('Ligne tarifaire supprimée avec succès.', {
+                                                position: 'top-right',
+                                                style: {
+                                                    backgroundColor: '#10b981',
+                                                    color: '#ffffff',
+                                                    border: '1px solid #059669',
+                                                },
+                                            }),
+                                    });
+                                },
+                            });
                         }}
                     >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -859,6 +878,9 @@ export default function FinancesIndex({
                 anneeId={currentAnnee?.id ?? 0}
                 etablissementId={currentEtablissement?.id ?? 0}
             />
+
+            {/* Dialogue de confirmation de suppression unifié */}
+            <ConfirmDialog />
         </>
     );
 }

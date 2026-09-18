@@ -212,13 +212,16 @@
                 <div class="country-title">RÉPUBLIQUE DU CAMEROUN</div>
                 <div class="motto">Paix - Travail - Patrie</div>
                 <div class="delegation">MINISTÈRE DES ENSEIGNEMENTS SECONDAIRES</div>
-                <div class="delegation">DÉLÉGATION RÉGIONALE DU CENTRE</div>
-                <div class="delegation">DÉLÉGATION DÉPARTEMENTALE DU MFOUNDI</div>
+                {{-- Tutelle Administrative Régionale et Départementale (FR) --}}
+                <div class="delegation">{{ $classe['etablissement']['delegation_regionale'] ?? 'DÉLÉGATION RÉGIONALE DES ENSEIGNEMENTS SECONDAIRES' }}</div>
+                <div class="delegation">{{ $classe['etablissement']['delegation_departementale'] ?? 'DÉLÉGATION DÉPARTEMENTALE' }}</div>
                 <div class="school-name">{{ $classe['etablissement']['nom'] }}</div>
             </td>
             <td style="width: 28%; text-align: center;">
-                @if(!empty($classe['etablissement']['logo_url']))
+                @if(!empty($classe['etablissement']['logo_url']) && file_exists(public_path($classe['etablissement']['logo_url'])))
                     <img src="{{ public_path($classe['etablissement']['logo_url']) }}" class="logo-img" alt="Logo">
+                @elseif(!empty($classe['etablissement']['logo']) && file_exists(public_path($classe['etablissement']['logo'])))
+                    <img src="{{ public_path($classe['etablissement']['logo']) }}" class="logo-img" alt="Logo">
                 @else
                     <div style="font-weight: bold; font-size: 13pt; color: #1e3a8a; margin-top: 4px;">
                         {{ $classe['etablissement']['sigle'] ?? 'SYGES' }}
@@ -228,16 +231,17 @@
                     {{ $classe['etablissement']['devise'] ?? 'Discipline - Travail - Succès' }}
                 </div>
                 <div style="font-size: 6pt; color: #64748b;">
-                    BP : {{ $classe['etablissement']['ville'] ?? 'Yaoundé' }} | Tél : {{ $classe['etablissement']['telephone'] ?? '---' }}
+                    BP : {{ $classe['etablissement']['ville'] ?? $classe['etablissement']['boite_postale'] ?? '---' }} | Tél : {{ $classe['etablissement']['telephone'] ?? '---' }}
                 </div>
             </td>
             <td style="width: 36%;">
                 <div class="country-title">REPUBLIC OF CAMEROON</div>
                 <div class="motto">Peace - Work - Fatherland</div>
                 <div class="delegation">MINISTRY OF SECONDARY EDUCATION</div>
-                <div class="delegation">REGIONAL DELEGATION FOR THE CENTRE</div>
-                <div class="delegation">DIVISIONAL DELEGATION OF MFOUNDI</div>
-                <div class="school-name">{{ $classe['etablissement']['nom'] }}</div>
+                {{-- Tutelle Administrative Régionale et Départementale (EN) --}}
+                <div class="delegation">{{ $classe['etablissement']['delegation_regionale_en'] ?? 'REGIONAL DELEGATION OF SECONDARY EDUCATION' }}</div>
+                <div class="delegation">{{ $classe['etablissement']['delegation_departementale_en'] ?? 'DIVISIONAL DELEGATION' }}</div>
+                <div class="school-name">{{ $classe['etablissement']['nom_en'] ?: $classe['etablissement']['nom'] }}</div>
             </td>
         </tr>
     </table>

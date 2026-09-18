@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -21,8 +23,23 @@ use Spatie\Permission\Models\Role;
  * et changement de statut (activation/blocage) des comptes d'accès,
  * ainsi que l'attribution des rôles de sécurité Spatie.
  */
-class UserController extends Controller
+class UserController extends Controller implements HasMiddleware
 {
+    /**
+     * Définition de la matrice des middlewares d'autorisation pour le module Utilisateurs.
+     *
+     * @return array<int, Middleware>
+     */
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('can:users.view', only: ['index']),
+            new Middleware('can:users.create', only: ['store']),
+            new Middleware('can:users.edit', only: ['update']),
+            new Middleware('can:users.block', only: ['toggleStatus']),
+        ];
+    }
+
     /**
      * Dictionnaire des libellés conviviaux pour les rôles prédéfinis.
      *

@@ -15,6 +15,8 @@ use App\Models\SanctionDisciplinaire;
 use App\Services\DisciplineService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 
@@ -28,8 +30,22 @@ use Inertia\Response as InertiaResponse;
  * - Synchronisation automatique avec la synthèse des bulletins scolaires (Module 10).
  * - Contrôle de déchéance des mentions honorifiques pour absentéisme.
  */
-class DisciplineController extends Controller
+class DisciplineController extends Controller implements HasMiddleware
 {
+    /**
+     * Définition de la matrice des middlewares d'autorisation pour le module Discipline & Assiduité.
+     *
+     * @return array<int, Middleware>
+     */
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('can:discipline.view', only: ['index']),
+            new Middleware('can:discipline.manage', only: ['storeAssiduite', 'justifierAssiduite', 'destroyAssiduite']),
+            new Middleware('can:discipline.sanction', only: ['storeSanction', 'destroySanction']),
+        ];
+    }
+
     /**
      * Affiche l'espace de gestion de l'assiduité et de la discipline.
      *

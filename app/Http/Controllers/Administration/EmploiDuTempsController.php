@@ -13,6 +13,8 @@ use App\Models\SeanceEmploiTemps;
 use App\Services\EmploiDuTempsService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 
@@ -26,8 +28,31 @@ use Inertia\Response as InertiaResponse;
  * - Les alertes de remplacement et d'annulation.
  * - Les décomptes horaires RH des enseignants.
  */
-class EmploiDuTempsController extends Controller
+class EmploiDuTempsController extends Controller implements HasMiddleware
 {
+    /**
+     * Définition de la matrice des middlewares d'autorisation pour le module Emplois du Temps & Salles.
+     *
+     * @return array<int, Middleware>
+     */
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('can:emplois_du_temps.view', only: ['index']),
+            new Middleware('can:emplois_du_temps.manage', only: [
+                'storeSeance',
+                'updateSeance',
+                'destroySeance',
+                'annulerSeance',
+                'remplacerSeance',
+                'retablirSeance',
+                'storeSalle',
+                'updateSalle',
+                'destroySalle',
+            ]),
+        ];
+    }
+
     /**
      * Affiche l'espace Emplois du Temps & Gestion des Salles.
      *
@@ -67,7 +92,7 @@ class EmploiDuTempsController extends Controller
 
         // Enseignants de l'établissement
         $enseignants = Personnel::where('etablissement_id', $etablissementId)
-            ->where('statut_activite', 'actif')
+            ->actif()
             ->orderBy('nom')
             ->get();
 

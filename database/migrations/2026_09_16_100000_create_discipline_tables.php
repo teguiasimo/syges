@@ -63,9 +63,9 @@ return new class extends Migration
             $table->index(['inscription_id', 'periode_id', 'type_sanction'], 'sanctions_inscr_per_type_idx');
         });
 
-        // 3. Paramètre seuil de déchéance des mentions au niveau établissement
+        // 3. Paramètre seuil de déchéance des mentions au niveau établissement (défaut 40h MINESEC Cameroun)
         Schema::table('etablissements', function (Blueprint $table) {
-            $table->unsignedTinyInteger('seuil_absences_decheance_mentions')->default(15)->after('type_calcul_trimestre');
+            $table->unsignedTinyInteger('seuil_absences_decheance_mentions')->default(40)->after('type_calcul_trimestre');
         });
     }
 

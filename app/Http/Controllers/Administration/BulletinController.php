@@ -16,6 +16,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 
@@ -29,8 +31,21 @@ use Inertia\Response as InertiaResponse;
  *
  * Inclut également la configurabilité du format (avec compétences APC ou format standard).
  */
-class BulletinController extends Controller
+class BulletinController extends Controller implements HasMiddleware
 {
+    /**
+     * Définition de la matrice des middlewares d'autorisation pour le module Bulletins Scolaires.
+     *
+     * @return array<int, Middleware>
+     */
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('can:bulletins.view', only: ['index', 'previsualiser']),
+            new Middleware('can:bulletins.generate', only: ['telechargerPdf', 'telechargerClassePdf', 'sauvegarderDiscipline']),
+        ];
+    }
+
     /**
      * Service de calcul des résultats pédagogiques.
      */
@@ -75,7 +90,8 @@ class BulletinController extends Controller
             $classe = Classe::with(['niveau.cycle.section.etablissement.institution', 'professeurPrincipal'])
                 ->findOrFail($classeId);
 
-            $modeBulletin = $modeBulletin ?: ($classe->niveau->cycle->section->etablissement->mode_bulletin_defaut ?? 'avec_competences');
+            // Le format officiel du bulletin est strictement dicté par la configuration globale de l'établissement
+            $modeBulletin = $classe->niveau->cycle->section->etablissement->mode_bulletin_defaut ?? 'sans_competences';
 
             if ($typeBulletin === 'sequentiel' && $evaluationId) {
                 $evaluation = Evaluation::with('periode.anneeScolaire')->findOrFail($evaluationId);
@@ -101,7 +117,7 @@ class BulletinController extends Controller
                 'classe_id' => $classeId,
                 'periode_id' => $periodeId,
                 'evaluation_id' => $evaluationId,
-                'mode_bulletin' => $modeBulletin ?? 'avec_competences',
+                'mode_bulletin' => $modeBulletin ?? 'sans_competences',
             ],
         ]);
     }
@@ -114,7 +130,7 @@ class BulletinController extends Controller
     public function previsualiser(Request $request, Inscription $inscription, ?Periode $periode = null)
     {
         $classe = $inscription->classe()->with(['niveau.cycle.section.etablissement.institution', 'professeurPrincipal'])->firstOrFail();
-        $mode = $request->query('mode', $classe->niveau->cycle->section->etablissement->mode_bulletin_defaut ?? 'avec_competences');
+        $mode = $classe->niveau->cycle->section->etablissement->mode_bulletin_defaut ?? 'sans_competences';
         $type = $request->query('type_bulletin', 'trimestriel');
 
         if ($type === 'sequentiel') {
@@ -175,7 +191,7 @@ class BulletinController extends Controller
     public function telechargerPdf(Request $request, Inscription $inscription, ?Periode $periode = null): Response
     {
         $classe = $inscription->classe()->with(['niveau.cycle.section.etablissement.institution', 'professeurPrincipal'])->firstOrFail();
-        $mode = $request->query('mode', $classe->niveau->cycle->section->etablissement->mode_bulletin_defaut ?? 'avec_competences');
+        $mode = $classe->niveau->cycle->section->etablissement->mode_bulletin_defaut ?? 'sans_competences';
         $type = $request->query('type_bulletin', 'trimestriel');
 
         if ($type === 'sequentiel') {
@@ -247,7 +263,7 @@ class BulletinController extends Controller
         $classeWithRel = Classe::with(['niveau.cycle.section.etablissement.institution', 'professeurPrincipal'])
             ->findOrFail($classe->id);
 
-        $mode = $request->query('mode', $classeWithRel->niveau->cycle->section->etablissement->mode_bulletin_defaut ?? 'avec_competences');
+        $mode = $classeWithRel->niveau->cycle->section->etablissement->mode_bulletin_defaut ?? 'sans_competences';
         $type = $request->query('type_bulletin', 'trimestriel');
 
         if ($type === 'sequentiel') {

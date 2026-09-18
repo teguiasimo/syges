@@ -20,6 +20,8 @@ use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 use InvalidArgumentException;
@@ -34,8 +36,31 @@ use InvalidArgumentException;
  * - Journal quotidien de caisse et clôture journalière des comptes.
  * - Activation/désactivation du verrou de solvabilité sur les bulletins.
  */
-class FinanceController extends Controller
+class FinanceController extends Controller implements HasMiddleware
 {
+    /**
+     * Définition de la matrice des middlewares d'autorisation pour le module Finances & Caisse.
+     *
+     * @return array<int, Middleware>
+     */
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('can:finances.view', only: ['index', 'imprimerRecu']),
+            new Middleware('can:finances.manage', only: [
+                'storeVersement',
+                'ajusterCompte',
+                'storeTypeFrais',
+                'destroyTypeFrais',
+                'storeTarif',
+                'destroyTarif',
+                'toggleVerrouSolvabilite',
+            ]),
+            new Middleware('can:finances.annuler', only: ['annulerVersement']),
+            new Middleware('can:finances.cloture', only: ['cloturerJournee']),
+        ];
+    }
+
     /**
      * Affiche l'espace de gestion financière et de caisse.
      *
@@ -161,8 +186,8 @@ class FinanceController extends Controller
             ->get();
 
         // 7. Données d'appui pour les formulaires
-        $classes = Classe::where('etablissement_id', $etablissementId)
-            ->where('annee_scolaire_id', $anneeId)
+        $classes = Classe::whereHas('niveau.cycle.section', fn ($q) => $q->where('etablissement_id', $etablissementId))
+            ->where('is_active', true)
             ->orderBy('nom')
             ->get();
 
@@ -171,7 +196,7 @@ class FinanceController extends Controller
             ->get();
 
         $caissiers = Personnel::where('etablissement_id', $etablissementId)
-            ->where('statut_activite', 'actif')
+            ->actif()
             ->orderBy('nom')
             ->get();
 

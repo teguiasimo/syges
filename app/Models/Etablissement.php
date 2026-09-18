@@ -57,6 +57,7 @@ class Etablissement extends Model
         'logo',
         'mode_bulletin_defaut',
         'type_calcul_trimestre',
+        'seuil_absences_decheance_mentions',
         'verrou_solvabilite_actif',
         'bonus_paiement_anticipe_actif',
         'montant_bonus_anticipe',
@@ -69,6 +70,7 @@ class Etablissement extends Model
      * @var array<string, string>
      */
     protected $casts = [
+        'seuil_absences_decheance_mentions' => 'integer',
         'verrou_solvabilite_actif' => 'boolean',
         'bonus_paiement_anticipe_actif' => 'boolean',
         'montant_bonus_anticipe' => 'float',
@@ -93,6 +95,16 @@ class Etablissement extends Model
     public function sections(): HasMany
     {
         return $this->hasMany(Section::class);
+    }
+
+    /**
+     * Relation un-à-plusieurs vers les séries configurées pour cet établissement.
+     *
+     * @return HasMany
+     */
+    public function series(): HasMany
+    {
+        return $this->hasMany(Serie::class);
     }
 
     /**
@@ -143,5 +155,15 @@ class Etablissement extends Model
     public function cloturesCaisse(): HasMany
     {
         return $this->hasMany(ClotureCaisse::class);
+    }
+
+    /**
+     * Périodes et trimestres d'évaluation rattachés à cet établissement.
+     *
+     * @return HasMany<Periode>
+     */
+    public function periodes(): HasMany
+    {
+        return $this->hasMany(Periode::class, 'etablissement_id')->orderBy('ordre');
     }
 }

@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Administration;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
@@ -18,8 +20,23 @@ use Spatie\Permission\Models\Role;
  * Fournit les opérations CRUD complètes sur les profils d'accès (rôles)
  * et permet la synchronisation granulaire des permissions organisées par module scolaire.
  */
-class RolePermissionController extends Controller
+class RolePermissionController extends Controller implements HasMiddleware
 {
+    /**
+     * Définition de la matrice des middlewares d'autorisation pour le module Rôles & Permissions.
+     *
+     * @return array<int, Middleware>
+     */
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('can:roles.view', only: ['index']),
+            new Middleware('can:roles.create', only: ['store']),
+            new Middleware('can:roles.edit', only: ['update']),
+            new Middleware('can:roles.delete', only: ['destroy']),
+        ];
+    }
+
     /**
      * Dictionnaire des libellés conviviaux pour les rôles prédéfinis du système.
      *

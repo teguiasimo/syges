@@ -19,6 +19,8 @@ import {
 } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import { usePermission } from '@/hooks/use-permission';
+import { useConfirmDelete } from '@/components/confirm-delete-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -152,15 +154,12 @@ export default function MatiereIndex({
     can,
     flash,
 }: MatiereIndexProps) {
-    // 1. Détection robuste des privilèges d'administration
-    const { auth } = usePage<{ auth?: { user?: { is_super_admin?: boolean; roles?: string[]; permissions?: string[] } } }>().props;
-    const isSuperAdmin = Boolean(
-        auth?.user?.is_super_admin ||
-        auth?.user?.roles?.includes('super-admin') ||
-        auth?.user?.roles?.includes('admin') ||
-        auth?.user?.permissions?.includes('matieres.manage')
-    );
-    const canManage = Boolean(can?.matieres_manage || isSuperAdmin);
+    // 1. Détection robuste des privilèges d'administration via usePermission
+    const { can: checkPerm, isSuperAdmin } = usePermission();
+    const canManage = Boolean(can?.matieres_manage || checkPerm('matieres.manage') || isSuperAdmin);
+
+    // Boîte de dialogue unifiée de confirmation de suppression
+    const { confirmDelete, ConfirmDialog } = useConfirmDelete();
 
     // Toasts de notification en haut à droite avec style vert conforme aux règles UI
     useEffect(() => {
@@ -283,11 +282,18 @@ export default function MatiereIndex({
     // Auto-génération des standards MINESEC/MINEDUB
     const handleSeedStandards = () => {
         if (!canManage) return;
-        if (confirm('Voulez-vous initialiser le catalogue officiel camerounais et les blocs pédagogiques standards ?')) {
-            router.post('/administration/matieres/standards', {}, {
-                preserveScroll: true,
-            });
-        }
+        confirmDelete({
+            title: 'Initialisation du catalogue officiel',
+            variant: 'primary',
+            confirmLabel: 'Initialiser le catalogue',
+            promptText: 'Voulez-vous initialiser le catalogue officiel camerounais et les blocs pédagogiques standards ?',
+            description: 'Les matières officielles et leurs regroupements par défaut (MINESEC/MINEDUB) seront insérés dans le système.',
+            onConfirm: () => {
+                router.post('/administration/matieres/standards', {}, {
+                    preserveScroll: true,
+                });
+            },
+        });
     };
 
     // Statistiques rapides pour le niveau sélectionné
@@ -555,11 +561,18 @@ export default function MatiereIndex({
                                     size="icon"
                                     title="Retirer de la grille"
                                     onClick={() => {
-                                        if (confirm(`Retirer la discipline « ${item.matiere.nom} » de la grille de ce niveau ?`)) {
-                                            router.delete(`/administration/matieres/coefficients/${item.id}`, {
-                                                preserveScroll: true,
-                                            });
-                                        }
+                                        confirmDelete({
+                                            title: 'Retirer la matière de la grille',
+                                            itemType: 'la discipline',
+                                            itemName: item.matiere.nom,
+                                            description: `Cette matière ne sera plus enseignée pour ce niveau et ses coefficients seront retirés de la grille d'évaluation.`,
+                                            confirmLabel: 'Retirer de la grille',
+                                            onConfirm: () => {
+                                                router.delete(`/administration/matieres/coefficients/${item.id}`, {
+                                                    preserveScroll: true,
+                                                });
+                                            },
+                                        });
                                     }}
                                     className="size-8 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 dark:bg-rose-950/50 dark:text-rose-400 cursor-pointer shadow-xs"
                                 >
@@ -692,11 +705,17 @@ export default function MatiereIndex({
                                     size="icon"
                                     title="Supprimer du catalogue"
                                     onClick={() => {
-                                        if (confirm(`Supprimer la matière « ${item.nom} » du catalogue général ?`)) {
-                                            router.delete(`/administration/matieres/catalogue/${item.id}`, {
-                                                preserveScroll: true,
-                                            });
-                                        }
+                                        confirmDelete({
+                                            title: 'Supprimer la matière du catalogue',
+                                            itemType: 'la matière',
+                                            itemName: item.nom,
+                                            description: `La matière sera définitivement supprimée du catalogue général. Assurez-vous qu'elle n'est plus utilisée dans aucune grille.`,
+                                            onConfirm: () => {
+                                                router.delete(`/administration/matieres/catalogue/${item.id}`, {
+                                                    preserveScroll: true,
+                                                });
+                                            },
+                                        });
                                     }}
                                     className="size-8 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 dark:bg-rose-950/50 dark:text-rose-400 cursor-pointer shadow-xs"
                                 >
@@ -816,11 +835,17 @@ export default function MatiereIndex({
                                     size="icon"
                                     title="Supprimer le bloc"
                                     onClick={() => {
-                                        if (confirm(`Supprimer le bloc pédagogique « ${item.nom} » ?`)) {
-                                            router.delete(`/administration/matieres/groupes/${item.id}`, {
-                                                preserveScroll: true,
-                                            });
-                                        }
+                                        confirmDelete({
+                                            title: 'Supprimer le bloc pédagogique',
+                                            itemType: 'le bloc pédagogique',
+                                            itemName: item.nom,
+                                            description: `Ce bloc sera définitivement supprimé. Les matières associées ne seront plus regroupées sous cette classification.`,
+                                            onConfirm: () => {
+                                                router.delete(`/administration/matieres/groupes/${item.id}`, {
+                                                    preserveScroll: true,
+                                                });
+                                            },
+                                        });
                                     }}
                                     className="size-8 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 dark:bg-rose-950/50 dark:text-rose-400 cursor-pointer shadow-xs"
                                 >
@@ -1589,6 +1614,9 @@ export default function MatiereIndex({
                     </form>
                 </DialogContent>
             </Dialog>
+
+            {/* Dialogue de confirmation de suppression personnalisé */}
+            <ConfirmDialog />
         </>
     );
 }

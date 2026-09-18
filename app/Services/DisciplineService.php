@@ -189,7 +189,7 @@ class DisciplineService
     {
         $classe = $inscription->classe()->with('niveau.cycle.section.etablissement')->first();
         $etablissement = $classe?->niveau?->cycle?->section?->etablissement;
-        $seuil = $etablissement?->seuil_absences_decheance_mentions ?? 15;
+        $seuil = $etablissement?->seuil_absences_decheance_mentions ?? 40;
 
         $cumulNonJustifiees = (float) Assiduite::where('inscription_id', $inscription->id)
             ->where('periode_id', $periode->id)

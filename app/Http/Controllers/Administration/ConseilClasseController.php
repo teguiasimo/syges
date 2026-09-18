@@ -12,6 +12,8 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 
@@ -24,8 +26,22 @@ use Inertia\Response as InertiaResponse;
  * - Validation humaine obligatoire par la Direction (Censeur / Proviseur - Module 2.6 Étape B).
  * - Édition du Procès-Verbal (PV) officiel du conseil de classe scellé pour signature.
  */
-class ConseilClasseController extends Controller
+class ConseilClasseController extends Controller implements HasMiddleware
 {
+    /**
+     * Définition de la matrice des middlewares d'autorisation pour le module Délibérations & Conseil de Classe.
+     *
+     * @return array<int, Middleware>
+     */
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('can:deliberations.view', only: ['index', 'exportPv']),
+            new Middleware('can:deliberations.manage', only: ['sauvegarder']),
+            new Middleware('can:deliberations.valider', only: ['validerPromotion']),
+        ];
+    }
+
     /**
      * Affiche l'interface de délibération du conseil de classe.
      *

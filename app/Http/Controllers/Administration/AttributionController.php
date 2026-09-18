@@ -12,6 +12,8 @@ use App\Models\MatiereNiveau;
 use App\Models\Personnel;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -26,8 +28,27 @@ use Inertia\Response;
  * - Désignation des professeurs principaux de chaque classe.
  * - Provisioning automatique des droits de consultation et de saisie des notes (Module 10).
  */
-class AttributionController extends Controller
+class AttributionController extends Controller implements HasMiddleware
 {
+    /**
+     * Définition de la matrice des middlewares d'autorisation pour le module Attributions.
+     *
+     * @return array<int, Middleware>
+     */
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('can:attributions.view', only: ['index']),
+            new Middleware('can:attributions.manage', only: [
+                'store',
+                'update',
+                'setProfesseurPrincipal',
+                'batchAssign',
+            ]),
+            new Middleware('can:attributions.delete', only: ['destroy']),
+        ];
+    }
+
     /**
      * Affiche l'interface de répartition pédagogique avec double vue (par Classe et par Enseignant).
      *

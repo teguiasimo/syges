@@ -315,12 +315,24 @@ class StatistiqueConseilService
      */
     public function preparerDeliberation(Classe $classe, ?Periode $periode = null, ?AnneeScolaire $annee = null): array
     {
-        $etablissementId = $classe->niveau->cycle->section->etablissement_id;
+        $etablissementId = $classe->niveau?->cycle?->section?->etablissement_id ?? 0;
         $typeDeliberation = $periode ? 'trimestrielle' : 'annuelle';
         $anneeScolaire = $annee ?? ($periode ? $periode->anneeScolaire : AnneeScolaire::current());
 
         if (! $anneeScolaire) {
-            return ['eleves' => [], 'statistiques' => []];
+            return [
+                'classe' => [
+                    'id' => $classe->id,
+                    'nom' => $classe->nom,
+                    'professeur_principal' => $classe->professeurPrincipal?->nom_complet ?? 'Non assigné',
+                ],
+                'type_deliberation' => $typeDeliberation,
+                'periode' => $periode ? ['id' => $periode->id, 'nom' => $periode->nom] : null,
+                'annee_scolaire' => ['id' => 0, 'nom' => 'N/A'],
+                'eleves' => [],
+                'statistiques_classe' => [],
+                'toutes_validees' => false,
+            ];
         }
 
         // 1. Calcul des résultats pédagogiques
@@ -329,7 +341,19 @@ class StatistiqueConseilService
             : $this->bulletinService->calculerAnnuel($classe, $anneeScolaire);
 
         if (empty($resultats['eleves'])) {
-            return ['eleves' => [], 'statistiques' => $resultats['statistiques_classe'] ?? []];
+            return [
+                'classe' => [
+                    'id' => $classe->id,
+                    'nom' => $classe->nom,
+                    'professeur_principal' => $classe->professeurPrincipal?->nom_complet ?? 'Non assigné',
+                ],
+                'type_deliberation' => $typeDeliberation,
+                'periode' => $periode ? ['id' => $periode->id, 'nom' => $periode->nom] : null,
+                'annee_scolaire' => ['id' => $anneeScolaire->id, 'nom' => $anneeScolaire->nom],
+                'eleves' => [],
+                'statistiques_classe' => $resultats['statistiques_classe'] ?? [],
+                'toutes_validees' => false,
+            ];
         }
 
         // 2. Récupération des délibérations déjà enregistrées en base

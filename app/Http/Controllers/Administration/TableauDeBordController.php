@@ -11,6 +11,8 @@ use App\Services\StatistiqueConseilService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 
@@ -22,8 +24,20 @@ use Inertia\Response as InertiaResponse;
  * - Le portail de statistiques officielles réglementaires (/administration/statistiques) MINESEC / MINEDUB.
  * - L'édition et l'export des bordereaux officiels d'examens avec matricule ministériel.
  */
-class TableauDeBordController extends Controller
+class TableauDeBordController extends Controller implements HasMiddleware
 {
+    /**
+     * Définition de la matrice des middlewares d'autorisation pour le module Statistiques.
+     *
+     * @return array<int, Middleware>
+     */
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('can:statistiques.view', only: ['statistiquesAvancees', 'exportBordereau']),
+        ];
+    }
+
     /**
      * Affiche le tableau de bord exécutif multi-indicateurs.
      *

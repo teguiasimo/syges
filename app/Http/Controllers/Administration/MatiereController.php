@@ -9,6 +9,8 @@ use App\Models\MatiereNiveau;
 use App\Models\Niveau;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -21,8 +23,25 @@ use Inertia\Response;
  * - 4.2 Catalogue Général des Matières (Discipline, codes officiels, bilinguisme FR/EN).
  * - 4.3 Configuration des Coefficients (Poids académique par Niveau + Série, note max, note éliminatoire, facultatif/bonus).
  */
-class MatiereController extends Controller
+class MatiereController extends Controller implements HasMiddleware
 {
+    /**
+     * Définition de la matrice des middlewares d'autorisation pour le module Matières & Coefficients.
+     *
+     * @return array<int, Middleware>
+     */
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('can:matieres.view', only: ['index']),
+            new Middleware('can:matieres.manage', only: [
+                'storeGroupe', 'updateGroupe', 'destroyGroupe',
+                'storeMatiere', 'updateMatiere', 'destroyMatiere',
+                'storeCoefficient', 'updateCoefficient', 'destroyCoefficient',
+                'seedStandards',
+            ]),
+        ];
+    }
     /**
      * Affiche l'interface de gestion des matières, groupes et coefficients.
      *

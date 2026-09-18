@@ -120,7 +120,7 @@ class FinanceCaisseTest extends TestCase
                 'sexe' => 'F',
                 'telephone' => '+237 699 11 22 33',
                 'fonction_principale' => 'Intendant',
-                'statut_activite' => 'actif',
+                'statut' => 'Actif',
             ]
         );
 

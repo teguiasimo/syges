@@ -46,7 +46,7 @@ class BulletinCalculationService
         // Détermination du mode de calcul et de bulletin
         $etablissement = $classe->niveau->cycle->section->etablissement;
         $modeCalcul = $modeCalcul ?? $etablissement->type_calcul_trimestre ?? 'arithmetique';
-        $modeBulletin = $modeBulletin ?? $etablissement->mode_bulletin_defaut ?? 'avec_competences';
+        $modeBulletin = $modeBulletin ?? $etablissement->mode_bulletin_defaut ?? 'sans_competences';
 
         // 1. Récupération des inscriptions validées dans la classe
         $inscriptions = Inscription::with(['eleve'])
@@ -392,8 +392,10 @@ class BulletinCalculationService
                     'email' => $etablissement->email ?: $etablissement->institution->email,
                     'region' => $etablissement->institution->region,
                     'departement' => $etablissement->institution->departement,
-                    'delegation_regionale' => $etablissement->institution->delegation_regionale,
-                    'delegation_departementale' => $etablissement->institution->delegation_departementale,
+                    'delegation_regionale' => $etablissement->institution?->delegation_regionale,
+                    'delegation_regionale_en' => $etablissement->institution?->delegation_regionale_en,
+                    'delegation_departementale' => $etablissement->institution?->delegation_departementale,
+                    'delegation_departementale_en' => $etablissement->institution?->delegation_departementale_en,
                     'nom_chef' => $etablissement->nom_chef_etablissement,
                 ],
             ],
@@ -506,7 +508,7 @@ class BulletinCalculationService
         ?string $modeBulletin = null
     ): array {
         $etablissement = $classe->niveau->cycle->section->etablissement;
-        $modeBulletin = $modeBulletin ?? $etablissement->mode_bulletin_defaut ?? 'avec_competences';
+        $modeBulletin = $modeBulletin ?? $etablissement->mode_bulletin_defaut ?? 'sans_competences';
 
         $periode = $evaluation->periode;
         $anneeScolaire = $periode->anneeScolaire;
@@ -719,12 +721,19 @@ class BulletinCalculationService
                 'professeur_principal' => $classe->professeurPrincipal?->nom_complet,
                 'etablissement' => [
                     'nom' => $etablissement->nom,
+                    'nom_en' => $etablissement->nom_en,
                     'sigle' => $etablissement->code,
                     'logo_url' => $etablissement->logo_url,
+                    'logo' => $etablissement->logo ?: $etablissement->institution?->logo,
                     'ville' => $etablissement->ville,
-                    'telephone' => $etablissement->telephone,
-                    'email' => $etablissement->email,
-                    'devise' => $etablissement->devise,
+                    'telephone' => $etablissement->telephone_1 ?: $etablissement->institution?->telephone_1,
+                    'email' => $etablissement->email ?: $etablissement->institution?->email,
+                    'devise' => $etablissement->devise ?: $etablissement->institution?->devise,
+                    'devise_en' => $etablissement->institution?->devise_en,
+                    'delegation_regionale' => $etablissement->institution?->delegation_regionale,
+                    'delegation_regionale_en' => $etablissement->institution?->delegation_regionale_en,
+                    'delegation_departementale' => $etablissement->institution?->delegation_departementale,
+                    'delegation_departementale_en' => $etablissement->institution?->delegation_departementale_en,
                 ],
             ],
             'evaluation' => [
@@ -763,10 +772,11 @@ class BulletinCalculationService
         ?string $modeBulletin = null
     ): array {
         $etablissement = $classe->niveau->cycle->section->etablissement;
-        $modeBulletin = $modeBulletin ?? $etablissement->mode_bulletin_defaut ?? 'avec_competences';
+        $modeBulletin = $modeBulletin ?? $etablissement->mode_bulletin_defaut ?? 'sans_competences';
 
-        // 1. Récupération des périodes ordonnées de l'année scolaire
+        // 1. Récupération des périodes ordonnées de l'année scolaire (filtrées par établissement de la classe)
         $periodes = Periode::where('annee_scolaire_id', $annee->id)
+            ->when($etablissement, fn ($q) => $q->where('etablissement_id', $etablissement->id))
             ->orderBy('ordre')
             ->get();
 
@@ -1014,12 +1024,19 @@ class BulletinCalculationService
                 'professeur_principal' => $classe->professeurPrincipal?->nom_complet,
                 'etablissement' => [
                     'nom' => $etablissement->nom,
+                    'nom_en' => $etablissement->nom_en,
                     'sigle' => $etablissement->code,
                     'logo_url' => $etablissement->logo_url,
+                    'logo' => $etablissement->logo ?: $etablissement->institution?->logo,
                     'ville' => $etablissement->ville,
-                    'telephone' => $etablissement->telephone,
-                    'email' => $etablissement->email,
-                    'devise' => $etablissement->devise,
+                    'telephone' => $etablissement->telephone_1 ?: $etablissement->institution?->telephone_1,
+                    'email' => $etablissement->email ?: $etablissement->institution?->email,
+                    'devise' => $etablissement->devise ?: $etablissement->institution?->devise,
+                    'devise_en' => $etablissement->institution?->devise_en,
+                    'delegation_regionale' => $etablissement->institution?->delegation_regionale,
+                    'delegation_regionale_en' => $etablissement->institution?->delegation_regionale_en,
+                    'delegation_departementale' => $etablissement->institution?->delegation_departementale,
+                    'delegation_departementale_en' => $etablissement->institution?->delegation_departementale_en,
                 ],
             ],
             'periodes' => $periodes->map(fn ($p) => [

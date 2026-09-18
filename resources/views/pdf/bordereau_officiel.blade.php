@@ -97,7 +97,7 @@
                 <div class="bold uppercase" style="font-size: 7.5pt;">RÉPUBLIQUE DU CAMEROUN</div>
                 <div style="font-size: 6.5pt; font-style: italic;">Paix – Travail – Patrie</div>
                 <div class="uppercase" style="font-size: 6.5pt;">MINISTÈRE DES ENSEIGNEMENTS SECONDAIRES</div>
-                <div class="uppercase" style="font-size: 6.5pt;">DÉLÉGATION RÉGIONALE DU LITTORAL</div>
+                <div class="uppercase" style="font-size: 6.5pt;">{{ $etablissement->institution?->delegation_regionale ?? 'DÉLÉGATION RÉGIONALE DES ENSEIGNEMENTS SECONDAIRES' }}</div>
                 <div class="bold uppercase" style="font-size: 8pt; color: #1e3a8a; margin-top: 3px;">{{ $etablissement->nom }}</div>
                 <div style="font-size: 6.5pt;">Code Établissement : <strong>{{ $etablissement->code ?? 'N/A' }}</strong></div>
             </td>
@@ -110,7 +110,7 @@
                 <div class="bold uppercase" style="font-size: 7.5pt;">REPUBLIC OF CAMEROON</div>
                 <div style="font-size: 6.5pt; font-style: italic;">Peace – Work – Fatherland</div>
                 <div class="uppercase" style="font-size: 6.5pt;">MINISTRY OF SECONDARY EDUCATION</div>
-                <div class="uppercase" style="font-size: 6.5pt;">REGIONAL DELEGATION OF LITTORAL</div>
+                <div class="uppercase" style="font-size: 6.5pt;">{{ $etablissement->institution?->delegation_regionale_en ?? 'REGIONAL DELEGATION OF SECONDARY EDUCATION' }}</div>
                 <div style="font-size: 7pt; margin-top: 4px;">Année Scolaire : <strong>{{ $annee ? $annee->nom : '2026-2027' }}</strong></div>
                 <div style="font-size: 6.5pt; color: #4b5563;">Date d'édition : {{ $dateGeneration }}</div>
             </td>

@@ -131,12 +131,12 @@ class EmploiDuTempsTest extends TestCase
         // Enseignants
         $this->enseignant = Personnel::firstOrCreate(
             ['matricule' => 'ENS-EDT-01', 'etablissement_id' => $this->etablissement->id],
-            ['nom' => 'FOTSO', 'prenom' => 'Jean', 'sexe' => 'M', 'telephone' => '+237699112233', 'statut_activite' => 'actif']
+            ['nom' => 'FOTSO', 'prenom' => 'Jean', 'sexe' => 'M', 'telephone' => '+237699112233', 'statut' => 'Actif']
         );
 
         $this->enseignant2 = Personnel::firstOrCreate(
             ['matricule' => 'ENS-EDT-02', 'etablissement_id' => $this->etablissement->id],
-            ['nom' => 'NGUEMA', 'prenom' => 'Marc', 'sexe' => 'M', 'telephone' => '+237699445566', 'statut_activite' => 'actif']
+            ['nom' => 'NGUEMA', 'prenom' => 'Marc', 'sexe' => 'M', 'telephone' => '+237699445566', 'statut' => 'Actif']
         );
 
         // Attributions

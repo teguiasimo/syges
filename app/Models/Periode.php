@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * Découpage de l'année scolaire en périodes d'évaluation intermédiaires (Module 3.2 Gesco).
  *
  * @property int $id
+ * @property int|null $etablissement_id
  * @property int $annee_scolaire_id
  * @property string $code
  * @property string $nom
@@ -23,6 +24,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $statut
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \App\Models\Etablissement|null $etablissement
  * @property-read \App\Models\AnneeScolaire $anneeScolaire
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Evaluation> $evaluations
  */
@@ -43,6 +45,7 @@ class Periode extends Model
      * @var list<string>
      */
     protected $fillable = [
+        'etablissement_id',
         'annee_scolaire_id',
         'code',
         'nom',
@@ -59,10 +62,33 @@ class Periode extends Model
      * @var array<string, string>
      */
     protected $casts = [
+        'etablissement_id' => 'integer',
         'ordre' => 'integer',
         'date_debut' => 'date',
         'date_fin' => 'date',
     ];
+
+    /**
+     * Configuration des écouteurs d'événements du modèle.
+     */
+    protected static function booted(): void
+    {
+        static::creating(function (Periode $periode) {
+            if (! $periode->etablissement_id) {
+                $periode->etablissement_id = Etablissement::first()?->id;
+            }
+        });
+    }
+
+    /**
+     * Relation plusieurs-à-un vers l'Établissement (campus) rattaché.
+     *
+     * @return BelongsTo
+     */
+    public function etablissement(): BelongsTo
+    {
+        return $this->belongsTo(Etablissement::class, 'etablissement_id');
+    }
 
     /**
      * Relation plusieurs-à-un vers l'Année Scolaire parente.

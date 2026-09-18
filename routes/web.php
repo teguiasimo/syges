@@ -43,10 +43,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // Institution & Structure Pédagogique
         Route::get('institution', [InstitutionController::class, 'index'])->name('institution.index');
         Route::get('institution/edit', [InstitutionController::class, 'editInstitution'])->name('institution.edit');
-        Route::put('institution', [InstitutionController::class, 'updateInstitution'])->name('institution.update');
+        Route::match(['put', 'post'], 'institution', [InstitutionController::class, 'updateInstitution'])->name('institution.update');
 
         // Établissements
         Route::post('etablissements', [InstitutionController::class, 'storeEtablissement'])->name('etablissements.store');
+        Route::get('etablissements/{etablissement}/settings', [InstitutionController::class, 'editEtablissementSettings'])->name('etablissements.settings');
+        Route::put('etablissements/{etablissement}/settings', [InstitutionController::class, 'updateEtablissementSettings'])->name('etablissements.settings.update');
         Route::put('etablissements/{etablissement}', [InstitutionController::class, 'updateEtablissement'])->name('etablissements.update');
         Route::delete('etablissements/{etablissement}', [InstitutionController::class, 'destroyEtablissement'])->name('etablissements.destroy');
 
@@ -64,6 +66,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('niveaux', [InstitutionController::class, 'storeNiveau'])->name('niveaux.store');
         Route::put('niveaux/{niveau}', [InstitutionController::class, 'updateNiveau'])->name('niveaux.update');
         Route::delete('niveaux/{niveau}', [InstitutionController::class, 'destroyNiveau'])->name('niveaux.destroy');
+
+        // Séries pédagogiques créées par l'utilisateur
+        Route::post('series', [InstitutionController::class, 'storeSerie'])->name('series.store');
+        Route::put('series/{serie}', [InstitutionController::class, 'updateSerie'])->name('series.update');
+        Route::delete('series/{serie}', [InstitutionController::class, 'destroySerie'])->name('series.destroy');
 
         // Classes
         Route::patch('classes/{classe}/toggle-active', [InstitutionController::class, 'toggleClasseStatus'])->name('classes.toggle-active');

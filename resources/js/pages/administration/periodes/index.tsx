@@ -9,7 +9,6 @@ import {
     Clock,
     Lock,
     Unlock,
-    Sparkles,
     Calendar,
     Settings2,
     Calculator,
@@ -17,9 +16,12 @@ import {
     Check,
     ArrowUpDown,
     Shield,
+    Building2,
 } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import { usePermission } from '@/hooks/use-permission';
+import { useConfirmDelete } from '@/components/confirm-delete-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/ui/data-table';
@@ -40,6 +42,16 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+
+/**
+ * Interface pour un Établissement (Campus).
+ */
+interface EtablissementItem {
+    id: number;
+    code: string;
+    nom: string;
+    nom_en?: string | null;
+}
 
 /**
  * Interface pour une Évaluation / Séquence.
@@ -64,6 +76,7 @@ interface EvaluationItem {
  */
 interface PeriodeItem {
     id: number;
+    etablissement_id?: number | null;
     annee_scolaire_id: number;
     code: string;
     nom: string;
@@ -94,6 +107,8 @@ interface AnneeScolaireItem {
  * Props attendues par la page Index.
  */
 interface PeriodeIndexProps {
+    etablissements: EtablissementItem[];
+    selectedEtablissement?: EtablissementItem | null;
     annees: AnneeScolaireItem[];
     selectedAnnee?: AnneeScolaireItem | null;
     periodes: PeriodeItem[];
@@ -109,15 +124,26 @@ interface PeriodeIndexProps {
 
 /**
  * Page de gestion des Périodes, Trimestres, Séquences et Paramètres d'Évaluation.
- * Implémente le Module 3 du cahier des charges Gesco.
+ * Implémente le Module 3 du cahier des charges Gesco avec découpage par établissement (Option A).
  */
 export default function PeriodesIndex({
+    etablissements = [],
+    selectedEtablissement,
     annees,
     selectedAnnee,
     periodes,
-    can,
+    can: propCan,
     flash,
 }: PeriodeIndexProps) {
+    const { can: checkPerm } = usePermission();
+    const can = {
+        periodes_manage: propCan?.periodes_manage ?? checkPerm('periodes.manage'),
+        periodes_lock: propCan?.periodes_lock ?? checkPerm('periodes.lock'),
+    };
+
+    // Hook universel de confirmation de suppression
+    const { confirmDelete, ConfirmDialog } = useConfirmDelete();
+
     // Gestion des toasts de notification en haut à droite avec style vert pour le succès
     useEffect(() => {
         if (flash?.success) {
@@ -152,13 +178,14 @@ export default function PeriodesIndex({
         nom_en: '',
         date_debut: '',
         date_fin: '',
-        statut: 'en_cours',
+        statut: 'en_preparation',
         mode_calcul_moyenne: 'arithmetique_simple',
         is_current: false,
         auto_generate_structure: true,
     });
 
     const trimestreForm = useForm({
+        etablissement_id: selectedEtablissement?.id || 0,
         annee_scolaire_id: selectedAnnee?.id || 0,
         code: '',
         nom: '',
@@ -183,18 +210,35 @@ export default function PeriodesIndex({
     });
 
     /**
-     * Changement de l'année scolaire affichée.
+     * Changement de l'année scolaire affichée (préserve l'établissement actif).
      */
     const handleSelectAnnee = (anneeId: number) => {
         router.get(
             '/administration/periodes',
-            { annee_id: anneeId },
+            {
+                annee_id: anneeId,
+                etablissement_id: selectedEtablissement?.id,
+            },
             { preserveScroll: true, preserveState: true }
         );
     };
 
     /**
-     * Définir l'année comme active.
+     * Changement de l'établissement actif (préserve l'année scolaire affichée).
+     */
+    const handleSelectEtablissement = (etabId: number) => {
+        router.get(
+            '/administration/periodes',
+            {
+                etablissement_id: etabId,
+                annee_id: selectedAnnee?.id,
+            },
+            { preserveScroll: true, preserveState: true }
+        );
+    };
+
+    /**
+     * Définir l'année comme active pour l'ensemble du système.
      */
     const handleSetCurrentAnnee = (annee: AnneeScolaireItem) => {
         router.patch(`/administration/periodes/annees/${annee.id}/set-current`, {}, {
@@ -203,19 +247,7 @@ export default function PeriodesIndex({
     };
 
     /**
-     * Changement du mode de calcul de la moyenne trimestrielle (Gesco 3.3).
-     */
-    const handleUpdateModeCalcul = (mode: 'arithmetique_simple' | 'ponderee_pourcentage') => {
-        if (!selectedAnnee || !can.periodes_manage) return;
-        router.patch(`/administration/periodes/annees/${selectedAnnee.id}/mode-calcul`, {
-            mode_calcul_moyenne: mode,
-        }, {
-            preserveScroll: true,
-        });
-    };
-
-    /**
-     * Bascule du verrouillage de la saisie des notes.
+     * Bascule du verrouillage de la saisie des notes pour une évaluation de l'établissement.
      */
     const handleToggleLock = (evaluation: EvaluationItem) => {
         if (!can.periodes_lock) return;
@@ -225,20 +257,38 @@ export default function PeriodesIndex({
     };
 
     /**
-     * Génération de la structure officielle camerounaise (3 trimestres, 6 séquences).
+     * Génération de la structure officielle camerounaise (3 trimestres, 6 séquences) pour l'établissement sélectionné.
      */
     const handleGenerateStandardStructure = () => {
-        if (!selectedAnnee || !can.periodes_manage) return;
-        if (confirm('Voulez-vous générer automatiquement la structure officielle (3 Trimestres et 6 Séquences) pour cette année ?')) {
-            router.post(`/administration/periodes/annees/${selectedAnnee.id}/generate-standard`, {}, {
-                preserveScroll: true,
-            });
-        }
+        if (!selectedAnnee || !selectedEtablissement || !can.periodes_manage) return;
+        confirmDelete({
+            title: 'Génération de la structure officielle',
+            variant: 'primary',
+            confirmLabel: 'Générer la structure',
+            promptText: `Voulez-vous générer automatiquement la structure officielle (3 Trimestres et 6 Séquences) pour « ${selectedEtablissement.nom} » (${selectedAnnee.nom}) ?`,
+            description: 'Cette opération va initialiser les 3 trimestres et 6 séquences standards conformes au calendrier officiel camerounais pour cet établissement.',
+            onConfirm: () => {
+                router.post(`/administration/periodes/annees/${selectedAnnee.id}/generate-standard`, {
+                    etablissement_id: selectedEtablissement.id,
+                }, {
+                    preserveScroll: true,
+                });
+            },
+        });
     };
 
     // Soumission du formulaire Année
     const submitAnnee = (e: React.FormEvent) => {
         e.preventDefault();
+        const autoNom = anneeForm.data.nom || `Année Scolaire ${anneeForm.data.code}`;
+        const autoNomEn = anneeForm.data.nom_en || `Academic Year ${anneeForm.data.code}`;
+
+        anneeForm.transform((data) => ({
+            ...data,
+            nom: autoNom,
+            nom_en: autoNomEn,
+        }));
+
         if (editingAnnee) {
             anneeForm.put(`/administration/periodes/annees/${editingAnnee.id}`, {
                 preserveScroll: true,
@@ -270,7 +320,11 @@ export default function PeriodesIndex({
                 },
             });
         } else {
-            trimestreForm.setData('annee_scolaire_id', selectedAnnee?.id || 0);
+            trimestreForm.transform((data) => ({
+                ...data,
+                etablissement_id: selectedEtablissement?.id || 0,
+                annee_scolaire_id: selectedAnnee?.id || 0,
+            }));
             trimestreForm.post('/administration/periodes/trimestres', {
                 preserveScroll: true,
                 onSuccess: () => {
@@ -450,9 +504,13 @@ export default function PeriodesIndex({
                                     size="icon"
                                     title="Supprimer la séquence"
                                     onClick={() => {
-                                        if (confirm(`Supprimer la séquence « ${item.nom} » ?`)) {
-                                            router.delete(`/administration/periodes/evaluations/${item.id}`);
-                                        }
+                                        confirmDelete({
+                                            title: "Supprimer la séquence",
+                                            itemType: "la séquence",
+                                            itemName: item.nom,
+                                            description: "Toutes les notes et évaluations saisies pour cette séquence seront définitivement supprimées.",
+                                            onConfirm: () => router.delete(`/administration/periodes/evaluations/${item.id}`),
+                                        });
                                     }}
                                     className="size-8 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 dark:bg-rose-950/50 dark:text-rose-400 cursor-pointer shadow-xs"
                                 >
@@ -491,6 +549,17 @@ export default function PeriodesIndex({
                             onClick={() => {
                                 setEditingAnnee(null);
                                 anneeForm.reset();
+                                anneeForm.setData({
+                                    code: '',
+                                    nom: '',
+                                    nom_en: '',
+                                    date_debut: '',
+                                    date_fin: '',
+                                    statut: 'en_preparation',
+                                    mode_calcul_moyenne: 'arithmetique_simple',
+                                    is_current: false,
+                                    auto_generate_structure: true,
+                                });
                                 setIsAnneeModalOpen(true);
                             }}
                             className="gap-2 cursor-pointer bg-primary text-primary-foreground hover:bg-primary/90"
@@ -501,7 +570,60 @@ export default function PeriodesIndex({
                     )}
                 </div>
 
-                {/* 2. SÉLECTEUR ET STATUT DE L'ANNÉE SCOLAIRE */}
+                {/* 2. SÉLECTEUR DE CAMPUS / ÉTABLISSEMENT */}
+                {etablissements && etablissements.length > 0 && (
+                    <div className="rounded-2xl border border-border/80 bg-card p-4 sm:p-5 shadow-xs space-y-2.5">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                                <div className="flex size-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400">
+                                    <Building2 className="size-4" />
+                                </div>
+                                <span className="text-xs font-bold text-foreground uppercase tracking-wider">
+                                    Campus & Établissement
+                                </span>
+                            </div>
+                            {etablissements.length > 1 && (
+                                <span className="text-xs text-muted-foreground">
+                                    Sélectionnez un campus pour configurer ses trimestres et verrouillages d'évaluation.
+                                </span>
+                            )}
+                        </div>
+
+                        {etablissements.length > 1 ? (
+                            <div className="flex items-center gap-2 overflow-x-auto pb-1 max-w-full">
+                                {etablissements.map((etab) => {
+                                    const isSelected = selectedEtablissement?.id === etab.id;
+                                    return (
+                                        <button
+                                            key={etab.id}
+                                            type="button"
+                                            onClick={() => handleSelectEtablissement(etab.id)}
+                                            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer border ${
+                                                isSelected
+                                                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                                                    : 'bg-muted/60 text-muted-foreground border-border/70 hover:bg-muted hover:text-foreground'
+                                            }`}
+                                        >
+                                            <span className="font-mono text-[11px] opacity-80">{etab.code}</span>
+                                            <span>{etab.nom}</span>
+                                            {isSelected && <Check className="size-3 stroke-3 ml-0.5" />}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        ) : (
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground pt-0.5">
+                                <Badge variant="secondary" className="font-mono font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300">
+                                    {selectedEtablissement?.code}
+                                </Badge>
+                                <span className="font-semibold text-foreground text-sm">{selectedEtablissement?.nom}</span>
+                                <span>(Campus unique de l'institution)</span>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* 3. SÉLECTEUR ET STATUT DE L'ANNÉE SCOLAIRE */}
                 <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-xs space-y-4">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                         <div className="flex items-center gap-2 overflow-x-auto pb-1 max-w-full">
@@ -598,95 +720,21 @@ export default function PeriodesIndex({
 
                 {selectedAnnee && (
                     <>
-                        {/* 3. CARTE DU MODE DE CALCUL DE LA MOYENNE TRIMESTRIELLE (Gesco 3.3) */}
-                        <div className="rounded-2xl border border-border/80 bg-card p-6 shadow-xs space-y-4">
-                            <div className="flex flex-wrap items-center justify-between gap-4">
-                                <div className="space-y-1">
-                                    <div className="flex items-center gap-2">
-                                        <div className="flex size-8 items-center justify-center rounded-lg bg-sky-50 text-sky-600 dark:bg-sky-950/50 dark:text-sky-400">
-                                            <Calculator className="size-4.5" />
-                                        </div>
-                                        <h2 className="text-base font-bold text-foreground">
-                                            Mode de Calcul de la Moyenne Trimestrielle (Module 3.3)
-                                        </h2>
-                                    </div>
-                                    <p className="text-xs text-muted-foreground">
-                                        Règle appliquée par le moteur d'évaluation pour calculer la moyenne trimestrielle de chaque matière.
-                                    </p>
-                                </div>
-                            </div>
-
-                            {/* Options A et B en cartes sélectionnables */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
-                                {/* Option A : Arithmétique simple */}
-                                <div
-                                    onClick={() => handleUpdateModeCalcul('arithmetique_simple')}
-                                    className={`flex items-start gap-3 p-4 rounded-xl border transition-all ${
-                                        selectedAnnee.mode_calcul_moyenne === 'arithmetique_simple'
-                                            ? 'border-sky-500 bg-sky-50/40 dark:bg-sky-950/30 ring-1 ring-sky-500/30'
-                                            : 'border-border hover:border-slate-300 dark:hover:border-slate-700 bg-card'
-                                    } ${can.periodes_manage ? 'cursor-pointer' : 'cursor-default'}`}
-                                >
-                                    <div className={`flex size-5 shrink-0 items-center justify-center rounded-full mt-0.5 border ${
-                                        selectedAnnee.mode_calcul_moyenne === 'arithmetique_simple'
-                                            ? 'border-sky-600 bg-sky-600 text-white'
-                                            : 'border-muted-foreground/40'
-                                    }`}>
-                                        {selectedAnnee.mode_calcul_moyenne === 'arithmetique_simple' && (
-                                            <Check className="size-3 stroke-3" />
-                                        )}
-                                    </div>
-                                    <div className="space-y-1">
-                                        <div className="text-sm font-bold text-foreground">
-                                            Option A — Moyenne Arithmétique Simple
-                                        </div>
-                                        <p className="text-xs text-muted-foreground">
-                                            Addition des notes des séquences du trimestre divisée par le nombre de séquences : <span className="font-mono font-medium text-foreground">(S1 + S2) / 2</span>.
-                                        </p>
-                                    </div>
-                                </div>
-
-                                {/* Option B : Pondérée par Pourcentages */}
-                                <div
-                                    onClick={() => handleUpdateModeCalcul('ponderee_pourcentage')}
-                                    className={`flex items-start gap-3 p-4 rounded-xl border transition-all ${
-                                        selectedAnnee.mode_calcul_moyenne === 'ponderee_pourcentage'
-                                            ? 'border-sky-500 bg-sky-50/40 dark:bg-sky-950/30 ring-1 ring-sky-500/30'
-                                            : 'border-border hover:border-slate-300 dark:hover:border-slate-700 bg-card'
-                                    } ${can.periodes_manage ? 'cursor-pointer' : 'cursor-default'}`}
-                                >
-                                    <div className={`flex size-5 shrink-0 items-center justify-center rounded-full mt-0.5 border ${
-                                        selectedAnnee.mode_calcul_moyenne === 'ponderee_pourcentage'
-                                            ? 'border-sky-600 bg-sky-600 text-white'
-                                            : 'border-muted-foreground/40'
-                                    }`}>
-                                        {selectedAnnee.mode_calcul_moyenne === 'ponderee_pourcentage' && (
-                                            <Check className="size-3 stroke-3" />
-                                        )}
-                                    </div>
-                                    <div className="space-y-1">
-                                        <div className="text-sm font-bold text-foreground">
-                                            Option B — Moyenne Pondérée par Pourcentages
-                                        </div>
-                                        <p className="text-xs text-muted-foreground">
-                                            Calcul basé sur le poids (%) de chaque évaluation : <span className="font-mono font-medium text-foreground">S1 × 40% + S2 × 60%</span>.
-                                            La somme des pourcentages doit être rigoureusement égale à 100%.
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* 4. DÉCOUPAGE PÉRIODIQUE (TRIMESTRES & SÉQUENCES) */}
+                        {/* 4. DÉCOUPAGE PÉRIODIQUE (TRIMESTRES & SÉQUENCES DE L'ÉTABLISSEMENT) */}
                         <div className="space-y-6">
                             <div className="flex flex-wrap items-center justify-between gap-3">
                                 <div>
                                     <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
                                         <Calendar className="size-5 text-sky-600" />
-                                        Découpage des Trimestres & Séquences d'Évaluation
+                                        Découpage des Trimestres & Séquences
+                                        {selectedEtablissement && (
+                                            <Badge variant="outline" className="ml-1 text-xs border-emerald-300 text-emerald-700 dark:border-emerald-700 dark:text-emerald-300 bg-emerald-50/50">
+                                                {selectedEtablissement.nom}
+                                            </Badge>
+                                        )}
                                     </h3>
                                     <p className="text-xs text-muted-foreground">
-                                        Structure chronologique des périodes d'examen et contrôle de la saisie des notes.
+                                        Structure chronologique des périodes d'examen et contrôle de la saisie des notes pour cet établissement.
                                     </p>
                                 </div>
 
@@ -699,7 +747,7 @@ export default function PeriodesIndex({
                                             onClick={handleGenerateStandardStructure}
                                             className="gap-2 cursor-pointer text-xs h-9 text-emerald-600 border-emerald-200 hover:bg-emerald-50 dark:border-emerald-800"
                                         >
-                                            <Sparkles className="size-3.5" />
+                                            <CalendarRange className="size-3.5" />
                                             <span>Initialiser le standard officiel (3 Trimestres / 6 Séquences)</span>
                                         </Button>
                                     )}
@@ -728,8 +776,8 @@ export default function PeriodesIndex({
                                 <div className="flex flex-col items-center justify-center p-12 text-center rounded-2xl border border-dashed border-border bg-card/40">
                                     <CalendarRange className="size-12 text-muted-foreground/40 mb-3" />
                                     <h4 className="text-base font-semibold text-foreground">Aucun trimestre configuré</h4>
-                                    <p className="text-xs text-muted-foreground mt-1 max-w-sm">
-                                        Cette année scolaire ne comporte encore aucun découpage périodique.
+                                    <p className="text-xs text-muted-foreground mt-1 max-w-md">
+                                        L'établissement <strong>{selectedEtablissement?.nom}</strong> ne comporte encore aucun découpage pour l'année scolaire <strong>{selectedAnnee.nom}</strong>.
                                     </p>
                                     {can.periodes_manage && (
                                         <Button
@@ -737,8 +785,8 @@ export default function PeriodesIndex({
                                             onClick={handleGenerateStandardStructure}
                                             className="mt-4 gap-2 cursor-pointer text-xs bg-emerald-600 text-white hover:bg-emerald-700"
                                         >
-                                            <Sparkles className="size-3.5" />
-                                            <span>Générer automatiquement la structure standard (3 Trimestres / 6 Séquences)</span>
+                                            <CalendarRange className="size-3.5" />
+                                            <span>Initialiser le standard officiel pour cet établissement</span>
                                         </Button>
                                     )}
                                 </div>
@@ -855,9 +903,15 @@ export default function PeriodesIndex({
                                                                     size="icon"
                                                                     title="Supprimer le trimestre"
                                                                     onClick={() => {
-                                                                        if (confirm(`Supprimer le trimestre « ${periode.nom} » ?`)) {
-                                                                            router.delete(`/administration/periodes/trimestres/${periode.id}`);
-                                                                        }
+                                                                        confirmDelete({
+                                                                            title: 'Supprimer le trimestre',
+                                                                            itemType: 'le trimestre',
+                                                                            itemName: periode.nom,
+                                                                            description: 'Toutes les séquences et les évaluations associées à ce trimestre seront également supprimées.',
+                                                                            onConfirm: () => {
+                                                                                router.delete(`/administration/periodes/trimestres/${periode.id}`);
+                                                                            },
+                                                                        });
                                                                     }}
                                                                     className="size-8 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 cursor-pointer shadow-xs"
                                                                 >
@@ -902,33 +956,13 @@ export default function PeriodesIndex({
                     </DialogHeader>
 
                     <form onSubmit={submitAnnee} className="space-y-4 pt-2">
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                            <div className="space-y-1">
-                                <Label className="text-xs font-semibold">Code de l'année *</Label>
-                                <Input
-                                    value={anneeForm.data.code}
-                                    onChange={(e) => anneeForm.setData('code', e.target.value)}
-                                    placeholder="ex: 2026-2027"
-                                    required
-                                />
-                            </div>
-                            <div className="sm:col-span-2 space-y-1">
-                                <Label className="text-xs font-semibold">Nom en français *</Label>
-                                <Input
-                                    value={anneeForm.data.nom}
-                                    onChange={(e) => anneeForm.setData('nom', e.target.value)}
-                                    placeholder="Année Scolaire 2026-2027"
-                                    required
-                                />
-                            </div>
-                        </div>
-
                         <div className="space-y-1">
-                            <Label className="text-xs font-semibold">Nom en anglais (Optionnel)</Label>
+                            <Label className="text-xs font-semibold">Code de l'année scolaire *</Label>
                             <Input
-                                value={anneeForm.data.nom_en}
-                                onChange={(e) => anneeForm.setData('nom_en', e.target.value)}
-                                placeholder="Academic Year 2026-2027"
+                                value={anneeForm.data.code}
+                                onChange={(e) => anneeForm.setData('code', e.target.value)}
+                                placeholder="ex: 2026-2027"
+                                required
                             />
                         </div>
 
@@ -943,7 +977,7 @@ export default function PeriodesIndex({
                                 />
                             </div>
                             <div className="space-y-1">
-                                <Label className="text-xs font-semibold">Date de clôture (Fin) *</Label>
+                                <Label className="text-xs font-semibold">Date de fermeture (Fin) *</Label>
                                 <Input
                                     type="date"
                                     value={anneeForm.data.date_fin}
@@ -953,53 +987,34 @@ export default function PeriodesIndex({
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <div className="space-y-1">
-                                <Label className="text-xs font-semibold">Statut</Label>
-                                <Select
-                                    value={anneeForm.data.statut}
-                                    onValueChange={(val) => anneeForm.setData('statut', val)}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="en_preparation">En préparation</SelectItem>
-                                        <SelectItem value="en_cours">En cours</SelectItem>
-                                        <SelectItem value="cloturee">Clôturée</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            <div className="space-y-1">
-                                <Label className="text-xs font-semibold">Mode de Calcul des Moyennes</Label>
-                                <Select
-                                    value={anneeForm.data.mode_calcul_moyenne}
-                                    onValueChange={(val) => anneeForm.setData('mode_calcul_moyenne', val)}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="arithmetique_simple">Moyenne Arithmétique Simple</SelectItem>
-                                        <SelectItem value="ponderee_pourcentage">Moyenne Pondérée par Pourcentages</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                        <div className="space-y-1">
+                            <Label className="text-xs font-semibold">Statut de l'année scolaire *</Label>
+                            <Select
+                                value={anneeForm.data.statut}
+                                onValueChange={(val) => anneeForm.setData('statut', val)}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="en_preparation">En préparation</SelectItem>
+                                    <SelectItem value="en_cours">En cours</SelectItem>
+                                    <SelectItem value="cloturee">Clôturée</SelectItem>
+                                </SelectContent>
+                            </Select>
                         </div>
 
                         {!editingAnnee && (
-                            <div className="p-3.5 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/70 dark:border-emerald-800/70 space-y-2">
+                            <div className="p-3.5 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/70 dark:border-emerald-800/70 space-y-1.5">
                                 <label className="flex items-center gap-2 cursor-pointer">
                                     <input
                                         type="checkbox"
                                         checked={anneeForm.data.auto_generate_structure}
                                         onChange={(e) => anneeForm.setData('auto_generate_structure', e.target.checked)}
-                                        className="rounded text-emerald-600 focus:ring-emerald-500"
+                                        className="rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
                                     />
-                                    <span className="text-xs font-bold text-emerald-900 dark:text-emerald-200 flex items-center gap-1.5">
-                                        <Sparkles className="size-3.5 text-emerald-600" />
-                                        Initialiser automatiquement le découpage standard (3 Trimestres, 6 Séquences)
+                                    <span className="text-xs font-bold text-emerald-900 dark:text-emerald-200">
+                                        Initialiser automatiquement le découpage standard pour {selectedEtablissement?.nom || 'l\'établissement'}
                                     </span>
                                 </label>
                                 <p className="text-[11px] text-emerald-700 dark:text-emerald-300 pl-5">
@@ -1030,6 +1045,12 @@ export default function PeriodesIndex({
                     </DialogHeader>
 
                     <form onSubmit={submitTrimestre} className="space-y-4 pt-2">
+                        {selectedEtablissement && (
+                            <div className="flex items-center gap-2 p-2.5 rounded-lg bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200/60 text-xs text-emerald-800 dark:text-emerald-300">
+                                <Building2 className="size-3.5 shrink-0" />
+                                <span>Établissement cible : <strong>{selectedEtablissement.nom}</strong> ({selectedEtablissement.code})</span>
+                            </div>
+                        )}
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                             <div className="space-y-1">
                                 <Label className="text-xs font-semibold">Code *</Label>
@@ -1231,6 +1252,9 @@ export default function PeriodesIndex({
                     </form>
                 </DialogContent>
             </Dialog>
+
+            {/* Dialogue de confirmation de suppression globale */}
+            <ConfirmDialog />
         </>
     );
 }

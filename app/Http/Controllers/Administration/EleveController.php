@@ -10,6 +10,8 @@ use App\Models\Etablissement;
 use App\Models\Inscription;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -22,8 +24,25 @@ use Inertia\Response;
  * les réinscriptions, les transferts intra/inter établissements (Gesco V1.1)
  * et l'importation de fichiers CSV / Excel (format SAGEES Schooling).
  */
-class EleveController extends Controller
+class EleveController extends Controller implements HasMiddleware
 {
+    /**
+     * Définition de la matrice des middlewares d'autorisation pour le module Élèves & Inscriptions.
+     *
+     * @return array<int, Middleware>
+     */
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('can:eleves.view', only: ['index', 'searchAnciens']),
+            new Middleware('can:eleves.create', only: ['store', 'importCsv']),
+            new Middleware('can:eleves.edit', only: ['update']),
+            new Middleware('can:eleves.delete', only: ['destroy']),
+            new Middleware('can:inscriptions.manage', only: ['reinscrire', 'updateStatut']),
+            new Middleware('can:inscriptions.transfer', only: ['transferer']),
+        ];
+    }
+
     /**
      * Affiche la liste des élèves avec filtrage dynamique et KPIs.
      *

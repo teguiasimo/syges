@@ -197,7 +197,7 @@ class StatistiqueConseilTest extends TestCase
             'genre' => 'M',
             'fonction_principale' => 'Enseignant',
             'type_contrat' => 'Permanent',
-            'statut_activite' => 'Actif',
+            'statut' => 'Actif',
         ]);
 
         $attributionMath = Attribution::create([
@@ -629,4 +629,40 @@ class StatistiqueConseilTest extends TestCase
         $response->assertStatus(200);
         $this->assertEquals('application/pdf', $response->headers->get('content-type'));
     }
+
+    /**
+     * Teste la préparation de délibération pour une classe sans notes ni élèves évalués.
+     * Vérifie que la structure retournée est complète et empêche les erreurs de page blanche côté React.
+     *
+     * @return void
+     */
+    public function test_preparer_deliberation_classe_sans_eleves_retourne_structure_complete(): void
+    {
+        /** @var StatistiqueConseilService $service */
+        $service = app(StatistiqueConseilService::class);
+
+        // Création d'une nouvelle classe vide sans aucune note
+        $classeVide = Classe::create([
+            'niveau_id' => $this->classe->niveau_id,
+            'code' => 'VIDE-1',
+            'nom' => 'Classe Vide Test',
+            'capacite_max' => 30,
+            'is_active' => true,
+        ]);
+
+        $deliberation = $service->preparerDeliberation($classeVide, null, $this->anneeScolaire);
+
+        $this->assertIsArray($deliberation);
+        $this->assertArrayHasKey('classe', $deliberation);
+        $this->assertEquals($classeVide->id, $deliberation['classe']['id']);
+        $this->assertEquals('Classe Vide Test', $deliberation['classe']['nom']);
+        $this->assertEquals('Non assigné', $deliberation['classe']['professeur_principal']);
+        $this->assertArrayHasKey('eleves', $deliberation);
+        $this->assertEmpty($deliberation['eleves']);
+        $this->assertArrayHasKey('statistiques_classe', $deliberation);
+        $this->assertArrayHasKey('annee_scolaire', $deliberation);
+        $this->assertEquals($this->anneeScolaire->id, $deliberation['annee_scolaire']['id']);
+        $this->assertFalse($deliberation['toutes_validees']);
+    }
 }
+

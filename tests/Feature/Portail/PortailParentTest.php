@@ -189,7 +189,7 @@ class PortailParentTest extends TestCase
             'genre' => 'F',
             'fonction_principale' => 'Enseignant',
             'type_contrat' => 'Permanent',
-            'statut_activite' => 'Actif',
+            'statut' => 'Actif',
         ]);
 
         $attribution = Attribution::create([

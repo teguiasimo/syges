@@ -14,6 +14,8 @@ use App\Models\Personnel;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -28,8 +30,21 @@ use Inertia\Response as InertiaResponse;
  * - Le verrouillage temporel et manuel anti-fraude.
  * - Le déverrouillage autorisé pour les censeurs et administrateurs.
  */
-class NoteController extends Controller
+class NoteController extends Controller implements HasMiddleware
 {
+    /**
+     * Définition de la matrice des middlewares d'autorisation pour le module Notes & Évaluations.
+     *
+     * @return array<int, Middleware>
+     */
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('can:notes.view', only: ['index', 'getGrille', 'sauvegarder', 'verrouiller']),
+            new Middleware('can:notes.lock', only: ['deverrouiller']),
+        ];
+    }
+
     /**
      * Affiche l'interface de saisie des notes (Portail Enseignant & Censeur).
      */

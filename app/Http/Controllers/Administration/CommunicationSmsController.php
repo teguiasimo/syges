@@ -12,6 +12,8 @@ use App\Models\SmsCampagne;
 use App\Services\SmsService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 
@@ -25,8 +27,22 @@ use Inertia\Response as InertiaResponse;
  * - La traçabilité exhaustive et l'historique d'audit des messages émis.
  * - La configuration technique de la passerelle (Orange, MTN, Africa's Talking) et du Sender ID.
  */
-class CommunicationSmsController extends Controller
+class CommunicationSmsController extends Controller implements HasMiddleware
 {
+    /**
+     * Définition de la matrice des middlewares d'autorisation pour le module Communication SMS.
+     *
+     * @return array<int, Middleware>
+     */
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('can:communication.view', only: ['index']),
+            new Middleware('can:communication.send', only: ['storeCampagne', 'storeSmsDirect']),
+            new Middleware('can:communication.manage', only: ['updateConfig', 'rechargerCredits']),
+        ];
+    }
+
     /**
      * Affiche l'espace de communication SMS et traçabilité.
      *

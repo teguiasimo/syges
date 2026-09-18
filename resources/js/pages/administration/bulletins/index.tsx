@@ -115,9 +115,8 @@ export default function BulletinsIndex({
     const [selectedEvaluation, setSelectedEvaluation] = useState<string>(
         String(filters.evaluation_id || '')
     );
-    const [modeBulletin, setModeBulletin] = useState<ModeBulletin>(
-        filters.mode_bulletin || 'avec_competences'
-    );
+    // Le format du bulletin est déterminé strictement par l'établissement de la classe sélectionnée
+    const modeBulletin: ModeBulletin = filters.mode_bulletin || 'sans_competences';
 
     // Liste plate des évaluations de l'année sélectionnée
     const toutesLesEvaluations = useMemo(() => {
@@ -157,26 +156,23 @@ export default function BulletinsIndex({
     }, [flash]);
 
     /**
-     * Recharge la page avec les nouveaux filtres sélectionnés.
+     * Recharge la page avec les nouveaux filtres sélectionnés (le mode de bulletin étant automatiquement déduit de l'établissement).
      */
     const handleFilterChange = (
         newType?: 'sequentiel' | 'trimestriel' | 'annuel',
         newClasseId?: string,
         newPeriodeId?: string,
-        newEvaluationId?: string,
-        newMode?: ModeBulletin
+        newEvaluationId?: string
     ) => {
         const type = newType !== undefined ? newType : typeBulletin;
         const cId = newClasseId !== undefined ? newClasseId : selectedClasse;
         const pId = newPeriodeId !== undefined ? newPeriodeId : selectedPeriode;
         const eId = newEvaluationId !== undefined ? newEvaluationId : selectedEvaluation;
-        const mode = newMode !== undefined ? newMode : modeBulletin;
 
         const params: Record<string, any> = {
             type_bulletin: type,
             annee_id: selectedAnnee,
             classe_id: cId,
-            mode_bulletin: mode,
         };
 
         if (type === 'sequentiel' && eId) {
@@ -550,7 +546,7 @@ export default function BulletinsIndex({
                                     size="sm"
                                     onClick={() => {
                                         setTypeBulletin('sequentiel');
-                                        handleFilterChange('sequentiel', selectedClasse, selectedPeriode, selectedEvaluation, modeBulletin);
+                                        handleFilterChange('sequentiel', selectedClasse, selectedPeriode, selectedEvaluation);
                                     }}
                                     className={`text-xs h-7 px-3 gap-1.5 ${
                                         typeBulletin === 'sequentiel'
@@ -567,7 +563,7 @@ export default function BulletinsIndex({
                                     size="sm"
                                     onClick={() => {
                                         setTypeBulletin('trimestriel');
-                                        handleFilterChange('trimestriel', selectedClasse, selectedPeriode, selectedEvaluation, modeBulletin);
+                                        handleFilterChange('trimestriel', selectedClasse, selectedPeriode, selectedEvaluation);
                                     }}
                                     className={`text-xs h-7 px-3 gap-1.5 ${
                                         typeBulletin === 'trimestriel'
@@ -584,7 +580,7 @@ export default function BulletinsIndex({
                                     size="sm"
                                     onClick={() => {
                                         setTypeBulletin('annuel');
-                                        handleFilterChange('annuel', selectedClasse, selectedPeriode, selectedEvaluation, modeBulletin);
+                                        handleFilterChange('annuel', selectedClasse, selectedPeriode, selectedEvaluation);
                                     }}
                                     className={`text-xs h-7 px-3 gap-1.5 ${
                                         typeBulletin === 'annuel'
@@ -636,7 +632,7 @@ export default function BulletinsIndex({
                                     value={selectedClasse}
                                     onValueChange={(val) => {
                                         setSelectedClasse(val);
-                                        handleFilterChange(typeBulletin, val, selectedPeriode, selectedEvaluation, modeBulletin);
+                                        handleFilterChange(typeBulletin, val, selectedPeriode, selectedEvaluation);
                                     }}
                                 >
                                     <SelectTrigger className="h-9">
@@ -662,7 +658,7 @@ export default function BulletinsIndex({
                                         value={selectedEvaluation}
                                         onValueChange={(val) => {
                                             setSelectedEvaluation(val);
-                                            handleFilterChange(typeBulletin, selectedClasse, selectedPeriode, val, modeBulletin);
+                                            handleFilterChange(typeBulletin, selectedClasse, selectedPeriode, val);
                                         }}
                                     >
                                         <SelectTrigger className="h-9">
@@ -686,7 +682,7 @@ export default function BulletinsIndex({
                                         value={selectedPeriode}
                                         onValueChange={(val) => {
                                             setSelectedPeriode(val);
-                                            handleFilterChange(typeBulletin, selectedClasse, val, selectedEvaluation, modeBulletin);
+                                            handleFilterChange(typeBulletin, selectedClasse, val, selectedEvaluation);
                                         }}
                                     >
                                         <SelectTrigger className="h-9">
@@ -713,49 +709,22 @@ export default function BulletinsIndex({
                             )}
                         </div>
 
-                        {/* 3. Choix du Format Configurable du Bulletin (Exigence Utilisateur) */}
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pt-2 border-t border-border/50 gap-2">
+                        {/* 3. Format Officiel Appliqué (Strictement déterminé par l'établissement) */}
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pt-3 border-t border-border/50 gap-2 text-xs">
                             <div className="flex items-center gap-2">
-                                <SlidersHorizontal className="h-4 w-4 text-primary" />
-                                <span className="text-xs font-semibold text-foreground">
-                                    {t('bulletins.mode_bulletin')} :
+                                <FileText className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                                <span className="font-semibold text-foreground">
+                                    Format officiel de l'établissement :
                                 </span>
+                                <Badge variant="outline" className="font-semibold text-xs px-2.5 py-0.5 border-emerald-300 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300">
+                                    {modeBulletin === 'sans_competences'
+                                        ? 'Standard (Sans compétences)'
+                                        : 'Approche Par Compétences (APC)'}
+                                </Badge>
                             </div>
-
-                            <div className="inline-flex rounded-lg border border-border/80 p-0.5 bg-muted/30">
-                                <Button
-                                    type="button"
-                                    variant={modeBulletin === 'avec_competences' ? 'default' : 'ghost'}
-                                    size="sm"
-                                    onClick={() => {
-                                        setModeBulletin('avec_competences');
-                                        handleFilterChange(typeBulletin, selectedClasse, selectedPeriode, selectedEvaluation, 'avec_competences');
-                                    }}
-                                    className={`text-xs h-7 px-3 ${
-                                        modeBulletin === 'avec_competences'
-                                            ? 'bg-primary text-primary-foreground shadow-sm font-semibold'
-                                            : 'text-muted-foreground hover:text-foreground'
-                                    }`}
-                                >
-                                    {t('bulletins.mode_apc')} (Avec Compétences)
-                                </Button>
-                                <Button
-                                    type="button"
-                                    variant={modeBulletin === 'sans_competences' ? 'default' : 'ghost'}
-                                    size="sm"
-                                    onClick={() => {
-                                        setModeBulletin('sans_competences');
-                                        handleFilterChange(typeBulletin, selectedClasse, selectedPeriode, selectedEvaluation, 'sans_competences');
-                                    }}
-                                    className={`text-xs h-7 px-3 ${
-                                        modeBulletin === 'sans_competences'
-                                            ? 'bg-primary text-primary-foreground shadow-sm font-semibold'
-                                            : 'text-muted-foreground hover:text-foreground'
-                                    }`}
-                                >
-                                    {t('bulletins.mode_standard')} (Sans Compétences)
-                                </Button>
-                            </div>
+                            <span className="text-[11px] text-muted-foreground italic">
+                                Réglementé par la configuration globale de l'établissement
+                            </span>
                         </div>
                     </CardContent>
                 </Card>

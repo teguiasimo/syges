@@ -44,7 +44,6 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type { DeliberationData, LigneDeliberation } from '@/types/statistique-deliberation';
 
@@ -237,6 +236,18 @@ export default function DeliberationsIndex({
     };
 
     /**
+     * Formate de manière sécurisée une moyenne numérique sur 20.
+     *
+     * @param {number | string | undefined | null} val - Valeur de la moyenne
+     * @returns {string} Moyenne formatée à 2 décimales ou '-' si absente
+     */
+    const formatMoyenne = (val: number | string | undefined | null): string => {
+        if (val === undefined || val === null || val === '') return '-';
+        const num = typeof val === 'number' ? val : Number(val);
+        return isNaN(num) ? '-' : num.toFixed(2);
+    };
+
+    /**
      * Définition des colonnes TanStack Table pour la délibération.
      */
     const columns = React.useMemo<ColumnDef<LigneDeliberation>[]>(
@@ -275,7 +286,7 @@ export default function DeliberationsIndex({
                 accessorKey: 'moyenne_obtenue',
                 header: 'Moyenne',
                 cell: ({ row }) => {
-                    const moy = row.original.moyenne_obtenue;
+                    const moy = Number(row.original.moyenne_obtenue) || 0;
                     const color =
                         moy >= 12
                             ? 'text-emerald-700 bg-emerald-50 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300'
@@ -378,6 +389,9 @@ export default function DeliberationsIndex({
                                 <SelectItem value="exclu" className="text-destructive font-medium">
                                     Exclu
                                 </SelectItem>
+                                <SelectItem value="en_attente" className="text-muted-foreground font-medium">
+                                    En attente
+                                </SelectItem>
                             </SelectContent>
                         </Select>
                     );
@@ -427,7 +441,7 @@ export default function DeliberationsIndex({
     const tauxReussite = totalEleves > 0 ? Math.round((totalAdmis / totalEleves) * 100) : 0;
 
     return (
-        <AppLayout breadcrumbs={breadcrumbs}>
+        <>
             <Head title="Délibérations du Conseil de Classe" />
 
             <div className="flex flex-1 flex-col gap-6 p-4 md:p-6">
@@ -499,7 +513,7 @@ export default function DeliberationsIndex({
                                 <div className="space-y-1.5">
                                     <label className="text-xs font-semibold text-muted-foreground">Établissement</label>
                                     <Select
-                                        value={currentEtablissement?.id.toString()}
+                                        value={currentEtablissement?.id ? currentEtablissement.id.toString() : undefined}
                                         onValueChange={(val) => handleNavigation({ etablissement_id: val })}
                                     >
                                         <SelectTrigger className="h-9">
@@ -520,7 +534,7 @@ export default function DeliberationsIndex({
                             <div className="space-y-1.5">
                                 <label className="text-xs font-semibold text-muted-foreground">Classe à délibérer</label>
                                 <Select
-                                    value={selectedClasseId ? selectedClasseId.toString() : ''}
+                                    value={selectedClasseId ? selectedClasseId.toString() : undefined}
                                     onValueChange={(val) => handleNavigation({ classe_id: val })}
                                 >
                                     <SelectTrigger className="h-9">
@@ -560,7 +574,7 @@ export default function DeliberationsIndex({
                                 <div className="space-y-1.5">
                                     <label className="text-xs font-semibold text-muted-foreground">Période d'évaluation</label>
                                     <Select
-                                        value={selectedPeriodeId ? selectedPeriodeId.toString() : ''}
+                                        value={selectedPeriodeId ? selectedPeriodeId.toString() : undefined}
                                         onValueChange={(val) => handleNavigation({ periode_id: val })}
                                     >
                                         <SelectTrigger className="h-9">
@@ -587,7 +601,7 @@ export default function DeliberationsIndex({
                             <span className="text-xs font-medium text-muted-foreground">Effectif Délibéré</span>
                             <div className="text-xl font-bold text-foreground mt-0.5">{totalEleves} élèves</div>
                             <span className="text-[11px] text-muted-foreground">
-                                Prof. Principal : {deliberationData.classe.professeur_principal}
+                                Prof. Principal : {deliberationData.classe?.professeur_principal ?? 'Non assigné'}
                             </span>
                         </Card>
 
@@ -600,7 +614,7 @@ export default function DeliberationsIndex({
                         <Card className="p-3.5">
                             <span className="text-xs font-medium text-muted-foreground">Moyenne de Classe</span>
                             <div className="text-xl font-bold text-foreground mt-0.5">
-                                {stats.moyenne_classe ? stats.moyenne_classe.toFixed(2) : '-'} / 20
+                                {formatMoyenne(stats.moyenne_classe)} / 20
                             </div>
                             <span className="text-[11px] text-muted-foreground">Moyenne générale calculée</span>
                         </Card>
@@ -608,7 +622,7 @@ export default function DeliberationsIndex({
                         <Card className="p-3.5">
                             <span className="text-xs font-medium text-muted-foreground">Plus Forte Moyenne</span>
                             <div className="text-xl font-bold text-blue-600 mt-0.5">
-                                {stats.moyenne_max ? stats.moyenne_max.toFixed(2) : '-'} / 20
+                                {formatMoyenne(stats.moyenne_max)} / 20
                             </div>
                             <span className="text-[11px] text-muted-foreground">Major de promotion</span>
                         </Card>
@@ -616,7 +630,7 @@ export default function DeliberationsIndex({
                         <Card className="p-3.5">
                             <span className="text-xs font-medium text-muted-foreground">Plus Faible Moyenne</span>
                             <div className="text-xl font-bold text-destructive mt-0.5">
-                                {stats.moyenne_min ? stats.moyenne_min.toFixed(2) : '-'} / 20
+                                {formatMoyenne(stats.moyenne_min)} / 20
                             </div>
                             <span className="text-[11px] text-muted-foreground">Seuil minimum classe</span>
                         </Card>
@@ -633,7 +647,7 @@ export default function DeliberationsIndex({
                                     Grille de Délibération & Décisions du Conseil
                                 </CardTitle>
                                 <CardDescription>
-                                    {deliberationData ? `${deliberationData.classe.nom} • ${typeSession === 'annuel' ? 'Bilan Annuel Définitif' : deliberationData.periode?.nom}` : 'Sélectionnez une classe pour afficher les délibérations'}
+                                    {deliberationData?.classe ? `${deliberationData.classe.nom} • ${typeSession === 'annuel' ? 'Bilan Annuel Définitif' : (deliberationData.periode?.nom ?? 'Trimestre')}` : 'Sélectionnez une classe pour afficher les délibérations'}
                                 </CardDescription>
                             </div>
 
@@ -647,12 +661,22 @@ export default function DeliberationsIndex({
                     </CardHeader>
                     <CardContent>
                         {deliberationData ? (
-                            <DataTable
-                                columns={columns}
-                                data={lignesLocales}
-                                searchPlaceholder="Rechercher par nom d'élève ou matricule..."
-                                defaultPageSize={20}
-                            />
+                            lignesLocales.length > 0 ? (
+                                <DataTable
+                                    columns={columns}
+                                    data={lignesLocales}
+                                    searchPlaceholder="Rechercher par nom d'élève ou matricule..."
+                                    defaultPageSize={20}
+                                />
+                            ) : (
+                                <div className="flex flex-col items-center justify-center p-12 text-center text-muted-foreground">
+                                    <AlertCircle className="size-10 mb-2 stroke-1 text-amber-500" />
+                                    <p className="font-semibold text-sm text-foreground">Aucune note ou élève évalué pour cette classe</p>
+                                    <p className="text-xs mt-1 max-w-md">
+                                        Les délibérations ne peuvent être calculées car aucun bulletin ou note n'a encore été enregistré pour cette classe et cette session.
+                                    </p>
+                                </div>
+                            )
                         ) : (
                             <div className="flex flex-col items-center justify-center p-12 text-center text-muted-foreground">
                                 <HelpCircle className="size-10 mb-2 stroke-1 text-muted-foreground/60" />
@@ -681,7 +705,7 @@ export default function DeliberationsIndex({
                         <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-900/50 dark:bg-amber-950/40 p-3 text-amber-900 dark:text-amber-200 text-xs">
                             <p className="font-semibold mb-1">Attention : Action définitive</p>
                             <p>
-                                Cette validation va sceller les statuts de fin d'année (Promu, Redouble, Exclu) pour les <strong>{totalEleves} élèves</strong> de la classe <strong>{deliberationData?.classe.nom}</strong>. Les décisions retenues écraseront toute proposition automatique antérieure.
+                                Cette validation va sceller les statuts de fin d'année (Promu, Redouble, Exclu) pour les <strong>{totalEleves} élèves</strong> de la classe <strong>{deliberationData?.classe?.nom ?? ''}</strong>. Les décisions retenues écraseront toute proposition automatique antérieure.
                             </p>
                         </div>
 
@@ -715,6 +739,14 @@ export default function DeliberationsIndex({
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-        </AppLayout>
+        </>
     );
 }
+
+/**
+ * Configuration du layout persistant et des fils d'Ariane pour la page Délibérations.
+ */
+DeliberationsIndex.layout = {
+    breadcrumbs,
+};
+

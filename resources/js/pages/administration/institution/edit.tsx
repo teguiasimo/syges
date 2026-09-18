@@ -13,6 +13,9 @@ import {
     CheckCircle2,
     AlertCircle,
     RotateCcw,
+    Sparkles,
+    Trash2,
+    UploadCloud,
 } from 'lucide-react';
 import React, { useEffect } from 'react';
 import { toast } from 'sonner';
@@ -72,10 +75,15 @@ interface EditInstitutionProps {
  * @returns {JSX.Element} La vue du formulaire complet de l'institution.
  */
 export default function EditInstitution({ institution, flash }: EditInstitutionProps) {
-    // Gestion des toasts de notification en haut à droite avec style vert pour le succès
+    // Référence de mémorisation pour éviter les doubles déclenchements de toast
+    const lastToastRef = React.useRef<string | null>(null);
+
+    // Gestion des toasts de notification en haut à droite avec style vert pour le succès et déduplication
     useEffect(() => {
-        if (flash?.success) {
+        if (flash?.success && lastToastRef.current !== flash.success) {
+            lastToastRef.current = flash.success;
             toast.success(flash.success, {
+                id: 'institution-edit-success',
                 style: {
                     backgroundColor: '#10b981',
                     color: '#ffffff',
@@ -83,13 +91,46 @@ export default function EditInstitution({ institution, flash }: EditInstitutionP
                 },
             });
         }
-        if (flash?.error) {
-            toast.error(flash.error);
+        if (flash?.error && lastToastRef.current !== flash.error) {
+            lastToastRef.current = flash.error;
+            toast.error(flash.error, {
+                id: 'institution-edit-error',
+            });
         }
     }, [flash]);
 
+    // Gestion de l'état de prévisualisation du logo et référence de l'input fichier
+    const [logoPreview, setLogoPreview] = React.useState<string | null>(institution.logo || null);
+    const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+
     // Initialisation du formulaire Inertia avec l'ensemble des champs
-    const { data, setData, put, processing, errors, isDirty, reset } = useForm({
+    const { data, setData, post, processing, errors, isDirty, reset } = useForm<{
+        code: string;
+        sigle: string;
+        nom: string;
+        nom_en: string;
+        devise: string;
+        devise_en: string;
+        logo: string;
+        logo_file: File | null;
+        _method: string;
+        email: string;
+        telephone_1: string;
+        telephone_2: string;
+        boite_postale: string;
+        site_web: string;
+        region: string;
+        region_en: string;
+        departement: string;
+        departement_en: string;
+        arrondissement: string;
+        arrondissement_en: string;
+        ville: string;
+        delegation_regionale: string;
+        delegation_regionale_en: string;
+        delegation_departementale: string;
+        delegation_departementale_en: string;
+    }>({
         code: institution.code || '',
         sigle: institution.sigle || '',
         nom: institution.nom || '',
@@ -97,6 +138,8 @@ export default function EditInstitution({ institution, flash }: EditInstitutionP
         devise: institution.devise || '',
         devise_en: institution.devise_en || '',
         logo: institution.logo || '',
+        logo_file: null,
+        _method: 'put',
         email: institution.email || '',
         telephone_1: institution.telephone_1 || '',
         telephone_2: institution.telephone_2 || '',
@@ -115,15 +158,47 @@ export default function EditInstitution({ institution, flash }: EditInstitutionP
         delegation_departementale_en: institution.delegation_departementale_en || '',
     });
 
+
     /**
-     * Soumission du formulaire pour enregistrement des données.
+     * Gestion de la sélection d'un fichier logo avec prévisualisation immédiate.
+     *
+     * @param {React.ChangeEvent<HTMLInputElement>} e Événement de changement de fichier.
+     */
+    const handleLogoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            if (file.size > 2 * 1024 * 1024) {
+                toast.error('Le fichier est trop volumineux. Taille maximale : 2 Mo.');
+                return;
+            }
+            setData('logo_file', file);
+            const previewUrl = URL.createObjectURL(file);
+            setLogoPreview(previewUrl);
+        }
+    };
+
+    /**
+     * Suppression du logo sélectionné.
+     */
+    const handleRemoveLogo = () => {
+        setData('logo', '');
+        setData('logo_file', null);
+        setLogoPreview(null);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+    };
+
+    /**
+     * Soumission du formulaire pour enregistrement des données avec support multipart.
      *
      * @param {React.FormEvent} e Événement de soumission.
      */
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        put('/administration/institution', {
+        post('/administration/institution', {
             preserveScroll: true,
+            forceFormData: true,
         });
     };
 
@@ -179,7 +254,7 @@ export default function EditInstitution({ institution, flash }: EditInstitutionP
                 {/* Formulaire principal découpé en cartes spacieuses */}
                 <form onSubmit={handleSubmit} className="space-y-8">
                     {/* CARTE 1 : IDENTITÉ OFFICIELLE & BILINGUISME */}
-                    <div className="rounded-2xl border border-border/80 bg-card p-6 shadow-xs space-y-5">
+                    <div className="rounded-2xl border border-border/80 bg-card p-6 shadow-xs space-y-6">
                         <div className="flex items-center gap-2.5 pb-3 border-b border-border/60">
                             <div className="flex size-9 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-400">
                                 <Building2 className="size-5" />
@@ -192,56 +267,8 @@ export default function EditInstitution({ institution, flash }: EditInstitutionP
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-                            <div className="space-y-1.5">
-                                <Label htmlFor="code" className="text-xs font-semibold flex items-center gap-1 text-foreground">
-                                    Code Unique de l'Institution <span className="text-rose-500">*</span>
-                                </Label>
-                                <Input
-                                    id="code"
-                                    value={data.code}
-                                    onChange={(e) => setData('code', e.target.value)}
-                                    placeholder="ex: INST-01 ou GSB-STP"
-                                    className="font-mono text-sm"
-                                    required
-                                />
-                                {errors.code && <p className="text-[11px] text-rose-500">{errors.code}</p>}
-                                <p className="text-[11px] text-muted-foreground">Identifiant unique du groupe scolaire.</p>
-                            </div>
-
-                            <div className="space-y-1.5">
-                                <Label htmlFor="sigle" className="text-xs font-semibold text-foreground">
-                                    Sigle / Acronyme Usuel
-                                </Label>
-                                <Input
-                                    id="sigle"
-                                    value={data.sigle || ''}
-                                    onChange={(e) => setData('sigle', e.target.value)}
-                                    placeholder="ex: GSJF, GSB-STP"
-                                    className="font-mono text-sm"
-                                />
-                                {errors.sigle && <p className="text-[11px] text-rose-500">{errors.sigle}</p>}
-                                <p className="text-[11px] text-muted-foreground">Appellation abrégée de l'institution.</p>
-                            </div>
-
-                            <div className="space-y-1.5">
-                                <Label htmlFor="logo" className="text-xs font-semibold text-foreground">
-                                    Chemin ou URL du Logo
-                                </Label>
-                                <Input
-                                    id="logo"
-                                    value={data.logo || ''}
-                                    onChange={(e) => setData('logo', e.target.value)}
-                                    placeholder="/images/logo.png"
-                                    className="text-sm"
-                                />
-                                {errors.logo && <p className="text-[11px] text-rose-500">{errors.logo}</p>}
-                                <p className="text-[11px] text-muted-foreground">Blason ou armoiries de l'institution.</p>
-                            </div>
-                        </div>
-
-                        {/* Nom bilingue FR et EN en colonnes miroir */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-2">
+                        {/* LIGNE 1 : Nom bilingue FR et EN en colonnes miroir (Priorité 1 de lecture) */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                             <div className="space-y-1.5 p-4 rounded-xl bg-slate-50/60 dark:bg-slate-900/40 border border-slate-200/60 dark:border-slate-800/60">
                                 <Label htmlFor="nom" className="text-xs font-semibold flex items-center gap-1 text-foreground">
                                     <span>🇫🇷 Nom Officiel (Français)</span> <span className="text-rose-500">*</span>
@@ -274,8 +301,8 @@ export default function EditInstitution({ institution, flash }: EditInstitutionP
                             </div>
                         </div>
 
-                        {/* Devise bilingue FR et EN */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-2">
+                        {/* LIGNE 2 : Devise bilingue FR et EN */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                             <div className="space-y-1.5">
                                 <Label htmlFor="devise" className="text-xs font-semibold text-foreground">
                                     🇫🇷 Devise Officielle (Français)
@@ -302,6 +329,83 @@ export default function EditInstitution({ institution, flash }: EditInstitutionP
                                     className="text-sm"
                                 />
                                 {errors.devise_en && <p className="text-[11px] text-rose-500">{errors.devise_en}</p>}
+                            </div>
+                        </div>
+
+                        {/* LIGNE 3 : Sigle / Acronyme du Groupe & Logo avec Prévisualisation */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-3 border-t border-border/60">
+                            {/* Sigle / Acronyme */}
+                            <div className="space-y-1.5">
+                                <Label htmlFor="sigle" className="text-xs font-semibold text-foreground">
+                                    Sigle / Acronyme du Groupe Scolaire
+                                </Label>
+                                <Input
+                                    id="sigle"
+                                    value={data.sigle || ''}
+                                    onChange={(e) => setData('sigle', e.target.value)}
+                                    placeholder="ex: GSB-STP, CS-NDN"
+                                    className="font-mono text-sm uppercase"
+                                />
+                                {errors.sigle && <p className="text-[11px] text-rose-500">{errors.sigle}</p>}
+                                <p className="text-[11px] text-muted-foreground">
+                                    Appellation abrégée de l'institution (affichée en en-tête des documents et bulletins).
+                                </p>
+                            </div>
+
+                            {/* Logo Officiel avec Prévisualisation et Sélecteur de fichier */}
+                            <div className="space-y-1.5">
+                                <Label className="text-xs font-semibold text-foreground">
+                                    Logo / Blason Officiel
+                                </Label>
+                                <input
+                                    type="file"
+                                    ref={fileInputRef}
+                                    onChange={handleLogoFileChange}
+                                    accept="image/png,image/jpeg,image/jpg,image/webp,image/svg+xml"
+                                    className="hidden"
+                                />
+                                <div className="flex items-center gap-3">
+                                    {logoPreview ? (
+                                        <div className="relative group size-14 shrink-0 rounded-xl border border-border bg-slate-50 dark:bg-slate-900 p-1 flex items-center justify-center overflow-hidden shadow-xs">
+                                            <img
+                                                src={logoPreview}
+                                                alt="Logo officiel"
+                                                className="max-h-full max-w-full object-contain"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={handleRemoveLogo}
+                                                className="absolute inset-0 bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-xl cursor-pointer"
+                                                title="Supprimer le logo"
+                                            >
+                                                <Trash2 className="size-4" />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div
+                                            onClick={() => fileInputRef.current?.click()}
+                                            className="size-14 shrink-0 rounded-xl border-2 border-dashed border-border hover:border-primary/60 bg-muted/20 flex flex-col items-center justify-center cursor-pointer transition-colors"
+                                            title="Cliquer pour importer une image"
+                                        >
+                                            <UploadCloud className="size-5 text-muted-foreground" />
+                                        </div>
+                                    )}
+
+                                    <div className="flex flex-col gap-1 min-w-0">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => fileInputRef.current?.click()}
+                                            className="cursor-pointer text-xs h-8 gap-1.5 justify-start w-fit"
+                                        >
+                                            <UploadCloud className="size-3.5" />
+                                            <span>{logoPreview ? 'Changer' : 'Sélectionner'}</span>
+                                        </Button>
+                                        <p className="text-[10px] text-muted-foreground truncate">PNG, JPG, SVG (max 2Mo)</p>
+                                    </div>
+                                </div>
+                                {errors.logo && <p className="text-[11px] text-rose-500">{errors.logo}</p>}
                             </div>
                         </div>
                     </div>

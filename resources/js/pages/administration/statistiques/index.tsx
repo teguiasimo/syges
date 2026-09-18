@@ -28,7 +28,6 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type {
     LigneBordereauOfficiel,
@@ -180,7 +179,7 @@ export default function StatistiquesIndex({
     };
 
     return (
-        <AppLayout breadcrumbs={breadcrumbs}>
+        <>
             <Head title="Statistiques & Rapports Officiels" />
 
             <div className="flex flex-1 flex-col gap-6 p-4 md:p-6">
@@ -424,6 +423,14 @@ export default function StatistiquesIndex({
                     </TabsContent>
                 </Tabs>
             </div>
-        </AppLayout>
+        </>
     );
 }
+
+/**
+ * Configuration du layout persistant et des fils d'Ariane pour la page Statistiques.
+ */
+StatistiquesIndex.layout = {
+    breadcrumbs,
+};
+

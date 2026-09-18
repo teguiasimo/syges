@@ -26,7 +26,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 import type {
     EleveDecrochage,
@@ -148,7 +147,7 @@ export default function Dashboard({
     };
 
     return (
-        <AppLayout breadcrumbs={breadcrumbs}>
+        <>
             <Head title="Tableau de bord exécutif" />
 
             <div className="flex flex-1 flex-col gap-6 p-4 md:p-6">
@@ -413,6 +412,14 @@ export default function Dashboard({
                     </Card>
                 </div>
             </div>
-        </AppLayout>
+        </>
     );
 }
+
+/**
+ * Configuration du layout persistant et des fils d'Ariane pour le Tableau de bord.
+ * Transmis au layout par défaut (AppLayout) géré par Inertia.
+ */
+Dashboard.layout = {
+    breadcrumbs,
+};

@@ -3,7 +3,9 @@
 /** @var \Tests\TestCase $this */
 
 use App\Models\AnneeScolaire;
+use App\Models\Etablissement;
 use App\Models\Evaluation;
+use App\Models\Institution;
 use App\Models\Periode;
 use App\Models\User;
 use Spatie\Permission\Models\Permission;
@@ -15,9 +17,9 @@ use Spatie\Permission\Models\Role;
  * Vérifie :
  * - Le contrôle d'accès selon les permissions (periodes.view, periodes.manage, periodes.lock).
  * - La consultation de l'année active, des trimestres et des séquences avec TanStack Table.
+ * - Le cloisonnement des périodes et évaluations par établissement (Option A).
  * - La création d'une année scolaire avec auto-génération de la structure officielle (3 trimestres, 6 séquences).
  * - La bascule de l'année scolaire active.
- * - Le paramétrage du mode de calcul de la moyenne trimestrielle (Option A : Arithmétique vs Option B : Pondérée 100%).
  * - Le verrouillage / déverrouillage de la saisie des notes par séquence.
  * - L'intégrité référentielle lors de la suppression de périodes.
  */
@@ -38,6 +40,29 @@ beforeEach(function () {
 
     $this->adminUser = User::factory()->create();
     $this->adminUser->assignRole('super-admin');
+
+    // Institution et Établissement de test
+    $this->institution = Institution::firstOrCreate(
+        ['code' => 'INST-TEST-PERIODE'],
+        [
+            'sigle' => 'TEST-PER',
+            'nom' => 'Groupe Scolaire Test Périodes',
+            'nom_en' => 'Test School Group Periods',
+            'email' => 'contact@test-periode.org',
+            'telephone_1' => '+237 600 000 000',
+        ]
+    );
+
+    $this->etablissement = Etablissement::firstOrCreate(
+        ['code' => 'ETAB-TEST-PERIODE'],
+        [
+            'institution_id' => $this->institution->id,
+            'nom' => 'Campus Secondaire',
+            'email' => 'campus@test-periode.org',
+            'telephone' => '+237 611 111 111',
+            'type_etablissement' => 'Secondaire Général',
+        ]
+    );
 
     // Année de test
     $this->annee = AnneeScolaire::firstOrCreate(
@@ -80,6 +105,8 @@ test('authorized users can view periodes page with current academic year and tri
         ->has('annees')
         ->has('selectedAnnee')
         ->has('periodes')
+        ->has('etablissements')
+        ->has('selectedEtablissement')
         ->has('can')
         ->where('can.periodes_manage', true)
         ->where('can.periodes_lock', true)
@@ -116,6 +143,26 @@ test('can create a new academic year with auto-generated standard 3 trimestres a
     // Chaque trimestre doit avoir 2 séquences (total 6)
     $totalSequences = Evaluation::whereIn('periode_id', $newAnnee->periodes()->pluck('id'))->count();
     expect($totalSequences)->toBe(6);
+});
+
+test('can create a new academic year with only streamlined fields and auto-generated name', function () {
+    /** @var \Tests\TestCase $this */
+    $this->actingAs($this->adminUser);
+
+    $response = $this->post(route('administration.periodes.annees.store'), [
+        'code' => '2029-2030',
+        'date_debut' => '2029-09-01',
+        'date_fin' => '2030-06-30',
+        'statut' => 'en_preparation',
+    ]);
+
+    $response->assertRedirect();
+    $this->assertDatabaseHas('annees_scolaires', [
+        'code' => '2029-2030',
+        'nom' => 'Année Scolaire 2029-2030',
+        'nom_en' => 'Academic Year 2029-2030',
+        'statut' => 'en_preparation',
+    ]);
 });
 
 test('can set an academic year as the current active year', function () {
@@ -261,3 +308,100 @@ test('cannot delete a trimestre if it still contains evaluations', function () {
     $response->assertSessionHas('error');
     $this->assertDatabaseHas('periodes', ['id' => $trimestre->id]);
 });
+
+test('periods and evaluations are isolated by establishment within the same academic year (Option A)', function () {
+    /** @var \Tests\TestCase $this */
+    $this->actingAs($this->adminUser);
+
+    // Deuxième établissement (ex: Primaire)
+    $etablissementPrimaire = Etablissement::firstOrCreate(
+        ['code' => 'ETAB-PRIMAIRE'],
+        [
+            'institution_id' => $this->institution->id,
+            'nom' => 'École Primaire',
+            'email' => 'primaire@test-periode.org',
+            'telephone' => '+237 622 222 222',
+            'type_etablissement' => 'Primaire',
+        ]
+    );
+
+    // Trimestre pour Secondaire (Campus test)
+    $trimestreSec = Periode::create([
+        'annee_scolaire_id' => $this->annee->id,
+        'etablissement_id' => $this->etablissement->id,
+        'code' => 'TRIM-1',
+        'nom' => '1er Trimestre Secondaire',
+        'ordre' => 1,
+        'statut' => 'en_cours',
+    ]);
+
+    $evalSec = Evaluation::create([
+        'periode_id' => $trimestreSec->id,
+        'code' => 'SEQ-1',
+        'nom' => 'Séquence 1 Sec',
+        'ordre' => 1,
+        'ponderation' => 50,
+        'is_locked' => false,
+        'statut' => 'ouverte',
+    ]);
+
+    // Trimestre pour Primaire (même code TRIM-1, mais établissement différent)
+    $trimestrePrim = Periode::create([
+        'annee_scolaire_id' => $this->annee->id,
+        'etablissement_id' => $etablissementPrimaire->id,
+        'code' => 'TRIM-1',
+        'nom' => '1er Trimestre Primaire',
+        'ordre' => 1,
+        'statut' => 'en_cours',
+    ]);
+
+    $evalPrim = Evaluation::create([
+        'periode_id' => $trimestrePrim->id,
+        'code' => 'SEQ-1',
+        'nom' => 'Séquence 1 Prim',
+        'ordre' => 1,
+        'ponderation' => 50,
+        'is_locked' => true,
+        'statut' => 'verrouillee',
+    ]);
+
+    // Vérifier que les 2 existent bien en base
+    expect($trimestreSec->id)->not->toBe($trimestrePrim->id);
+    expect($trimestreSec->code)->toBe($trimestrePrim->code);
+
+    // Consultation filtrée par établissement Secondaire
+    $responseSec = $this->get(route('administration.periodes.index', [
+        'annee_id' => $this->annee->id,
+        'etablissement_id' => $this->etablissement->id,
+    ]));
+    $responseSec->assertOk();
+    $responseSec->assertInertia(fn ($page) => $page
+        ->where('selectedEtablissement.id', $this->etablissement->id)
+        ->has('periodes', 1)
+        ->where('periodes.0.nom', '1er Trimestre Secondaire')
+        ->where('periodes.0.evaluations.0.is_locked', false)
+    );
+
+    // Consultation filtrée par établissement Primaire
+    $responsePrim = $this->get(route('administration.periodes.index', [
+        'annee_id' => $this->annee->id,
+        'etablissement_id' => $etablissementPrimaire->id,
+    ]));
+    $responsePrim->assertOk();
+    $responsePrim->assertInertia(fn ($page) => $page
+        ->where('selectedEtablissement.id', $etablissementPrimaire->id)
+        ->has('periodes', 1)
+        ->where('periodes.0.nom', '1er Trimestre Primaire')
+        ->where('periodes.0.evaluations.0.is_locked', true)
+    );
+
+    // Le verrouillage dans un établissement n'affecte pas l'autre
+    $this->patch(route('administration.periodes.evaluations.toggle-lock', $evalSec));
+    expect($evalSec->fresh()->is_locked)->toBeTrue();
+    expect($evalPrim->fresh()->is_locked)->toBeTrue(); // Resté verrouillé
+
+    $this->patch(route('administration.periodes.evaluations.toggle-lock', $evalSec));
+    expect($evalSec->fresh()->is_locked)->toBeFalse();
+    expect($evalPrim->fresh()->is_locked)->toBeTrue(); // Inchangé
+});
+

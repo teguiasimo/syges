@@ -191,5 +191,16 @@ class Personnel extends Model
             ->withPivot(['annee_scolaire_id', 'matiere_id', 'volume_horaire_reel', 'is_titulaire'])
             ->withTimestamps();
     }
+
+    /**
+     * Scope Eloquent pour filtrer les membres du personnel ayant un statut actif.
+     *
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopeActif(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
+    {
+        return $query->whereIn('statut', ['Actif', 'actif']);
+    }
 }
 

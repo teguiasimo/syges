@@ -1,7 +1,8 @@
-import { Link, usePage } from '@inertiajs/react';
-import { LayoutGrid, ShieldCheck, Users } from 'lucide-react';
+import { Link } from '@inertiajs/react';
+import { LayoutGrid, ShieldCheck } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { NavMain } from '@/components/nav-main';
+import { NavModules } from '@/components/nav-modules';
 import { NavUser } from '@/components/nav-user';
 import {
     Sidebar,
@@ -11,23 +12,23 @@ import {
     SidebarMenu,
     SidebarMenuButton,
     SidebarMenuItem,
+    SidebarSeparator,
 } from '@/components/ui/sidebar';
 import { useTranslation } from '@/contexts/language-context';
+import { usePermission } from '@/hooks/use-permission';
 import { dashboard } from '@/routes';
-import type { NavItem, User } from '@/types';
+import type { NavItem } from '@/types';
 
 /**
  * Composant principal de la barre latérale (Sidebar) de l'application SYGES.
  * Filtre dynamiquement les éléments de navigation : l'accès à l'Administration
- * n'apparaît que si l'utilisateur possède au moins une permission administrative ou est Super Admin.
+ * et à ses modules n'apparaît que si l'utilisateur possède au moins une permission administrative ou est Super Admin.
  *
  * @returns {JSX.Element} La barre latérale de navigation.
  */
 export function AppSidebar() {
     const { t } = useTranslation();
-    const { auth } = usePage<{ auth?: { user?: User } }>().props;
-    const permissions = auth?.user?.permissions ?? [];
-    const isSuperAdmin = auth?.user?.is_super_admin ?? false;
+    const { permissions, isSuperAdmin } = usePermission();
 
     // Détermine si l'utilisateur a le droit d'accéder au volet administration
     const hasAdminAccess =
@@ -52,20 +53,22 @@ export function AppSidebar() {
                 p.startsWith('settings.') ||
                 p.startsWith('grades.') ||
                 p.startsWith('attendance.') ||
-                p.startsWith('backups.')
+                p.startsWith('backups.') ||
+                p.startsWith('finances.') ||
+                p.startsWith('discipline.') ||
+                p.startsWith('emplois_du_temps.') ||
+                p.startsWith('communication.') ||
+                p.startsWith('statistiques.') ||
+                p.startsWith('deliberations.')
         );
 
-    // Liste des éléments du menu principal filtrée et traduite
+    // Liste des éléments du menu principal filtrée et traduite avec icônes colorées
     const navItems: NavItem[] = [
         {
             title: t('nav.dashboard'),
             href: dashboard(),
             icon: LayoutGrid,
-        },
-        {
-            title: 'Portail Parents & Élèves',
-            href: '/portail',
-            icon: Users,
+            color: 'text-sky-500 dark:text-sky-400',
         },
         ...(hasAdminAccess
             ? [
@@ -73,6 +76,7 @@ export function AppSidebar() {
                       title: t('nav.administration'),
                       href: '/administration',
                       icon: ShieldCheck,
+                      color: 'text-indigo-500 dark:text-indigo-400',
                   },
               ]
             : []),
@@ -93,9 +97,17 @@ export function AppSidebar() {
                 </SidebarMenu>
             </SidebarHeader>
 
-            {/* Corps de navigation principale */}
+            {/* Corps de navigation principale et modules d'administration */}
             <SidebarContent>
                 <NavMain items={navItems} />
+
+                {/* Modules d'administration regroupés par pôles thématiques en dessous d'Administration */}
+                {hasAdminAccess && (
+                    <>
+                        <SidebarSeparator className="my-1.5 opacity-50" />
+                        <NavModules permissions={permissions} isSuperAdmin={isSuperAdmin} />
+                    </>
+                )}
             </SidebarContent>
 
             {/* Pied de page de la barre latérale : profil utilisateur uniquement */}

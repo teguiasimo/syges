@@ -134,7 +134,7 @@ class PortailParentService
         $emploiDuTemps = SeanceEmploiTemps::with(['attribution.matiere', 'attribution.personnel', 'salle'])
             ->where('classe_id', $classe->id)
             ->where('annee_scolaire_id', $annee->id)
-            ->where('is_active', true)
+            ->where('statut', '!=', 'annule')
             ->orderBy('jour_semaine')
             ->orderBy('heure_debut')
             ->get()

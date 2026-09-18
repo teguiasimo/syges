@@ -17,6 +17,7 @@ import {
     FileText,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useConfirmDelete } from '@/components/confirm-delete-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -85,6 +86,9 @@ export default function DisciplineIndex({
         (filters.tab as any) || 'assiduites'
     );
 
+    // Boîte de dialogue unifiée de confirmation de suppression
+    const { confirmDelete, ConfirmDialog } = useConfirmDelete();
+
     // Modales
     const [isAssiduiteModalOpen, setIsAssiduiteModalOpen] = useState(false);
     const [isSanctionModalOpen, setIsSanctionModalOpen] = useState(false);
@@ -98,34 +102,61 @@ export default function DisciplineIndex({
 
     // Suppression d'un événement d'assiduité
     const handleDeleteAssiduite = (item: Assiduite) => {
-        if (!confirm('Êtes-vous certain de vouloir supprimer cette absence/retard ? Le bulletin sera recalculé.')) return;
-
-        router.delete(`/administration/discipline/assiduites/${item.id}`, {
-            onSuccess: () => {
-                toast.success('Événement d’assiduité supprimé avec succès.', {
-                    position: 'top-right',
-                    className: 'bg-emerald-600 text-white border-none',
+        const eleveNom = item.inscription?.eleve
+            ? `${item.inscription.eleve.nom} ${item.inscription.eleve.prenom ?? ''}`.trim()
+            : 'l’élève';
+        confirmDelete({
+            title: "Supprimer l'événement d'assiduité",
+            itemType: "l'absence / retard",
+            itemName: `${item.type_evenement} (${eleveNom})`,
+            description: "Cet événement sera définitivement supprimé. Le décompte d'heures et les récapitulatifs du bulletin seront recalculés.",
+            onConfirm: () => {
+                router.delete(`/administration/discipline/assiduites/${item.id}`, {
+                    onSuccess: () => {
+                        toast.success('Événement d’assiduité supprimé avec succès.', {
+                            position: 'top-right',
+                            style: {
+                                backgroundColor: '#10b981',
+                                color: '#ffffff',
+                                border: '1px solid #059669',
+                            },
+                        });
+                    },
+                    onError: () => {
+                        toast.error('Erreur lors de la suppression.', { position: 'top-right' });
+                    },
                 });
-            },
-            onError: () => {
-                toast.error('Erreur lors de la suppression.', { position: 'top-right' });
             },
         });
     };
 
     // Suppression d'une sanction
     const handleDeleteSanction = (item: SanctionDisciplinaire) => {
-        if (!confirm('Confirmez-vous l’annulation de cette sanction disciplinaire ?')) return;
-
-        router.delete(`/administration/discipline/sanctions/${item.id}`, {
-            onSuccess: () => {
-                toast.success('Sanction disciplinaire retirée avec succès.', {
-                    position: 'top-right',
-                    className: 'bg-emerald-600 text-white border-none',
+        const eleveNom = item.inscription?.eleve
+            ? `${item.inscription.eleve.nom} ${item.inscription.eleve.prenom ?? ''}`.trim()
+            : 'l’élève';
+        confirmDelete({
+            title: 'Annuler la sanction disciplinaire',
+            itemType: 'la sanction',
+            itemName: `${item.type_sanction} (${eleveNom})`,
+            description: "Cette sanction disciplinaire sera définitivement annulée et retirée du dossier de l'élève.",
+            confirmLabel: 'Annuler la sanction',
+            onConfirm: () => {
+                router.delete(`/administration/discipline/sanctions/${item.id}`, {
+                    onSuccess: () => {
+                        toast.success('Sanction disciplinaire retirée avec succès.', {
+                            position: 'top-right',
+                            style: {
+                                backgroundColor: '#10b981',
+                                color: '#ffffff',
+                                border: '1px solid #059669',
+                            },
+                        });
+                    },
+                    onError: () => {
+                        toast.error('Erreur lors de la suppression de la sanction.', { position: 'top-right' });
+                    },
                 });
-            },
-            onError: () => {
-                toast.error('Erreur lors de la suppression de la sanction.', { position: 'top-right' });
             },
         });
     };
@@ -823,6 +854,9 @@ export default function DisciplineIndex({
                 inscriptions={inscriptions}
                 periodeId={currentPeriode?.id ?? 0}
             />
+
+            {/* Dialogue de confirmation de suppression unifié */}
+            <ConfirmDialog />
         </>
     );
 }

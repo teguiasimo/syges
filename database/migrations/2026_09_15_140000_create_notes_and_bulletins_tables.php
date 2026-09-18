@@ -87,7 +87,7 @@ return new class extends Migration
         // 3. Paramétrage du format de bulletin et mode de calcul sur les établissements
         Schema::table('etablissements', function (Blueprint $table) {
             $table->enum('mode_bulletin_defaut', ['avec_competences', 'sans_competences'])
-                ->default('avec_competences')
+                ->default('sans_competences')
                 ->after('statut_juridique')
                 ->comment('Format de bulletin par défaut : avec_competences (APC) ou sans_competences (Standard)');
 

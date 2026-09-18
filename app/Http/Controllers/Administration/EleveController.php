@@ -67,6 +67,7 @@ class EleveController extends Controller implements HasMiddleware
         // Construction de la requête pour les inscriptions de l'année sélectionnée
         $inscriptionsQuery = Inscription::with([
             'eleve',
+            'etablissement',
             'classe.niveau.cycle.section.etablissement',
         ]);
 
@@ -74,11 +75,9 @@ class EleveController extends Controller implements HasMiddleware
             $inscriptionsQuery->where('annee_scolaire_id', $selectedAnneeId);
         }
 
-        // Filtre par Établissement
+        // Filtre par Établissement (partitionnement direct et instantané)
         if ($etablissementId = $request->integer('etablissement_id')) {
-            $inscriptionsQuery->whereHas('classe.niveau.cycle.section', function ($q) use ($etablissementId) {
-                $q->where('etablissement_id', $etablissementId);
-            });
+            $inscriptionsQuery->where('etablissement_id', $etablissementId);
         }
 
         // Filtre par Cycle
@@ -135,9 +134,7 @@ class EleveController extends Controller implements HasMiddleware
         // Calcul des statistiques globales pour l'année scolaire sélectionnée
         $statsBase = Inscription::where('annee_scolaire_id', $selectedAnneeId);
         if ($etablissementId) {
-            $statsBase->whereHas('classe.niveau.cycle.section', function ($q) use ($etablissementId) {
-                $q->where('etablissement_id', $etablissementId);
-            });
+            $statsBase->where('etablissement_id', $etablissementId);
         }
 
         $totalInscrits = (clone $statsBase)->where('statut', 'validee')->count();
@@ -273,10 +270,15 @@ class EleveController extends Controller implements HasMiddleware
                 'is_active' => true,
             ]);
 
-            // Création de l'inscription scolaire
+            // Résolution de l'établissement rattaché à la classe
+            $classe = Classe::find($validated['classe_id']);
+            $etablissementId = $classe?->etablissement_id;
+
+            // Création de l'inscription scolaire avec son identifiant d'établissement
             Inscription::create([
                 'eleve_id' => $eleve->id,
                 'classe_id' => $validated['classe_id'],
+                'etablissement_id' => $etablissementId,
                 'annee_scolaire_id' => $validated['annee_scolaire_id'],
                 'type_inscription' => 'nouveau',
                 'is_redoublant' => $validated['is_redoublant'],
@@ -381,9 +383,13 @@ class EleveController extends Controller implements HasMiddleware
             return back()->with('error', 'Cet élève dispose déjà d\'une inscription active pour cette année scolaire.');
         }
 
+        $classe = Classe::find($validated['classe_id']);
+        $etablissementId = $classe?->etablissement_id;
+
         $inscription = Inscription::create([
             'eleve_id' => $validated['eleve_id'],
             'classe_id' => $validated['classe_id'],
+            'etablissement_id' => $etablissementId,
             'annee_scolaire_id' => $validated['annee_scolaire_id'],
             'type_inscription' => 'reinscription',
             'is_redoublant' => $validated['is_redoublant'],
@@ -434,10 +440,11 @@ class EleveController extends Controller implements HasMiddleware
         ]);
 
         $targetClasse = Classe::with('niveau.cycle.section.etablissement')->findOrFail($validated['target_classe_id']);
+        $targetEtablissementId = $targetClasse->etablissement_id ?? $targetClasse->niveau?->cycle?->section?->etablissement_id;
         $motif = $validated['motif_transfert'] ?: 'Transfert pédagogique/administratif';
         $transferredCount = 0;
 
-        DB::transaction(function () use ($validated, $targetClasse, $motif, &$transferredCount) {
+        DB::transaction(function () use ($validated, $targetClasse, $targetEtablissementId, $motif, &$transferredCount) {
             $inscriptions = Inscription::with('classe.niveau.cycle.section.etablissement')
                 ->whereIn('id', $validated['inscription_ids'])
                 ->get();
@@ -448,32 +455,34 @@ class EleveController extends Controller implements HasMiddleware
                     continue;
                 }
 
-                $sameEtablissement = ($oldInscription->classe->niveau->cycle->section->etablissement_id ?? null) === $targetClasse->niveau->cycle->section->etablissement_id;
+                $sameEtablissement = ($oldInscription->etablissement_id === $targetEtablissementId);
 
                 if ($sameEtablissement) {
                     // Transfert interne au même établissement : changement direct de classe avec conservation de la scolarité
                     $oldInscription->update([
                         'classe_id' => $targetClasse->id,
-                        'observations' => trim(($oldInscription->observations ?? '') . "\nTransféré depuis {$oldInscription->classe->nom} le " . now()->format('d/m/Y')),
+                        'etablissement_id' => $targetEtablissementId,
+                        'observations' => trim(($oldInscription->observations ?? '') . "\nTransféré depuis {$oldInscription->classe?->nom} le " . now()->format('d/m/Y')),
                     ]);
                 } else {
                     // Cadrage V1.1 : Transfert intra-groupe vers un autre établissement
                     // 1. Clôture de l'inscription active d'origine
                     $oldInscription->update([
                         'statut' => 'transfere',
-                        'motif_sortie' => "Transféré vers {$targetClasse->nom} ({$targetClasse->niveau->cycle->section->etablissement->nom}) : {$motif}",
+                        'motif_sortie' => "Transféré vers {$targetClasse->nom} : {$motif}",
                     ]);
 
                     // 2. Création de la nouvelle inscription dans l'établissement cible
                     Inscription::create([
                         'eleve_id' => $oldInscription->eleve_id,
                         'classe_id' => $targetClasse->id,
+                        'etablissement_id' => $targetEtablissementId,
                         'annee_scolaire_id' => $oldInscription->annee_scolaire_id,
                         'type_inscription' => 'nouveau',
                         'is_redoublant' => $oldInscription->is_redoublant,
                         'statut' => 'validee',
                         'date_inscription' => now()->toDateString(),
-                        'etablissement_provenance' => $oldInscription->classe->niveau->cycle->section->etablissement->nom ?? null,
+                        'etablissement_provenance' => $oldInscription->etablissement?->nom ?? $oldInscription->classe?->niveau?->cycle?->section?->etablissement?->nom ?? null,
                         'observations' => "Transfert intra-groupe : {$motif}",
                     ]);
                 }
@@ -604,10 +613,14 @@ class EleveController extends Controller implements HasMiddleware
                     'is_active' => true,
                 ]);
 
-                // Création de l'inscription
+                $targetClasse = Classe::find($validated['classe_id']);
+                $etablissementId = $targetClasse?->etablissement_id;
+
+                // Création de l'inscription avec son établissement
                 Inscription::create([
                     'eleve_id' => $eleve->id,
                     'classe_id' => $validated['classe_id'],
+                    'etablissement_id' => $etablissementId,
                     'annee_scolaire_id' => $validated['annee_scolaire_id'],
                     'type_inscription' => 'nouveau',
                     'is_redoublant' => $isRedoublant,

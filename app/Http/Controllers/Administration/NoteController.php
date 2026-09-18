@@ -62,16 +62,27 @@ class NoteController extends Controller implements HasMiddleware
         $anneeActive = AnneeScolaire::current() ?? $annees->first();
         $anneeId = $request->query('annee_id', $anneeActive?->id);
 
+        $etablissementId = $request->query('etablissement_id');
+
         // 2. Périodes et évaluations
-        $periodes = Periode::with(['evaluations' => fn ($q) => $q->orderBy('ordre')])
+        $periodesQuery = Periode::with(['evaluations' => fn ($q) => $q->orderBy('ordre')])
             ->where('annee_scolaire_id', $anneeId)
-            ->orderBy('date_debut')
-            ->get();
+            ->orderBy('date_debut');
+
+        if ($etablissementId) {
+            $periodesQuery->where('etablissement_id', $etablissementId);
+        }
+
+        $periodes = $periodesQuery->get();
 
         // 3. Attributions autorisées pour l'utilisateur
         $attributionsQuery = Attribution::with(['classe.niveau', 'matiere', 'personnel'])
             ->where('annee_scolaire_id', $anneeId)
             ->where('is_active', true);
+
+        if ($etablissementId) {
+            $attributionsQuery->whereHas('classe', fn ($q) => $q->where('etablissement_id', $etablissementId));
+        }
 
         if (! $isGestionnaire && $personnel) {
             // Un enseignant ne voit que ses propres attributions (Gesco 10.1)
@@ -86,12 +97,14 @@ class NoteController extends Controller implements HasMiddleware
         return Inertia::render('administration/notes/index', [
             'annees' => $annees,
             'anneeActiveId' => (int) $anneeId,
+            'etablissements' => \App\Models\Etablissement::select('id', 'nom', 'code')->orderBy('nom')->get(),
             'periodes' => $periodes,
             'classes' => $classes,
             'attributions' => $attributions,
             'isGestionnaire' => $isGestionnaire,
             'filters' => [
                 'annee_id' => $anneeId,
+                'etablissement_id' => $etablissementId,
                 'classe_id' => $request->query('classe_id'),
                 'attribution_id' => $request->query('attribution_id'),
                 'evaluation_id' => $request->query('evaluation_id'),

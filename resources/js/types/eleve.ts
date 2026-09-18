@@ -37,6 +37,7 @@ export interface NiveauRef {
 
 export interface ClasseRef {
     id: number;
+    etablissement_id?: number;
     niveau_id: number;
     code: string;
     nom: string;
@@ -103,6 +104,7 @@ export interface Inscription {
     id: number;
     eleve_id: number;
     classe_id: number;
+    etablissement_id?: number | null;
     annee_scolaire_id: number;
     type_inscription: 'nouveau' | 'reinscription';
     is_redoublant: boolean;
@@ -117,6 +119,7 @@ export interface Inscription {
     // Relations imbriquées
     eleve: Eleve;
     classe: ClasseRef;
+    etablissement?: EtablissementRef | null;
 }
 
 export interface EleveStats {

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Administration;
 
 use App\Http\Controllers\Controller;
+use App\Models\Etablissement;
 use App\Models\GroupeMatiere;
 use App\Models\Matiere;
 use App\Models\MatiereNiveau;
@@ -44,30 +45,70 @@ class MatiereController extends Controller implements HasMiddleware
     }
     /**
      * Affiche l'interface de gestion des matières, groupes et coefficients.
+     * Permet le filtrage contextuel par Établissement scolaire maître et Niveau d'étude.
      *
-     * @param Request $request Requête HTTP entrante.
+     * @param Request $request Requête HTTP entrante avec filtres optionnels (etablissement_id, niveau_id, serie).
      * @return Response Vue Inertia avec les données du catalogue et de la grille.
      */
     public function index(Request $request): Response
     {
         abort_unless($request->user()->can('matieres.view'), 403, 'Accès non autorisé au catalogue des matières.');
 
-        // 1. Groupes de matières (blocs pédagogiques) ordonnés avec décompte des disciplines associées
-        $groupes = GroupeMatiere::withCount('matiereNiveaux')
-            ->orderBy('ordre')
-            ->get();
+        // 1. Récupération de tous les campus / établissements de l'institution
+        $etablissements = Etablissement::orderBy('nom')->get();
+        $etablissementId = $request->query('etablissement_id');
+        $selectedEtablissement = $etablissementId ? Etablissement::find($etablissementId) : $etablissements->first();
 
-        // 2. Catalogue complet des disciplines
-        $matieres = Matiere::withCount('matiereNiveaux')
-            ->orderBy('code')
-            ->get();
+        if (! $selectedEtablissement && $etablissements->isNotEmpty()) {
+            $selectedEtablissement = $etablissements->first();
+        }
 
-        // 3. Niveaux scolaires avec arborescence cycle et établissement pour le sélecteur
-        $niveaux = Niveau::with(['cycle.section.etablissement'])
-            ->orderBy('ordre')
-            ->get();
+        $selectedEtablissementId = $selectedEtablissement?->id;
 
-        // Niveau sélectionné (par défaut le premier niveau disponible)
+        // 2. Groupes de matières (blocs pédagogiques) rattachés à l'établissement ou standards/partagés
+        $groupesQuery = GroupeMatiere::withCount('matiereNiveaux')
+            ->with('etablissement:id,nom,code')
+            ->orderBy('ordre');
+
+        if ($selectedEtablissementId) {
+            $groupesQuery->where(function ($q) use ($selectedEtablissementId) {
+                $q->where('etablissement_id', $selectedEtablissementId)
+                    ->orWhereNull('etablissement_id');
+            });
+        }
+
+        $groupes = $groupesQuery->get();
+
+        // 3. Catalogue des disciplines disponibles pour cet établissement (tronc commun + spécifiques)
+        $matieresQuery = Matiere::withCount('matiereNiveaux')
+            ->with('etablissement:id,nom,code')
+            ->orderBy('code');
+
+        if ($selectedEtablissementId) {
+            $matieresQuery->where(function ($q) use ($selectedEtablissementId) {
+                $q->where('etablissement_id', $selectedEtablissementId)
+                    ->orWhereNull('etablissement_id');
+            });
+        }
+
+        $matieres = $matieresQuery->get();
+
+        // 4. Niveaux scolaires appartenant à cet établissement pour le sélecteur
+        $niveauxQuery = Niveau::with(['cycle.section.etablissement', 'etablissement'])
+            ->orderBy('ordre');
+
+        if ($selectedEtablissementId) {
+            $niveauxQuery->where(function ($q) use ($selectedEtablissementId) {
+                $q->where('etablissement_id', $selectedEtablissementId)
+                    ->orWhereHas('cycle.section', function ($sq) use ($selectedEtablissementId) {
+                        $sq->where('etablissement_id', $selectedEtablissementId);
+                    });
+            });
+        }
+
+        $niveaux = $niveauxQuery->get();
+
+        // Niveau sélectionné (par défaut le premier niveau disponible dans l'établissement actif)
         $selectedNiveauId = $request->query('niveau_id');
         $selectedNiveau = $selectedNiveauId ? $niveaux->firstWhere('id', (int) $selectedNiveauId) : $niveaux->first();
 
@@ -75,7 +116,7 @@ class MatiereController extends Controller implements HasMiddleware
             $selectedNiveau = $niveaux->first();
         }
 
-        // 4. Séries disponibles pour ce niveau (extraites des classes du niveau ou des coefficients déjà paramétrés)
+        // 5. Séries disponibles pour ce niveau (extraites des classes du niveau ou des coefficients déjà paramétrés)
         $seriesDisponibles = collect(['Toutes']);
         if ($selectedNiveau) {
             $seriesFromClasses = $selectedNiveau->classes()->whereNotNull('serie')->pluck('serie')->unique();
@@ -90,7 +131,7 @@ class MatiereController extends Controller implements HasMiddleware
 
         $selectedSerie = $request->query('serie', 'Toutes');
 
-        // 5. Coefficients configurés pour le niveau sélectionné
+        // 6. Coefficients configurés pour le niveau sélectionné
         $coefficients = collect();
         if ($selectedNiveau) {
             $query = MatiereNiveau::with(['matiere', 'groupeMatiere'])
@@ -112,6 +153,9 @@ class MatiereController extends Controller implements HasMiddleware
         $canManage = $user ? ($user->hasRole('super-admin') || $user->hasRole('admin') || $user->email === 'admin@gmail.com' || $user->can('matieres.manage')) : false;
 
         return Inertia::render('administration/matieres/index', [
+            'etablissements' => $etablissements,
+            'selectedEtablissement' => $selectedEtablissement,
+            'selectedEtablissementId' => $selectedEtablissementId,
             'groupes' => $groupes,
             'matieres' => $matieres,
             'niveaux' => $niveaux,
@@ -131,6 +175,7 @@ class MatiereController extends Controller implements HasMiddleware
 
     /**
      * Enregistre un nouveau groupe de matières (bloc pédagogique).
+     * Associe le bloc à l'établissement actif ou en paramètre avec unicité locale.
      *
      * @param Request $request Requête HTTP avec données validées.
      * @return RedirectResponse Redirection avec message de confirmation.
@@ -139,8 +184,16 @@ class MatiereController extends Controller implements HasMiddleware
     {
         abort_unless($request->user()->can('matieres.manage'), 403, 'Permission requise : matieres.manage');
 
+        $etablissementId = $request->input('etablissement_id');
+
         $validated = $request->validate([
-            'code' => ['required', 'string', 'max:30', 'unique:groupes_matieres,code'],
+            'etablissement_id' => ['nullable', 'exists:etablissements,id'],
+            'code' => [
+                'required',
+                'string',
+                'max:30',
+                Rule::unique('groupes_matieres', 'code')->where('etablissement_id', $etablissementId),
+            ],
             'nom' => ['required', 'string', 'max:120'],
             'nom_en' => ['nullable', 'string', 'max:120'],
             'couleur' => ['nullable', 'string', 'max:30'],
@@ -163,8 +216,18 @@ class MatiereController extends Controller implements HasMiddleware
     {
         abort_unless($request->user()->can('matieres.manage'), 403, 'Permission requise : matieres.manage');
 
+        $etablissementId = $request->has('etablissement_id') ? $request->input('etablissement_id') : $groupe->etablissement_id;
+
         $validated = $request->validate([
-            'code' => ['required', 'string', 'max:30', Rule::unique('groupes_matieres', 'code')->ignore($groupe->id)],
+            'etablissement_id' => ['nullable', 'exists:etablissements,id'],
+            'code' => [
+                'required',
+                'string',
+                'max:30',
+                Rule::unique('groupes_matieres', 'code')
+                    ->where('etablissement_id', $etablissementId)
+                    ->ignore($groupe->id),
+            ],
             'nom' => ['required', 'string', 'max:120'],
             'nom_en' => ['nullable', 'string', 'max:120'],
             'couleur' => ['nullable', 'string', 'max:30'],
@@ -201,7 +264,7 @@ class MatiereController extends Controller implements HasMiddleware
     // =========================================================================
 
     /**
-     * Enregistre une nouvelle discipline dans le catalogue général.
+     * Enregistre une nouvelle discipline dans le catalogue général (spécifique ou tronc commun).
      *
      * @param Request $request Requête HTTP avec données validées.
      * @return RedirectResponse Redirection avec message de confirmation.
@@ -210,8 +273,16 @@ class MatiereController extends Controller implements HasMiddleware
     {
         abort_unless($request->user()->can('matieres.manage'), 403, 'Permission requise : matieres.manage');
 
+        $etablissementId = $request->input('etablissement_id');
+
         $validated = $request->validate([
-            'code' => ['required', 'string', 'max:30', 'unique:matieres,code'],
+            'etablissement_id' => ['nullable', 'exists:etablissements,id'],
+            'code' => [
+                'required',
+                'string',
+                'max:30',
+                Rule::unique('matieres', 'code')->where('etablissement_id', $etablissementId),
+            ],
             'nom' => ['required', 'string', 'max:120'],
             'nom_en' => ['nullable', 'string', 'max:120'],
             'libelle_bulletin' => ['nullable', 'string', 'max:100'],
@@ -243,14 +314,32 @@ class MatiereController extends Controller implements HasMiddleware
     {
         abort_unless($request->user()->can('matieres.manage'), 403, 'Permission requise : matieres.manage');
 
+        $etablissementId = $request->has('etablissement_id') ? $request->input('etablissement_id') : $matiere->etablissement_id;
+
         $validated = $request->validate([
-            'code' => ['required', 'string', 'max:30', Rule::unique('matieres', 'code')->ignore($matiere->id)],
+            'etablissement_id' => ['nullable', 'exists:etablissements,id'],
+            'code' => [
+                'required',
+                'string',
+                'max:30',
+                Rule::unique('matieres', 'code')
+                    ->where('etablissement_id', $etablissementId)
+                    ->ignore($matiere->id),
+            ],
             'nom' => ['required', 'string', 'max:120'],
             'nom_en' => ['nullable', 'string', 'max:120'],
             'libelle_bulletin' => ['nullable', 'string', 'max:100'],
             'libelle_bulletin_en' => ['nullable', 'string', 'max:100'],
             'is_active' => ['boolean'],
         ]);
+
+        if (empty($validated['libelle_bulletin'])) {
+            $validated['libelle_bulletin'] = $validated['nom'];
+        }
+
+        if (empty($validated['libelle_bulletin_en']) && ! empty($validated['nom_en'])) {
+            $validated['libelle_bulletin_en'] = $validated['nom_en'];
+        }
 
         $matiere->update($validated);
 
@@ -269,20 +358,20 @@ class MatiereController extends Controller implements HasMiddleware
         abort_unless($request->user()->can('matieres.manage'), 403, 'Permission requise : matieres.manage');
 
         if ($matiere->matiereNiveaux()->exists()) {
-            return back()->with('error', 'Impossible de supprimer cette discipline car elle est configurée dans des grilles de coefficients.');
+            return back()->with('error', 'Impossible de supprimer cette matière car des coefficients de niveaux lui sont actuellement associés.');
         }
 
         $matiere->delete();
 
-        return back()->with('success', 'Matière retirée du catalogue avec succès.');
+        return back()->with('success', 'Matière supprimée du catalogue avec succès.');
     }
 
     // =========================================================================
-    // SECTION 3 : CRUD CONFIGURATION DES COEFFICIENTS (MOTEUR D'ÉVALUATION)
+    // SECTION 3 : CRUD CONFIGURATION DES COEFFICIENTS PAR NIVEAU & SÉRIE
     // =========================================================================
 
     /**
-     * Associe une matière à un niveau/série avec ses coefficients et règles de calcul.
+     * Associe une matière à un niveau avec son coefficient et ses paramètres d'évaluation.
      *
      * @param Request $request Requête HTTP avec données validées.
      * @return RedirectResponse Redirection avec message de confirmation.
@@ -296,33 +385,32 @@ class MatiereController extends Controller implements HasMiddleware
             'matiere_id' => ['required', 'exists:matieres,id'],
             'groupe_matiere_id' => ['required', 'exists:groupes_matieres,id'],
             'serie' => ['nullable', 'string', 'max:50'],
-            'coefficient' => ['required', 'numeric', 'min:0.25', 'max:50'],
+            'coefficient' => ['required', 'numeric', 'min:0.25', 'max:20'],
             'note_max' => ['required', 'numeric', 'min:1', 'max:100'],
-            'note_eliminatoire' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'note_eliminatoire' => ['nullable', 'numeric', 'min:0', 'max:20'],
             'is_facultative' => ['boolean'],
             'is_comptabilisee' => ['boolean'],
         ]);
 
-        $serie = empty($validated['serie']) ? 'Toutes' : $validated['serie'];
-        $validated['serie'] = $serie;
+        $validated['serie'] = $validated['serie'] ?: 'Toutes';
 
-        // Vérification de l'unicité de la matière pour ce niveau et cette série
+        // Unicité de la matière pour ce niveau et cette série
         $exists = MatiereNiveau::where('niveau_id', $validated['niveau_id'])
             ->where('matiere_id', $validated['matiere_id'])
-            ->where('serie', $serie)
+            ->where('serie', $validated['serie'])
             ->exists();
 
         if ($exists) {
-            return back()->with('error', 'Cette matière est déjà configurée pour ce niveau et cette série.');
+            return back()->withErrors(['matiere_id' => 'Cette matière est déjà configurée pour ce niveau et cette série.']);
         }
 
         MatiereNiveau::create($validated);
 
-        return back()->with('success', 'Coefficient configuré avec succès pour ce niveau.');
+        return back()->with('success', 'Discipline ajoutée à la grille du niveau avec succès.');
     }
 
     /**
-     * Met à jour la configuration d'un coefficient.
+     * Met à jour les coefficients et règles d'évaluation d'une matière dans un niveau.
      *
      * @param Request $request Requête HTTP avec données validées.
      * @param MatiereNiveau $coefficient Instance de l'association à modifier.
@@ -335,26 +423,14 @@ class MatiereController extends Controller implements HasMiddleware
         $validated = $request->validate([
             'groupe_matiere_id' => ['required', 'exists:groupes_matieres,id'],
             'serie' => ['nullable', 'string', 'max:50'],
-            'coefficient' => ['required', 'numeric', 'min:0.25', 'max:50'],
+            'coefficient' => ['required', 'numeric', 'min:0.25', 'max:20'],
             'note_max' => ['required', 'numeric', 'min:1', 'max:100'],
-            'note_eliminatoire' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'note_eliminatoire' => ['nullable', 'numeric', 'min:0', 'max:20'],
             'is_facultative' => ['boolean'],
             'is_comptabilisee' => ['boolean'],
         ]);
 
-        $serie = empty($validated['serie']) ? 'Toutes' : $validated['serie'];
-        $validated['serie'] = $serie;
-
-        // Vérification de l'unicité si la série est modifiée
-        $exists = MatiereNiveau::where('niveau_id', $coefficient->niveau_id)
-            ->where('matiere_id', $coefficient->matiere_id)
-            ->where('serie', $serie)
-            ->where('id', '!=', $coefficient->id)
-            ->exists();
-
-        if ($exists) {
-            return back()->with('error', 'Une configuration existe déjà pour cette discipline sur cette série.');
-        }
+        $validated['serie'] = $validated['serie'] ?: 'Toutes';
 
         $coefficient->update($validated);
 
@@ -378,7 +454,7 @@ class MatiereController extends Controller implements HasMiddleware
     }
 
     /**
-     * Initialise les matières et blocs standards officiels camerounais si absents.
+     * Initialise les matières et blocs standards officiels adaptés à l'établissement.
      *
      * @param Request $request Requête HTTP.
      * @return RedirectResponse Redirection avec message de succès.
@@ -387,23 +463,52 @@ class MatiereController extends Controller implements HasMiddleware
     {
         abort_unless($request->user()->can('matieres.manage'), 403, 'Permission requise : matieres.manage');
 
-        // 1. Blocs pédagogiques standard
-        $groupeSci = GroupeMatiere::firstOrCreate(
-            ['code' => 'BLOC-SCI'],
-            ['nom' => 'Enseignements Scientifiques & Technologiques', 'nom_en' => 'Scientific & Technological Subjects', 'couleur' => 'blue', 'ordre' => 1]
-        );
+        $etablissementId = $request->input('etablissement_id') ?? $request->query('etablissement_id');
+        $etablissement = $etablissementId ? Etablissement::find($etablissementId) : Etablissement::first();
+        $targetEtabId = $etablissement?->id;
 
-        $groupeLit = GroupeMatiere::firstOrCreate(
-            ['code' => 'BLOC-LIT'],
-            ['nom' => 'Enseignements Littéraires & Sciences Humaines', 'nom_en' => 'Literary & Human Sciences Subjects', 'couleur' => 'emerald', 'ordre' => 2]
-        );
+        // 1. Blocs pédagogiques adaptés selon l'ordre d'enseignement et la langue de l'établissement
+        $isPrimary = $etablissement && in_array($etablissement->ordre_enseignement, ['Maternelle', 'Primaire']);
+        $isTechnical = $etablissement && $etablissement->ordre_enseignement === 'Secondaire_Technique';
 
-        $groupeDev = GroupeMatiere::firstOrCreate(
-            ['code' => 'BLOC-DEV'],
-            ['nom' => 'Développement Personnel, Arts & Éducation Physique', 'nom_en' => 'Personal Development, Arts & Physical Education', 'couleur' => 'amber', 'ordre' => 3]
-        );
+        if ($isPrimary) {
+            $blocs = [
+                ['code' => 'DOM-LANG', 'nom' => 'Domaine 1 : Langues et Communication', 'nom_en' => 'Domain 1: Languages and Communication', 'couleur' => 'blue', 'ordre' => 1],
+                ['code' => 'DOM-SCI', 'nom' => 'Domaine 2 : Sciences et Technologies', 'nom_en' => 'Domain 2: Sciences and Technology', 'couleur' => 'emerald', 'ordre' => 2],
+                ['code' => 'DOM-HUM', 'nom' => 'Domaine 3 : Sciences Humaines et Sociales', 'nom_en' => 'Domain 3: Social Sciences', 'couleur' => 'amber', 'ordre' => 3],
+                ['code' => 'DOM-DEV', 'nom' => 'Domaine 4 : Développement Personnel & Pratique', 'nom_en' => 'Domain 4: Personal Development', 'couleur' => 'purple', 'ordre' => 4],
+            ];
+        } elseif ($isTechnical) {
+            $blocs = [
+                ['code' => 'BLOC-GEN', 'nom' => 'Pôle Enseignements Généraux', 'nom_en' => 'General Education Block', 'couleur' => 'blue', 'ordre' => 1],
+                ['code' => 'BLOC-SCI', 'nom' => 'Pôle Enseignements Scientifiques & Technologiques', 'nom_en' => 'Scientific & Technology Block', 'couleur' => 'emerald', 'ordre' => 2],
+                ['code' => 'BLOC-PRO', 'nom' => 'Pôle Professionnel & Pratiques d\'Atelier', 'nom_en' => 'Vocational & Workshop Practices Block', 'couleur' => 'amber', 'ordre' => 3],
+            ];
+        } else {
+            // Secondaire Général (MINESEC officiel)
+            $blocs = [
+                ['code' => 'BLOC-SCI', 'nom' => 'Enseignements Scientifiques & Technologiques', 'nom_en' => 'Scientific & Technological Subjects', 'couleur' => 'blue', 'ordre' => 1],
+                ['code' => 'BLOC-LIT', 'nom' => 'Enseignements Littéraires & Sciences Humaines', 'nom_en' => 'Literary & Human Sciences Subjects', 'couleur' => 'emerald', 'ordre' => 2],
+                ['code' => 'BLOC-DEV', 'nom' => 'Développement Personnel, Arts & Éducation Physique', 'nom_en' => 'Personal Development, Arts & Physical Education', 'couleur' => 'amber', 'ordre' => 3],
+            ];
+        }
 
-        // 2. Matières standards
+        foreach ($blocs as $b) {
+            GroupeMatiere::firstOrCreate(
+                [
+                    'etablissement_id' => $targetEtabId,
+                    'code' => $b['code'],
+                ],
+                [
+                    'nom' => $b['nom'],
+                    'nom_en' => $b['nom_en'],
+                    'couleur' => $b['couleur'],
+                    'ordre' => $b['ordre'],
+                ]
+            );
+        }
+
+        // 2. Matières standards pour le tronc commun institutionnel (etablissement_id = null)
         $standards = [
             ['code' => 'MATH', 'nom' => 'Mathématiques', 'nom_en' => 'Mathematics'],
             ['code' => 'PCT', 'nom' => 'Physique - Chimie - Technologie', 'nom_en' => 'Physics - Chemistry - Technology'],
@@ -420,7 +525,10 @@ class MatiereController extends Controller implements HasMiddleware
 
         foreach ($standards as $s) {
             Matiere::firstOrCreate(
-                ['code' => $s['code']],
+                [
+                    'code' => $s['code'],
+                    'etablissement_id' => null,
+                ],
                 [
                     'nom' => $s['nom'],
                     'nom_en' => $s['nom_en'],
@@ -431,6 +539,6 @@ class MatiereController extends Controller implements HasMiddleware
             );
         }
 
-        return back()->with('success', 'Catalogue officiel et blocs standards initialisés avec succès.');
+        return back()->with('success', 'Catalogue officiel et blocs standards de l\'établissement initialisés avec succès.');
     }
 }

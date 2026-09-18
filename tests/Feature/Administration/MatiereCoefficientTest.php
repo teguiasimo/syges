@@ -55,9 +55,9 @@ beforeEach(function () {
         ]
     );
 
-    $this->niveau = Niveau::first();
-    if (! $this->niveau) {
-        $etab = \App\Models\Etablissement::firstOrCreate(
+    $this->etablissement = \App\Models\Etablissement::first();
+    if (! $this->etablissement) {
+        $this->etablissement = \App\Models\Etablissement::firstOrCreate(
             ['code' => 'TEST-ETAB'],
             [
                 'institution_id' => $this->institution->id,
@@ -65,8 +65,12 @@ beforeEach(function () {
                 'ordre_enseignement' => 'Secondaire_General',
             ]
         );
+    }
+
+    $this->niveau = Niveau::first();
+    if (! $this->niveau) {
         $sec = \App\Models\Section::firstOrCreate(
-            ['etablissement_id' => $etab->id, 'code' => 'SEC-FR'],
+            ['etablissement_id' => $this->etablissement->id, 'code' => 'SEC-FR'],
             ['nom' => 'Section FR', 'langue' => 'fr']
         );
         $cyc = \App\Models\Cycle::firstOrCreate(
@@ -75,7 +79,7 @@ beforeEach(function () {
         );
         $this->niveau = Niveau::firstOrCreate(
             ['cycle_id' => $cyc->id, 'code' => '6EME-TEST'],
-            ['nom' => 'Sixième Test', 'ordre' => 1]
+            ['nom' => 'Sixième Test', 'ordre' => 1, 'etablissement_id' => $this->etablissement->id]
         );
     }
 
@@ -125,12 +129,33 @@ test('authorized users can view matieres page with groups and subjects', functio
     $response->assertOk();
     $response->assertInertia(fn ($page) => $page
         ->component('administration/matieres/index')
+        ->has('etablissements')
         ->has('groupes')
         ->has('matieres')
         ->has('niveaux')
         ->has('coefficients')
         ->has('can')
         ->where('can.matieres_manage', true)
+    );
+});
+
+/**
+ * Teste le filtrage de la grille des matières et niveaux par établissement scolaire.
+ */
+test('can filter matieres and niveaux by etablissement_id', function () {
+    /** @var \Tests\TestCase $this */
+    $this->actingAs($this->adminUser);
+
+    // Requête avec filtrage contextuel sur l'établissement actif
+    $response = $this->get(route('administration.matieres.index', [
+        'etablissement_id' => $this->etablissement->id,
+    ]));
+
+    $response->assertOk();
+    $response->assertInertia(fn ($page) => $page
+        ->component('administration/matieres/index')
+        ->where('selectedEtablissementId', $this->etablissement->id)
+        ->has('niveaux')
     );
 });
 
@@ -323,7 +348,7 @@ test('cannot configure duplicate subject on same level and serie', function () {
         'is_comptabilisee' => true,
     ]);
 
-    $response->assertSessionHas('error');
+    $response->assertSessionHasErrors(['matiere_id']);
 });
 
 test('can update and delete a coefficient configuration', function () {
@@ -379,4 +404,143 @@ test('can seed standard official subjects and pedagogical blocks', function () {
     $this->assertDatabaseHas('groupes_matieres', ['code' => 'BLOC-LIT']);
     $this->assertDatabaseHas('matieres', ['code' => 'MATH']);
     $this->assertDatabaseHas('matieres', ['code' => 'FRAN']);
+});
+
+/**
+ * Teste la coexistence de blocs pédagogiques portant le même code dans deux établissements distincts (isolation SaaS).
+ */
+test('can create pedagogical blocks with same code in different establishments without collision', function () {
+    /** @var \Tests\TestCase $this */
+    $this->actingAs($this->adminUser);
+
+    $autreEtab = \App\Models\Etablissement::firstOrCreate(
+        ['code' => 'TEST-ETAB-2'],
+        [
+            'institution_id' => $this->institution->id,
+            'nom' => 'Lycée Technique Bilingue Test',
+            'ordre_enseignement' => 'Secondaire_Technique',
+        ]
+    );
+
+    // Création bloc pour l'établissement 1
+    $response1 = $this->post(route('administration.matieres.groupes.store'), [
+        'etablissement_id' => $this->etablissement->id,
+        'code' => 'BLOC-ISO',
+        'nom' => 'Bloc Isolation Etab 1',
+        'ordre' => 5,
+    ]);
+    $response1->assertRedirect();
+
+    // Création bloc avec le MÊME code pour l'établissement 2
+    $response2 = $this->post(route('administration.matieres.groupes.store'), [
+        'etablissement_id' => $autreEtab->id,
+        'code' => 'BLOC-ISO',
+        'nom' => 'Bloc Isolation Etab 2',
+        'ordre' => 5,
+    ]);
+    $response2->assertRedirect();
+
+    $this->assertDatabaseHas('groupes_matieres', [
+        'etablissement_id' => $this->etablissement->id,
+        'code' => 'BLOC-ISO',
+        'nom' => 'Bloc Isolation Etab 1',
+    ]);
+
+    $this->assertDatabaseHas('groupes_matieres', [
+        'etablissement_id' => $autreEtab->id,
+        'code' => 'BLOC-ISO',
+        'nom' => 'Bloc Isolation Etab 2',
+    ]);
+});
+
+/**
+ * Teste l'interdiction de doublons de code de bloc au sein d'un même établissement.
+ */
+test('cannot create pedagogical block with duplicate code in same establishment', function () {
+    /** @var \Tests\TestCase $this */
+    $this->actingAs($this->adminUser);
+
+    $this->post(route('administration.matieres.groupes.store'), [
+        'etablissement_id' => $this->etablissement->id,
+        'code' => 'BLOC-UNIQUE',
+        'nom' => 'Bloc Unique 1',
+        'ordre' => 6,
+    ])->assertRedirect();
+
+    $response = $this->post(route('administration.matieres.groupes.store'), [
+        'etablissement_id' => $this->etablissement->id,
+        'code' => 'BLOC-UNIQUE',
+        'nom' => 'Bloc Unique Dupliqué',
+        'ordre' => 7,
+    ]);
+
+    $response->assertSessionHasErrors(['code']);
+});
+
+/**
+ * Teste la création d'une discipline spécifique à un établissement vs une discipline du tronc commun.
+ */
+test('can manage subjects with establishment scope and common core scope', function () {
+    /** @var \Tests\TestCase $this */
+    $this->actingAs($this->adminUser);
+
+    // Matière spécifique à l'établissement
+    $responseSpec = $this->post(route('administration.matieres.catalogue.store'), [
+        'etablissement_id' => $this->etablissement->id,
+        'code' => 'ROBOT-SPEC',
+        'nom' => 'Robotique Avancée Campus',
+        'is_active' => true,
+    ]);
+    $responseSpec->assertRedirect();
+
+    // Matière du tronc commun (etablissement_id = null)
+    $responseComm = $this->post(route('administration.matieres.catalogue.store'), [
+        'etablissement_id' => null,
+        'code' => 'PHILO-COMM',
+        'nom' => 'Philosophie Générale',
+        'is_active' => true,
+    ]);
+    $responseComm->assertRedirect();
+
+    $this->assertDatabaseHas('matieres', [
+        'code' => 'ROBOT-SPEC',
+        'etablissement_id' => $this->etablissement->id,
+    ]);
+
+    $this->assertDatabaseHas('matieres', [
+        'code' => 'PHILO-COMM',
+        'etablissement_id' => null,
+    ]);
+});
+
+/**
+ * Teste le seed des standards avec adaptation automatique selon l'ordre d'enseignement de l'établissement.
+ */
+test('seedStandards creates appropriate pedagogical blocks for specific establishment', function () {
+    /** @var \Tests\TestCase $this */
+    $this->actingAs($this->adminUser);
+
+    $etabPrimaire = \App\Models\Etablissement::firstOrCreate(
+        ['code' => 'TEST-PRIMAIRE'],
+        [
+            'institution_id' => $this->institution->id,
+            'nom' => 'École Publique d\'Application Test',
+            'ordre_enseignement' => 'Primaire',
+        ]
+    );
+
+    $response = $this->post(route('administration.matieres.seed-standards'), [
+        'etablissement_id' => $etabPrimaire->id,
+    ]);
+    $response->assertRedirect();
+
+    // L'école primaire doit recevoir les 4 domaines MINEDUB
+    $this->assertDatabaseHas('groupes_matieres', [
+        'etablissement_id' => $etabPrimaire->id,
+        'code' => 'DOM-LANG',
+    ]);
+    $this->assertDatabaseHas('groupes_matieres', [
+        'etablissement_id' => $etabPrimaire->id,
+        'code' => 'DOM-SCI',
+    ]);
 });

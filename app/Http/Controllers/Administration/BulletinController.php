@@ -68,15 +68,23 @@ class BulletinController extends Controller implements HasMiddleware
         $anneeActive = AnneeScolaire::current() ?? $annees->first();
         $anneeId = $request->query('annee_id', $anneeActive?->id);
 
-        $periodes = Periode::with(['evaluations' => fn ($q) => $q->orderBy('ordre')])
-            ->where('annee_scolaire_id', $anneeId)
-            ->orderBy('date_debut')
-            ->get();
+        $etablissementId = $request->query('etablissement_id');
 
-        $classes = Classe::with(['niveau'])
+        $periodesQuery = Periode::with(['evaluations' => fn ($q) => $q->orderBy('ordre')])
+            ->where('annee_scolaire_id', $anneeId)
+            ->orderBy('date_debut');
+
+        $classesQuery = Classe::with(['niveau'])
             ->where('is_active', true)
-            ->orderBy('nom')
-            ->get();
+            ->orderBy('nom');
+
+        if ($etablissementId) {
+            $periodesQuery->where('etablissement_id', $etablissementId);
+            $classesQuery->where('etablissement_id', $etablissementId);
+        }
+
+        $periodes = $periodesQuery->get();
+        $classes = $classesQuery->get();
 
         $typeBulletin = $request->query('type_bulletin', 'trimestriel');
         $classeId = $request->query('classe_id');
@@ -87,11 +95,12 @@ class BulletinController extends Controller implements HasMiddleware
         $donneesClasse = null;
 
         if ($classeId) {
-            $classe = Classe::with(['niveau.cycle.section.etablissement.institution', 'professeurPrincipal'])
+            $classe = Classe::with(['etablissement.institution', 'niveau.cycle.section', 'professeurPrincipal'])
                 ->findOrFail($classeId);
 
             // Le format officiel du bulletin est strictement dicté par la configuration globale de l'établissement
-            $modeBulletin = $classe->niveau->cycle->section->etablissement->mode_bulletin_defaut ?? 'sans_competences';
+            $etablissement = $classe->etablissement ?? $classe->niveau?->cycle?->section?->etablissement;
+            $modeBulletin = $etablissement?->mode_bulletin_defaut ?? 'sans_competences';
 
             if ($typeBulletin === 'sequentiel' && $evaluationId) {
                 $evaluation = Evaluation::with('periode.anneeScolaire')->findOrFail($evaluationId);
@@ -108,12 +117,14 @@ class BulletinController extends Controller implements HasMiddleware
         return Inertia::render('administration/bulletins/index', [
             'annees' => $annees,
             'anneeActiveId' => (int) $anneeId,
+            'etablissements' => \App\Models\Etablissement::select('id', 'nom', 'code')->orderBy('nom')->get(),
             'periodes' => $periodes,
             'classes' => $classes,
             'donneesClasse' => $donneesClasse,
             'filters' => [
                 'type_bulletin' => $typeBulletin,
                 'annee_id' => $anneeId,
+                'etablissement_id' => $etablissementId,
                 'classe_id' => $classeId,
                 'periode_id' => $periodeId,
                 'evaluation_id' => $evaluationId,
@@ -228,7 +239,8 @@ class BulletinController extends Controller implements HasMiddleware
                 'mode_bulletin' => $mode,
             ];
             $viewName = 'bulletins.bulletin_annuel';
-            $nomFichier = 'Bulletin_Annuel_'.str_replace(['/', ' '], '_', $eleveData['matricule']).'_'.$annee->code.'.pdf';
+            $safeAnneeCode = str_replace(['/', '\\', ' '], '-', $annee->code);
+            $nomFichier = 'Bulletin_Annuel_'.str_replace(['/', ' '], '_', $eleveData['matricule']).'_'.$safeAnneeCode.'.pdf';
         } else {
             $periode = $periode ?? Periode::with('anneeScolaire')->findOrFail($request->query('periode_id'));
             $resultat = $this->calculationService->calculerTrimestre($classe, $periode, null, $mode);
@@ -284,8 +296,9 @@ class BulletinController extends Controller implements HasMiddleware
         } elseif ($type === 'annuel') {
             $anneeId = $request->query('annee_id');
             $annee = AnneeScolaire::findOrFail($anneeId);
-            $resultat = $this->calculationService->calculerAnnuel($classeWithRel, $annee, $mode);
-            $nomFichier = 'Cahier_Bulletins_Annuel_'.$classe->code.'_'.$annee->code.'.pdf';
+            $safeClasseCode = str_replace(['/', '\\', ' '], '-', $classe->code);
+            $safeAnneeCode = str_replace(['/', '\\', ' '], '-', $annee->code);
+            $nomFichier = 'Cahier_Bulletins_Annuel_'.$safeClasseCode.'_'.$safeAnneeCode.'.pdf';
             $viewData = [
                 'eleves' => $resultat['eleves'],
                 'classe' => $resultat['classe'],

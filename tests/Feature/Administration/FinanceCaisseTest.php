@@ -446,4 +446,44 @@ class FinanceCaisseTest extends TestCase
         $this->assertFalse($resultatApresPaiement['bloque']);
         $this->assertEquals(0, $resultatApresPaiement['solde_restant']);
     }
+
+    /**
+     * Vérifie l'isolation financière stricte entre deux établissements (Gesco V1.1 multi-campus).
+     * Les versements, journaux de caisse et tarifs d'un campus ne doivent pas contaminer un autre campus.
+     */
+    public function test_finances_etablissements_isolation(): void
+    {
+        // Création d'un second établissement
+        $secondEtab = Etablissement::create([
+            'institution_id' => $this->etablissement->institution_id,
+            'nom' => 'Lycée Secondaire Campus B',
+            'code' => 'ETAB-FIN-B',
+            'statut_juridique' => 'Prive Laique',
+            'ordre_enseignement' => 'Secondaire General',
+            'verrou_solvabilite_actif' => false,
+        ]);
+
+        // Consultation de la caisse pour le Campus A
+        $responseA = $this->actingAs($this->adminUser)->get(route('administration.finances.index', [
+            'etablissement_id' => $this->etablissement->id,
+        ]));
+        $responseA->assertOk();
+        $responseA->assertInertia(fn ($page) => $page
+            ->component('administration/finances/index')
+            ->where('currentEtablissement.id', $this->etablissement->id)
+            ->where('currentEtablissement.verrou_solvabilite_actif', true)
+        );
+
+        // Consultation de la caisse pour le Campus B
+        $responseB = $this->actingAs($this->adminUser)->get(route('administration.finances.index', [
+            'etablissement_id' => $secondEtab->id,
+        ]));
+        $responseB->assertOk();
+        $responseB->assertInertia(fn ($page) => $page
+            ->component('administration/finances/index')
+            ->where('currentEtablissement.id', $secondEtab->id)
+            ->where('currentEtablissement.verrou_solvabilite_actif', false)
+        );
+    }
 }
+

@@ -56,6 +56,7 @@ import {
     DialogFooter,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
+import { formatDate } from '@/lib/utils';
 
 import { CreateEleveModal } from './modals/create-eleve-modal';
 import { EditEleveModal } from './modals/edit-eleve-modal';
@@ -285,7 +286,7 @@ export default function ElevesIndex({
                         </div>
                         {el.date_naissance && (
                             <span className="text-[11px] text-muted-foreground block truncate">
-                                {new Date(el.date_naissance).toLocaleDateString('fr-FR')} {el.lieu_naissance ? `(${el.lieu_naissance})` : ''}
+                                {formatDate(el.date_naissance)} {el.lieu_naissance ? `(${el.lieu_naissance})` : ''}
                             </span>
                         )}
                     </div>
@@ -296,14 +297,15 @@ export default function ElevesIndex({
             accessorKey: 'classe.nom',
             header: 'Classe & Établissement',
             cell: ({ row }) => {
-                const cls = row.original.classe;
+                const insc = row.original;
+                const cls = insc.classe;
                 return (
                     <div className="text-xs">
                         <span className="font-bold text-foreground text-sm block">
                             {cls?.nom ?? 'Non assignée'}
                         </span>
                         <span className="text-[11px] text-muted-foreground truncate block">
-                            {cls?.niveau?.nom ?? ''} • {cls?.niveau?.cycle?.section?.etablissement?.nom ?? ''}
+                            {cls?.niveau?.nom ?? ''} • {insc.etablissement?.nom ?? cls?.niveau?.cycle?.section?.etablissement?.nom ?? ''}
                         </span>
                     </div>
                 );
@@ -597,6 +599,45 @@ export default function ElevesIndex({
                         )}
                     </div>
                 </div>
+
+                {/* Sélecteur Maître de Campus (Multi-Établissements) */}
+                {etablissements.length > 1 && (
+                    <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                        <span className="text-xs font-semibold text-muted-foreground shrink-0 flex items-center gap-1.5 mr-1">
+                            <School className="size-4 text-primary" />
+                            Campus :
+                        </span>
+                        <Button
+                            type="button"
+                            variant={!selectedEtab ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => {
+                                setSelectedEtab('');
+                                setSelectedClasse('');
+                                handleFilterChange({ etablissement_id: '', classe_id: '' });
+                            }}
+                            className="h-8 text-xs font-medium rounded-full cursor-pointer"
+                        >
+                            Tous les campus ({etablissements.length})
+                        </Button>
+                        {etablissements.map((etab) => (
+                            <Button
+                                key={etab.id}
+                                type="button"
+                                variant={selectedEtab === String(etab.id) ? 'default' : 'outline'}
+                                size="sm"
+                                onClick={() => {
+                                    setSelectedEtab(String(etab.id));
+                                    setSelectedClasse('');
+                                    handleFilterChange({ etablissement_id: String(etab.id), classe_id: '' });
+                                }}
+                                className="h-8 text-xs font-medium rounded-full cursor-pointer"
+                            >
+                                {etab.nom}
+                            </Button>
+                        ))}
+                    </div>
+                )}
 
                 {/* Grille des 4 KPIs en temps réel */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

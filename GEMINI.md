@@ -22,3 +22,8 @@
 - **Composant de tableau de données (Tables)** :
   - TOUS les tableaux de données de la plateforme SYGES doivent OBLIGATOIREMENT être implémentés avec la bibliothèque React **TanStack Table** (`@tanstack/react-table`).
 
+- **Format des dates (jj-mm-aaaa)** :
+  - Le format d'affichage de TOUTES les dates dans l'ensemble de la plateforme SYGES doit OBLIGATOIREMENT être au format francophone **jj-mm-aaaa** (ex: `01-09-2026`).
+  - Utiliser systématiquement la fonction utilitaire `formatDate` de `@/lib/utils` pour tout affichage de date.
+  - Pour les champs de formulaire `<input type="date">`, utiliser obligatoirement `formatDateForInput` de `@/lib/utils` afin de garantir la compatibilité `YYYY-MM-DD` requise par le standard HTML5 sans perte de valeur lors de l'édition.
+

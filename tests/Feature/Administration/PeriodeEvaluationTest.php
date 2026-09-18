@@ -160,7 +160,7 @@ test('can create a new academic year with only streamlined fields and auto-gener
     $this->assertDatabaseHas('annees_scolaires', [
         'code' => '2029-2030',
         'nom' => 'Année Scolaire 2029-2030',
-        'nom_en' => 'Academic Year 2029-2030',
+        'nom_en' => null,
         'statut' => 'en_preparation',
     ]);
 });
@@ -403,5 +403,49 @@ test('periods and evaluations are isolated by establishment within the same acad
     $this->patch(route('administration.periodes.evaluations.toggle-lock', $evalSec));
     expect($evalSec->fresh()->is_locked)->toBeFalse();
     expect($evalPrim->fresh()->is_locked)->toBeTrue(); // Inchangé
+});
+
+test('evaluations can be created and updated with null ponderation in arithmetic mode', function () {
+    /** @var \Tests\TestCase $this */
+    $this->actingAs($this->adminUser);
+
+    $periode = Periode::create([
+        'annee_scolaire_id' => $this->annee->id,
+        'etablissement_id' => $this->etablissement->id,
+        'code' => 'TRIM-POND',
+        'nom' => 'Trimestre Test Pondération',
+        'ordre' => 1,
+        'statut' => 'en_cours',
+    ]);
+
+    // Création sans fournir de pondération (Option A : champ masqué en arithmétique simple)
+    $response = $this->post(route('administration.periodes.evaluations.store'), [
+        'periode_id' => $periode->id,
+        'code' => 'SEQ-NO-POND',
+        'nom' => 'Séquence Sans Poids Spécifié',
+        'ordre' => 1,
+        'statut' => 'a_venir',
+    ]);
+
+    $response->assertSessionHasNoErrors();
+    $response->assertRedirect();
+
+    $evaluation = Evaluation::where('periode_id', $periode->id)->where('code', 'SEQ-NO-POND')->first();
+    expect($evaluation)->not->toBeNull();
+    // La valeur par défaut 50.0 est appliquée proprement
+    expect((float) $evaluation->ponderation)->toBe(50.0);
+
+    // Modification sans pondération (préserve la valeur existante)
+    $updateResponse = $this->put(route('administration.periodes.evaluations.update', $evaluation), [
+        'code' => 'SEQ-NO-POND',
+        'nom' => 'Séquence Modifiée Sans Poids',
+        'ordre' => 2,
+        'statut' => 'ouverte',
+    ]);
+
+    $updateResponse->assertSessionHasNoErrors();
+    $evaluation->refresh();
+    expect($evaluation->nom)->toBe('Séquence Modifiée Sans Poids');
+    expect((float) $evaluation->ponderation)->toBe(50.0);
 });
 

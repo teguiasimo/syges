@@ -16,6 +16,8 @@ import {
     Check,
     X,
     Filter,
+    Building2,
+    Globe,
 } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -49,6 +51,12 @@ import {
  */
 interface GroupeMatiereItem {
     id: number;
+    etablissement_id?: number | null;
+    etablissement?: {
+        id: number;
+        nom: string;
+        code?: string;
+    } | null;
     code: string;
     nom: string;
     nom_en?: string | null;
@@ -62,6 +70,12 @@ interface GroupeMatiereItem {
  */
 interface MatiereItem {
     id: number;
+    etablissement_id?: number | null;
+    etablissement?: {
+        id: number;
+        nom: string;
+        code?: string;
+    } | null;
     code: string;
     nom: string;
     nom_en?: string | null;
@@ -69,6 +83,15 @@ interface MatiereItem {
     libelle_bulletin_en?: string | null;
     is_active: boolean;
     matiere_niveaux_count?: number;
+}
+
+/**
+ * Interface représentant un Établissement scolaire.
+ */
+interface EtablissementItem {
+    id: number;
+    nom: string;
+    code: string;
 }
 
 /**
@@ -80,6 +103,12 @@ interface NiveauItem {
     nom: string;
     nom_en?: string | null;
     ordre: number;
+    etablissement_id?: number | null;
+    etablissement?: {
+        id: number;
+        nom: string;
+        code?: string;
+    };
     cycle?: {
         id: number;
         nom: string;
@@ -89,6 +118,7 @@ interface NiveauItem {
             etablissement?: {
                 id: number;
                 nom: string;
+                code?: string;
             };
         };
     };
@@ -116,6 +146,9 @@ interface CoefficientItem {
  * Propriétés transmises au composant principal MatiereIndex.
  */
 interface MatiereIndexProps {
+    etablissements?: EtablissementItem[];
+    selectedEtablissement?: EtablissementItem | null;
+    selectedEtablissementId?: number | null;
     groupes: GroupeMatiereItem[];
     matieres: MatiereItem[];
     niveaux: NiveauItem[];
@@ -144,6 +177,9 @@ interface MatiereIndexProps {
  * @returns {JSX.Element} Vue complète avec tables TanStack et modales.
  */
 export default function MatiereIndex({
+    etablissements = [],
+    selectedEtablissement = null,
+    selectedEtablissementId = null,
     groupes,
     matieres,
     niveaux,
@@ -205,6 +241,7 @@ export default function MatiereIndex({
 
     // 5. Formulaire pour Matière
     const matiereForm = useForm({
+        etablissement_id: (selectedEtablissement?.id || null) as number | null,
         code: '',
         nom: '',
         nom_en: '',
@@ -215,6 +252,7 @@ export default function MatiereIndex({
 
     // 6. Formulaire pour Groupe de matières
     const groupeForm = useForm({
+        etablissement_id: (selectedEtablissement?.id || null) as number | null,
         code: '',
         nom: '',
         nom_en: '',
@@ -251,47 +289,115 @@ export default function MatiereIndex({
     const handleOpenAddMatiere = () => {
         setEditingMatiere(null);
         matiereForm.reset();
+        matiereForm.setData({
+            etablissement_id: selectedEtablissement?.id || null,
+            code: '',
+            nom: '',
+            nom_en: '',
+            libelle_bulletin: '',
+            libelle_bulletin_en: '',
+            is_active: true,
+        });
         setIsMatiereModalOpen(true);
     };
 
     const handleOpenAddGroupe = () => {
         setEditingGroupe(null);
         groupeForm.reset();
-        groupeForm.setData('ordre', groupes.length + 1);
+        groupeForm.setData({
+            etablissement_id: selectedEtablissement?.id || null,
+            code: '',
+            nom: '',
+            nom_en: '',
+            couleur: 'blue',
+            ordre: groupes.length + 1,
+        });
         setIsGroupeModalOpen(true);
     };
 
-    // Filtres de niveau et de série pour la grille des coefficients
-    const handleSelectNiveau = (niveauId: string) => {
+    /**
+     * Détermine le nom lisible de l'établissement rattaché à un niveau scolaire.
+     * Explore en cascade l'association directe ou la chaîne cycle -> section -> établissement.
+     *
+     * @param {NiveauItem | null | undefined} niv Instance du niveau scolaire.
+     * @returns {string} Nom de l'établissement d'attache.
+     */
+    const getEtablissementName = (niv?: NiveauItem | null): string => {
+        if (!niv) return '';
+        return niv.etablissement?.nom || niv.cycle?.section?.etablissement?.nom || '';
+    };
+
+    /**
+     * Filtre les données pédagogiques selon le campus / établissement sélectionné.
+     *
+     * @param {number | string} etablissementId Identifiant de l'établissement ou 'all'.
+     */
+    const handleSelectEtablissement = (etablissementId: number | string) => {
         router.get(
             '/administration/matieres',
-            { niveau_id: niveauId, serie: 'Toutes' },
+            {
+                ...(etablissementId !== 'all' ? { etablissement_id: etablissementId } : {}),
+                serie: 'Toutes',
+            },
             { preserveScroll: true, preserveState: true }
         );
     };
 
+    /**
+     * Filtre la grille des coefficients selon le niveau académique sélectionné.
+     * Conserve le contexte de l'établissement actif si renseigné.
+     *
+     * @param {string} niveauId Identifiant du niveau sélectionné.
+     */
+    const handleSelectNiveau = (niveauId: string) => {
+        router.get(
+            '/administration/matieres',
+            {
+                ...(selectedEtablissementId ? { etablissement_id: selectedEtablissementId } : {}),
+                niveau_id: niveauId,
+                serie: 'Toutes',
+            },
+            { preserveScroll: true, preserveState: true }
+        );
+    };
+
+    /**
+     * Filtre la grille des coefficients selon la série pédagogique sélectionnée.
+     *
+     * @param {string} serie Nom de la série (ex: 'Toutes', 'C', 'D', 'TI').
+     */
     const handleSelectSerie = (serie: string) => {
         if (!selectedNiveau) return;
         router.get(
             '/administration/matieres',
-            { niveau_id: selectedNiveau.id, serie },
+            {
+                ...(selectedEtablissementId ? { etablissement_id: selectedEtablissementId } : {}),
+                niveau_id: selectedNiveau.id,
+                serie,
+            },
             { preserveScroll: true, preserveState: true }
         );
     };
 
-    // Auto-génération des standards MINESEC/MINEDUB
+    // Auto-génération des standards MINESEC/MINEDUB pour le campus actif
     const handleSeedStandards = () => {
         if (!canManage) return;
         confirmDelete({
             title: 'Initialisation du catalogue officiel',
             variant: 'primary',
             confirmLabel: 'Initialiser le catalogue',
-            promptText: 'Voulez-vous initialiser le catalogue officiel camerounais et les blocs pédagogiques standards ?',
-            description: 'Les matières officielles et leurs regroupements par défaut (MINESEC/MINEDUB) seront insérés dans le système.',
+            promptText: `Voulez-vous initialiser le catalogue officiel et les blocs standards pour ${selectedEtablissement ? selectedEtablissement.nom : "l'établissement actif"} ?`,
+            description: `Les matières officielles du tronc commun et les blocs pédagogiques adaptés à l'ordre d'enseignement de l'établissement seront configurés dans le système.`,
             onConfirm: () => {
-                router.post('/administration/matieres/standards', {}, {
-                    preserveScroll: true,
-                });
+                router.post(
+                    '/administration/matieres/standards',
+                    {
+                        etablissement_id: selectedEtablissement?.id,
+                    },
+                    {
+                        preserveScroll: true,
+                    }
+                );
             },
         });
     };
@@ -644,6 +750,27 @@ export default function MatiereIndex({
             ),
         },
         {
+            id: 'portee',
+            header: () => <span className="text-xs font-semibold uppercase tracking-wider">Portée / Campus</span>,
+            cell: ({ row }) => {
+                const etab = row.original.etablissement;
+                if (etab) {
+                    return (
+                        <Badge variant="outline" className="text-xs bg-slate-50 text-slate-700 border-slate-300 dark:bg-slate-900/50 dark:text-slate-300 gap-1 font-normal">
+                            <Building2 className="size-3 text-violet-600 dark:text-violet-400" />
+                            <span>{etab.code || etab.nom}</span>
+                        </Badge>
+                    );
+                }
+                return (
+                    <Badge variant="outline" className="text-xs bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950/40 dark:text-violet-300 dark:border-violet-900/50 gap-1 font-normal">
+                        <Globe className="size-3 text-violet-500" />
+                        <span>Tronc Commun</span>
+                    </Badge>
+                );
+            },
+        },
+        {
             accessorKey: 'is_active',
             header: () => <span className="text-xs font-semibold uppercase tracking-wider">Statut</span>,
             cell: ({ row }) => (
@@ -684,6 +811,7 @@ export default function MatiereIndex({
                                     onClick={() => {
                                         setEditingMatiere(item);
                                         matiereForm.setData({
+                                            etablissement_id: item.etablissement_id || null,
                                             code: item.code,
                                             nom: item.nom,
                                             nom_en: item.nom_en || '',
@@ -790,6 +918,27 @@ export default function MatiereIndex({
             ),
         },
         {
+            id: 'etablissement',
+            header: () => <span className="text-xs font-semibold uppercase tracking-wider">Campus</span>,
+            cell: ({ row }) => {
+                const etab = row.original.etablissement;
+                if (etab) {
+                    return (
+                        <span className="text-xs font-medium text-foreground flex items-center gap-1">
+                            <Building2 className="size-3 text-violet-600 dark:text-violet-400" />
+                            {etab.nom}
+                        </span>
+                    );
+                }
+                return (
+                    <span className="text-xs text-muted-foreground italic flex items-center gap-1">
+                        <Globe className="size-3 text-muted-foreground" />
+                        Tronc Commun
+                    </span>
+                );
+            },
+        },
+        {
             id: 'disciplines_associees',
             header: () => <span className="text-xs font-semibold uppercase tracking-wider">Disciplines Rattachées</span>,
             cell: ({ row }) => (
@@ -815,6 +964,7 @@ export default function MatiereIndex({
                                     onClick={() => {
                                         setEditingGroupe(item);
                                         groupeForm.setData({
+                                            etablissement_id: item.etablissement_id || null,
                                             code: item.code,
                                             nom: item.nom,
                                             nom_en: item.nom_en || '',
@@ -925,7 +1075,64 @@ export default function MatiereIndex({
                     </div>
                 </div>
 
-                {/* 2. BARRE D'ONGLETS STYLISÉE */}
+                {/* 2. SÉLECTEUR DE CAMPUS / ÉTABLISSEMENT */}
+                {etablissements && etablissements.length > 0 && (
+                    <div className="rounded-2xl border-2 border-slate-300/90 dark:border-slate-700 bg-card shadow-xs overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400 dark:hover:border-slate-600">
+                        {/* En-tête contrasté */}
+                        <div className="bg-gradient-to-r from-slate-200/95 via-violet-100/60 to-slate-200/80 dark:from-slate-800 dark:via-violet-950/30 dark:to-slate-800/90 px-6 py-3.5 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex items-center gap-2.5">
+                                <div className="flex size-7 items-center justify-center rounded-lg bg-violet-600 text-white shadow-xs">
+                                    <Building2 className="size-4" />
+                                </div>
+                                <span className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                                    Campus & Établissement
+                                </span>
+                            </div>
+                            {etablissements.length > 1 && (
+                                <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">
+                                    Sélectionnez un campus pour configurer ses blocs pédagogiques, son catalogue et ses coefficients.
+                                </span>
+                            )}
+                        </div>
+
+                        {/* Corps du Campus */}
+                        <div className="p-4 sm:p-5 bg-card">
+                            {etablissements.length > 1 ? (
+                                <div className="flex items-center gap-2 overflow-x-auto pb-1 max-w-full">
+                                    {etablissements.map((etab) => {
+                                        const isSelected = selectedEtablissement?.id === etab.id;
+                                        return (
+                                            <button
+                                                key={etab.id}
+                                                type="button"
+                                                onClick={() => handleSelectEtablissement(etab.id)}
+                                                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer border ${
+                                                    isSelected
+                                                        ? 'bg-violet-600 text-white border-violet-600 shadow-xs'
+                                                        : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-900'
+                                                }`}
+                                            >
+                                                <span className="font-mono text-[11px] opacity-85">{etab.code}</span>
+                                                <span>{etab.nom}</span>
+                                                {isSelected && <Check className="size-3 stroke-3 ml-0.5" />}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            ) : (
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                    <Badge variant="secondary" className="font-mono font-bold text-violet-800 bg-violet-100 border border-violet-300 dark:bg-violet-950/60 dark:text-violet-300">
+                                        {selectedEtablissement?.code}
+                                    </Badge>
+                                    <span className="font-semibold text-foreground text-sm">{selectedEtablissement?.nom}</span>
+                                    <span className="text-slate-500">(Campus unique de l'institution)</span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {/* 3. BARRE D'ONGLETS STYLISÉE */}
                 <div className="flex border-b border-border/80 gap-2">
                     <button
                         type="button"
@@ -981,28 +1188,49 @@ export default function MatiereIndex({
                 {/* ============================================================= */}
                 {activeTab === 'coefficients' && (
                     <div className="space-y-6">
-                        {/* Barre de sélection du niveau et de la série */}
+                        {/* Barre de sélection du campus, du niveau et de la série */}
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-xl border border-border/70 bg-card shadow-xs">
                             <div className="flex flex-wrap items-center gap-3">
+                                {/* Indicateur contextuel du Campus scolaire actif */}
+                                {selectedEtablissement && (
+                                    <div className="flex items-center gap-2">
+                                        <Badge variant="outline" className="font-medium text-xs bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950/50 dark:text-violet-300 gap-1.5 py-1 px-2.5">
+                                            <Building2 className="size-3.5 text-violet-600 dark:text-violet-400" />
+                                            <span>Campus : <strong>{selectedEtablissement.nom}</strong></span>
+                                        </Badge>
+                                    </div>
+                                )}
+
+                                {/* Filtre par Niveau scolaire */}
                                 <div className="flex items-center gap-2">
                                     <Filter className="size-4 text-muted-foreground" />
                                     <span className="text-xs font-semibold uppercase text-muted-foreground">Niveau :</span>
+                                    <Select
+                                        value={selectedNiveau ? String(selectedNiveau.id) : ''}
+                                        onValueChange={handleSelectNiveau}
+                                    >
+                                        <SelectTrigger className="w-64 cursor-pointer">
+                                            <SelectValue placeholder="Sélectionner un niveau" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {niveaux.map((niv) => {
+                                                const etabName = getEtablissementName(niv);
+                                                return (
+                                                    <SelectItem key={niv.id} value={String(niv.id)} className="cursor-pointer">
+                                                        <div className="flex flex-col text-left py-0.5">
+                                                            <span className="font-medium text-foreground">{niv.nom} ({niv.code})</span>
+                                                            {etabName && (
+                                                                <span className="text-[11px] text-muted-foreground">
+                                                                    {etabName}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </SelectItem>
+                                                );
+                                            })}
+                                        </SelectContent>
+                                    </Select>
                                 </div>
-                                <Select
-                                    value={selectedNiveau ? String(selectedNiveau.id) : ''}
-                                    onValueChange={handleSelectNiveau}
-                                >
-                                    <SelectTrigger className="w-60 cursor-pointer">
-                                        <SelectValue placeholder="Sélectionner un niveau" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {niveaux.map((niv) => (
-                                            <SelectItem key={niv.id} value={String(niv.id)} className="cursor-pointer">
-                                                {niv.nom} ({niv.code})
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
 
                                 {seriesDisponibles.length > 1 && (
                                     <div className="flex items-center gap-1.5 ml-2">
@@ -1038,6 +1266,37 @@ export default function MatiereIndex({
                                 </Button>
                             )}
                         </div>
+
+                        {/* Bandeau d'information contextuelle d'appartenance de la grille */}
+                        {selectedNiveau && (
+                            <div className="flex flex-wrap items-center gap-2.5 px-4 py-2.5 rounded-xl bg-violet-50/50 dark:bg-violet-950/20 border border-violet-200/60 dark:border-violet-900/40 text-xs">
+                                <span className="font-semibold text-foreground flex items-center gap-1.5">
+                                    <Building2 className="size-3.5 text-violet-600 dark:text-violet-400" />
+                                    Établissement rattaché :
+                                </span>
+                                <Badge variant="outline" className="bg-background text-foreground font-medium text-xs border-violet-200 dark:border-violet-800">
+                                    {getEtablissementName(selectedNiveau) || 'Établissement Principal'}
+                                </Badge>
+
+                                {selectedNiveau.cycle?.section?.nom && (
+                                    <>
+                                        <span className="text-muted-foreground/50">•</span>
+                                        <span className="text-muted-foreground">
+                                            Section : <strong className="text-foreground">{selectedNiveau.cycle.section.nom}</strong>
+                                        </span>
+                                    </>
+                                )}
+
+                                {selectedNiveau.cycle?.nom && (
+                                    <>
+                                        <span className="text-muted-foreground/50">•</span>
+                                        <span className="text-muted-foreground">
+                                            Cycle : <strong className="text-foreground">{selectedNiveau.cycle.nom}</strong>
+                                        </span>
+                                    </>
+                                )}
+                            </div>
+                        )}
 
                         {/* Cartes récapitulatives / métriques d'évaluation du niveau */}
                         {selectedNiveau && (
@@ -1132,16 +1391,21 @@ export default function MatiereIndex({
                 {/* ============================================================= */}
                 {activeTab === 'catalogue' && (
                     <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                            <p className="text-sm text-muted-foreground">
-                                Référentiel global de toutes les disciplines d'enseignement partagées par les établissements du groupe scolaire.
-                            </p>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div>
+                                <p className="text-sm font-medium text-foreground">
+                                    Référentiel des Disciplines & Matières
+                                </p>
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                    Matières du tronc commun institutionnel et disciplines spécifiques rattachées au campus actif {selectedEtablissement ? `(${selectedEtablissement.nom})` : ''}.
+                                </p>
+                            </div>
                             {canManage && (
                                 <Button
                                     type="button"
                                     size="sm"
                                     onClick={handleOpenAddMatiere}
-                                    className="gap-2 cursor-pointer bg-violet-600 hover:bg-violet-700 text-white font-medium shadow-xs"
+                                    className="gap-2 cursor-pointer bg-violet-600 hover:bg-violet-700 text-white font-medium shadow-xs shrink-0"
                                 >
                                     <Plus className="size-4" />
                                     <span>Nouvelle Matière</span>
@@ -1162,16 +1426,26 @@ export default function MatiereIndex({
                 {/* ============================================================= */}
                 {activeTab === 'groupes' && (
                     <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                            <p className="text-sm text-muted-foreground">
-                                Blocs pédagogiques ordonnés pour la structure officielle du bulletin scolaire camerounais et le calcul des moyennes sectorielles.
-                            </p>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div>
+                                <p className="text-sm font-medium text-foreground flex items-center gap-2">
+                                    Blocs Pédagogiques & Pôles d'Enseignement
+                                    {selectedEtablissement && (
+                                        <Badge variant="outline" className="text-xs font-normal border-violet-200 bg-violet-50 text-violet-700 dark:bg-violet-950/50 dark:text-violet-300">
+                                            {selectedEtablissement.nom}
+                                        </Badge>
+                                    )}
+                                </p>
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                    Structure officielle du bulletin de notes et ordre d'apparition des disciplines pour ce campus.
+                                </p>
+                            </div>
                             {canManage && (
                                 <Button
                                     type="button"
                                     size="sm"
                                     onClick={handleOpenAddGroupe}
-                                    className="gap-2 cursor-pointer bg-indigo-600 hover:bg-indigo-700 text-white font-medium shadow-xs"
+                                    className="gap-2 cursor-pointer bg-indigo-600 hover:bg-indigo-700 text-white font-medium shadow-xs shrink-0"
                                 >
                                     <Plus className="size-4" />
                                     <span>Nouveau Bloc Pédagogique</span>
@@ -1203,13 +1477,21 @@ export default function MatiereIndex({
                     </DialogHeader>
 
                     <form onSubmit={submitCoefficient} className="space-y-4 pt-2">
-                        {/* Niveau concerné */}
+                        {/* Niveau et Établissement concernés */}
                         <div>
-                            <Label className="text-xs font-semibold">Niveau Scolaire</Label>
+                            <div className="flex items-center justify-between mb-1">
+                                <Label className="text-xs font-semibold">Niveau Scolaire</Label>
+                                {(getEtablissementName(selectedNiveau) || selectedEtablissement?.nom) && (
+                                    <span className="text-[11px] text-muted-foreground font-normal flex items-center gap-1">
+                                        <Building2 className="size-3 text-violet-600 dark:text-violet-400" />
+                                        Établissement : <strong className="text-foreground">{getEtablissementName(selectedNiveau) || selectedEtablissement?.nom}</strong>
+                                    </span>
+                                )}
+                            </div>
                             <Input
                                 value={selectedNiveau ? `${selectedNiveau.nom} (${selectedNiveau.code})` : ''}
                                 disabled
-                                className="bg-muted mt-1 text-sm"
+                                className="bg-muted text-sm"
                             />
                         </div>
 
@@ -1396,6 +1678,36 @@ export default function MatiereIndex({
                     </DialogHeader>
 
                     <form onSubmit={submitMatiere} className="space-y-4 pt-2">
+                        {/* Portée / Rattachement Campus */}
+                        <div>
+                            <Label htmlFor="mat_etablissement_id" className="text-xs font-semibold">
+                                Portée & Rattachement Campus
+                            </Label>
+                            <Select
+                                value={matiereForm.data.etablissement_id ? String(matiereForm.data.etablissement_id) : 'common'}
+                                onValueChange={(val) =>
+                                    matiereForm.setData('etablissement_id', val === 'common' ? null : Number(val))
+                                }
+                            >
+                                <SelectTrigger id="mat_etablissement_id" className="mt-1 cursor-pointer">
+                                    <SelectValue placeholder="Sélectionner la portée..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="common" className="cursor-pointer">
+                                        🌐 Tronc Commun Institutionnel (Partagé par tous les campus)
+                                    </SelectItem>
+                                    {etablissements.map((etab) => (
+                                        <SelectItem key={etab.id} value={String(etab.id)} className="cursor-pointer">
+                                            🏫 Spécifique au campus : {etab.nom} ({etab.code})
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <p className="text-[11px] text-muted-foreground mt-1">
+                                Les matières du tronc commun sont exploitables dans tous les établissements du groupe scolaire.
+                            </p>
+                        </div>
+
                         <div>
                             <Label htmlFor="mat_code" className="text-xs font-semibold">
                                 Code Officiel <span className="text-rose-500">*</span>
@@ -1512,6 +1824,20 @@ export default function MatiereIndex({
                     </DialogHeader>
 
                     <form onSubmit={submitGroupe} className="space-y-4 pt-2">
+                        {/* Campus de rattachement du bloc */}
+                        <div>
+                            <Label className="text-xs font-semibold">Campus Scolaire de Rattachement</Label>
+                            <div className="flex items-center gap-2 mt-1 p-2.5 rounded-lg bg-muted/60 border border-border/80 text-xs">
+                                <Building2 className="size-4 text-violet-600 dark:text-violet-400 shrink-0" />
+                                <span className="font-medium text-foreground">
+                                    {selectedEtablissement ? `${selectedEtablissement.nom} (${selectedEtablissement.code})` : 'Établissement par défaut'}
+                                </span>
+                            </div>
+                            <p className="text-[11px] text-muted-foreground mt-1">
+                                Ce bloc pédagogique structure les moyennes et l'ordre des matières sur le bulletin de ce campus.
+                            </p>
+                        </div>
+
                         <div className="grid grid-cols-2 gap-3">
                             <div>
                                 <Label htmlFor="grp_code" className="text-xs font-semibold">

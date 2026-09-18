@@ -91,9 +91,7 @@ class AttributionController extends Controller implements HasMiddleware
             ->orderBy('nom');
 
         if ($etablissementId) {
-            $classesQuery->whereHas('niveau.cycle.section', function ($q) use ($etablissementId) {
-                $q->where('etablissement_id', $etablissementId);
-            });
+            $classesQuery->where('etablissement_id', $etablissementId);
         }
 
         if ($classeId) {
@@ -107,7 +105,7 @@ class AttributionController extends Controller implements HasMiddleware
             ->get();
 
         // 6. Corps enseignant avec calcul de la charge horaire pour l'année active
-        $enseignants = Personnel::query()
+        $enseignantsQuery = Personnel::query()
             ->where(function ($q) {
                 $q->where('is_enseignant', true)
                     ->orWhere('fonction_principale', 'Enseignant');
@@ -120,8 +118,16 @@ class AttributionController extends Controller implements HasMiddleware
                     $q->where('annee_scolaire_id', $selectedAnneeId)
                         ->with(['classe:id,nom,code', 'matiere:id,code,nom']);
                 },
-            ])
-            ->orderBy('nom')
+            ]);
+
+        if ($etablissementId) {
+            $enseignantsQuery->where(function ($q) use ($etablissementId) {
+                $q->where('etablissement_id', $etablissementId)
+                    ->orWhereNull('etablissement_id');
+            });
+        }
+
+        $enseignants = $enseignantsQuery->orderBy('nom')
             ->get()
             ->map(function (Personnel $ens) use ($selectedAnneeId) {
                 $heuresContractuelles = (float) $ens->volume_horaire_hebdo;
@@ -154,12 +160,23 @@ class AttributionController extends Controller implements HasMiddleware
                 ];
             });
 
-        // 7. Catalogue des matières pour le sélecteur d'attribution
-        $matieres = Matiere::where('is_active', true)->orderBy('nom')->get();
+        // 7. Catalogue des matières pour le sélecteur d'attribution (scopé par campus)
+        $matieresQuery = Matiere::where('is_active', true)->orderBy('nom');
+        if ($etablissementId) {
+            $matieresQuery->where(function ($q) use ($etablissementId) {
+                $q->where('etablissement_id', $etablissementId)
+                    ->orWhereNull('etablissement_id');
+            });
+        }
+        $matieres = $matieresQuery->get();
 
         // 8. Synthèse statistique globale KPI
         $totalClasses = $classes->count();
-        $totalAttributions = Attribution::where('annee_scolaire_id', $selectedAnneeId)->count();
+        $attributionsQuery = Attribution::where('annee_scolaire_id', $selectedAnneeId);
+        if ($etablissementId) {
+            $attributionsQuery->whereHas('classe', fn ($q) => $q->where('etablissement_id', $etablissementId));
+        }
+        $totalAttributions = $attributionsQuery->count();
         $enseignantsMobilises = $enseignants->where('heures_attribuees', '>', 0)->count();
         $enseignantsSurcharge = $enseignants->where('statut_charge', 'surcharge')->count();
         $enseignantsSousCharge = $enseignants->where('statut_charge', 'sous_charge')->count();

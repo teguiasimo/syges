@@ -127,7 +127,7 @@ class PeriodeEvaluationController extends Controller implements HasMiddleware
             $validated['nom'] = "Année Scolaire {$validated['code']}";
         }
         if (empty($validated['nom_en'])) {
-            $validated['nom_en'] = "Academic Year {$validated['code']}";
+            $validated['nom_en'] = null;
         }
 
         if (empty($validated['mode_calcul_moyenne'])) {
@@ -182,7 +182,7 @@ class PeriodeEvaluationController extends Controller implements HasMiddleware
             $validated['nom'] = $anneeScolaire->nom ?: "Année Scolaire {$validated['code']}";
         }
         if (empty($validated['nom_en'])) {
-            $validated['nom_en'] = $anneeScolaire->nom_en ?: "Academic Year {$validated['code']}";
+            $validated['nom_en'] = null;
         }
 
         if (empty($validated['mode_calcul_moyenne'])) {
@@ -377,12 +377,16 @@ class PeriodeEvaluationController extends Controller implements HasMiddleware
             'nom' => ['required', 'string', 'max:100'],
             'nom_en' => ['nullable', 'string', 'max:100'],
             'ordre' => ['required', 'integer', 'min:1'],
-            'ponderation' => ['required', 'numeric', 'min:0', 'max:100'],
+            'ponderation' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'date_debut' => ['nullable', 'date'],
             'date_fin' => ['nullable', 'date'],
             'date_limite_saisie' => ['nullable', 'date'],
             'statut' => ['required', 'string', 'in:a_venir,ouverte,verrouillee,cloturee'],
         ]);
+
+        if (!isset($validated['ponderation']) || $validated['ponderation'] === null) {
+            $validated['ponderation'] = 50.0;
+        }
 
         $exists = Evaluation::where('periode_id', $validated['periode_id'])
             ->where('code', $validated['code'])
@@ -420,12 +424,16 @@ class PeriodeEvaluationController extends Controller implements HasMiddleware
             'nom' => ['required', 'string', 'max:100'],
             'nom_en' => ['nullable', 'string', 'max:100'],
             'ordre' => ['required', 'integer', 'min:1'],
-            'ponderation' => ['required', 'numeric', 'min:0', 'max:100'],
+            'ponderation' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'date_debut' => ['nullable', 'date'],
             'date_fin' => ['nullable', 'date'],
             'date_limite_saisie' => ['nullable', 'date'],
             'statut' => ['required', 'string', 'in:a_venir,ouverte,verrouillee,cloturee'],
         ]);
+
+        if (!isset($validated['ponderation']) || $validated['ponderation'] === null) {
+            $validated['ponderation'] = $evaluation->ponderation ?? 50.0;
+        }
 
         $evaluation->update($validated);
 

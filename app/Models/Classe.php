@@ -30,12 +30,18 @@ class Classe extends Model
     use HasFactory;
 
     /**
-     * Initialisation du modèle avec garde-fou strict d'intégrité pédagogique.
-     * Empêche toute suppression dès lors que la classe contient des attributions,
-     * des inscriptions d'élèves, des séances d'emploi du temps ou des délibérations.
+     * Initialisation du modèle avec garde-fou strict d'intégrité pédagogique
+     * et auto-assignation automatique de l'etablissement_id depuis le niveau parent.
      */
     protected static function booted(): void
     {
+        static::saving(function (Classe $classe) {
+            if (empty($classe->etablissement_id) && $classe->niveau_id) {
+                $niveau = Niveau::find($classe->niveau_id);
+                $classe->etablissement_id = $niveau?->etablissement_id ?? $niveau?->cycle?->section?->etablissement_id;
+            }
+        });
+
         static::deleting(function (Classe $classe) {
             if (! $classe->canBeDeleted()) {
                 throw new \DomainException("La classe « {$classe->nom} » ne peut pas être supprimée car elle contient des données pédagogiques actives.");
@@ -49,6 +55,7 @@ class Classe extends Model
      * @var list<string>
      */
     protected $fillable = [
+        'etablissement_id',
         'niveau_id',
         'code',
         'nom',
@@ -64,9 +71,36 @@ class Classe extends Model
      * @var array<string, string>
      */
     protected $casts = [
+        'etablissement_id' => 'integer',
         'capacite_max' => 'integer',
         'is_active' => 'boolean',
     ];
+
+    /**
+     * Relation vers l'Établissement scolaire de rattachement.
+     *
+     * @return BelongsTo
+     */
+    public function etablissement(): BelongsTo
+    {
+        return $this->belongsTo(Etablissement::class, 'etablissement_id');
+    }
+
+    /**
+     * Scope local pour filtrer les classes appartenant à un établissement précis.
+     *
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param int|null $etablissementId
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopeForEtablissement($query, ?int $etablissementId)
+    {
+        if (! $etablissementId) {
+            return $query;
+        }
+
+        return $query->where('etablissement_id', $etablissementId);
+    }
 
     /**
      * Relation plusieurs-à-un vers le Niveau parent.

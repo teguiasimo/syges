@@ -65,9 +65,9 @@ class Evaluation extends Model
     protected $casts = [
         'ordre' => 'integer',
         'ponderation' => 'float',
-        'date_debut' => 'date',
-        'date_fin' => 'date',
-        'date_limite_saisie' => 'date',
+        'date_debut' => 'date:Y-m-d',
+        'date_fin' => 'date:Y-m-d',
+        'date_limite_saisie' => 'date:Y-m-d',
         'is_locked' => 'boolean',
     ];
 

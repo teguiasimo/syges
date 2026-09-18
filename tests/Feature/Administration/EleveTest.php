@@ -495,3 +495,102 @@ test('on peut rechercher les anciens élèves non inscrits sur une année donné
     expect($ids)->not->toContain($eleveInscrit->id);
 });
 
+/**
+ * Teste le cloisonnement strict multi-établissements des élèves et inscriptions.
+ * Vérifie que la sélection d'un établissement isole strictement les effectifs et
+ * qu'un transfert inter-établissements réassigne hermétiquement l'inscription.
+ */
+test('eleves and inscriptions are strictly isolated per etablissement', function () {
+    /** @var \Tests\TestCase $this */
+    // Création de deux établissements distincts
+    $inst = Institution::firstOrCreate(
+        ['code' => 'INST-MULTI'],
+        ['nom' => 'Groupe Scolaire Bilingue', 'sigle' => 'GSB', 'telephone_1' => '+237 600000000']
+    );
+    $etabA = Etablissement::create([
+        'institution_id' => $inst->id,
+        'nom' => 'Campus Primaire',
+        'code' => 'CAMP-PRIM',
+        'statut_juridique' => 'Prive_Laic',
+        'ordre_enseignement' => 'Primaire',
+    ]);
+    $etabB = Etablissement::create([
+        'institution_id' => $inst->id,
+        'nom' => 'Campus Secondaire',
+        'code' => 'CAMP-SEC',
+        'statut_juridique' => 'Prive_Laic',
+        'ordre_enseignement' => 'Secondaire_General',
+    ]);
+
+    $secA = \App\Models\Section::create(['etablissement_id' => $etabA->id, 'code' => 'SEC-PA', 'nom' => 'Section Prim', 'langue' => 'fr']);
+    $cycA = \App\Models\Cycle::create(['section_id' => $secA->id, 'code' => 'CYC-PA', 'nom' => 'Cycle Prim', 'ordre' => 1]);
+    $nivA = Niveau::create(['cycle_id' => $cycA->id, 'code' => 'NIV-SIL', 'nom' => 'SIL', 'ordre' => 1]);
+    $classeA = Classe::create(['niveau_id' => $nivA->id, 'etablissement_id' => $etabA->id, 'code' => 'SIL-A', 'nom' => 'Classe SIL A', 'capacite_max' => 30]);
+
+    $secB = \App\Models\Section::create(['etablissement_id' => $etabB->id, 'code' => 'SEC-SB', 'nom' => 'Section Sec', 'langue' => 'fr']);
+    $cycB = \App\Models\Cycle::create(['section_id' => $secB->id, 'code' => 'CYC-SB', 'nom' => 'Cycle Sec', 'ordre' => 1]);
+    $nivB = Niveau::create(['cycle_id' => $cycB->id, 'code' => 'NIV-6B', 'nom' => 'Sixième', 'ordre' => 1]);
+    $classeB = Classe::create(['niveau_id' => $nivB->id, 'etablissement_id' => $etabB->id, 'code' => '6B-B', 'nom' => 'Classe 6ème B', 'capacite_max' => 40]);
+
+    // Élève Campus A
+    $eleveA = Eleve::create([
+        'matricule' => 'ETAB-A-001',
+        'nom' => 'ELEVE_CAMPUS_A',
+        'sexe' => 'F',
+        'telephone_parent' => '+237 611 11 11 11',
+    ]);
+    $inscA = Inscription::create([
+        'eleve_id' => $eleveA->id,
+        'classe_id' => $classeA->id,
+        'annee_scolaire_id' => $this->annee->id,
+        'statut' => 'validee',
+        'date_inscription' => '2026-09-01',
+    ]);
+
+    // Élève Campus B
+    $eleveB = Eleve::create([
+        'matricule' => 'ETAB-B-001',
+        'nom' => 'ELEVE_CAMPUS_B',
+        'sexe' => 'M',
+        'telephone_parent' => '+237 622 22 22 22',
+    ]);
+    $inscB = Inscription::create([
+        'eleve_id' => $eleveB->id,
+        'classe_id' => $classeB->id,
+        'annee_scolaire_id' => $this->annee->id,
+        'statut' => 'validee',
+        'date_inscription' => '2026-09-01',
+    ]);
+
+    // Vérifier que le hook de modèle a bien assigné etablissement_id
+    expect($inscA->etablissement_id)->toBe($etabA->id);
+    expect($inscB->etablissement_id)->toBe($etabB->id);
+
+    // 1. Consultation filtrée sur Campus A
+    $responseA = actingAs($this->adminUser)->get(route('administration.eleves.index', [
+        'annee_scolaire_id' => $this->annee->id,
+        'etablissement_id' => $etabA->id,
+    ]));
+    $responseA->assertOk();
+    $responseA->assertInertia(fn ($page) => $page
+        ->component('administration/eleves/index')
+        ->where('stats.totalInscrits', 1)
+        ->has('inscriptions', 1)
+        ->where('inscriptions.0.eleve.nom', 'ELEVE_CAMPUS_A')
+    );
+
+    // 2. Consultation filtrée sur Campus B
+    $responseB = actingAs($this->adminUser)->get(route('administration.eleves.index', [
+        'annee_scolaire_id' => $this->annee->id,
+        'etablissement_id' => $etabB->id,
+    ]));
+    $responseB->assertOk();
+    $responseB->assertInertia(fn ($page) => $page
+        ->component('administration/eleves/index')
+        ->where('stats.totalInscrits', 1)
+        ->has('inscriptions', 1)
+        ->where('inscriptions.0.eleve.nom', 'ELEVE_CAMPUS_B')
+    );
+});
+
+

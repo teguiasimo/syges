@@ -32,6 +32,32 @@ Route::post('locale', function (\Illuminate\Http\Request $request) {
 })->name('locale.update');
 
 Route::middleware(['auth', 'verified'])->group(function () {
+    /**
+     * Bascule l'établissement actif pour la session de l'utilisateur (SaaS Multi-Tenant).
+     * Les Super Admins peuvent basculer librement vers n'importe quel campus de l'institution.
+     * Le personnel scolaire local est restreint à son établissement de rattachement.
+     */
+    Route::post('switch-etablissement', function (\Illuminate\Http\Request $request) {
+        $user = $request->user();
+        $isSuperAdmin = $user ? ($user->hasRole('super-admin') || $user->email === 'admin@gmail.com') : false;
+
+        $validated = $request->validate([
+            'etablissement_id' => ['required', 'exists:etablissements,id'],
+        ]);
+
+        if (! $isSuperAdmin) {
+            $userPersonnel = $user->personnel ?? ($user->email ? \App\Models\Personnel::where('email', $user->email)->first() : null);
+            if ($userPersonnel && $userPersonnel->etablissement_id && $userPersonnel->etablissement_id != $validated['etablissement_id']) {
+                abort(403, 'Accès non autorisé : vous êtes assigné à un établissement spécifique.');
+            }
+        }
+
+        $etab = \App\Models\Etablissement::findOrFail($validated['etablissement_id']);
+        $request->session()->put('current_etablissement_id', $etab->id);
+
+        return back()->with('success', "Campus actif basculé vers « {$etab->nom} » avec succès.");
+    })->name('context.switch-etablissement');
+
     // Page du Tableau de bord exécutif (Module 15)
     Route::get('dashboard', [\App\Http\Controllers\Administration\TableauDeBordController::class, 'index'])->name('dashboard');
 

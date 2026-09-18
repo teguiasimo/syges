@@ -254,25 +254,26 @@ export default function EditInstitution({ institution, flash }: EditInstitutionP
                 {/* Formulaire principal découpé en cartes spacieuses */}
                 <form onSubmit={handleSubmit} className="space-y-8">
                     {/* CARTE 1 : IDENTITÉ OFFICIELLE & BILINGUISME */}
-                    <div className="rounded-2xl border border-border/80 bg-card p-6 shadow-xs space-y-6">
-                        <div className="flex items-center gap-2.5 pb-3 border-b border-border/60">
-                            <div className="flex size-9 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-400">
-                                <Building2 className="size-5" />
+                    <div className="rounded-2xl border-2 border-slate-300/90 dark:border-slate-700 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400 dark:hover:border-slate-600">
+                        <div className="bg-gradient-to-r from-slate-200/95 via-indigo-100/70 to-slate-200/80 dark:from-slate-800 dark:via-indigo-950/40 dark:to-slate-800/90 px-6 py-4 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center gap-3">
+                            <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-violet-700 text-white font-bold shadow-xs shrink-0">
+                                <Building2 className="size-4" />
                             </div>
                             <div>
-                                <h2 className="text-base font-bold text-foreground">Identité & Bilinguisme Officiel</h2>
-                                <p className="text-xs text-muted-foreground">
+                                <h2 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">Identité & Bilinguisme Officiel</h2>
+                                <p className="text-xs text-slate-600 dark:text-slate-400">
                                     Informations juridiques utilisées sur l'ensemble des entêtes de documents (Bulletins, Relevés, Attestations).
                                 </p>
                             </div>
                         </div>
 
-                        {/* LIGNE 1 : Nom bilingue FR et EN en colonnes miroir (Priorité 1 de lecture) */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                            <div className="space-y-1.5 p-4 rounded-xl bg-slate-50/60 dark:bg-slate-900/40 border border-slate-200/60 dark:border-slate-800/60">
-                                <Label htmlFor="nom" className="text-xs font-semibold flex items-center gap-1 text-foreground">
-                                    <span>🇫🇷 Nom Officiel (Français)</span> <span className="text-rose-500">*</span>
-                                </Label>
+                        <div className="p-6 bg-card space-y-6">
+                            {/* LIGNE 1 : Nom bilingue FR et EN en colonnes miroir (Priorité 1 de lecture) */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                <div className="space-y-1.5 p-4 rounded-xl bg-slate-50/60 dark:bg-slate-900/40 border border-slate-200/60 dark:border-slate-800/60">
+                                    <Label htmlFor="nom" className="text-xs font-semibold flex items-center gap-1 text-foreground">
+                                        <span>🇫🇷 Nom Officiel (Français)</span> <span className="text-rose-500">*</span>
+                                    </Label>
                                 <Input
                                     id="nom"
                                     value={data.nom}
@@ -407,22 +408,25 @@ export default function EditInstitution({ institution, flash }: EditInstitutionP
                                 </div>
                                 {errors.logo && <p className="text-[11px] text-rose-500">{errors.logo}</p>}
                             </div>
+                            </div>
                         </div>
                     </div>
 
                     {/* CARTE 2 : TUTELLE MINISTÉRIELLE & DÉCOUPAGE TERRITORIAL */}
-                    <div className="rounded-2xl border border-border/80 bg-card p-6 shadow-xs space-y-5">
-                        <div className="flex items-center gap-2.5 pb-3 border-b border-border/60">
-                            <div className="flex size-9 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400">
-                                <Shield className="size-5" />
+                    <div className="rounded-2xl border-2 border-slate-300/90 dark:border-slate-700 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400 dark:hover:border-slate-600">
+                        <div className="bg-gradient-to-r from-slate-200/95 via-emerald-100/70 to-slate-200/80 dark:from-slate-800 dark:via-emerald-950/40 dark:to-slate-800/90 px-6 py-4 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center gap-3">
+                            <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white font-bold shadow-xs shrink-0">
+                                <Shield className="size-4" />
                             </div>
                             <div>
-                                <h2 className="text-base font-bold text-foreground">Tutelle Administrative & Localisation Géographique</h2>
-                                <p className="text-xs text-muted-foreground">
+                                <h2 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">Tutelle Administrative & Localisation Géographique</h2>
+                                <p className="text-xs text-slate-600 dark:text-slate-400">
                                     Spécificités réglementaires camerounaises (Délégations MINESEC / MINEDUB, Région, Département).
                                 </p>
                             </div>
                         </div>
+
+                        <div className="p-6 bg-card space-y-5">
 
                         {/* Délégations Régionales & Départementales */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -587,24 +591,26 @@ export default function EditInstitution({ institution, flash }: EditInstitutionP
                                 {errors.arrondissement_en && <p className="text-[11px] text-rose-500">{errors.arrondissement_en}</p>}
                             </div>
                         </div>
+                        </div>
                     </div>
 
                     {/* CARTE 3 : COORDONNÉES OFFICIELLES & CONTACTS */}
-                    <div className="rounded-2xl border border-border/80 bg-card p-6 shadow-xs space-y-5">
-                        <div className="flex items-center gap-2.5 pb-3 border-b border-border/60">
-                            <div className="flex size-9 items-center justify-center rounded-lg bg-amber-50 text-amber-600 dark:bg-amber-950/50 dark:text-amber-400">
-                                <Phone className="size-5" />
+                    <div className="rounded-2xl border-2 border-slate-300/90 dark:border-slate-700 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400 dark:hover:border-slate-600">
+                        <div className="bg-gradient-to-r from-slate-200/95 via-amber-100/70 to-slate-200/80 dark:from-slate-800 dark:via-amber-950/40 dark:to-slate-800/90 px-6 py-4 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center gap-3">
+                            <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 text-white font-bold shadow-xs shrink-0">
+                                <Phone className="size-4" />
                             </div>
                             <div>
-                                <h2 className="text-base font-bold text-foreground">Coordonnées Officielles & Contact</h2>
-                                <p className="text-xs text-muted-foreground">
+                                <h2 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">Coordonnées Officielles & Contact</h2>
+                                <p className="text-xs text-slate-600 dark:text-slate-400">
                                     Canaux de communication officiels de l'institution avec les parents et l'administration.
                                 </p>
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
-                            <div className="space-y-1.5">
+                        <div className="p-6 bg-card space-y-5">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
+                                <div className="space-y-1.5">
                                 <Label htmlFor="email" className="text-xs font-semibold text-foreground flex items-center gap-1.5">
                                     <Mail className="size-3.5 text-muted-foreground" /> Email Officiel
                                 </Label>
@@ -676,6 +682,7 @@ export default function EditInstitution({ institution, flash }: EditInstitutionP
                                 />
                                 {errors.site_web && <p className="text-[11px] text-rose-500">{errors.site_web}</p>}
                             </div>
+                        </div>
                         </div>
                     </div>
 

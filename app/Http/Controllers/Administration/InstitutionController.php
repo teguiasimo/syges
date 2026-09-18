@@ -1024,7 +1024,12 @@ class InstitutionController extends Controller implements HasMiddleware
     }
 
     /**
-     * Enregistre une nouvelle classe.
+     * Enregistre une nouvelle classe d'élèves.
+     * Le code technique de la classe doit être unique au sein de l'établissement scolaire concerné.
+     * L'établissement est déduit des données soumises ou du niveau parent.
+     *
+     * @param Request $request Requête HTTP contenant les attributs de la classe.
+     * @return RedirectResponse Redirection vers la page précédente avec toast de confirmation ou message d'erreur.
      */
     public function storeClasse(Request $request): RedirectResponse
     {
@@ -1032,18 +1037,24 @@ class InstitutionController extends Controller implements HasMiddleware
 
         $validated = $request->validate([
             'niveau_id' => ['required', 'exists:niveaux,id'],
+            'etablissement_id' => ['nullable', 'exists:etablissements,id'],
             'code' => ['required', 'string', 'max:30'],
             'nom' => ['required', 'string', 'max:100'],
             'serie' => ['nullable', 'string', 'max:50'],
             'capacite_max' => ['required', 'integer', 'min:1', 'max:150'],
         ]);
 
-        $exists = Classe::where('niveau_id', $validated['niveau_id'])
+        $niveau = Niveau::find($validated['niveau_id']);
+        $etablissementId = $validated['etablissement_id'] ?? $niveau?->etablissement_id ?? $niveau?->cycle?->section?->etablissement_id;
+        $validated['etablissement_id'] = $etablissementId;
+
+        // Vérification de l'unicité du code au niveau de l'établissement
+        $exists = Classe::where('etablissement_id', $etablissementId)
             ->where('code', Str::upper($validated['code']))
             ->exists();
 
         if ($exists) {
-            return back()->with('error', 'Une classe portant ce code existe déjà dans ce niveau.');
+            return back()->with('error', 'Une classe portant ce code existe déjà dans cet établissement.');
         }
 
         $validated['code'] = Str::upper($validated['code']);
@@ -1056,10 +1067,17 @@ class InstitutionController extends Controller implements HasMiddleware
 
     /**
      * Modifie une classe existante.
+     * Le code technique doit demeurer unique au sein de l'établissement rattaché.
+     *
+     * @param Request $request Requête HTTP contenant les modifications.
+     * @param Classe $classe Modèle de la classe à mettre à jour.
+     * @return RedirectResponse Redirection avec notification de confirmation.
      */
     public function updateClasse(Request $request, Classe $classe): RedirectResponse
     {
         abort_unless($request->user()->can('classes.manage'), 403, 'Permission requise : classes.manage');
+
+        $etablissementId = $classe->etablissement_id ?? $classe->niveau?->etablissement_id ?? $classe->niveau?->cycle?->section?->etablissement_id;
 
         $validated = $request->validate([
             'code' => [
@@ -1067,7 +1085,7 @@ class InstitutionController extends Controller implements HasMiddleware
                 'string',
                 'max:30',
                 Rule::unique('classes', 'code')
-                    ->where('niveau_id', $classe->niveau_id)
+                    ->where('etablissement_id', $etablissementId)
                     ->ignore($classe->id),
             ],
             'nom' => ['required', 'string', 'max:100'],

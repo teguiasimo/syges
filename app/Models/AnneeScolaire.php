@@ -58,8 +58,8 @@ class AnneeScolaire extends Model
      * @var array<string, string>
      */
     protected $casts = [
-        'date_debut' => 'date',
-        'date_fin' => 'date',
+        'date_debut' => 'date:Y-m-d',
+        'date_fin' => 'date:Y-m-d',
         'is_current' => 'boolean',
     ];
 

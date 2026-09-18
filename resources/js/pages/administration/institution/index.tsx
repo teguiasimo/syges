@@ -1288,27 +1288,28 @@ export default function InstitutionIndex({
                         </div>
                     </div>
 
-                    {/* Fil d'Ariane interactif (Approche A) */}
-                    <nav className="flex items-center flex-wrap gap-2 text-xs text-muted-foreground p-3 rounded-xl bg-muted/40 border border-border/70">
+                    {/* Fil d'Ariane interactif (Approche A) harmonisé avec style contrasté */}
+                    <nav className="flex items-center flex-wrap gap-2 text-xs text-slate-700 dark:text-slate-300 p-3.5 rounded-2xl bg-gradient-to-r from-slate-200/90 via-slate-100/95 to-slate-200/80 dark:from-slate-850 dark:via-slate-800 dark:to-slate-850 border-2 border-slate-300/90 dark:border-slate-700 shadow-xs">
                         <button
                             type="button"
                             onClick={() => handleNavigateBreadcrumb({})}
-                            className="flex items-center gap-1.5 font-medium hover:text-foreground transition-colors cursor-pointer"
+                            className="flex items-center gap-1.5 font-semibold text-slate-800 dark:text-slate-200 hover:text-primary transition-colors cursor-pointer"
                         >
-                            <Home className="size-3.5 text-primary" />
+                            <Home className="size-3.5 text-indigo-600 dark:text-indigo-400" />
                             <span>{institution.nom}</span>
                         </button>
 
                         {breadcrumbs.slice(1).map((step, idx) => (
                             <React.Fragment key={idx}>
-                                <ChevronRight className="size-3 text-muted-foreground/60" />
+                                <ChevronRight className="size-3 text-slate-400 dark:text-slate-500" />
                                 <button
                                     type="button"
                                     onClick={() => handleNavigateBreadcrumb(step.params)}
-                                    className={`font-medium transition-colors cursor-pointer ${idx === breadcrumbs.length - 2
-                                            ? 'text-foreground font-semibold'
-                                            : 'hover:text-foreground'
-                                        }`}
+                                    className={`transition-colors cursor-pointer ${
+                                        idx === breadcrumbs.length - 2
+                                            ? 'text-slate-900 dark:text-white font-bold bg-white dark:bg-slate-900 px-2.5 py-0.5 rounded-lg border border-slate-300 dark:border-slate-700 shadow-xs'
+                                            : 'font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                                    }`}
                                 >
                                     {step.label}
                                 </button>
@@ -1320,48 +1321,21 @@ export default function InstitutionIndex({
                 {/* 2. SI NOUS SOMMES AU NIVEAU RACINE : FICHE INSTITUTION + TABLEAU ÉTABLISSEMENTS */}
                 {!selectedEtablissement && (
                     <div className="space-y-6">
-                        {/* Fiche d'identité de l'institution */}
-                        <div className="rounded-2xl border border-border/80 bg-card p-6 shadow-xs relative overflow-hidden">
-                            <div className="flex flex-wrap items-start justify-between gap-4">
-                                <div className="flex items-start gap-4 sm:gap-5 max-w-3xl">
-                                    {/* 
-                                      * Blason / Logo officiel de l'Institution :
-                                      * Affiché à gauche uniquement lorsqu'un logo est configuré.
-                                      * Dans le cas contraire (aucun logo défini), rien n'est affiché (aucun placeholder ni icône).
-                                      */}
-                                    {institution.logo && (
-                                        <div className="size-16 sm:size-20 shrink-0 rounded-2xl border border-border/80 bg-slate-50 dark:bg-slate-900 p-1.5 shadow-xs flex items-center justify-center overflow-hidden">
-                                            <img
-                                                src={institution.logo}
-                                                alt={`Logo de ${institution.nom}`}
-                                                className="max-h-full max-w-full object-contain"
-                                            />
-                                        </div>
-                                    )}
-
-                                    <div className="space-y-1">
-                                        <div className="flex flex-wrap items-center gap-2">
-                                            {/* 
-                                              * Badge d'identification unique (Option B) :
-                                              * Affiche en priorité le sigle usuel s'il est défini.
-                                              * À défaut de sigle, affiche le code technique de l'institution.
-                                              * Jamais les deux badges ensemble afin d'éviter toute redondance visuelle.
-                                              */}
-                                            {institution.sigle && (
-                                                <Badge variant="secondary" className="font-mono text-xs font-bold text-primary">
-                                                    {institution.sigle}
-                                                </Badge>
-                                            )}
-                                            <h2 className="text-xl sm:text-2xl font-bold text-foreground">{institution.nom}</h2>
-                                        </div>
-                                        {institution.nom_en && (
-                                            <p className="text-xs sm:text-sm text-muted-foreground italic">{institution.nom_en}</p>
-                                        )}
-                                        {institution.devise && (
-                                            <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400 pt-1">
-                                                « {institution.devise} » {institution.devise_en ? `/ "${institution.devise_en}"` : ''}
-                                            </p>
-                                        )}
+                        {/* Fiche d'identité de l'institution avec en-tête contrasté */}
+                        <div className="rounded-2xl border-2 border-slate-300/90 dark:border-slate-700 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400 dark:hover:border-slate-600">
+                            {/* Bandeau d'en-tête contrasté */}
+                            <div className="bg-gradient-to-r from-slate-200/95 via-indigo-100/70 to-slate-200/80 dark:from-slate-800 dark:via-indigo-950/40 dark:to-slate-800/90 px-6 py-4 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-violet-700 text-white font-bold shadow-xs shrink-0">
+                                        <School className="size-4" />
+                                    </div>
+                                    <div>
+                                        <span className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                                            Groupe Scolaire & Institution Faîtière
+                                        </span>
+                                        <p className="text-xs text-slate-600 dark:text-slate-400">
+                                            Organisme faîtier, tutelles administratives et siège social de référence
+                                        </p>
                                     </div>
                                 </div>
 
@@ -1369,7 +1343,7 @@ export default function InstitutionIndex({
                                     <Button
                                         size="sm"
                                         asChild
-                                        className="gap-2 cursor-pointer bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
+                                        className="gap-2 cursor-pointer bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm text-xs h-9"
                                     >
                                         <Link href="/administration/institution/edit">
                                             <Edit2 className="size-3.5" />
@@ -1379,45 +1353,85 @@ export default function InstitutionIndex({
                                 )}
                             </div>
 
-                            {/* Coordonnées & Tutelles */}
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-5 mt-5 border-t border-border/60 text-xs text-muted-foreground">
-                                <div className="space-y-1.5">
-                                    <span className="font-semibold text-foreground flex items-center gap-1.5">
-                                        <MapPin className="size-3.5 text-rose-500" /> Localisation & Siège
-                                    </span>
-                                    <p>{institution.ville || 'Ville non définie'} • Région {institution.region || '—'}</p>
-                                    <p>Département du {institution.departement || '—'} {institution.boite_postale ? `(${institution.boite_postale})` : ''}</p>
+                            {/* Corps de la fiche */}
+                            <div className="p-6 bg-card">
+                                <div className="flex flex-wrap items-start justify-between gap-4">
+                                    <div className="flex items-start gap-4 sm:gap-5 max-w-3xl">
+                                        {institution.logo && (
+                                            <div className="size-16 sm:size-20 shrink-0 rounded-2xl border border-border/80 bg-slate-50 dark:bg-slate-900 p-1.5 shadow-xs flex items-center justify-center overflow-hidden">
+                                                <img
+                                                    src={institution.logo}
+                                                    alt={`Logo de ${institution.nom}`}
+                                                    className="max-h-full max-w-full object-contain"
+                                                />
+                                            </div>
+                                        )}
+
+                                        <div className="space-y-1">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                {institution.sigle && (
+                                                    <Badge variant="secondary" className="font-mono text-xs font-bold text-primary">
+                                                        {institution.sigle}
+                                                    </Badge>
+                                                )}
+                                                <h2 className="text-xl sm:text-2xl font-bold text-foreground">{institution.nom}</h2>
+                                            </div>
+                                            {institution.nom_en && (
+                                                <p className="text-xs sm:text-sm text-muted-foreground italic">{institution.nom_en}</p>
+                                            )}
+                                            {institution.devise && (
+                                                <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400 pt-1">
+                                                    « {institution.devise} » {institution.devise_en ? `/ "${institution.devise_en}"` : ''}
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
 
-                                <div className="space-y-1.5">
-                                    <span className="font-semibold text-foreground flex items-center gap-1.5">
-                                        <Phone className="size-3.5 text-emerald-500" /> Contacts & Web
-                                    </span>
-                                    <p>Tél : {institution.telephone_1 || '—'} {institution.telephone_2 ? `/ ${institution.telephone_2}` : ''}</p>
-                                    <p>Email : {institution.email || '—'}</p>
-                                </div>
+                                {/* Coordonnées & Tutelles */}
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-5 mt-5 border-t border-border/60 text-xs text-muted-foreground">
+                                    <div className="space-y-1.5">
+                                        <span className="font-semibold text-foreground flex items-center gap-1.5">
+                                            <MapPin className="size-3.5 text-rose-500" /> Localisation & Siège
+                                        </span>
+                                        <p>{institution.ville || 'Ville non définie'} • Région {institution.region || '—'}</p>
+                                        <p>Département du {institution.departement || '—'} {institution.boite_postale ? `(${institution.boite_postale})` : ''}</p>
+                                    </div>
 
-                                <div className="space-y-1.5">
-                                    <span className="font-semibold text-foreground flex items-center gap-1.5">
-                                        <Shield className="size-3.5 text-indigo-500" /> Tutelle Officielle (MINESEC/MINEDUB)
-                                    </span>
-                                    <p>{institution.delegation_regionale || 'Délégation Régionale non renseignée'}</p>
-                                    <p>{institution.delegation_departementale || 'Délégation Départementale non renseignée'}</p>
+                                    <div className="space-y-1.5">
+                                        <span className="font-semibold text-foreground flex items-center gap-1.5">
+                                            <Phone className="size-3.5 text-emerald-500" /> Contacts & Web
+                                        </span>
+                                        <p>Tél : {institution.telephone_1 || '—'} {institution.telephone_2 ? `/ ${institution.telephone_2}` : ''}</p>
+                                        <p>Email : {institution.email || '—'}</p>
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <span className="font-semibold text-foreground flex items-center gap-1.5">
+                                            <Shield className="size-3.5 text-indigo-500" /> Tutelle Officielle (MINESEC/MINEDUB)
+                                        </span>
+                                        <p>{institution.delegation_regionale || 'Délégation Régionale non renseignée'}</p>
+                                        <p>{institution.delegation_departementale || 'Délégation Départementale non renseignée'}</p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Liste des campus et établissements */}
-                        <div className="space-y-4">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
-                                        <Building2 className="size-5 text-emerald-600" />
-                                        Campus & Établissements
-                                    </h3>
-                                    <p className="text-xs text-muted-foreground">
-                                        Cliquez sur la flèche verte pour explorer les sections et classes d'un campus.
-                                    </p>
+                        {/* Liste des campus et établissements encadrée dans une carte avec bandeau d'en-tête contrasté */}
+                        <div className="rounded-2xl border-2 border-slate-300/90 dark:border-slate-700 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400 dark:hover:border-slate-600">
+                            <div className="bg-gradient-to-r from-slate-200/95 via-emerald-100/70 to-slate-200/80 dark:from-slate-800 dark:via-emerald-950/40 dark:to-slate-800/90 px-6 py-4 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white font-bold shadow-xs shrink-0">
+                                        <Building2 className="size-4" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
+                                            Campus & Établissements Scolaires
+                                        </h3>
+                                        <p className="text-xs text-slate-600 dark:text-slate-400">
+                                            Cliquez sur la flèche verte d'un établissement pour explorer ses sections, cycles et classes.
+                                        </p>
+                                    </div>
                                 </div>
 
                                 {can.etablissements_manage && (
@@ -1425,7 +1439,7 @@ export default function InstitutionIndex({
                                         type="button"
                                         size="sm"
                                         onClick={handleOpenCreateEtablissement}
-                                        className="gap-2 cursor-pointer bg-primary text-primary-foreground hover:bg-primary/90"
+                                        className="gap-2 cursor-pointer bg-emerald-600 text-white hover:bg-emerald-700 shadow-xs text-xs h-9"
                                     >
                                         <Plus className="size-4" />
                                         <span>Ajouter un Établissement</span>
@@ -1433,11 +1447,13 @@ export default function InstitutionIndex({
                                 )}
                             </div>
 
-                            <DataTable
-                                columns={etablissementColumns}
-                                data={etablissements}
-                                searchPlaceholder="Rechercher un établissement par code ou nom..."
-                            />
+                            <div className="p-5 sm:p-6 bg-card">
+                                <DataTable
+                                    columns={etablissementColumns}
+                                    data={etablissements}
+                                    searchPlaceholder="Rechercher un établissement par code ou nom..."
+                                />
+                            </div>
                         </div>
                     </div>
                 )}
@@ -1445,69 +1461,96 @@ export default function InstitutionIndex({
                 {/* 3. NIVEAU 2 : SECTIONS DE L'ÉTABLISSEMENT SÉLECTIONNÉ */}
                 {selectedEtablissement && !selectedSection && (
                     <div className="space-y-6">
-                        <div className="rounded-2xl border border-border/80 bg-card p-5 flex items-center justify-between">
-                            <div>
-                                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                                    Établissement actif
-                                </span>
-                                <h2 className="text-xl font-bold text-foreground flex items-center gap-2 mt-0.5">
-                                    <Building2 className="size-5 text-indigo-600" />
-                                    {selectedEtablissement.nom}
-                                    <Badge variant="outline" className="font-mono text-xs">{selectedEtablissement.code}</Badge>
-                                </h2>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                    Chef d'établissement : <span className="font-medium text-foreground">{selectedEtablissement.nom_chef_etablissement || 'Non désigné'}</span> • Statut : <span className="font-medium text-foreground">{selectedEtablissement.statut_juridique.replace('_', ' ')}</span>
-                                </p>
-                            </div>
+                        {/* En-tête de l'établissement actif */}
+                        <div className="rounded-2xl border-2 border-slate-300/90 dark:border-slate-700 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400 dark:hover:border-slate-600">
+                            <div className="bg-gradient-to-r from-slate-200/95 via-emerald-100/70 to-slate-200/80 dark:from-slate-800 dark:via-emerald-950/40 dark:to-slate-800/90 px-6 py-4.5 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
+                                <div className="flex items-center gap-3.5">
+                                    <div className="size-10 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white font-bold text-sm flex items-center justify-center shadow-xs shrink-0">
+                                        <Building2 className="size-5" />
+                                    </div>
 
-                            <div className="flex items-center gap-2">
-                                {can.structures_manage && (
-                                    <>
-                                        <Button
-                                            type="button"
-                                            size="sm"
-                                            variant="outline"
-                                            onClick={handleOpenCreateSerie}
-                                            className="gap-2 cursor-pointer border-primary/30 text-primary hover:bg-primary/10"
-                                        >
-                                            <Tag className="size-4" />
-                                            <span>Gérer les Séries ({series.length})</span>
-                                        </Button>
+                                    <div className="space-y-1">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <span className="font-mono text-xs font-bold text-emerald-800 dark:text-emerald-300 bg-white dark:bg-slate-900 px-2.5 py-0.5 rounded-md border border-slate-300 dark:border-slate-700 shadow-xs">
+                                                {selectedEtablissement.code}
+                                            </span>
+                                            <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight">
+                                                {selectedEtablissement.nom}
+                                            </h2>
+                                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
+                                                Établissement Actif
+                                            </span>
+                                        </div>
+                                        <p className="text-xs text-slate-600 dark:text-slate-400">
+                                            Chef d'établissement : <span className="font-medium text-slate-900 dark:text-white">{selectedEtablissement.nom_chef_etablissement || 'Non désigné'}</span> • Statut : <span className="font-medium text-slate-900 dark:text-white">{selectedEtablissement.statut_juridique.replace('_', ' ')}</span>
+                                        </p>
+                                    </div>
+                                </div>
 
-                                        <Button
-                                            type="button"
-                                            size="sm"
-                                            onClick={() => {
-                                                setEditingSection(null);
-                                                sectionForm.setData({
-                                                    etablissement_id: selectedEtablissement.id,
-                                                    code: '',
-                                                    nom: '',
-                                                    nom_en: '',
-                                                    langue: 'fr',
-                                                });
-                                                setIsSectionModalOpen(true);
-                                            }}
-                                            className="gap-2 cursor-pointer"
-                                        >
-                                            <Plus className="size-4" />
-                                            <span>Ajouter une Section</span>
-                                        </Button>
-                                    </>
-                                )}
+                                <div className="flex items-center gap-2">
+                                    {can.structures_manage && (
+                                        <>
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={handleOpenCreateSerie}
+                                                className="gap-2 cursor-pointer border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs h-9"
+                                            >
+                                                <Tag className="size-3.5 text-primary" />
+                                                <span>Gérer les Séries ({series.length})</span>
+                                            </Button>
+
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                onClick={() => {
+                                                    setEditingSection(null);
+                                                    sectionForm.setData({
+                                                        etablissement_id: selectedEtablissement.id,
+                                                        code: '',
+                                                        nom: '',
+                                                        nom_en: '',
+                                                        langue: 'fr',
+                                                    });
+                                                    setIsSectionModalOpen(true);
+                                                }}
+                                                className="gap-2 cursor-pointer bg-emerald-600 text-white hover:bg-emerald-700 text-xs h-9"
+                                            >
+                                                <Plus className="size-4" />
+                                                <span>Ajouter une Section</span>
+                                            </Button>
+                                        </>
+                                    )}
+                                </div>
                             </div>
                         </div>
 
-                        <div className="space-y-3">
-                            <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
-                                <Layers className="size-4 text-emerald-600" />
-                                Sections d'Enseignement (Sous-systèmes)
-                            </h3>
-                            <DataTable
-                                columns={sectionColumns}
-                                data={sections}
-                                searchPlaceholder="Rechercher une section..."
-                            />
+                        {/* Tableau des sections encadré dans une carte avec bandeau d'en-tête */}
+                        <div className="rounded-2xl border-2 border-slate-300/90 dark:border-slate-700 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400 dark:hover:border-slate-600">
+                            <div className="bg-gradient-to-r from-slate-200/95 via-teal-100/70 to-slate-200/80 dark:from-slate-800 dark:via-teal-950/40 dark:to-slate-800/90 px-6 py-4 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-teal-600 to-emerald-700 text-white font-bold shadow-xs shrink-0">
+                                        <Layers className="size-4" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
+                                            Sections d'Enseignement (Sous-systèmes)
+                                        </h3>
+                                        <p className="text-xs text-slate-600 dark:text-slate-400">
+                                            Sous-systèmes éducatifs francophone, anglophone ou technique de l'établissement.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="p-5 sm:p-6 bg-card">
+                                <DataTable
+                                    columns={sectionColumns}
+                                    data={sections}
+                                    searchPlaceholder="Rechercher une section..."
+                                />
+                            </div>
                         </div>
                     </div>
                 )}
@@ -1515,52 +1558,82 @@ export default function InstitutionIndex({
                 {/* 4. NIVEAU 3 : CYCLES DE LA SECTION SÉLECTIONNÉE */}
                 {selectedSection && !selectedCycle && (
                     <div className="space-y-6">
-                        <div className="rounded-2xl border border-border/80 bg-card p-5 flex items-center justify-between">
-                            <div>
-                                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                                    Section active
-                                </span>
-                                <h2 className="text-xl font-bold text-foreground flex items-center gap-2 mt-0.5">
-                                    <Layers className="size-5 text-emerald-600" />
-                                    {selectedSection.nom}
-                                    <Badge variant="outline" className="font-mono text-xs uppercase">{selectedSection.langue}</Badge>
-                                </h2>
-                            </div>
+                        {/* En-tête de la section active */}
+                        <div className="rounded-2xl border-2 border-slate-300/90 dark:border-slate-700 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400 dark:hover:border-slate-600">
+                            <div className="bg-gradient-to-r from-slate-200/95 via-teal-100/70 to-slate-200/80 dark:from-slate-800 dark:via-teal-950/40 dark:to-slate-800/90 px-6 py-4.5 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
+                                <div className="flex items-center gap-3.5">
+                                    <div className="size-10 rounded-xl bg-gradient-to-br from-teal-600 to-emerald-700 text-white font-bold text-sm flex items-center justify-center shadow-xs shrink-0">
+                                        <Layers className="size-5" />
+                                    </div>
 
-                            {can.structures_manage && (
-                                <Button
-                                    type="button"
-                                    size="sm"
-                                    onClick={() => {
-                                        setEditingCycle(null);
-                                        cycleForm.setData({
-                                            section_id: selectedSection.id,
-                                            code: '',
-                                            nom: '',
-                                            nom_en: '',
-                                            diplome_fin_cycle: 'AUCUN',
-                                            ordre: (cycles.length || 0) + 1,
-                                        });
-                                        setIsCycleModalOpen(true);
-                                    }}
-                                    className="gap-2 cursor-pointer"
-                                >
-                                    <Plus className="size-4" />
-                                    <span>Ajouter un Cycle</span>
-                                </Button>
-                            )}
+                                    <div className="space-y-1">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <span className="font-mono text-xs font-bold text-teal-800 dark:text-teal-300 bg-white dark:bg-slate-900 px-2.5 py-0.5 rounded-md border border-slate-300 dark:border-slate-700 shadow-xs uppercase">
+                                                {selectedSection.langue}
+                                            </span>
+                                            <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight">
+                                                {selectedSection.nom}
+                                            </h2>
+                                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-teal-100 dark:bg-teal-950/60 text-teal-800 dark:text-teal-300 border border-teal-300 dark:border-teal-700">
+                                                Section Active
+                                            </span>
+                                        </div>
+                                        <p className="text-xs text-slate-600 dark:text-slate-400">
+                                            Sous-système d'enseignement de l'établissement <span className="font-medium text-slate-900 dark:text-white">{selectedEtablissement?.nom}</span>
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {can.structures_manage && (
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        onClick={() => {
+                                            setEditingCycle(null);
+                                            cycleForm.setData({
+                                                section_id: selectedSection.id,
+                                                code: '',
+                                                nom: '',
+                                                nom_en: '',
+                                                diplome_fin_cycle: 'AUCUN',
+                                                ordre: (cycles.length || 0) + 1,
+                                            });
+                                            setIsCycleModalOpen(true);
+                                        }}
+                                        className="gap-2 cursor-pointer bg-primary text-primary-foreground hover:bg-primary/90 text-xs h-9"
+                                    >
+                                        <Plus className="size-4" />
+                                        <span>Ajouter un Cycle</span>
+                                    </Button>
+                                )}
+                            </div>
                         </div>
 
-                        <div className="space-y-3">
-                            <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
-                                <GraduationCap className="size-4 text-indigo-600" />
-                                Cycles d'Enseignement
-                            </h3>
-                            <DataTable
-                                columns={cycleColumns}
-                                data={cycles}
-                                searchPlaceholder="Rechercher un cycle..."
-                            />
+                        {/* Tableau des cycles encadré dans une carte avec bandeau d'en-tête */}
+                        <div className="rounded-2xl border-2 border-slate-300/90 dark:border-slate-700 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400 dark:hover:border-slate-600">
+                            <div className="bg-gradient-to-r from-slate-200/95 via-indigo-100/70 to-slate-200/80 dark:from-slate-800 dark:via-indigo-950/40 dark:to-slate-800/90 px-6 py-4 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-violet-700 text-white font-bold shadow-xs shrink-0">
+                                        <GraduationCap className="size-4" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
+                                            Cycles d'Enseignement
+                                        </h3>
+                                        <p className="text-xs text-slate-600 dark:text-slate-400">
+                                            Cycles officiels (1er Cycle, 2nd Cycle...) et diplômes de fin de cursus préparés.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="p-5 sm:p-6 bg-card">
+                                <DataTable
+                                    columns={cycleColumns}
+                                    data={cycles}
+                                    searchPlaceholder="Rechercher un cycle..."
+                                />
+                            </div>
                         </div>
                     </div>
                 )}
@@ -1568,53 +1641,86 @@ export default function InstitutionIndex({
                 {/* 5. NIVEAU 4 : NIVEAUX DU CYCLE SÉLECTIONNÉ */}
                 {selectedCycle && !selectedNiveau && (
                     <div className="space-y-6">
-                        <div className="rounded-2xl border border-border/80 bg-card p-5 flex items-center justify-between">
-                            <div>
-                                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                                    Cycle actif
-                                </span>
-                                <h2 className="text-xl font-bold text-foreground flex items-center gap-2 mt-0.5">
-                                    <GraduationCap className="size-5 text-indigo-600" />
-                                    {selectedCycle.nom}
-                                    {selectedCycle.diplome_fin_cycle && (
-                                        <Badge variant="secondary" className="text-xs font-mono">{selectedCycle.diplome_fin_cycle}</Badge>
-                                    )}
-                                </h2>
-                            </div>
+                        {/* En-tête du cycle actif */}
+                        <div className="rounded-2xl border-2 border-slate-300/90 dark:border-slate-700 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400 dark:hover:border-slate-600">
+                            <div className="bg-gradient-to-r from-slate-200/95 via-indigo-100/70 to-slate-200/80 dark:from-slate-800 dark:via-indigo-950/40 dark:to-slate-800/90 px-6 py-4.5 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
+                                <div className="flex items-center gap-3.5">
+                                    <div className="size-10 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-700 text-white font-bold text-sm flex items-center justify-center shadow-xs shrink-0">
+                                        <GraduationCap className="size-5" />
+                                    </div>
 
-                            {can.structures_manage && (
-                                <Button
-                                    type="button"
-                                    size="sm"
-                                    onClick={() => {
-                                        setEditingNiveau(null);
-                                        niveauForm.setData({
-                                            cycle_id: selectedCycle.id,
-                                            code: '',
-                                            nom: '',
-                                            nom_en: '',
-                                            ordre: (niveaux.length || 0) + 1,
-                                        });
-                                        setIsNiveauModalOpen(true);
-                                    }}
-                                    className="gap-2 cursor-pointer"
-                                >
-                                    <Plus className="size-4" />
-                                    <span>Ajouter un Niveau</span>
-                                </Button>
-                            )}
+                                    <div className="space-y-1">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <span className="font-mono text-xs font-bold text-indigo-800 dark:text-indigo-300 bg-white dark:bg-slate-900 px-2.5 py-0.5 rounded-md border border-slate-300 dark:border-slate-700 shadow-xs">
+                                                {selectedCycle.code}
+                                            </span>
+                                            <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight">
+                                                {selectedCycle.nom}
+                                            </h2>
+                                            {selectedCycle.diplome_fin_cycle && (
+                                                <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded-md bg-indigo-100 dark:bg-indigo-950/60 text-indigo-800 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-700">
+                                                    {selectedCycle.diplome_fin_cycle}
+                                                </span>
+                                            )}
+                                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950/60 text-indigo-800 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-700">
+                                                Cycle Actif
+                                            </span>
+                                        </div>
+                                        <p className="text-xs text-slate-600 dark:text-slate-400">
+                                            Cycle d'enseignement au sein de la section <span className="font-medium text-slate-900 dark:text-white">{selectedSection?.nom}</span>
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {can.structures_manage && (
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        onClick={() => {
+                                            setEditingNiveau(null);
+                                            niveauForm.setData({
+                                                cycle_id: selectedCycle.id,
+                                                code: '',
+                                                nom: '',
+                                                nom_en: '',
+                                                ordre: (niveaux.length || 0) + 1,
+                                            });
+                                            setIsNiveauModalOpen(true);
+                                        }}
+                                        className="gap-2 cursor-pointer bg-primary text-primary-foreground hover:bg-primary/90 text-xs h-9"
+                                    >
+                                        <Plus className="size-4" />
+                                        <span>Ajouter un Niveau</span>
+                                    </Button>
+                                )}
+                            </div>
                         </div>
 
-                        <div className="space-y-3">
-                            <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
-                                <BookOpen className="size-4 text-violet-600" />
-                                Niveaux d'Étude (Paliers académiques)
-                            </h3>
-                            <DataTable
-                                columns={niveauColumns}
-                                data={niveaux}
-                                searchPlaceholder="Rechercher un niveau..."
-                            />
+                        {/* Tableau des niveaux encadré dans une carte avec bandeau d'en-tête */}
+                        <div className="rounded-2xl border-2 border-slate-300/90 dark:border-slate-700 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400 dark:hover:border-slate-600">
+                            <div className="bg-gradient-to-r from-slate-200/95 via-violet-100/70 to-slate-200/80 dark:from-slate-800 dark:via-violet-950/40 dark:to-slate-800/90 px-6 py-4 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-violet-600 to-purple-700 text-white font-bold shadow-xs shrink-0">
+                                        <BookOpen className="size-4" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
+                                            Niveaux d'Étude (Paliers académiques)
+                                        </h3>
+                                        <p className="text-xs text-slate-600 dark:text-slate-400">
+                                            Paliers académiques et hiérarchie de progression des élèves.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="p-5 sm:p-6 bg-card">
+                                <DataTable
+                                    columns={niveauColumns}
+                                    data={niveaux}
+                                    searchPlaceholder="Rechercher un niveau..."
+                                />
+                            </div>
                         </div>
                     </div>
                 )}
@@ -1622,66 +1728,96 @@ export default function InstitutionIndex({
                 {/* 6. NIVEAU 5 : CLASSES DU NIVEAU SÉLECTIONNÉ */}
                 {selectedNiveau && (
                     <div className="space-y-6">
-                        <div className="rounded-2xl border border-border/80 bg-card p-5 flex items-center justify-between">
-                            <div>
-                                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                                    Niveau d'étude actif
-                                </span>
-                                <h2 className="text-xl font-bold text-foreground flex items-center gap-2 mt-0.5">
-                                    <BookOpen className="size-5 text-violet-600" />
-                                    Niveau {selectedNiveau.nom}
-                                    <Badge variant="outline" className="font-mono text-xs">{selectedNiveau.code}</Badge>
-                                </h2>
-                            </div>
+                        {/* En-tête du niveau actif */}
+                        <div className="rounded-2xl border-2 border-slate-300/90 dark:border-slate-700 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400 dark:hover:border-slate-600">
+                            <div className="bg-gradient-to-r from-slate-200/95 via-violet-100/70 to-slate-200/80 dark:from-slate-800 dark:via-violet-950/40 dark:to-slate-800/90 px-6 py-4.5 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
+                                <div className="flex items-center gap-3.5">
+                                    <div className="size-10 rounded-xl bg-gradient-to-br from-violet-600 to-purple-700 text-white font-bold text-sm flex items-center justify-center shadow-xs shrink-0">
+                                        <BookOpen className="size-5" />
+                                    </div>
 
-                            <div className="flex items-center gap-2">
-                                {can.structures_manage && (
-                                    <Button
-                                        type="button"
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={handleOpenCreateSerie}
-                                        className="gap-2 cursor-pointer border-primary/30 text-primary hover:bg-primary/10"
-                                    >
-                                        <Tag className="size-4" />
-                                        <span>Gérer les Séries ({series.length})</span>
-                                    </Button>
-                                )}
+                                    <div className="space-y-1">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <span className="font-mono text-xs font-bold text-violet-800 dark:text-violet-300 bg-white dark:bg-slate-900 px-2.5 py-0.5 rounded-md border border-slate-300 dark:border-slate-700 shadow-xs">
+                                                #{selectedNiveau.ordre}
+                                            </span>
+                                            <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight">
+                                                Niveau {selectedNiveau.nom}
+                                            </h2>
+                                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-violet-100 dark:bg-violet-950/60 text-violet-800 dark:text-violet-300 border border-violet-300 dark:border-violet-700">
+                                                Niveau Actif
+                                            </span>
+                                        </div>
+                                        <p className="text-xs text-slate-600 dark:text-slate-400">
+                                            Paliers d'enseignement au sein du cycle <span className="font-medium text-slate-900 dark:text-white">{selectedCycle?.nom}</span>
+                                        </p>
+                                    </div>
+                                </div>
 
-                                {can.classes_manage && (
-                                    <Button
-                                        type="button"
-                                        size="sm"
-                                        onClick={() => {
-                                            setEditingClasse(null);
-                                            classeForm.setData({
-                                                niveau_id: selectedNiveau.id,
-                                                code: '',
-                                                nom: '',
-                                                serie: 'GENERAL',
-                                                capacite_max: 50,
-                                            });
-                                            setIsClasseModalOpen(true);
-                                        }}
-                                        className="gap-2 cursor-pointer"
-                                    >
-                                        <Plus className="size-4" />
-                                        <span>Créer une Classe</span>
-                                    </Button>
-                                )}
+                                <div className="flex items-center gap-2">
+                                    {can.structures_manage && (
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={handleOpenCreateSerie}
+                                            className="gap-2 cursor-pointer border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs h-9"
+                                        >
+                                            <Tag className="size-3.5 text-primary" />
+                                            <span>Gérer les Séries ({series.length})</span>
+                                        </Button>
+                                    )}
+
+                                    {can.classes_manage && (
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            onClick={() => {
+                                                setEditingClasse(null);
+                                                classeForm.setData({
+                                                    niveau_id: selectedNiveau.id,
+                                                    code: '',
+                                                    nom: '',
+                                                    serie: 'GENERAL',
+                                                    capacite_max: 50,
+                                                });
+                                                setIsClasseModalOpen(true);
+                                            }}
+                                            className="gap-2 cursor-pointer bg-primary text-primary-foreground hover:bg-primary/90 text-xs h-9"
+                                        >
+                                            <Plus className="size-4" />
+                                            <span>Créer une Classe</span>
+                                        </Button>
+                                    )}
+                                </div>
                             </div>
                         </div>
 
-                        <div className="space-y-3">
-                            <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
-                                <Users className="size-4 text-cyan-600" />
-                                Classes d'Élèves
-                            </h3>
-                            <DataTable
-                                columns={classeColumns}
-                                data={classes}
-                                searchPlaceholder="Rechercher une classe..."
-                            />
+                        {/* Tableau des classes encadré dans une carte avec bandeau d'en-tête */}
+                        <div className="rounded-2xl border-2 border-slate-300/90 dark:border-slate-700 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400 dark:hover:border-slate-600">
+                            <div className="bg-gradient-to-r from-slate-200/95 via-sky-100/70 to-slate-200/80 dark:from-slate-800 dark:via-sky-950/40 dark:to-slate-800/90 px-6 py-4 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-sky-600 to-indigo-600 text-white font-bold shadow-xs shrink-0">
+                                        <Users className="size-4" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
+                                            Classes d'Élèves
+                                        </h3>
+                                        <p className="text-xs text-slate-600 dark:text-slate-400">
+                                            Divisions pédagogiques, effectifs maximaux et cours dispensés.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="p-5 sm:p-6 bg-card">
+                                <DataTable
+                                    columns={classeColumns}
+                                    data={classes}
+                                    searchPlaceholder="Rechercher une classe..."
+                                />
+                            </div>
                         </div>
                     </div>
                 )}

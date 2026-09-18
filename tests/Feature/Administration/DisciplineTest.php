@@ -61,6 +61,7 @@ class DisciplineTest extends TestCase
                 'nom' => 'Lycée Discipline',
                 'statut_juridique' => 'Public',
                 'ordre_enseignement' => 'Secondaire General',
+                'seuil_absences_decheance_mentions' => 15,
             ]
         );
 

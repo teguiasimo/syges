@@ -185,13 +185,13 @@ class FinanceController extends Controller implements HasMiddleware
             ->take(30)
             ->get();
 
-        // 7. Données d'appui pour les formulaires
-        $classes = Classe::whereHas('niveau.cycle.section', fn ($q) => $q->where('etablissement_id', $etablissementId))
+        // 7. Données d'appui pour les formulaires (filtrage direct par établissement)
+        $classes = Classe::where('etablissement_id', $etablissementId)
             ->where('is_active', true)
             ->orderBy('nom')
             ->get();
 
-        $niveaux = Niveau::whereHas('cycle.section', fn ($q) => $q->where('etablissement_id', $etablissementId))
+        $niveaux = Niveau::where('etablissement_id', $etablissementId)
             ->orderBy('ordre')
             ->get();
 

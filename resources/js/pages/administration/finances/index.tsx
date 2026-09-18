@@ -20,8 +20,10 @@ import {
     Smartphone,
     Award,
     Trash2,
+    School,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { formatDate } from '@/lib/utils';
 import { useConfirmDelete } from '@/components/confirm-delete-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -83,6 +85,7 @@ export default function FinancesIndex({
     historiqueClotures,
     classes,
     niveaux,
+    etablissements,
     currentEtablissement,
     currentAnnee,
     filters,
@@ -405,7 +408,7 @@ export default function FinancesIndex({
                 const dl = row.original.date_limite;
                 return (
                     <span className="text-xs text-slate-500">
-                        {dl ? new Date(dl).toLocaleDateString('fr-FR') : 'Sans date limite'}
+                        {dl ? formatDate(dl) : 'Sans date limite'}
                     </span>
                 );
             },
@@ -455,8 +458,7 @@ export default function FinancesIndex({
             accessorKey: 'date_cloture',
             header: 'Date Clôture',
             cell: ({ row }) => {
-                const d = new Date(row.original.date_cloture);
-                return <span className="font-semibold text-xs">{d.toLocaleDateString('fr-FR')}</span>;
+                return <span className="font-semibold text-xs">{formatDate(row.original.date_cloture)}</span>;
             },
         },
         {
@@ -570,6 +572,35 @@ export default function FinancesIndex({
                         </Button>
                     </div>
                 </div>
+
+                {/* Sélecteur Maître de Campus (Multi-Établissements) */}
+                {etablissements && etablissements.length > 1 && (
+                    <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                        <span className="text-xs font-semibold text-muted-foreground shrink-0 flex items-center gap-1.5 mr-1">
+                            <School className="size-4 text-emerald-600" />
+                            Campus Actif :
+                        </span>
+                        {etablissements.map((etab) => (
+                            <Button
+                                key={etab.id}
+                                type="button"
+                                variant={currentEtablissement?.id === etab.id ? 'default' : 'outline'}
+                                size="sm"
+                                onClick={() => {
+                                    router.get('/administration/finances', {
+                                        etablissement_id: etab.id,
+                                        annee_scolaire_id: currentAnnee?.id,
+                                    }, { preserveState: true });
+                                }}
+                                className={`h-8 text-xs font-medium rounded-full cursor-pointer ${
+                                    currentEtablissement?.id === etab.id ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : ''
+                                }`}
+                            >
+                                {etab.nom}
+                            </Button>
+                        ))}
+                    </div>
+                )}
 
                 {/* Cartes KPIs du Jour (Encaissements Journaliers) */}
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-3">

@@ -16,6 +16,7 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property int $eleve_id Clé étrangère vers eleves
  * @property int $classe_id Clé étrangère vers classes
+ * @property int|null $etablissement_id Clé étrangère directe vers etablissements (cloisonnement multi-campus)
  * @property int $annee_scolaire_id Clé étrangère vers annees_scolaires
  * @property string $type_inscription 'nouveau' ou 'reinscription'
  * @property bool $is_redoublant Indique si l'élève redouble sa classe
@@ -29,6 +30,7 @@ use Illuminate\Support\Carbon;
  *
  * @property-read Eleve $eleve
  * @property-read Classe $classe
+ * @property-read Etablissement|null $etablissement
  * @property-read AnneeScolaire $anneeScolaire
  */
 class Inscription extends Model
@@ -43,6 +45,7 @@ class Inscription extends Model
     protected $fillable = [
         'eleve_id',
         'classe_id',
+        'etablissement_id',
         'annee_scolaire_id',
         'type_inscription',
         'is_redoublant',
@@ -59,9 +62,29 @@ class Inscription extends Model
      * @var array<string, string>
      */
     protected $casts = [
+        'etablissement_id' => 'integer',
         'is_redoublant' => 'boolean',
         'date_inscription' => 'date',
     ];
+
+    /**
+     * Initialisation automatique des hooks de cycle de vie du modèle Inscription.
+     * Assure la résolution automatique et la cohérence de `etablissement_id`
+     * à partir de la classe d'affectation lors de chaque création ou sauvegarde.
+     *
+     * @return void
+     */
+    protected static function booted(): void
+    {
+        static::saving(function (Inscription $inscription): void {
+            if (empty($inscription->etablissement_id) && !empty($inscription->classe_id)) {
+                $classe = $inscription->classe ?? Classe::find($inscription->classe_id);
+                if ($classe) {
+                    $inscription->etablissement_id = $classe->etablissement_id;
+                }
+            }
+        });
+    }
 
     /**
      * Relation vers l'élève rattaché.
@@ -81,6 +104,16 @@ class Inscription extends Model
     public function classe(): BelongsTo
     {
         return $this->belongsTo(Classe::class, 'classe_id');
+    }
+
+    /**
+     * Relation directe vers l'établissement scolaire d'inscription.
+     *
+     * @return BelongsTo
+     */
+    public function etablissement(): BelongsTo
+    {
+        return $this->belongsTo(Etablissement::class, 'etablissement_id');
     }
 
     /**
@@ -137,6 +170,23 @@ class Inscription extends Model
     public function scopeForClasse(Builder $query, int $classeId): Builder
     {
         return $query->where('classe_id', $classeId);
+    }
+
+    /**
+     * Scope pour filtrer les inscriptions appartenant à un établissement scolaire spécifique.
+     * Si l'identifiant est nul, la requête n'est pas contrainte (ex: Super Admin en vue consolidée).
+     *
+     * @param Builder $query Requête Eloquent en cours de construction.
+     * @param int|null $etablissementId Identifiant de l'établissement ciblé.
+     * @return Builder Requête filtrée par établissement.
+     */
+    public function scopeForEtablissement(Builder $query, ?int $etablissementId): Builder
+    {
+        if ($etablissementId) {
+            return $query->where('etablissement_id', $etablissementId);
+        }
+
+        return $query;
     }
 
     /**

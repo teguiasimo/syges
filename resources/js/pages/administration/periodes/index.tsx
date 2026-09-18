@@ -22,6 +22,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { usePermission } from '@/hooks/use-permission';
 import { useConfirmDelete } from '@/components/confirm-delete-dialog';
+import { formatDate, formatDateForInput } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/ui/data-table';
@@ -281,12 +282,11 @@ export default function PeriodesIndex({
     const submitAnnee = (e: React.FormEvent) => {
         e.preventDefault();
         const autoNom = anneeForm.data.nom || `Année Scolaire ${anneeForm.data.code}`;
-        const autoNomEn = anneeForm.data.nom_en || `Academic Year ${anneeForm.data.code}`;
 
         anneeForm.transform((data) => ({
             ...data,
             nom: autoNom,
-            nom_en: autoNomEn,
+            nom_en: anneeForm.data.nom_en || null,
         }));
 
         if (editingAnnee) {
@@ -317,6 +317,7 @@ export default function PeriodesIndex({
                 onSuccess: () => {
                     setIsTrimestreModalOpen(false);
                     setEditingTrimestre(null);
+                    trimestreForm.reset();
                 },
             });
         } else {
@@ -363,7 +364,11 @@ export default function PeriodesIndex({
     const makeEvaluationColumns = (periode: PeriodeItem): ColumnDef<EvaluationItem>[] => [
         {
             accessorKey: 'code',
-            header: 'Code',
+            header: () => (
+                <span className="font-bold text-[11px] uppercase tracking-wider text-slate-700 dark:text-slate-200">
+                    Code
+                </span>
+            ),
             cell: ({ row }) => (
                 <span className="font-mono font-bold text-xs text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-950/50 px-2 py-0.5 rounded-md border border-sky-200/60 dark:border-sky-800/60">
                     {row.original.code}
@@ -372,37 +377,45 @@ export default function PeriodesIndex({
         },
         {
             accessorKey: 'nom',
-            header: 'Libellé de l\'Évaluation',
+            header: () => (
+                <span className="font-bold text-[11px] uppercase tracking-wider text-slate-700 dark:text-slate-200">
+                    Libellé
+                </span>
+            ),
             cell: ({ row }) => (
-                <div>
-                    <div className="font-semibold text-sm text-foreground">{row.original.nom}</div>
-                    {row.original.nom_en && (
-                        <div className="text-xs text-muted-foreground italic">{row.original.nom_en}</div>
-                    )}
-                </div>
+                <div className="font-semibold text-sm text-foreground">{row.original.nom}</div>
             ),
         },
-        {
-            accessorKey: 'ponderation',
-            header: 'Pondération (%)',
-            cell: ({ row }) => (
-                <div className="flex items-center gap-1.5 font-medium">
-                    <span className="text-xs px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-foreground font-semibold">
-                        {row.original.ponderation}%
-                    </span>
-                    {selectedAnnee?.mode_calcul_moyenne === 'ponderee_pourcentage' && (
-                        <span className="text-[11px] text-muted-foreground">(Mode pondéré actif)</span>
-                    )}
-                </div>
-            ),
-        },
+        ...(selectedAnnee?.mode_calcul_moyenne === 'ponderee_pourcentage'
+            ? [
+                  {
+                      accessorKey: 'ponderation',
+                      header: () => (
+                          <span className="font-bold text-[11px] uppercase tracking-wider text-slate-700 dark:text-slate-200">
+                              Poids (%)
+                          </span>
+                      ),
+                      cell: ({ row }: { row: { original: EvaluationItem } }) => (
+                          <div className="flex items-center gap-1.5 font-medium">
+                              <span className="text-xs px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-foreground font-semibold">
+                                  {row.original.ponderation}%
+                              </span>
+                          </div>
+                      ),
+                  } as ColumnDef<EvaluationItem>,
+              ]
+            : []),
         {
             accessorKey: 'date_debut',
-            header: 'Période & Dates',
+            header: () => (
+                <span className="font-bold text-[11px] uppercase tracking-wider text-slate-700 dark:text-slate-200">
+                    Période & Dates
+                </span>
+            ),
             cell: ({ row }) => (
                 <div className="text-xs text-muted-foreground">
                     {row.original.date_debut && row.original.date_fin ? (
-                        <span>Du {row.original.date_debut} au {row.original.date_fin}</span>
+                        <span>Du {formatDate(row.original.date_debut)} au {formatDate(row.original.date_fin)}</span>
                     ) : (
                         <span className="italic">Dates non définies</span>
                     )}
@@ -411,12 +424,17 @@ export default function PeriodesIndex({
         },
         {
             accessorKey: 'date_limite_saisie',
-            header: 'Date Butoir Saisie',
+            header: () => (
+                <span className="font-bold text-[11px] uppercase tracking-wider text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                    <Clock className="size-3 text-slate-500 dark:text-slate-400" />
+                    Date Butoir Saisie
+                </span>
+            ),
             cell: ({ row }) => (
                 <div className="flex items-center gap-1 text-xs">
                     <Clock className="size-3 text-muted-foreground" />
                     {row.original.date_limite_saisie ? (
-                        <span className="font-medium text-foreground">{row.original.date_limite_saisie}</span>
+                        <span className="font-medium text-foreground">{formatDate(row.original.date_limite_saisie)}</span>
                     ) : (
                         <span className="text-muted-foreground italic">Illimitée</span>
                     )}
@@ -425,7 +443,11 @@ export default function PeriodesIndex({
         },
         {
             accessorKey: 'is_locked',
-            header: 'Verrou Saisie',
+            header: () => (
+                <span className="font-bold text-[11px] uppercase tracking-wider text-slate-700 dark:text-slate-200">
+                    Verrou Saisie
+                </span>
+            ),
             cell: ({ row }) => {
                 const isLocked = row.original.is_locked;
                 return (
@@ -464,7 +486,11 @@ export default function PeriodesIndex({
         },
         {
             id: 'actions',
-            header: () => <div className="text-right pr-2 font-medium">Actions</div>,
+            header: () => (
+                <div className="text-right pr-2 font-bold text-[11px] uppercase tracking-wider text-slate-700 dark:text-slate-200">
+                    Actions
+                </div>
+            ),
             cell: ({ row }) => {
                 const item = row.original;
                 return (
@@ -485,9 +511,9 @@ export default function PeriodesIndex({
                                             nom_en: item.nom_en || '',
                                             ordre: item.ordre,
                                             ponderation: item.ponderation,
-                                            date_debut: item.date_debut || '',
-                                            date_fin: item.date_fin || '',
-                                            date_limite_saisie: item.date_limite_saisie || '',
+                                            date_debut: formatDateForInput(item.date_debut),
+                                            date_fin: formatDateForInput(item.date_fin),
+                                            date_limite_saisie: formatDateForInput(item.date_limite_saisie),
                                             statut: item.statut,
                                         });
                                         setIsEvaluationModalOpen(true);
@@ -572,81 +598,95 @@ export default function PeriodesIndex({
 
                 {/* 2. SÉLECTEUR DE CAMPUS / ÉTABLISSEMENT */}
                 {etablissements && etablissements.length > 0 && (
-                    <div className="rounded-2xl border border-border/80 bg-card p-4 sm:p-5 shadow-xs space-y-2.5">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                            <div className="flex items-center gap-2">
-                                <div className="flex size-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400">
+                    <div className="rounded-2xl border-2 border-slate-300/90 dark:border-slate-700 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400 dark:hover:border-slate-600">
+                        {/* En-tête contrasté et plus foncé */}
+                        <div className="bg-gradient-to-r from-slate-200/95 via-emerald-100/60 to-slate-200/80 dark:from-slate-800 dark:via-emerald-950/30 dark:to-slate-800/90 px-6 py-3.5 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex items-center gap-2.5">
+                                <div className="flex size-7 items-center justify-center rounded-lg bg-emerald-600 text-white shadow-xs">
                                     <Building2 className="size-4" />
                                 </div>
-                                <span className="text-xs font-bold text-foreground uppercase tracking-wider">
+                                <span className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
                                     Campus & Établissement
                                 </span>
                             </div>
                             {etablissements.length > 1 && (
-                                <span className="text-xs text-muted-foreground">
+                                <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">
                                     Sélectionnez un campus pour configurer ses trimestres et verrouillages d'évaluation.
                                 </span>
                             )}
                         </div>
 
-                        {etablissements.length > 1 ? (
-                            <div className="flex items-center gap-2 overflow-x-auto pb-1 max-w-full">
-                                {etablissements.map((etab) => {
-                                    const isSelected = selectedEtablissement?.id === etab.id;
-                                    return (
-                                        <button
-                                            key={etab.id}
-                                            type="button"
-                                            onClick={() => handleSelectEtablissement(etab.id)}
-                                            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer border ${
-                                                isSelected
-                                                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
-                                                    : 'bg-muted/60 text-muted-foreground border-border/70 hover:bg-muted hover:text-foreground'
-                                            }`}
-                                        >
-                                            <span className="font-mono text-[11px] opacity-80">{etab.code}</span>
-                                            <span>{etab.nom}</span>
-                                            {isSelected && <Check className="size-3 stroke-3 ml-0.5" />}
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        ) : (
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground pt-0.5">
-                                <Badge variant="secondary" className="font-mono font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300">
-                                    {selectedEtablissement?.code}
-                                </Badge>
-                                <span className="font-semibold text-foreground text-sm">{selectedEtablissement?.nom}</span>
-                                <span>(Campus unique de l'institution)</span>
-                            </div>
-                        )}
+                        {/* Corps du Campus */}
+                        <div className="p-4 sm:p-5 bg-card">
+                            {etablissements.length > 1 ? (
+                                <div className="flex items-center gap-2 overflow-x-auto pb-1 max-w-full">
+                                    {etablissements.map((etab) => {
+                                        const isSelected = selectedEtablissement?.id === etab.id;
+                                        return (
+                                            <button
+                                                key={etab.id}
+                                                type="button"
+                                                onClick={() => handleSelectEtablissement(etab.id)}
+                                                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer border ${
+                                                    isSelected
+                                                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                                                        : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-900'
+                                                }`}
+                                            >
+                                                <span className="font-mono text-[11px] opacity-85">{etab.code}</span>
+                                                <span>{etab.nom}</span>
+                                                {isSelected && <Check className="size-3 stroke-3 ml-0.5" />}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            ) : (
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                    <Badge variant="secondary" className="font-mono font-bold text-emerald-800 bg-emerald-100 border border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300">
+                                        {selectedEtablissement?.code}
+                                    </Badge>
+                                    <span className="font-semibold text-foreground text-sm">{selectedEtablissement?.nom}</span>
+                                    <span className="text-slate-500">(Campus unique de l'institution)</span>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 )}
 
                 {/* 3. SÉLECTEUR ET STATUT DE L'ANNÉE SCOLAIRE */}
-                <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-xs space-y-4">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div className="flex items-center gap-2 overflow-x-auto pb-1 max-w-full">
-                            {annees.map((annee) => {
-                                const isSelected = selectedAnnee?.id === annee.id;
-                                return (
-                                    <button
-                                        key={annee.id}
-                                        type="button"
-                                        onClick={() => handleSelectAnnee(annee.id)}
-                                        className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                                            isSelected
-                                                ? 'bg-sky-600 text-white shadow-xs'
-                                                : 'bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground'
-                                        }`}
-                                    >
-                                        <span>{annee.code}</span>
-                                        {annee.is_current && (
-                                            <span className="size-2 rounded-full bg-emerald-300" title="Année active" />
-                                        )}
-                                    </button>
-                                );
-                            })}
+                <div className="rounded-2xl border-2 border-slate-300/90 dark:border-slate-700 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400 dark:hover:border-slate-600">
+                    {/* En-tête contrasté et foncé contenant la ligne des codes d'années et les actions */}
+                    <div className="bg-gradient-to-r from-slate-200/95 via-sky-100/70 to-slate-200/80 dark:from-slate-800 dark:via-sky-950/40 dark:to-slate-800/90 px-6 py-4 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                            <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-sky-600 to-indigo-600 text-white font-bold shadow-xs shrink-0">
+                                <Calendar className="size-4" />
+                            </div>
+
+                            <div className="flex items-center gap-2 overflow-x-auto pb-0.5 max-w-full">
+                                {annees.map((annee) => {
+                                    const isSelected = selectedAnnee?.id === annee.id;
+                                    return (
+                                        <button
+                                            key={annee.id}
+                                            type="button"
+                                            onClick={() => handleSelectAnnee(annee.id)}
+                                            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer border ${
+                                                isSelected
+                                                    ? 'bg-sky-600 text-white border-sky-700 shadow-xs'
+                                                    : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900'
+                                            }`}
+                                        >
+                                            <span>{annee.code}</span>
+                                            {annee.is_current && (
+                                                <span className="relative flex size-2 shrink-0" title="Année active par défaut">
+                                                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                                                    <span className="relative inline-flex size-2 rounded-full bg-emerald-400 ring-1 ring-white/70" />
+                                                </span>
+                                            )}
+                                        </button>
+                                    );
+                                })}
+                            </div>
                         </div>
 
                         {selectedAnnee && (
@@ -657,7 +697,7 @@ export default function PeriodesIndex({
                                         variant="outline"
                                         size="sm"
                                         onClick={() => handleSetCurrentAnnee(selectedAnnee)}
-                                        className="h-8 text-xs cursor-pointer gap-1.5 text-sky-600 border-sky-200 hover:bg-sky-50 dark:border-sky-800"
+                                        className="h-8 text-xs cursor-pointer gap-1.5 bg-white dark:bg-slate-800 text-sky-700 dark:text-sky-300 border-slate-300 dark:border-slate-600 hover:bg-sky-50 shadow-xs font-semibold"
                                     >
                                         <Check className="size-3.5" />
                                         <span>Définir comme année active</span>
@@ -675,8 +715,8 @@ export default function PeriodesIndex({
                                                 code: selectedAnnee.code,
                                                 nom: selectedAnnee.nom,
                                                 nom_en: selectedAnnee.nom_en || '',
-                                                date_debut: selectedAnnee.date_debut,
-                                                date_fin: selectedAnnee.date_fin,
+                                                date_debut: formatDateForInput(selectedAnnee.date_debut),
+                                                date_fin: formatDateForInput(selectedAnnee.date_fin),
                                                 statut: selectedAnnee.statut,
                                                 mode_calcul_moyenne: selectedAnnee.mode_calcul_moyenne,
                                                 is_current: selectedAnnee.is_current,
@@ -684,7 +724,7 @@ export default function PeriodesIndex({
                                             });
                                             setIsAnneeModalOpen(true);
                                         }}
-                                        className="h-8 text-xs cursor-pointer gap-1.5"
+                                        className="h-8 text-xs cursor-pointer gap-1.5 bg-white dark:bg-slate-800 text-blue-700 dark:text-blue-300 border-slate-300 dark:border-slate-600 hover:bg-blue-50 shadow-xs font-semibold"
                                     >
                                         <Edit2 className="size-3.5 text-blue-600" />
                                         <span>Modifier l'année</span>
@@ -694,23 +734,33 @@ export default function PeriodesIndex({
                         )}
                     </div>
 
+                    {/* Corps de la carte Année */}
                     {selectedAnnee && (
-                        <div className="flex flex-wrap items-center justify-between gap-4 pt-3 border-t border-border/60 text-xs">
+                        <div className="p-5 bg-card flex flex-wrap items-center justify-between gap-4 text-xs">
                             <div className="flex flex-wrap items-center gap-3 text-muted-foreground">
                                 <span className="font-bold text-foreground text-sm">{selectedAnnee.nom}</span>
-                                {selectedAnnee.nom_en && <span className="italic">({selectedAnnee.nom_en})</span>}
                                 <span>•</span>
-                                <span className="flex items-center gap-1">
-                                    <Calendar className="size-3.5 text-muted-foreground" />
-                                    Du {selectedAnnee.date_debut} au {selectedAnnee.date_fin}
+                                <span className="flex items-center gap-1.5 font-medium">
+                                    <Calendar className="size-3.5 text-sky-600 dark:text-sky-400" />
+                                    Du {formatDate(selectedAnnee.date_debut)} au {formatDate(selectedAnnee.date_fin)}
                                 </span>
                             </div>
 
                             <div className="flex items-center gap-2">
-                                <Badge variant={selectedAnnee.is_current ? 'default' : 'secondary'} className={selectedAnnee.is_current ? 'bg-emerald-600 text-white' : ''}>
-                                    {selectedAnnee.is_current ? 'Année Active' : 'Année Non Active'}
-                                </Badge>
-                                <Badge variant="outline" className="capitalize">
+                                {selectedAnnee.is_current ? (
+                                    <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white shadow-xs gap-1.5 px-3 py-1 text-xs font-semibold ring-2 ring-emerald-500/20">
+                                        <span className="relative flex size-2 shrink-0">
+                                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-200 opacity-80" />
+                                            <span className="relative inline-flex size-2 rounded-full bg-white" />
+                                        </span>
+                                        <span>Année Active</span>
+                                    </Badge>
+                                ) : (
+                                    <Badge variant="secondary" className="border border-slate-300 dark:border-slate-700 text-muted-foreground px-3 py-1 text-xs">
+                                        Année Non Active
+                                    </Badge>
+                                )}
+                                <Badge variant="outline" className="capitalize border-slate-300 dark:border-slate-700 px-2.5 py-1 text-xs">
                                     {selectedAnnee.statut.replace('_', ' ')}
                                 </Badge>
                             </div>
@@ -759,7 +809,17 @@ export default function PeriodesIndex({
                                             onClick={() => {
                                                 setEditingTrimestre(null);
                                                 trimestreForm.reset();
-                                                trimestreForm.setData('ordre', periodes.length + 1);
+                                                trimestreForm.setData({
+                                                    etablissement_id: selectedEtablissement?.id || 0,
+                                                    annee_scolaire_id: selectedAnnee?.id || 0,
+                                                    code: '',
+                                                    nom: '',
+                                                    nom_en: '',
+                                                    ordre: periodes.length + 1,
+                                                    date_debut: '',
+                                                    date_fin: '',
+                                                    statut: 'a_venir',
+                                                });
                                                 setIsTrimestreModalOpen(true);
                                             }}
                                             className="gap-2 cursor-pointer text-xs h-9 bg-primary text-primary-foreground hover:bg-primary/90"
@@ -792,7 +852,7 @@ export default function PeriodesIndex({
                                 </div>
                             ) : (
                                 <div className="space-y-6">
-                                    {periodes.map((periode) => {
+                                    {periodes.map((periode, index) => {
                                         const totalPonderation = periode.evaluations.reduce((acc, curr) => acc + curr.ponderation, 0);
                                         const is100Percent = Math.abs(totalPonderation - 100) < 0.01;
                                         const evalColumns = makeEvaluationColumns(periode);
@@ -800,46 +860,75 @@ export default function PeriodesIndex({
                                         return (
                                             <div
                                                 key={periode.id}
-                                                className="rounded-2xl border border-border/80 bg-card p-5 shadow-xs space-y-4"
+                                                className="rounded-2xl border-2 border-slate-300/90 dark:border-slate-700 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400 dark:hover:border-slate-600"
                                             >
-                                                {/* En-tête du Trimestre */}
-                                                <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-border/60">
-                                                    <div className="space-y-1">
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="font-mono text-xs font-bold text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/50 px-2 py-0.5 rounded-md border border-sky-200 dark:border-sky-800">
-                                                                {periode.code}
-                                                            </span>
-                                                            <h4 className="text-base font-bold text-foreground">
-                                                                {periode.nom}
-                                                            </h4>
-                                                            {periode.nom_en && (
-                                                                <span className="text-xs text-muted-foreground italic">
-                                                                    ({periode.nom_en})
-                                                                </span>
-                                                            )}
+                                                {/* =========================================================================
+                                                 * EN-TÊTE DU TRIMESTRE (Bandeau contrasté, plus foncé et bien délimité)
+                                                 * ========================================================================= */}
+                                                <div className="bg-gradient-to-r from-slate-200/95 via-sky-100/70 to-slate-200/80 dark:from-slate-800 dark:via-sky-950/40 dark:to-slate-800/90 px-6 py-4.5 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
+                                                    <div className="flex items-center gap-3.5">
+                                                        {/* Badge visuel T1, T2, T3 avec dégradé distinctif */}
+                                                        <div className="size-10 rounded-xl bg-gradient-to-br from-sky-600 to-indigo-600 text-white font-bold text-sm flex items-center justify-center shadow-xs shrink-0 tracking-tight">
+                                                            {`T${periode.ordre || (index + 1)}`}
                                                         </div>
-                                                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                                                            {periode.date_debut && periode.date_fin ? (
-                                                                <span>Du {periode.date_debut} au {periode.date_fin}</span>
-                                                            ) : (
-                                                                <span>Dates non renseignées</span>
-                                                            )}
-                                                            <span>•</span>
-                                                            <span className="capitalize">{periode.statut.replace('_', ' ')}</span>
+
+                                                        <div className="space-y-1">
+                                                            <div className="flex flex-wrap items-center gap-2">
+                                                                <span className="font-mono text-xs font-bold text-sky-800 dark:text-sky-300 bg-white dark:bg-slate-900 px-2.5 py-0.5 rounded-md border border-slate-300 dark:border-slate-700 shadow-xs">
+                                                                    {periode.code}
+                                                                </span>
+                                                                <h4 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
+                                                                    {periode.nom}
+                                                                </h4>
+                                                            </div>
+
+                                                            <div className="flex flex-wrap items-center gap-2.5 text-xs text-muted-foreground">
+                                                                <span className="inline-flex items-center gap-1 font-medium">
+                                                                    <Calendar className="size-3.5 text-sky-600 dark:text-sky-400" />
+                                                                    {periode.date_debut && periode.date_fin ? (
+                                                                        <span>Du {formatDate(periode.date_debut)} au {formatDate(periode.date_fin)}</span>
+                                                                    ) : (
+                                                                        <span className="italic text-muted-foreground">Dates non renseignées</span>
+                                                                    )}
+                                                                </span>
+                                                                <span>•</span>
+                                                                {/* Badge de statut expressif */}
+                                                                {periode.statut === 'en_cours' ? (
+                                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100/90 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-300/70 dark:border-emerald-800">
+                                                                        <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                                                        En cours
+                                                                    </span>
+                                                                ) : periode.statut === 'cloturee' ? (
+                                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-200/80 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-300 dark:border-slate-700">
+                                                                        <Lock className="size-3 text-slate-500" />
+                                                                        Clôturé
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-sky-100/80 text-sky-800 dark:bg-sky-950/60 dark:text-sky-300 border border-sky-300/60 dark:border-sky-800">
+                                                                        <Clock className="size-3 text-sky-600 dark:text-sky-400" />
+                                                                        À venir
+                                                                    </span>
+                                                                )}
+                                                            </div>
                                                         </div>
                                                     </div>
 
-                                                    {/* Indicateur de pondération et actions du trimestre */}
-                                                    <div className="flex items-center gap-3">
+                                                    {/* Indicateur de poids et actions du trimestre */}
+                                                    <div className="flex flex-wrap items-center gap-2.5">
                                                         {selectedAnnee.mode_calcul_moyenne === 'ponderee_pourcentage' && (
-                                                            <div className="flex items-center gap-1.5 text-xs font-semibold">
-                                                                <span className="text-muted-foreground">Pondération totale :</span>
-                                                                <span className={`px-2 py-0.5 rounded-md ${
+                                                            <div className="flex items-center gap-1.5">
+                                                                <span className="text-xs font-medium text-muted-foreground hidden sm:inline">Poids total :</span>
+                                                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-bold shadow-2xs ${
                                                                     is100Percent
-                                                                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300'
-                                                                        : 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300'
+                                                                        ? 'bg-emerald-50 text-emerald-700 border-emerald-300/80 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800'
+                                                                        : 'bg-amber-50 text-amber-700 border-amber-300/80 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800'
                                                                 }`}>
-                                                                    {totalPonderation}% {is100Percent ? '✓' : '(Incomplet)'}
+                                                                    {is100Percent ? (
+                                                                        <CheckCircle2 className="size-3.5 text-emerald-600 dark:text-emerald-400" />
+                                                                    ) : (
+                                                                        <AlertCircle className="size-3.5 text-amber-600 dark:text-amber-400" />
+                                                                    )}
+                                                                    <span>{totalPonderation}% {is100Percent ? '✓' : '(Incomplet)'}</span>
                                                                 </span>
                                                             </div>
                                                         )}
@@ -867,7 +956,7 @@ export default function PeriodesIndex({
                                                                         });
                                                                         setIsEvaluationModalOpen(true);
                                                                     }}
-                                                                    className="h-8 text-xs gap-1 cursor-pointer bg-sky-600 text-white hover:bg-sky-700"
+                                                                    className="h-8 text-xs gap-1.5 cursor-pointer bg-sky-600 text-white hover:bg-sky-700 shadow-xs font-semibold"
                                                                 >
                                                                     <Plus className="size-3.5" />
                                                                     <span>Ajouter une Évaluation</span>
@@ -886,13 +975,13 @@ export default function PeriodesIndex({
                                                                             nom: periode.nom,
                                                                             nom_en: periode.nom_en || '',
                                                                             ordre: periode.ordre,
-                                                                            date_debut: periode.date_debut || '',
-                                                                            date_fin: periode.date_fin || '',
+                                                                            date_debut: formatDateForInput(periode.date_debut),
+                                                                            date_fin: formatDateForInput(periode.date_fin),
                                                                             statut: periode.statut,
                                                                         });
                                                                         setIsTrimestreModalOpen(true);
                                                                     }}
-                                                                    className="size-8 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 cursor-pointer shadow-xs"
+                                                                    className="size-8 rounded-lg bg-white dark:bg-slate-800 text-blue-600 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-blue-700 cursor-pointer shadow-xs"
                                                                 >
                                                                     <Edit2 className="size-3.5" />
                                                                 </Button>
@@ -913,7 +1002,7 @@ export default function PeriodesIndex({
                                                                             },
                                                                         });
                                                                     }}
-                                                                    className="size-8 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 cursor-pointer shadow-xs"
+                                                                    className="size-8 rounded-lg bg-white dark:bg-slate-800 text-rose-600 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-rose-700 cursor-pointer shadow-xs"
                                                                 >
                                                                     <Trash2 className="size-3.5" />
                                                                 </Button>
@@ -922,11 +1011,25 @@ export default function PeriodesIndex({
                                                     </div>
                                                 </div>
 
-                                                {/* Tableau TanStack Table des Séquences */}
-                                                <div className="pt-1">
+                                                {/* =========================================================================
+                                                 * CORPS DU TRIMESTRE (Tableau des Évaluations & Séquences)
+                                                 * ========================================================================= */}
+                                                <div className="p-5 bg-card space-y-3">
+                                                    <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+                                                        <span className="font-semibold uppercase tracking-wider text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                                                            <Calendar className="size-3.5 text-sky-600 dark:text-sky-400" />
+                                                            Séquences & Évaluations du {periode.nom}
+                                                        </span>
+                                                        <span className="font-medium">
+                                                            {periode.evaluations.length} évaluation{periode.evaluations.length > 1 ? 's' : ''} configurée{periode.evaluations.length > 1 ? 's' : ''}
+                                                        </span>
+                                                    </div>
+
                                                     <DataTable
                                                         columns={evalColumns}
                                                         data={periode.evaluations}
+                                                        containerClassName="border-2 border-slate-300/85 dark:border-slate-700 shadow-xs"
+                                                        headerClassName="bg-gradient-to-r from-slate-200/90 via-slate-100/95 to-slate-200/85 dark:from-slate-800 dark:via-slate-850 dark:to-slate-800 border-b-2 border-slate-300 dark:border-slate-700"
                                                     />
                                                 </div>
                                             </div>
@@ -944,7 +1047,27 @@ export default function PeriodesIndex({
              * ========================================================================= */}
 
             {/* Modale Année Scolaire */}
-            <Dialog open={isAnneeModalOpen} onOpenChange={setIsAnneeModalOpen}>
+            <Dialog
+                open={isAnneeModalOpen}
+                onOpenChange={(open) => {
+                    setIsAnneeModalOpen(open);
+                    if (!open) {
+                        setEditingAnnee(null);
+                        anneeForm.reset();
+                        anneeForm.setData({
+                            code: '',
+                            nom: '',
+                            nom_en: '',
+                            date_debut: '',
+                            date_fin: '',
+                            statut: 'en_preparation',
+                            mode_calcul_moyenne: 'arithmetique_simple',
+                            is_current: false,
+                            auto_generate_structure: true,
+                        });
+                    }
+                }}
+            >
                 <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>
@@ -956,16 +1079,36 @@ export default function PeriodesIndex({
                     </DialogHeader>
 
                     <form onSubmit={submitAnnee} className="space-y-4 pt-2">
-                        <div className="space-y-1">
-                            <Label className="text-xs font-semibold">Code de l'année scolaire *</Label>
-                            <Input
-                                value={anneeForm.data.code}
-                                onChange={(e) => anneeForm.setData('code', e.target.value)}
-                                placeholder="ex: 2026-2027"
-                                required
-                            />
+                        {/* Première ligne en 2 colonnes : Code de l'année & Statut */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                                <Label className="text-xs font-semibold">Code de l'année scolaire *</Label>
+                                <Input
+                                    value={anneeForm.data.code}
+                                    onChange={(e) => anneeForm.setData('code', e.target.value)}
+                                    placeholder="ex: 2028/2029"
+                                    required
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <Label className="text-xs font-semibold">Statut de l'année scolaire *</Label>
+                                <Select
+                                    value={anneeForm.data.statut}
+                                    onValueChange={(val) => anneeForm.setData('statut', val)}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="en_preparation">En préparation</SelectItem>
+                                        <SelectItem value="en_cours">En cours</SelectItem>
+                                        <SelectItem value="cloturee">Clôturée</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
                         </div>
 
+                        {/* Deuxième ligne en 2 colonnes : Dates d'ouverture et de fermeture */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div className="space-y-1">
                                 <Label className="text-xs font-semibold">Date d'ouverture (Début) *</Label>
@@ -985,23 +1128,6 @@ export default function PeriodesIndex({
                                     required
                                 />
                             </div>
-                        </div>
-
-                        <div className="space-y-1">
-                            <Label className="text-xs font-semibold">Statut de l'année scolaire *</Label>
-                            <Select
-                                value={anneeForm.data.statut}
-                                onValueChange={(val) => anneeForm.setData('statut', val)}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="en_preparation">En préparation</SelectItem>
-                                    <SelectItem value="en_cours">En cours</SelectItem>
-                                    <SelectItem value="cloturee">Clôturée</SelectItem>
-                                </SelectContent>
-                            </Select>
                         </div>
 
                         {!editingAnnee && (
@@ -1036,7 +1162,27 @@ export default function PeriodesIndex({
             </Dialog>
 
             {/* Modale Trimestre */}
-            <Dialog open={isTrimestreModalOpen} onOpenChange={setIsTrimestreModalOpen}>
+            <Dialog
+                open={isTrimestreModalOpen}
+                onOpenChange={(open) => {
+                    setIsTrimestreModalOpen(open);
+                    if (!open) {
+                        setEditingTrimestre(null);
+                        trimestreForm.reset();
+                        trimestreForm.setData({
+                            etablissement_id: selectedEtablissement?.id || 0,
+                            annee_scolaire_id: selectedAnnee?.id || 0,
+                            code: '',
+                            nom: '',
+                            nom_en: '',
+                            ordre: periodes.length + 1,
+                            date_debut: '',
+                            date_fin: '',
+                            statut: 'a_venir',
+                        });
+                    }
+                }}
+            >
                 <DialogContent className="max-w-lg">
                     <DialogHeader>
                         <DialogTitle>
@@ -1062,23 +1208,14 @@ export default function PeriodesIndex({
                                 />
                             </div>
                             <div className="sm:col-span-2 space-y-1">
-                                <Label className="text-xs font-semibold">Nom en français *</Label>
+                                <Label className="text-xs font-semibold">Libellé du trimestre *</Label>
                                 <Input
                                     value={trimestreForm.data.nom}
                                     onChange={(e) => trimestreForm.setData('nom', e.target.value)}
-                                    placeholder="1er Trimestre"
+                                    placeholder="ex: 1er Trimestre"
                                     required
                                 />
                             </div>
-                        </div>
-
-                        <div className="space-y-1">
-                            <Label className="text-xs font-semibold">Nom en anglais</Label>
-                            <Input
-                                value={trimestreForm.data.nom_en}
-                                onChange={(e) => trimestreForm.setData('nom_en', e.target.value)}
-                                placeholder="1st Term"
-                            />
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -1140,7 +1277,28 @@ export default function PeriodesIndex({
             </Dialog>
 
             {/* Modale Séquence / Évaluation */}
-            <Dialog open={isEvaluationModalOpen} onOpenChange={setIsEvaluationModalOpen}>
+            <Dialog
+                open={isEvaluationModalOpen}
+                onOpenChange={(open) => {
+                    setIsEvaluationModalOpen(open);
+                    if (!open) {
+                        setEditingEvaluation(null);
+                        evaluationForm.reset();
+                        evaluationForm.setData({
+                            periode_id: targetPeriodeId || 0,
+                            code: '',
+                            nom: '',
+                            nom_en: '',
+                            ordre: 1,
+                            ponderation: 50,
+                            date_debut: '',
+                            date_fin: '',
+                            date_limite_saisie: '',
+                            statut: 'a_venir',
+                        });
+                    }
+                }}
+            >
                 <DialogContent className="max-w-lg">
                     <DialogHeader>
                         <DialogTitle>
@@ -1163,38 +1321,19 @@ export default function PeriodesIndex({
                                 />
                             </div>
                             <div className="sm:col-span-2 space-y-1">
-                                <Label className="text-xs font-semibold">Nom en français *</Label>
+                                <Label className="text-xs font-semibold">Libellé de la séquence *</Label>
                                 <Input
                                     value={evaluationForm.data.nom}
                                     onChange={(e) => evaluationForm.setData('nom', e.target.value)}
-                                    placeholder="Séquence 1"
+                                    placeholder="ex: Séquence 1"
                                     required
                                 />
                             </div>
                         </div>
 
-                        <div className="space-y-1">
-                            <Label className="text-xs font-semibold">Nom en anglais</Label>
-                            <Input
-                                value={evaluationForm.data.nom_en}
-                                onChange={(e) => evaluationForm.setData('nom_en', e.target.value)}
-                                placeholder="Sequence 1"
-                            />
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {selectedAnnee?.mode_calcul_moyenne === 'ponderee_pourcentage' && (
                             <div className="space-y-1">
-                                <Label className="text-xs font-semibold">Ordre chronologique</Label>
-                                <Input
-                                    type="number"
-                                    min="1"
-                                    value={evaluationForm.data.ordre}
-                                    onChange={(e) => evaluationForm.setData('ordre', parseInt(e.target.value) || 1)}
-                                    required
-                                />
-                            </div>
-                            <div className="space-y-1">
-                                <Label className="text-xs font-semibold">Pondération / Poids (%) *</Label>
+                                <Label className="text-xs font-semibold">Poids / Pondération (%) *</Label>
                                 <Input
                                     type="number"
                                     min="0"
@@ -1205,7 +1344,7 @@ export default function PeriodesIndex({
                                     required
                                 />
                             </div>
-                        </div>
+                        )}
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div className="space-y-1">
@@ -1226,19 +1365,29 @@ export default function PeriodesIndex({
                             </div>
                         </div>
 
-                        <div className="space-y-1">
-                            <Label className="text-xs font-semibold flex items-center gap-1.5">
-                                <Clock className="size-3 text-sky-600" />
-                                Date Butoir de Saisie des Notes (Verrouillage automatique)
-                            </Label>
-                            <Input
-                                type="date"
-                                value={evaluationForm.data.date_limite_saisie}
-                                onChange={(e) => evaluationForm.setData('date_limite_saisie', e.target.value)}
-                            />
-                            <p className="text-[11px] text-muted-foreground">
-                                Passée cette date, la saisie passe automatiquement en lecture seule pour les enseignants.
-                            </p>
+                        {/* Dernière ligne en 2 colonnes : Ordre chronologique & Date butoir */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                                <Label className="text-xs font-semibold">Ordre chronologique *</Label>
+                                <Input
+                                    type="number"
+                                    min="1"
+                                    value={evaluationForm.data.ordre}
+                                    onChange={(e) => evaluationForm.setData('ordre', parseInt(e.target.value) || 1)}
+                                    required
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <Label className="text-xs font-semibold flex items-center gap-1.5">
+                                    <Clock className="size-3 text-sky-600" />
+                                    Date Butoir Saisie (Optionnelle)
+                                </Label>
+                                <Input
+                                    type="date"
+                                    value={evaluationForm.data.date_limite_saisie}
+                                    onChange={(e) => evaluationForm.setData('date_limite_saisie', e.target.value)}
+                                />
+                            </div>
                         </div>
 
                         <DialogFooter>

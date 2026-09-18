@@ -64,8 +64,8 @@ class Periode extends Model
     protected $casts = [
         'etablissement_id' => 'integer',
         'ordre' => 'integer',
-        'date_debut' => 'date',
-        'date_fin' => 'date',
+        'date_debut' => 'date:Y-m-d',
+        'date_fin' => 'date:Y-m-d',
     ];
 
     /**

@@ -936,6 +936,109 @@ test('user can create, update, and delete custom series for an establishment', f
     $this->assertDatabaseMissing('series', ['id' => $serie->id]);
 });
 
+/**
+ * Teste la capacité de deux établissements distincts à définir des classes avec le même code
+ * (ex: '6M1' dans le collège bilingue et '6M1' dans le collège francophone),
+ * tout en interdisant les doublons au sein du même établissement.
+ */
+test('distinct etablissements can have classes with identical code without collision', function () {
+    /** @var \Tests\TestCase $this */
+    $this->actingAs($this->adminUser);
+
+    // Établissement 1 (Collège Bilingue)
+    $etab1 = Etablissement::create([
+        'institution_id' => $this->institution->id,
+        'nom' => 'Collège Bilingue',
+        'code' => 'ETAB-BIL',
+        'statut_juridique' => 'Prive_Laic',
+        'ordre_enseignement' => 'Secondaire_General',
+    ]);
+    $section1 = Section::create([
+        'etablissement_id' => $etab1->id,
+        'nom' => 'Section Bilingue',
+        'code' => 'SEC-BIL',
+        'langue' => 'fr',
+    ]);
+    $cycle1 = Cycle::create([
+        'section_id' => $section1->id,
+        'nom' => 'Premier Cycle',
+        'code' => 'CYC1-BIL',
+        'ordre' => 1,
+    ]);
+    $niveau1 = Niveau::create([
+        'cycle_id' => $cycle1->id,
+        'nom' => 'Sixième Bilingue',
+        'code' => 'NIV-6BIL',
+        'ordre' => 1,
+    ]);
+
+    // Établissement 2 (Lycée Général)
+    $etab2 = Etablissement::create([
+        'institution_id' => $this->institution->id,
+        'nom' => 'Lycée Général',
+        'code' => 'ETAB-LYC',
+        'statut_juridique' => 'Prive_Laic',
+        'ordre_enseignement' => 'Secondaire_General',
+    ]);
+    $section2 = Section::create([
+        'etablissement_id' => $etab2->id,
+        'nom' => 'Section Francophone',
+        'code' => 'SEC-FR',
+        'langue' => 'fr',
+    ]);
+    $cycle2 = Cycle::create([
+        'section_id' => $section2->id,
+        'nom' => 'Premier Cycle Lycée',
+        'code' => 'CYC1-LYC',
+        'ordre' => 1,
+    ]);
+    $niveau2 = Niveau::create([
+        'cycle_id' => $cycle2->id,
+        'nom' => 'Sixième Générale',
+        'code' => 'NIV-6FR',
+        'ordre' => 1,
+    ]);
+
+    // 1. Créer la classe 6M1 dans Établissement 1
+    $response1 = $this->post(route('administration.classes.store'), [
+        'niveau_id' => $niveau1->id,
+        'code' => '6M1',
+        'nom' => '6ème Moderne 1 (Bilingue)',
+        'capacite_max' => 50,
+    ]);
+    $response1->assertSessionHas('success');
+    $this->assertDatabaseHas('classes', [
+        'etablissement_id' => $etab1->id,
+        'code' => '6M1',
+    ]);
+
+    // 2. Créer la classe 6M1 dans Établissement 2 (Doit réussir car établissement différent)
+    $response2 = $this->post(route('administration.classes.store'), [
+        'niveau_id' => $niveau2->id,
+        'code' => '6M1',
+        'nom' => '6ème Moderne 1 (Lycée)',
+        'capacite_max' => 45,
+    ]);
+    $response2->assertSessionHas('success');
+    $this->assertDatabaseHas('classes', [
+        'etablissement_id' => $etab2->id,
+        'code' => '6M1',
+    ]);
+
+    // Vérifier que nous avons bien 2 classes distinctes avec le code 6M1
+    expect(Classe::where('code', '6M1')->count())->toBe(2);
+
+    // 3. Tenter de recréer la classe 6M1 dans le même Établissement 1 (Doit échouer car doublon intra-établissement)
+    $duplicateResponse = $this->post(route('administration.classes.store'), [
+        'niveau_id' => $niveau1->id,
+        'code' => '6M1',
+        'nom' => '6ème Moderne 1 Doublon',
+        'capacite_max' => 30,
+    ]);
+    $duplicateResponse->assertSessionHas('error');
+});
+
+
 
 
 

@@ -21,6 +21,7 @@ import {
     Clock,
     FileText,
 } from 'lucide-react';
+import { formatDate } from '@/lib/utils';
 import type { Inscription } from '@/types/eleve';
 
 /**
@@ -102,7 +103,7 @@ export function EleveDetailDrawer({
                             <SheetDescription className="text-xs text-muted-foreground mt-0.5">
                                 {eleve.sexe === 'M' ? 'Masculin (Garçon)' : 'Féminin (Fille)'}
                                 {age !== null ? ` • ${age} ans` : ''}
-                                {eleve.date_naissance ? ` • Né(e) le ${new Date(eleve.date_naissance).toLocaleDateString('fr-FR')}` : ''}
+                                {eleve.date_naissance ? ` • Né(e) le ${formatDate(eleve.date_naissance)}` : ''}
                                 {eleve.lieu_naissance ? ` à ${eleve.lieu_naissance}` : ''}
                             </SheetDescription>
                         </div>
@@ -135,13 +136,13 @@ export function EleveDetailDrawer({
                         <div>
                             <span className="text-muted-foreground block text-[11px]">Établissement / Campus :</span>
                             <span className="font-semibold text-foreground">
-                                {classe?.niveau?.cycle?.section?.etablissement?.nom ?? 'Campus Principal'}
+                                {inscription.etablissement?.nom ?? classe?.niveau?.cycle?.section?.etablissement?.nom ?? 'Campus Principal'}
                             </span>
                         </div>
                         <div>
                             <span className="text-muted-foreground block text-[11px]">Date d'inscription :</span>
                             <span className="font-semibold text-foreground">
-                                {new Date(inscription.date_inscription).toLocaleDateString('fr-FR')}
+                                {formatDate(inscription.date_inscription)}
                             </span>
                         </div>
                     </div>

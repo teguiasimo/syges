@@ -10,13 +10,14 @@ import { SidebarTrigger } from '@/components/ui/sidebar';
 import { UserInfo } from '@/components/user-info';
 import { UserMenuContent } from '@/components/user-menu-content';
 import { LanguageSwitcher } from '@/components/language-switcher';
+import { EtablissementSwitcher } from '@/components/etablissement-switcher';
 import type { BreadcrumbItem as BreadcrumbItemType } from '@/types';
 
 /**
  * En-tête de la mise en page avec barre latérale (AppSidebarHeader).
  * Affiche le déclencheur de barre latérale et le fil d'Ariane à gauche,
- * et à droite le sélecteur de langue (icône de traduction) placé immédiatement à côté
- * du bloc profil utilisateur (avatar, nom, email), reproduisant fidèlement Capture.PNG.
+ * et à droite le sélecteur d'établissement actif (Multi-Tenant SaaS),
+ * le sélecteur de langue (icône de traduction) et le bloc profil utilisateur.
  *
  * @param {{ breadcrumbs?: BreadcrumbItemType[] }} props - Les éléments du fil d'Ariane.
  * @returns {JSX.Element} L'en-tête supérieur de l'application.
@@ -36,9 +37,12 @@ export function AppSidebarHeader({
                 <Breadcrumbs breadcrumbs={breadcrumbs} />
             </div>
 
-            {/* Section droite : Sélecteur de langue et bloc utilisateur (conforme au modèle Capture.PNG) */}
+            {/* Section droite : Sélecteur de campus, Sélecteur de langue et bloc utilisateur */}
             {auth.user && (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2.5">
+                    {/* Sélecteur Maître de Campus (Multi-Établissements SaaS) */}
+                    <EtablissementSwitcher />
+
                     {/* Icône de traduction (i18n) immédiatement à côté du nom de l'utilisateur */}
                     <LanguageSwitcher />
 

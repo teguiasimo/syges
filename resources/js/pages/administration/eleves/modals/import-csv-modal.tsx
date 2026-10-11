@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { FileSpreadsheet, Upload, Download, AlertCircle } from 'lucide-react';
+import { SearchableSelect, type SearchableOption } from '@/components/ui/searchable-select';
 import type { EtablissementRef, AnneeScolaireRef, ClasseRef } from '@/types/eleve';
 
 /**
@@ -81,6 +82,22 @@ export function ImportCsvModal({
         return list;
     }, [etablissements]);
 
+    /**
+     * Options formatées pour le sélecteur avec recherche de la classe de destination.
+     * Tronque élégamment le nom des campus volumineux pour préserver l'ergonomie visuelle.
+     */
+    const classeOptions: SearchableOption[] = React.useMemo(() => {
+        return availableClasses.map((cls) => {
+            const etabNom = cls.niveau?.cycle?.section?.etablissement?.nom || '';
+            const etabAbrege = etabNom.length > 25 ? `${etabNom.substring(0, 25)}…` : etabNom;
+            return {
+                value: String(cls.id),
+                label: `${cls.nom} (${cls.niveau?.nom || 'Niveau'}${etabAbrege ? ` — ${etabAbrege}` : ''})`,
+                group: cls.niveau?.nom || 'Classes',
+            };
+        });
+    }, [availableClasses]);
+
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files?.[0]) {
             setFile(e.target.files[0]);
@@ -88,14 +105,15 @@ export function ImportCsvModal({
     };
 
     /**
-     * Génère et télécharge un fichier modèle CSV au format camerounais standard.
+     * Génère et télécharge un fichier modèle CSV standard compatible avec Excel (séparateur point-virgule et UTF-8 BOM).
      */
     const downloadTemplate = () => {
-        const header = "Matricule\tMatriculeNational\tNom\tPrenom\tSexe\tDateNaissance\tLieuNaissance\tRedoublant\tTelephoneParent\tAdresse\tNomTuteur\tNationalite\n";
-        const sampleRow1 = "21I001\tMIN-2026-001\tTCHOUPOU\tFRANCOIS\tM\t12/11/2009\tDouala\tN\t+237 699001122\tBastos\tTCHOUPOU Jean\tCAMEROUNAISE\n";
-        const sampleRow2 = "\t\tMOUNCHIKPOU\tHAMED ANIF\tM\t06/09/2007\tFoumban\tN\t+237 699451965\tFoumban\tMOUNCHIKPOU\tCAMEROUNAISE\n";
+        const header = "Matricule;MatriculeNational;Nom;Prenom;Sexe;DateNaissance;LieuNaissance;Redoublant;TelephoneParent;Adresse;NomTuteur;Nationalite\n";
+        const sampleRow1 = "26-0001;MIN-2026-001;TCHOUPOU;FRANCOIS;M;12/11/2009;Douala;N;+237 699001122;Bastos;TCHOUPOU Jean;CAMEROUNAISE\n";
+        const sampleRow2 = ";;MOUNCHIKPOU;HAMED ANIF;M;06/09/2007;Foumban;N;+237 699451965;Foumban;MOUNCHIKPOU;CAMEROUNAISE\n";
 
-        const blob = new Blob([header + sampleRow1 + sampleRow2], { type: 'text/csv;charset=utf-8;' });
+        // Inclusion explicite du BOM UTF-8 (\uFEFF) pour garantir l'ouverture en colonnes distinctes dans Excel sous Windows
+        const blob = new Blob(["\uFEFF" + header + sampleRow1 + sampleRow2], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
@@ -187,30 +205,30 @@ export function ImportCsvModal({
                                 required
                                 className="w-full mt-1.5 h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                             >
-                                {anneesScolaires.map((a) => (
-                                    <option key={a.id} value={a.id}>
-                                        {a.nom}
-                                    </option>
-                                ))}
+                                {anneesScolaires.map((a) => {
+                                    // Nettoyage du préfixe redondant "Année Scolaire" pour n'afficher que le millésime/code (ex: 2026/2027)
+                                    const codeAnnee = a.code || a.nom.replace(/^année\s*scolaire\s*/i, '').trim();
+                                    return (
+                                        <option key={a.id} value={a.id}>
+                                            {codeAnnee}
+                                        </option>
+                                    );
+                                })}
                             </select>
                         </div>
 
                         <div>
                             <Label htmlFor="import_classe">Classe de destination *</Label>
-                            <select
-                                id="import_classe"
-                                value={targetClasseId}
-                                onChange={(e) => setTargetClasseId(e.target.value)}
-                                required
-                                className="w-full mt-1.5 h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                            >
-                                <option value="">-- Choisir la classe --</option>
-                                {availableClasses.map((cls) => (
-                                    <option key={cls.id} value={cls.id}>
-                                        {cls.nom} ({cls.niveau?.nom} — {cls.niveau?.cycle?.section?.etablissement?.nom})
-                                    </option>
-                                ))}
-                            </select>
+                            <div className="mt-1.5">
+                                <SearchableSelect
+                                    options={classeOptions}
+                                    value={targetClasseId}
+                                    onValueChange={setTargetClasseId}
+                                    placeholder="Rechercher une classe..."
+                                    searchPlaceholder="Taper le nom de la classe..."
+                                    emptyMessage="Aucune classe trouvée."
+                                />
+                            </div>
                         </div>
                     </div>
 

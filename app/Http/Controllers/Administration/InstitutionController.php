@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Administration;
 
+use App\Concerns\ScopesEtablissement;
 use App\Http\Controllers\Controller;
 use App\Models\Classe;
 use App\Models\Cycle;
@@ -26,9 +27,14 @@ use Inertia\Response;
  * Gère le parcours Drill-Down complet (Approche A) :
  * Institution -> Établissements -> Sections -> Cycles -> Niveaux -> Classes
  * ainsi que les opérations CRUD sécurisées à chaque palier et pour les Séries personnalisées.
+ *
+ * Utilise ScopesEtablissement pour restreindre les directeurs et personnels locaux
+ * à la consultation et à la configuration exclusive de leur campus assigné.
  */
 class InstitutionController extends Controller implements HasMiddleware
 {
+    use ScopesEtablissement;
+
     /**
      * Définition de la matrice des middlewares d'autorisation pour le contrôleur Institution.
      *
@@ -39,20 +45,25 @@ class InstitutionController extends Controller implements HasMiddleware
         return [
             new Middleware('can:institutions.view', only: ['index']),
             new Middleware('can:institutions.edit', only: ['editInstitution', 'updateInstitution']),
-            new Middleware('can:etablissements.manage', only: [
-                'storeEtablissement',
-                'updateEtablissement',
-                'destroyEtablissement',
-                'editEtablissementSettings',
-                'updateEtablissementSettings',
-            ]),
-            new Middleware('can:structures.manage', only: [
-                'storeSection', 'updateSection', 'destroySection',
-                'storeCycle', 'updateCycle', 'destroyCycle',
-                'storeNiveau', 'updateNiveau', 'destroyNiveau',
-                'storeSerie', 'updateSerie', 'destroySerie',
-            ]),
-            new Middleware('can:classes.manage', only: ['storeClasse', 'updateClasse', 'destroyClasse', 'toggleClasseStatus']),
+            new Middleware('can:etablissements.create|etablissements.manage', only: ['storeEtablissement']),
+            new Middleware('can:etablissements.edit|etablissements.manage', only: ['updateEtablissement']),
+            new Middleware('can:etablissements.delete|etablissements.manage', only: ['destroyEtablissement']),
+            new Middleware('can:etablissements.settings|etablissements.manage', only: ['editEtablissementSettings', 'updateEtablissementSettings']),
+            new Middleware('can:sections.create|structures.manage', only: ['storeSection']),
+            new Middleware('can:sections.edit|structures.manage', only: ['updateSection']),
+            new Middleware('can:sections.delete|structures.manage', only: ['destroySection']),
+            new Middleware('can:cycles.create|structures.manage', only: ['storeCycle']),
+            new Middleware('can:cycles.edit|structures.manage', only: ['updateCycle']),
+            new Middleware('can:cycles.delete|structures.manage', only: ['destroyCycle']),
+            new Middleware('can:niveaux.create|structures.manage', only: ['storeNiveau']),
+            new Middleware('can:niveaux.edit|structures.manage', only: ['updateNiveau']),
+            new Middleware('can:niveaux.delete|structures.manage', only: ['destroyNiveau']),
+            new Middleware('can:series.create|structures.manage', only: ['storeSerie']),
+            new Middleware('can:series.edit|structures.manage', only: ['updateSerie']),
+            new Middleware('can:series.delete|structures.manage', only: ['destroySerie']),
+            new Middleware('can:classes.create|classes.manage', only: ['storeClasse']),
+            new Middleware('can:classes.edit|classes.manage', only: ['updateClasse', 'toggleClasseStatus']),
+            new Middleware('can:classes.delete|classes.manage', only: ['destroyClasse']),
         ];
     }
     /**
@@ -86,9 +97,17 @@ class InstitutionController extends Controller implements HasMiddleware
         $selectedCycle = null;
         $selectedNiveau = null;
 
-        $etablissements = Etablissement::where('institution_id', $institution->id)
-            ->withCount(['sections'])
-            ->get();
+        // Résolution hermétique du contexte multi-établissement selon les droits de l'utilisateur
+        $context = $this->resolveEtablissementContext($request, null, ['sections']);
+        $etablissements = $context['etablissements'];
+        $isSuperAdmin = $context['isSuperAdmin'];
+
+        // Si l'utilisateur est local (Directeur, Censeur, etc.), son accès est borné à son campus
+        if (! $isSuperAdmin && $context['etablissementId']) {
+            if ($etablissementId && (int) $etablissementId !== (int) $context['etablissementId']) {
+                abort(403, 'Accès non autorisé à la structure d\'un autre établissement.');
+            }
+        }
 
         $sections = collect();
         $cycles = collect();
@@ -96,8 +115,8 @@ class InstitutionController extends Controller implements HasMiddleware
         $classes = collect();
         $series = collect();
 
-        // Résolution du Drill-Down en fonction des paramètres d'exploration
-        if ($etablissementId && $etablissement = Etablissement::find($etablissementId)) {
+        // Résolution du Drill-Down en fonction des paramètres d'exploration (avec chargement institution)
+        if ($etablissementId && $etablissement = Etablissement::with('institution')->find($etablissementId)) {
             $selectedEtablissement = $etablissement;
             // Assure la présence des séries par défaut pour cet établissement
             Serie::seedDefaultsForEtablissement($etablissement->id);
@@ -201,8 +220,27 @@ class InstitutionController extends Controller implements HasMiddleware
             'can' => [
                 'institutions_edit' => $request->user()->can('institutions.edit'),
                 'etablissements_manage' => $request->user()->can('etablissements.manage'),
-                'structures_manage' => $request->user()->can('structures.manage'),
+                'etablissements_create' => $request->user()->can('etablissements.create') || $request->user()->can('etablissements.manage'),
+                'etablissements_edit' => $request->user()->can('etablissements.edit') || $request->user()->can('etablissements.manage'),
+                'etablissements_delete' => $request->user()->can('etablissements.delete') || $request->user()->can('etablissements.manage'),
+                'etablissements_settings' => $request->user()->can('etablissements.settings') || $request->user()->can('etablissements.manage'),
+                'sections_create' => $request->user()->can('sections.create') || $request->user()->can('structures.manage'),
+                'sections_edit' => $request->user()->can('sections.edit') || $request->user()->can('structures.manage'),
+                'sections_delete' => $request->user()->can('sections.delete') || $request->user()->can('structures.manage'),
+                'cycles_create' => $request->user()->can('cycles.create') || $request->user()->can('structures.manage'),
+                'cycles_edit' => $request->user()->can('cycles.edit') || $request->user()->can('structures.manage'),
+                'cycles_delete' => $request->user()->can('cycles.delete') || $request->user()->can('structures.manage'),
+                'niveaux_create' => $request->user()->can('niveaux.create') || $request->user()->can('structures.manage'),
+                'niveaux_edit' => $request->user()->can('niveaux.edit') || $request->user()->can('structures.manage'),
+                'niveaux_delete' => $request->user()->can('niveaux.delete') || $request->user()->can('structures.manage'),
                 'classes_manage' => $request->user()->can('classes.manage'),
+                'classes_create' => $request->user()->can('classes.create') || $request->user()->can('classes.manage'),
+                'classes_edit' => $request->user()->can('classes.edit') || $request->user()->can('classes.manage'),
+                'classes_delete' => $request->user()->can('classes.delete') || $request->user()->can('classes.manage'),
+                'series_create' => $request->user()->can('series.create') || $request->user()->can('structures.manage'),
+                'series_edit' => $request->user()->can('series.edit') || $request->user()->can('structures.manage'),
+                'series_delete' => $request->user()->can('series.delete') || $request->user()->can('structures.manage'),
+                'structures_manage' => $request->user()->can('structures.manage'),
             ],
         ]);
     }
@@ -310,6 +348,11 @@ class InstitutionController extends Controller implements HasMiddleware
     {
         abort_unless($request->user()->can('etablissements.manage'), 403, 'Permission requise : etablissements.manage');
 
+        $context = $this->resolveEtablissementContext($request);
+        if (! $context['isSuperAdmin']) {
+            abort(403, 'Seul le Super-Administrateur est habilité à créer un établissement.');
+        }
+
         $institution = Institution::firstOrFail();
 
         $validated = $request->validate([
@@ -324,7 +367,16 @@ class InstitutionController extends Controller implements HasMiddleware
             'telephone_1' => ['nullable', 'string', 'max:30'],
             'telephone_2' => ['nullable', 'string', 'max:30'],
             'adresse' => ['nullable', 'string', 'max:150'],
+            'logo' => ['nullable', 'string', 'max:255'],
+            'logo_file' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,svg,webp', 'max:2048'],
         ]);
+
+        // Traitement du téléversement du logo propre à l'établissement (autonomie du campus)
+        if ($request->hasFile('logo_file')) {
+            $path = $request->file('logo_file')->store('logos/etablissements', 'public');
+            $validated['logo'] = Storage::url($path);
+        }
+        unset($validated['logo_file']);
 
         $validated['institution_id'] = $institution->id;
         $validated['mode_bulletin_defaut'] = 'sans_competences';
@@ -345,6 +397,11 @@ class InstitutionController extends Controller implements HasMiddleware
     {
         abort_unless($request->user()->can('etablissements.manage'), 403, 'Permission requise : etablissements.manage');
 
+        $context = $this->resolveEtablissementContext($request);
+        if (! $context['isSuperAdmin'] && (int) $etablissement->id !== (int) $context['etablissementId']) {
+            abort(403, 'Accès non autorisé aux paramètres d\'un autre établissement.');
+        }
+
         $validated = $request->validate([
             'code' => ['required', 'string', 'max:30', Rule::unique('etablissements', 'code')->ignore($etablissement->id)],
             'nom' => ['required', 'string', 'max:150'],
@@ -357,7 +414,18 @@ class InstitutionController extends Controller implements HasMiddleware
             'telephone_1' => ['nullable', 'string', 'max:30'],
             'telephone_2' => ['nullable', 'string', 'max:30'],
             'adresse' => ['nullable', 'string', 'max:150'],
+            'logo' => ['nullable', 'string', 'max:255'],
+            'logo_file' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,svg,webp', 'max:2048'],
         ]);
+
+        // Traitement du téléversement ou de la suppression du logo propre au campus
+        if ($request->hasFile('logo_file')) {
+            $path = $request->file('logo_file')->store('logos/etablissements', 'public');
+            $validated['logo'] = Storage::url($path);
+        } elseif ($request->exists('logo') && empty($validated['logo'])) {
+            $validated['logo'] = null;
+        }
+        unset($validated['logo_file']);
 
         $etablissement->update($validated);
 
@@ -378,6 +446,11 @@ class InstitutionController extends Controller implements HasMiddleware
     {
         abort_unless($request->user()->can('etablissements.manage'), 403, 'Permission requise : etablissements.manage');
 
+        $context = $this->resolveEtablissementContext($request);
+        if (! $context['isSuperAdmin'] && (int) $etablissement->id !== (int) $context['etablissementId']) {
+            abort(403, 'Accès non autorisé aux paramètres d\'un autre établissement.');
+        }
+
         $etablissement->load('institution');
 
         return Inertia::render('administration/institution/etablissement-settings', [
@@ -396,6 +469,11 @@ class InstitutionController extends Controller implements HasMiddleware
     {
         abort_unless($request->user()->can('etablissements.manage'), 403, 'Permission requise : etablissements.manage');
 
+        $context = $this->resolveEtablissementContext($request);
+        if (! $context['isSuperAdmin'] && (int) $etablissement->id !== (int) $context['etablissementId']) {
+            abort(403, 'Accès non autorisé aux paramètres d\'un autre établissement.');
+        }
+
         $validated = $request->validate([
             // Identité & Coordonnées
             'code' => ['required', 'string', 'max:30', Rule::unique('etablissements', 'code')->ignore($etablissement->id)],
@@ -409,10 +487,15 @@ class InstitutionController extends Controller implements HasMiddleware
             'telephone_1' => ['nullable', 'string', 'max:30'],
             'telephone_2' => ['nullable', 'string', 'max:30'],
             'adresse' => ['nullable', 'string', 'max:150'],
+            'logo' => ['nullable', 'string', 'max:255'],
+            'logo_file' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,svg,webp', 'max:2048'],
 
             // Paramètres Pédagogiques & Bulletins (Module 10)
             'mode_bulletin_defaut' => ['required', 'string', 'in:sans_competences,avec_competences'],
             'type_calcul_trimestre' => ['required', 'string', 'in:arithmetique,pondere'],
+            'seuil_classement_actif' => ['sometimes', 'boolean'],
+            'mode_seuil_classement' => ['sometimes', 'string', 'in:pourcentage,valeur_fixe'],
+            'seuil_classement_valeur' => ['sometimes', 'numeric', 'min:0', 'max:1000'],
 
             // Discipline & Assiduité (Module 12)
             'seuil_absences_decheance_mentions' => ['required', 'integer', 'min:0', 'max:200'],
@@ -424,6 +507,15 @@ class InstitutionController extends Controller implements HasMiddleware
             'date_limite_bonus' => ['nullable', 'date'],
         ]);
 
+        // Traitement du téléversement du logo du campus depuis les paramètres
+        if ($request->hasFile('logo_file')) {
+            $path = $request->file('logo_file')->store('logos/etablissements', 'public');
+            $validated['logo'] = Storage::url($path);
+        } elseif ($request->exists('logo') && empty($validated['logo'])) {
+            $validated['logo'] = null;
+        }
+        unset($validated['logo_file']);
+
         $etablissement->update($validated);
 
         return back()->with('success', 'Les paramètres et règles de l\'établissement « ' . $etablissement->nom . ' » ont été enregistrés avec succès.');
@@ -434,7 +526,12 @@ class InstitutionController extends Controller implements HasMiddleware
      */
     public function destroyEtablissement(Request $request, Etablissement $etablissement): RedirectResponse
     {
-        abort_unless($request->user()->can('etablissements.manage'), 403, 'Permission requise : etablissements.manage');
+        abort_unless($request->user()->can('etablissements.delete') || $request->user()->can('etablissements.manage'), 403, 'Permission requise : etablissements.delete');
+
+        $context = $this->resolveEtablissementContext($request);
+        if (! $context['isSuperAdmin'] && ! $request->user()->can('etablissements.delete')) {
+            abort(403, 'Accès non autorisé : vous ne disposez pas de la permission de suppression des établissements.');
+        }
 
         if ($etablissement->sections()->exists()) {
             return back()->with('error', 'Suppression impossible : cet établissement contient encore des sections pédagogiques.');
@@ -454,6 +551,11 @@ class InstitutionController extends Controller implements HasMiddleware
     public function storeSection(Request $request): RedirectResponse
     {
         abort_unless($request->user()->can('structures.manage'), 403, 'Permission requise : structures.manage');
+
+        $context = $this->resolveEtablissementContext($request);
+        if (! $context['isSuperAdmin'] && (int) $request->input('etablissement_id') !== (int) $context['etablissementId']) {
+            abort(403, 'Action non autorisée sur un autre établissement.');
+        }
 
         $validated = $request->validate([
             'etablissement_id' => ['required', 'exists:etablissements,id'],
@@ -535,6 +637,11 @@ class InstitutionController extends Controller implements HasMiddleware
     {
         abort_unless($request->user()->can('structures.manage'), 403, 'Permission requise : structures.manage');
 
+        $context = $this->resolveEtablissementContext($request);
+        if (! $context['isSuperAdmin'] && (int) $section->etablissement_id !== (int) $context['etablissementId']) {
+            abort(403, 'Action non autorisée sur un autre établissement.');
+        }
+
         $validated = $request->validate([
             'nom' => [
                 'required',
@@ -589,6 +696,11 @@ class InstitutionController extends Controller implements HasMiddleware
     public function destroySection(Request $request, Section $section): RedirectResponse
     {
         abort_unless($request->user()->can('structures.manage'), 403, 'Permission requise : structures.manage');
+
+        $context = $this->resolveEtablissementContext(request());
+        if (! $context['isSuperAdmin'] && (int) $section->etablissement_id !== (int) $context['etablissementId']) {
+            abort(403, 'Action non autorisée sur un autre établissement.');
+        }
 
         if ($section->cycles()->exists()) {
             return back()->with('error', 'Suppression impossible : cette section contient encore des cycles pédagogiques.');
@@ -1091,10 +1203,14 @@ class InstitutionController extends Controller implements HasMiddleware
             'nom' => ['required', 'string', 'max:100'],
             'serie' => ['nullable', 'string', 'max:50'],
             'capacite_max' => ['required', 'integer', 'min:1', 'max:150'],
+            'is_active' => ['nullable', 'boolean'],
         ]);
 
         $validated['code'] = Str::upper($validated['code']);
         $validated['serie'] = empty($validated['serie']) ? 'GENERAL' : Str::upper(trim($validated['serie']));
+        if (array_key_exists('is_active', $validated)) {
+            $validated['is_active'] = (bool) $validated['is_active'];
+        }
         $classe->update($validated);
 
         return back()->with('success', 'La classe « ' . $classe->nom . ' » a été mise à jour avec succès.');

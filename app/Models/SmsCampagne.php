@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Concerns\BelongsToEtablissement;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -31,7 +32,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class SmsCampagne extends Model
 {
-    use HasFactory;
+    use HasFactory, BelongsToEtablissement;
 
     /**
      * Table associée au modèle.
@@ -68,15 +69,6 @@ class SmsCampagne extends Model
         'total_credits' => 'integer',
     ];
 
-    /**
-     * Relation avec l'établissement organisateur de la campagne.
-     *
-     * @return BelongsTo
-     */
-    public function etablissement(): BelongsTo
-    {
-        return $this->belongsTo(Etablissement::class);
-    }
 
     /**
      * Relation avec l'utilisateur ayant lancé la campagne.

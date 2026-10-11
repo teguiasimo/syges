@@ -99,14 +99,25 @@ export const fr = {
         notes_title: 'Saisie des Notes & Évaluations',
         notes_desc: 'Saisie des notes par séquence, statuts de présence, compétences APC et verrouillage.',
 
+        releves_notes_title: 'Relevés de Notes & Fiches de Notation',
+        releves_notes_desc: 'Génération et impression des fiches de report de notes vierges ou complétées par classe et matière.',
+
         bulletins_title: 'Bulletins Scolaires & Résultats',
         bulletins_desc: 'Calcul des moyennes trimestrielles, rangs, mentions et génération des PDF officiels.',
+
+        progression_title: 'Cahier de Texte & Progression Pédagogique',
+        progression_desc: 'Consignation des séances de cours, contrôle horaire ministériel et visa hiérarchique du censeur (Aurore §5.1.8).',
+
 
         finances_title: 'Caisse & Paiements Scolaires',
         finances_desc: 'Guichet d\'encaissement, comptes courants élèves, reçus infalsifiables, journal de caisse et verrou de solvabilité.',
 
         discipline_title: 'Absences, Retards & Discipline',
         discipline_desc: 'Pointage d\'assiduité, justifications, sanctions disciplinaires et contrôle de déchéance des mentions honorifiques.',
+
+        archivage_title: 'Centre d\'Archivage & Rentrée Scolaire',
+        archivage_desc: 'Dossiers des élèves et personnels sortants, masques de numérotation et assistant de reconduction 1-clic (Aurore §3.15, §3.16).',
+
 
         emplois_du_temps_title: 'Emplois du Temps & Salles',
         emplois_du_temps_desc: 'Planning hebdomadaire, détection anti-conflits, gestion des locaux et décompte des heures de vacation RH.',

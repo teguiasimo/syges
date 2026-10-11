@@ -55,7 +55,7 @@ interface EtablissementItem {
 }
 
 /**
- * Interface pour une Évaluation / Séquence.
+ * Interface pour une Évaluation (Séquence d'évaluation).
  */
 interface EvaluationItem {
     id: number;
@@ -124,7 +124,7 @@ interface PeriodeIndexProps {
 }
 
 /**
- * Page de gestion des Périodes, Trimestres, Séquences et Paramètres d'Évaluation.
+ * Page de gestion des Périodes, Trimestres, Évaluations et Paramètres de Calcul.
  * Implémente le Module 3 du cahier des charges Gesco avec découpage par établissement (Option A).
  */
 export default function PeriodesIndex({
@@ -258,7 +258,7 @@ export default function PeriodesIndex({
     };
 
     /**
-     * Génération de la structure officielle camerounaise (3 trimestres, 6 séquences) pour l'établissement sélectionné.
+     * Génération de la structure officielle (3 trimestres, 6 évaluations) pour l'établissement sélectionné.
      */
     const handleGenerateStandardStructure = () => {
         if (!selectedAnnee || !selectedEtablissement || !can.periodes_manage) return;
@@ -266,8 +266,8 @@ export default function PeriodesIndex({
             title: 'Génération de la structure officielle',
             variant: 'primary',
             confirmLabel: 'Générer la structure',
-            promptText: `Voulez-vous générer automatiquement la structure officielle (3 Trimestres et 6 Séquences) pour « ${selectedEtablissement.nom} » (${selectedAnnee.nom}) ?`,
-            description: 'Cette opération va initialiser les 3 trimestres et 6 séquences standards conformes au calendrier officiel camerounais pour cet établissement.',
+            promptText: `Voulez-vous générer automatiquement la structure officielle (3 Trimestres et 6 Évaluations) pour « ${selectedEtablissement.nom} » (${selectedAnnee.nom}) ?`,
+            description: 'Cette opération va initialiser les 3 trimestres et 6 évaluations standards (EVA-1 à EVA-6) conformes au calendrier officiel pour cet établissement.',
             onConfirm: () => {
                 router.post(`/administration/periodes/annees/${selectedAnnee.id}/generate-standard`, {
                     etablissement_id: selectedEtablissement.id,
@@ -501,7 +501,7 @@ export default function PeriodesIndex({
                                     type="button"
                                     variant="ghost"
                                     size="icon"
-                                    title="Modifier la séquence"
+                                    title="Modifier l'évaluation"
                                     onClick={() => {
                                         setEditingEvaluation(item);
                                         evaluationForm.setData({
@@ -528,13 +528,13 @@ export default function PeriodesIndex({
                                     type="button"
                                     variant="ghost"
                                     size="icon"
-                                    title="Supprimer la séquence"
+                                    title="Supprimer l'évaluation"
                                     onClick={() => {
                                         confirmDelete({
-                                            title: "Supprimer la séquence",
-                                            itemType: "la séquence",
+                                            title: "Supprimer l'évaluation",
+                                            itemType: "l'évaluation",
                                             itemName: item.nom,
-                                            description: "Toutes les notes et évaluations saisies pour cette séquence seront définitivement supprimées.",
+                                            description: "Toutes les notes saisies pour cette évaluation seront définitivement supprimées.",
                                             onConfirm: () => router.delete(`/administration/periodes/evaluations/${item.id}`),
                                         });
                                     }}
@@ -600,7 +600,7 @@ export default function PeriodesIndex({
                 {etablissements && etablissements.length > 0 && (
                     <div className="rounded-2xl border-2 border-slate-300/90 dark:border-slate-700 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400 dark:hover:border-slate-600">
                         {/* En-tête contrasté et plus foncé */}
-                        <div className="bg-gradient-to-r from-slate-200/95 via-emerald-100/60 to-slate-200/80 dark:from-slate-800 dark:via-emerald-950/30 dark:to-slate-800/90 px-6 py-3.5 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-2">
+                        <div className="bg-linear-to-r from-slate-200/95 via-emerald-100/60 to-slate-200/80 dark:from-slate-800 dark:via-emerald-950/30 dark:to-slate-800/90 px-6 py-3.5 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-2">
                             <div className="flex items-center gap-2.5">
                                 <div className="flex size-7 items-center justify-center rounded-lg bg-emerald-600 text-white shadow-xs">
                                     <Building2 className="size-4" />
@@ -646,7 +646,7 @@ export default function PeriodesIndex({
                                         {selectedEtablissement?.code}
                                     </Badge>
                                     <span className="font-semibold text-foreground text-sm">{selectedEtablissement?.nom}</span>
-                                    <span className="text-slate-500">(Campus unique de l'institution)</span>
+                                    <span className="text-slate-500">(Votre campus assigné)</span>
                                 </div>
                             )}
                         </div>
@@ -656,9 +656,9 @@ export default function PeriodesIndex({
                 {/* 3. SÉLECTEUR ET STATUT DE L'ANNÉE SCOLAIRE */}
                 <div className="rounded-2xl border-2 border-slate-300/90 dark:border-slate-700 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400 dark:hover:border-slate-600">
                     {/* En-tête contrasté et foncé contenant la ligne des codes d'années et les actions */}
-                    <div className="bg-gradient-to-r from-slate-200/95 via-sky-100/70 to-slate-200/80 dark:from-slate-800 dark:via-sky-950/40 dark:to-slate-800/90 px-6 py-4 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
+                    <div className="bg-linear-to-r from-slate-200/95 via-sky-100/70 to-slate-200/80 dark:from-slate-800 dark:via-sky-950/40 dark:to-slate-800/90 px-6 py-4 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
                         <div className="flex items-center gap-3">
-                            <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-sky-600 to-indigo-600 text-white font-bold shadow-xs shrink-0">
+                            <div className="flex size-9 items-center justify-center rounded-xl bg-linear-to-br from-sky-600 to-indigo-600 text-white font-bold shadow-xs shrink-0">
                                 <Calendar className="size-4" />
                             </div>
 
@@ -770,13 +770,13 @@ export default function PeriodesIndex({
 
                 {selectedAnnee && (
                     <>
-                        {/* 4. DÉCOUPAGE PÉRIODIQUE (TRIMESTRES & SÉQUENCES DE L'ÉTABLISSEMENT) */}
+                        {/* 4. DÉCOUPAGE PÉRIODIQUE (TRIMESTRES & ÉVALUATIONS DE L'ÉTABLISSEMENT) */}
                         <div className="space-y-6">
                             <div className="flex flex-wrap items-center justify-between gap-3">
                                 <div>
                                     <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
                                         <Calendar className="size-5 text-sky-600" />
-                                        Découpage des Trimestres & Séquences
+                                        Découpage des Trimestres & Évaluations
                                         {selectedEtablissement && (
                                             <Badge variant="outline" className="ml-1 text-xs border-emerald-300 text-emerald-700 dark:border-emerald-700 dark:text-emerald-300 bg-emerald-50/50">
                                                 {selectedEtablissement.nom}
@@ -798,7 +798,7 @@ export default function PeriodesIndex({
                                             className="gap-2 cursor-pointer text-xs h-9 text-emerald-600 border-emerald-200 hover:bg-emerald-50 dark:border-emerald-800"
                                         >
                                             <CalendarRange className="size-3.5" />
-                                            <span>Initialiser le standard officiel (3 Trimestres / 6 Séquences)</span>
+                                            <span>Initialiser le standard officiel (3 Trimestres / 6 Évaluations)</span>
                                         </Button>
                                     )}
 
@@ -865,10 +865,10 @@ export default function PeriodesIndex({
                                                 {/* =========================================================================
                                                  * EN-TÊTE DU TRIMESTRE (Bandeau contrasté, plus foncé et bien délimité)
                                                  * ========================================================================= */}
-                                                <div className="bg-gradient-to-r from-slate-200/95 via-sky-100/70 to-slate-200/80 dark:from-slate-800 dark:via-sky-950/40 dark:to-slate-800/90 px-6 py-4.5 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
+                                                <div className="bg-linear-to-r from-slate-200/95 via-sky-100/70 to-slate-200/80 dark:from-slate-800 dark:via-sky-950/40 dark:to-slate-800/90 px-6 py-4.5 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
                                                     <div className="flex items-center gap-3.5">
                                                         {/* Badge visuel T1, T2, T3 avec dégradé distinctif */}
-                                                        <div className="size-10 rounded-xl bg-gradient-to-br from-sky-600 to-indigo-600 text-white font-bold text-sm flex items-center justify-center shadow-xs shrink-0 tracking-tight">
+                                                        <div className="size-10 rounded-xl bg-linear-to-br from-sky-600 to-indigo-600 text-white font-bold text-sm flex items-center justify-center shadow-xs shrink-0 tracking-tight">
                                                             {`T${periode.ordre || (index + 1)}`}
                                                         </div>
 
@@ -1018,7 +1018,7 @@ export default function PeriodesIndex({
                                                     <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
                                                         <span className="font-semibold uppercase tracking-wider text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
                                                             <Calendar className="size-3.5 text-sky-600 dark:text-sky-400" />
-                                                            Séquences & Évaluations du {periode.nom}
+                                                            Évaluations du {periode.nom}
                                                         </span>
                                                         <span className="font-medium">
                                                             {periode.evaluations.length} évaluation{periode.evaluations.length > 1 ? 's' : ''} configurée{periode.evaluations.length > 1 ? 's' : ''}
@@ -1029,7 +1029,7 @@ export default function PeriodesIndex({
                                                         columns={evalColumns}
                                                         data={periode.evaluations}
                                                         containerClassName="border-2 border-slate-300/85 dark:border-slate-700 shadow-xs"
-                                                        headerClassName="bg-gradient-to-r from-slate-200/90 via-slate-100/95 to-slate-200/85 dark:from-slate-800 dark:via-slate-850 dark:to-slate-800 border-b-2 border-slate-300 dark:border-slate-700"
+                                                        headerClassName="bg-linear-to-r from-slate-200/90 via-slate-100/95 to-slate-200/85 dark:from-slate-800 dark:via-slate-850 dark:to-slate-800 border-b-2 border-slate-300 dark:border-slate-700"
                                                     />
                                                 </div>
                                             </div>
@@ -1144,7 +1144,7 @@ export default function PeriodesIndex({
                                     </span>
                                 </label>
                                 <p className="text-[11px] text-emerald-700 dark:text-emerald-300 pl-5">
-                                    Pré-remplit les 3 trimestres officiels et leurs 6 séquences avec pondérations équitables (50% / 50%).
+                                    Pré-remplit les 3 trimestres officiels et leurs 6 évaluations (EVA-1 à EVA-6) avec pondérations équitables (50% / 50%).
                                 </p>
                             </div>
                         )}
@@ -1302,7 +1302,7 @@ export default function PeriodesIndex({
                 <DialogContent className="max-w-lg">
                     <DialogHeader>
                         <DialogTitle>
-                            {editingEvaluation ? 'Modifier l\'Évaluation' : 'Nouvelle Séquence d\'Évaluation'}
+                            {editingEvaluation ? 'Modifier l\'Évaluation' : 'Nouvelle Évaluation'}
                         </DialogTitle>
                         <DialogDescription>
                             Composante du trimestre pour la collecte des notes et le calcul des moyennes.
@@ -1316,16 +1316,16 @@ export default function PeriodesIndex({
                                 <Input
                                     value={evaluationForm.data.code}
                                     onChange={(e) => evaluationForm.setData('code', e.target.value)}
-                                    placeholder="SEQ-1"
+                                    placeholder="EVA-1"
                                     required
                                 />
                             </div>
                             <div className="sm:col-span-2 space-y-1">
-                                <Label className="text-xs font-semibold">Libellé de la séquence *</Label>
+                                <Label className="text-xs font-semibold">Libellé de l'évaluation *</Label>
                                 <Input
                                     value={evaluationForm.data.nom}
                                     onChange={(e) => evaluationForm.setData('nom', e.target.value)}
-                                    placeholder="ex: Séquence 1"
+                                    placeholder="ex: Évaluation 1"
                                     required
                                 />
                             </div>
@@ -1395,7 +1395,7 @@ export default function PeriodesIndex({
                                 Annuler
                             </Button>
                             <Button type="submit" disabled={evaluationForm.processing}>
-                                {editingEvaluation ? 'Mettre à jour' : 'Ajouter la séquence'}
+                                {editingEvaluation ? 'Mettre à jour' : 'Ajouter l\'évaluation'}
                             </Button>
                         </DialogFooter>
                     </form>

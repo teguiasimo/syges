@@ -8,8 +8,8 @@ use Illuminate\Support\Facades\Schema;
  * Migration pour le Module 4 : Gestion des Matières & Coefficients (Cahier des charges Gesco).
  *
  * Crée les tables :
- * 1. groupes_matieres (Blocs pédagogiques ordonnés pour la présentation du bulletin).
- * 2. matieres (Catalogue général des disciplines).
+ * 1. groupes_matieres (Blocs pédagogiques ordonnés avec etablissement_id pour personnalisation locale).
+ * 2. matieres (Catalogue des disciplines avec etablissement_id nullable pour matières nationales ou locales).
  * 3. matiere_niveaux (Grille des coefficients par Niveau + Série/Filière).
  */
 return new class extends Migration
@@ -22,24 +22,30 @@ return new class extends Migration
         // 1. Table des Groupes de Matières (Blocs Pédagogiques)
         Schema::create('groupes_matieres', function (Blueprint $table) {
             $table->id();
-            $table->string('code', 30)->unique()->comment('Code court du groupe (ex: BLOC-1, BLOC-SCI)');
+            $table->foreignId('etablissement_id')->nullable()->constrained('etablissements')->cascadeOnDelete();
+            $table->string('code', 30)->comment('Code court du groupe (ex: BLOC-1, BLOC-SCI)');
             $table->string('nom', 120)->comment('Nom du groupe en français (ex: Enseignements Scientifiques)');
             $table->string('nom_en', 120)->nullable()->comment('Nom en anglais (ex: Scientific Subjects)');
             $table->string('couleur', 30)->nullable()->default('indigo')->comment('Couleur d\'identification visuelle');
             $table->unsignedSmallInteger('ordre')->default(1)->comment('Ordre d\'apparition sur le bulletin PDF de haut en bas');
             $table->timestamps();
+
+            $table->unique(['etablissement_id', 'code'], 'groupes_matieres_etab_code_unique');
         });
 
         // 2. Table du Catalogue Général des Matières
         Schema::create('matieres', function (Blueprint $table) {
             $table->id();
-            $table->string('code', 30)->unique()->comment('Code officiel de la matière (ex: MATH, PCT, FRAN, ANG, SVT)');
+            $table->foreignId('etablissement_id')->nullable()->constrained('etablissements')->cascadeOnDelete();
+            $table->string('code', 30)->comment('Code officiel de la matière (ex: MATH, PCT, FRAN, ANG, SVT)');
             $table->string('nom', 120)->comment('Nom complet en français (ex: Mathématiques)');
             $table->string('nom_en', 120)->nullable()->comment('Nom en anglais (ex: Mathematics)');
             $table->string('libelle_bulletin', 100)->nullable()->comment('Libellé personnalisé pour impression sur le bulletin');
             $table->string('libelle_bulletin_en', 100)->nullable()->comment('Libellé d\'impression en anglais');
             $table->boolean('is_active')->default(true)->comment('Statut d\'activation de la discipline');
             $table->timestamps();
+
+            $table->unique(['etablissement_id', 'code'], 'matieres_etab_code_unique');
         });
 
         // 3. Table des Coefficients par Niveau & Série (Moteur d'Évaluation)

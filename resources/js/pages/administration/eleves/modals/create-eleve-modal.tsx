@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { User, Phone, HeartPulse, GraduationCap, Upload, X } from 'lucide-react';
+import { SearchableSelect, type SearchableOption } from '@/components/ui/searchable-select';
 import type { EtablissementRef, AnneeScolaireRef, ClasseRef } from '@/types/eleve';
 
 /**
@@ -119,6 +120,21 @@ export function CreateEleveModal({
         });
         return list;
     }, [etablissements, selectedEtabId]);
+
+    /**
+     * Options formatées pour le sélecteur avec recherche de la classe d'affectation.
+     */
+    const classeOptions: SearchableOption[] = React.useMemo(() => {
+        return availableClasses.map((cls) => {
+            const etabNom = cls.niveau?.cycle?.section?.etablissement?.nom || '';
+            const etabAbrege = etabNom.length > 25 ? `${etabNom.substring(0, 25)}…` : etabNom;
+            return {
+                value: String(cls.id),
+                label: `${cls.nom} (${cls.niveau?.nom || 'Niveau'}${etabAbrege ? ` — ${etabAbrege}` : ''})`,
+                group: cls.niveau?.nom || 'Classes',
+            };
+        });
+    }, [availableClasses]);
 
     const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -326,16 +342,23 @@ export function CreateEleveModal({
                                 {/* Champs d'identification */}
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-1 w-full">
                                     <div>
-                                        <Label htmlFor="matricule">
-                                            Matricule Interne <span className="text-xs text-muted-foreground font-normal">(Auto si vide)</span>
-                                        </Label>
+                                        <div className="flex items-center justify-between mb-1">
+                                            <Label htmlFor="matricule">Matricule Interne</Label>
+                                            <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                                                Automatique
+                                            </span>
+                                        </div>
                                         <Input
                                             id="matricule"
+                                            readOnly
+                                            tabIndex={-1}
                                             value={formData.matricule}
-                                            onChange={(e) => setFormData({ ...formData, matricule: e.target.value })}
-                                            placeholder="Ex: GS26-0001"
-                                            className="font-mono mt-1"
+                                            placeholder="ex: 26-0001 (Attribué automatiquement)"
+                                            className="font-mono mt-1 bg-slate-100/80 dark:bg-slate-900/60 text-slate-500 dark:text-slate-400 cursor-not-allowed border-dashed focus-visible:ring-0 select-none"
                                         />
+                                        <p className="text-[10px] text-muted-foreground mt-1">
+                                            Format officiel court <code>[YY]-[0001]</code> attribué à l'enregistrement.
+                                        </p>
                                         {errors.matricule && <p className="text-xs text-destructive mt-1">{errors.matricule}</p>}
                                     </div>
 
@@ -598,23 +621,26 @@ export function CreateEleveModal({
                         <div className="space-y-4 animate-in fade-in-50 duration-200">
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
-                                    <Label htmlFor="annee_scolaire_id">Année Scolaire d'inscription</Label>
+                                    <Label htmlFor="annee_scolaire_id">Année Scolaire</Label>
                                     <select
                                         id="annee_scolaire_id"
                                         value={formData.annee_scolaire_id}
                                         onChange={(e) => setFormData({ ...formData, annee_scolaire_id: e.target.value })}
                                         className="w-full mt-1 h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                                     >
-                                        {anneesScolaires.map((a) => (
-                                            <option key={a.id} value={a.id}>
-                                                {a.nom} {a.is_current ? '(En cours)' : ''}
-                                            </option>
-                                        ))}
+                                        {anneesScolaires.map((a) => {
+                                            const codeAnnee = a.code || a.nom.replace(/^année\s*scolaire\s*/i, '').trim();
+                                            return (
+                                                <option key={a.id} value={a.id}>
+                                                    {codeAnnee} {a.is_current ? '(En cours)' : ''}
+                                                </option>
+                                            );
+                                        })}
                                     </select>
                                 </div>
 
                                 <div>
-                                    <Label htmlFor="filter_etab">Filtrer par Établissement</Label>
+                                    <Label htmlFor="filter_etab">Filtrer par Campus</Label>
                                     <select
                                         id="filter_etab"
                                         value={selectedEtabId}
@@ -625,11 +651,14 @@ export function CreateEleveModal({
                                         className="w-full mt-1 h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                                     >
                                         <option value="">Tous les campus / établissements</option>
-                                        {etablissements.map((etab) => (
-                                            <option key={etab.id} value={etab.id}>
-                                                {etab.nom}
-                                            </option>
-                                        ))}
+                                        {etablissements.map((etab) => {
+                                            const campusCourt = etab.nom.length > 25 ? `${etab.nom.substring(0, 25)}…` : etab.nom;
+                                            return (
+                                                <option key={etab.id} value={etab.id} title={etab.nom}>
+                                                    {campusCourt}
+                                                </option>
+                                            );
+                                        })}
                                     </select>
                                 </div>
 
@@ -637,20 +666,16 @@ export function CreateEleveModal({
                                     <Label htmlFor="classe_id">
                                         Classe d'Affectation <span className="text-destructive">*</span>
                                     </Label>
-                                    <select
-                                        id="classe_id"
-                                        value={selectedClasseId}
-                                        onChange={(e) => setSelectedClasseId(e.target.value)}
-                                        required
-                                        className="w-full mt-1 h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                                    >
-                                        <option value="">-- Sélectionnez la classe d'affectation --</option>
-                                        {availableClasses.map((cls) => (
-                                            <option key={cls.id} value={cls.id}>
-                                                {cls.nom} ({cls.niveau?.nom ?? 'Niveau'} — {cls.niveau?.cycle?.section?.etablissement?.nom ?? ''})
-                                            </option>
-                                        ))}
-                                    </select>
+                                    <div className="mt-1">
+                                        <SearchableSelect
+                                            options={classeOptions}
+                                            value={selectedClasseId}
+                                            onValueChange={(val) => setSelectedClasseId(val)}
+                                            placeholder="-- Sélectionnez la classe d'affectation --"
+                                            searchPlaceholder="Rechercher une classe..."
+                                            emptyMessage="Aucune classe trouvée."
+                                        />
+                                    </div>
                                     {errors.classe_id && <p className="text-xs text-destructive mt-1">{errors.classe_id}</p>}
                                 </div>
 

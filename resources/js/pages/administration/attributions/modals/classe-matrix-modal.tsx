@@ -21,6 +21,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { truncateText } from '@/lib/utils';
 import type {
     ClasseWithAttributions,
     EnseignantWithWorkload,
@@ -220,8 +221,8 @@ export function ClasseMatrixModal({
                                     <tr key={row.matiere_id} className="hover:bg-muted/30 transition-colors">
                                         {/* Matière & Code */}
                                         <td className="py-2.5 px-3">
-                                            <div className="font-semibold text-foreground text-xs">
-                                                {row.nom}
+                                            <div className="font-semibold text-foreground text-xs truncate max-w-[220px]" title={row.nom}>
+                                                {truncateText(row.nom, 40)}
                                             </div>
                                             <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-muted-foreground">
                                                 <span className="font-mono bg-muted px-1 rounded border">

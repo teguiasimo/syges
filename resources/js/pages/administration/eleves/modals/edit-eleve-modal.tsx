@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { User, Phone, HeartPulse, Edit3 } from 'lucide-react';
+import { User, Phone, Edit3 } from 'lucide-react';
 import type { Eleve } from '@/types/eleve';
 
 /**
@@ -32,7 +32,7 @@ interface EditEleveModalProps {
  */
 export function EditEleveModal({ open, onOpenChange, eleve }: EditEleveModalProps) {
     const [loading, setLoading] = useState(false);
-    const [activeTab, setActiveTab] = useState<'identite' | 'parents' | 'sante'>('identite');
+    const [activeTab, setActiveTab] = useState<'identite' | 'parents'>('identite');
     const [formData, setFormData] = useState<Partial<Eleve>>({});
 
     useEffect(() => {
@@ -51,13 +51,7 @@ export function EditEleveModal({ open, onOpenChange, eleve }: EditEleveModalProp
                 nom_tuteur: eleve.nom_tuteur || '',
                 telephone_parent: eleve.telephone_parent || '',
                 email_parent: eleve.email_parent || '',
-                profession_parent: eleve.profession_parent || '',
                 adresse: eleve.adresse || '',
-                ville: eleve.ville || '',
-                groupe_sanguin: eleve.groupe_sanguin || '',
-                contact_urgence_nom: eleve.contact_urgence_nom || '',
-                contact_urgence_telephone: eleve.contact_urgence_telephone || '',
-                allergies_conditions: eleve.allergies_conditions || '',
             });
         }
     }, [eleve]);
@@ -121,18 +115,6 @@ export function EditEleveModal({ open, onOpenChange, eleve }: EditEleveModalProp
                     >
                         <Phone className="size-4" />
                         Parents & Contacts
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setActiveTab('sante')}
-                        className={`flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-t-lg transition-colors border-b-2 ${
-                            activeTab === 'sante'
-                                ? 'border-primary text-primary bg-primary/5'
-                                : 'border-transparent text-muted-foreground hover:text-foreground'
-                        }`}
-                    >
-                        <HeartPulse className="size-4" />
-                        Santé & Urgence
                     </button>
                 </div>
 
@@ -282,26 +264,6 @@ export function EditEleveModal({ open, onOpenChange, eleve }: EditEleveModalProp
                                 />
                             </div>
 
-                            <div>
-                                <Label htmlFor="edit_profession_parent">Profession du parent</Label>
-                                <Input
-                                    id="edit_profession_parent"
-                                    value={formData.profession_parent || ''}
-                                    onChange={(e) => setFormData({ ...formData, profession_parent: e.target.value })}
-                                    className="mt-1"
-                                />
-                            </div>
-
-                            <div>
-                                <Label htmlFor="edit_ville">Ville</Label>
-                                <Input
-                                    id="edit_ville"
-                                    value={formData.ville || ''}
-                                    onChange={(e) => setFormData({ ...formData, ville: e.target.value })}
-                                    className="mt-1"
-                                />
-                            </div>
-
                             <div className="sm:col-span-2">
                                 <Label htmlFor="edit_adresse">Adresse / Quartier</Label>
                                 <Input
@@ -309,61 +271,6 @@ export function EditEleveModal({ open, onOpenChange, eleve }: EditEleveModalProp
                                     value={formData.adresse || ''}
                                     onChange={(e) => setFormData({ ...formData, adresse: e.target.value })}
                                     className="mt-1"
-                                />
-                            </div>
-                        </div>
-                    )}
-
-                    {activeTab === 'sante' && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 animate-in fade-in-50">
-                            <div>
-                                <Label htmlFor="edit_groupe_sanguin">Groupe Sanguin</Label>
-                                <select
-                                    id="edit_groupe_sanguin"
-                                    value={formData.groupe_sanguin || ''}
-                                    onChange={(e) => setFormData({ ...formData, groupe_sanguin: e.target.value })}
-                                    className="w-full mt-1 h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                                >
-                                    <option value="">Non renseigné</option>
-                                    <option value="A+">A+</option>
-                                    <option value="A-">A-</option>
-                                    <option value="B+">B+</option>
-                                    <option value="B-">B-</option>
-                                    <option value="AB+">AB+</option>
-                                    <option value="AB-">AB-</option>
-                                    <option value="O+">O+</option>
-                                    <option value="O-">O-</option>
-                                </select>
-                            </div>
-
-                            <div>
-                                <Label htmlFor="edit_contact_urgence_telephone">Téléphone d'Urgence</Label>
-                                <Input
-                                    id="edit_contact_urgence_telephone"
-                                    value={formData.contact_urgence_telephone || ''}
-                                    onChange={(e) => setFormData({ ...formData, contact_urgence_telephone: e.target.value })}
-                                    className="mt-1 font-mono"
-                                />
-                            </div>
-
-                            <div className="sm:col-span-2">
-                                <Label htmlFor="edit_contact_urgence_nom">Personne à contacter en cas d'urgence</Label>
-                                <Input
-                                    id="edit_contact_urgence_nom"
-                                    value={formData.contact_urgence_nom || ''}
-                                    onChange={(e) => setFormData({ ...formData, contact_urgence_nom: e.target.value })}
-                                    className="mt-1"
-                                />
-                            </div>
-
-                            <div className="sm:col-span-2">
-                                <Label htmlFor="edit_allergies_conditions">Allergies ou antécédents médicaux</Label>
-                                <textarea
-                                    id="edit_allergies_conditions"
-                                    value={formData.allergies_conditions || ''}
-                                    onChange={(e) => setFormData({ ...formData, allergies_conditions: e.target.value })}
-                                    rows={3}
-                                    className="w-full mt-1 rounded-md border border-input bg-background p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                                 />
                             </div>
                         </div>

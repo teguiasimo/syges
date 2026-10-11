@@ -62,7 +62,7 @@ export function EtablissementSwitcher({ className }: EtablissementSwitcherProps)
                 title={`Campus actif : ${currentEtablissement.nom}`}
             >
                 <School className="size-3.5 text-primary" />
-                <span className="truncate max-w-[160px] md:max-w-[220px]">{currentEtablissement.nom}</span>
+                <span className="truncate max-w-40 md:max-w-55">{currentEtablissement.nom}</span>
             </div>
         );
     }
@@ -92,12 +92,12 @@ export function EtablissementSwitcher({ className }: EtablissementSwitcherProps)
                     type="button"
                     title="Changer de campus"
                     className={cn(
-                        'flex items-center gap-2 px-3 py-1.5 rounded-xl bg-primary/10 hover:bg-primary/15 text-primary border border-primary/20 text-xs font-bold transition-all shadow-xs cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                        'flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 rounded-xl bg-primary/10 hover:bg-primary/15 text-primary border border-primary/20 text-xs font-bold transition-all shadow-xs cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                         className
                     )}
                 >
                     <School className="size-4 text-primary shrink-0" />
-                    <span className="truncate max-w-[130px] sm:max-w-[180px] md:max-w-[240px]">
+                    <span className="truncate max-w-21.25 sm:max-w-45 md:max-w-60">
                         {currentEtablissement.nom}
                     </span>
                     <Badge variant="outline" className="hidden md:inline-flex text-[9px] px-1.5 py-0 bg-background/60 font-mono">

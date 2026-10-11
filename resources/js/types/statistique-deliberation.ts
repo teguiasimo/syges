@@ -32,12 +32,21 @@ export interface DensiteClasses {
     details: ClasseDensiteDetail[];
 }
 
+export interface CycleRepartitionDetail {
+    nom: string;
+    cycle: string;
+    section: string;
+    total: number;
+    pourcentage: number;
+}
+
 export interface StatistiqueDemographique {
     annee_scolaire: string;
     effectif_total: number;
     parite: PariteGenre;
     repartition_statut: RepartitionStatut;
     densite: DensiteClasses;
+    repartition_cycles?: CycleRepartitionDetail[];
 }
 
 export interface EleveDecrochage {

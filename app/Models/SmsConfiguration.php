@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Concerns\BelongsToEtablissement;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -27,7 +28,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class SmsConfiguration extends Model
 {
-    use HasFactory;
+    use HasFactory, BelongsToEtablissement;
 
     /**
      * Table associée au modèle.
@@ -63,14 +64,5 @@ class SmsConfiguration extends Model
         'seuil_alerte_solde' => 'integer',
         'is_active' => 'boolean',
     ];
-
-    /**
-     * Relation avec l'établissement propriétaire de la passerelle.
-     *
-     * @return BelongsTo
-     */
-    public function etablissement(): BelongsTo
-    {
-        return $this->belongsTo(Etablissement::class);
-    }
 }
+

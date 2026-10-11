@@ -8,6 +8,13 @@ export interface EtablissementRef {
     code: string;
     nom: string;
     nom_en?: string;
+    logo?: string | null;
+    logo_url?: string | null;
+    effective_logo?: string | null;
+    telephone_1?: string | null;
+    telephone_2?: string | null;
+    adresse?: string | null;
+    nom_chef_etablissement?: string | null;
     sections?: SectionRef[];
 }
 
@@ -88,13 +95,7 @@ export interface Eleve {
     nom_tuteur?: string | null;
     telephone_parent?: string | null;
     email_parent?: string | null;
-    profession_parent?: string | null;
     adresse?: string | null;
-    ville?: string | null;
-    groupe_sanguin?: string | null;
-    contact_urgence_nom?: string | null;
-    contact_urgence_telephone?: string | null;
-    allergies_conditions?: string | null;
     is_active: boolean;
     created_at: string;
     updated_at: string;
@@ -120,6 +121,7 @@ export interface Inscription {
     eleve: Eleve;
     classe: ClasseRef;
     etablissement?: EtablissementRef | null;
+    annee_scolaire?: AnneeScolaireRef | null;
 }
 
 export interface EleveStats {

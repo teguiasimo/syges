@@ -1,5 +1,6 @@
 import { Head, Link } from '@inertiajs/react';
 import {
+    Archive,
     School,
     Users,
     ShieldCheck,
@@ -173,6 +174,16 @@ const adminModules: AdminModule[] = [
         permission: 'discipline.view',
         category: 'Vie Scolaire & Élèves',
     },
+    {
+        titleKey: 'admin.archivage_title',
+        descKey: 'admin.archivage_desc',
+        icon: Archive,
+        color: 'text-amber-600 dark:text-amber-400',
+        bgColor: 'bg-amber-50 dark:bg-amber-950/50 border border-amber-100 dark:border-amber-900/40',
+        href: '/administration/archivage',
+        permission: 'eleves.view',
+        category: 'Vie Scolaire & Élèves',
+    },
 
     // -------------------------------------------------------------
     // PÔLE 4 : PÉDAGOGIE & ÉVALUATIONS (Priorité 4 - Évaluations & Notes)
@@ -188,6 +199,16 @@ const adminModules: AdminModule[] = [
         category: 'Pédagogie & Évaluations',
     },
     {
+        titleKey: 'admin.releves_notes_title',
+        descKey: 'admin.releves_notes_desc',
+        icon: FileSpreadsheet,
+        color: 'text-amber-600 dark:text-amber-400',
+        bgColor: 'bg-amber-50 dark:bg-amber-950/50 border border-amber-100 dark:border-amber-900/40',
+        href: '/administration/notes/releves',
+        permission: 'releves_notes.view',
+        category: 'Pédagogie & Évaluations',
+    },
+    {
         titleKey: 'admin.bulletins_title',
         descKey: 'admin.bulletins_desc',
         icon: FileText,
@@ -195,6 +216,16 @@ const adminModules: AdminModule[] = [
         bgColor: 'bg-sky-50 dark:bg-sky-950/50 border border-sky-100 dark:border-sky-900/40',
         href: '/administration/bulletins',
         permission: 'bulletins.view',
+        category: 'Pédagogie & Évaluations',
+    },
+    {
+        titleKey: 'admin.progression_title',
+        descKey: 'admin.progression_desc',
+        icon: BookOpen,
+        color: 'text-indigo-600 dark:text-indigo-400',
+        bgColor: 'bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-100 dark:border-indigo-900/40',
+        href: '/administration/progression-pedagogique',
+        permission: 'progression.view',
         category: 'Pédagogie & Évaluations',
     },
     {
@@ -296,10 +327,10 @@ export default function Administration() {
     return (
         <>
             <Head title={t('admin.title')} />
-            <div className="flex h-full flex-1 flex-col gap-8 p-8">
+            <div className="flex h-full flex-1 flex-col gap-6 sm:gap-8 p-4 sm:p-6 lg:p-8">
                 {/* Titre et sous-titre de la page */}
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight text-foreground">
+                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
                         {t('admin.title')}
                     </h1>
                     <p className="text-muted-foreground text-sm mt-1.5">
@@ -342,16 +373,16 @@ export default function Administration() {
                                             <CardWrapper
                                                 key={module.titleKey}
                                                 href={isClickable ? module.href : undefined}
-                                                className={`group flex items-center justify-between rounded-2xl border border-border/80 bg-card p-5 transition-all duration-200 ${
+                                                className={`group flex items-center justify-between rounded-2xl border border-slate-200/90 dark:border-slate-800/80 bg-slate-50/75 dark:bg-slate-900/40 p-5 transition-all duration-200 ${
                                                     isClickable
-                                                        ? 'hover:border-slate-300 hover:shadow-sm dark:hover:border-slate-700 cursor-pointer'
-                                                        : 'cursor-default'
+                                                        ? 'hover:bg-white dark:hover:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-md hover:-translate-y-0.5 cursor-pointer'
+                                                        : 'cursor-default opacity-85'
                                                 }`}
                                             >
                                                 {/* Côté gauche : Icône badge + Titre et Description */}
                                                 <div className="flex items-center gap-4 min-w-0">
                                                     <div
-                                                        className={`flex size-12 shrink-0 items-center justify-center rounded-xl ${module.bgColor} ${module.color}`}
+                                                        className={`flex size-12 shrink-0 items-center justify-center rounded-xl ${module.bgColor} ${module.color} shadow-xs group-hover:scale-105 transition-transform duration-200`}
                                                     >
                                                         <IconComponent className="size-6" />
                                                     </div>
@@ -369,7 +400,7 @@ export default function Administration() {
 
                                                 {/* Côté droit : Flèche de navigation */}
                                                 {isClickable && (
-                                                    <ChevronRight className="size-4 text-muted-foreground/50 group-hover:text-foreground group-hover:translate-x-0.5 transition-all shrink-0 ml-3" />
+                                                    <ChevronRight className="size-4 text-muted-foreground/40 group-hover:text-primary group-hover:translate-x-1 transition-all shrink-0 ml-3" />
                                                 )}
                                             </CardWrapper>
                                         );

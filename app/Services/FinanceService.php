@@ -2,11 +2,19 @@
 
 namespace App\Services;
 
+use App\Models\BourseRemise;
+use App\Models\Caisse;
 use App\Models\ClotureCaisse;
 use App\Models\CompteFinancierEleve;
+use App\Models\EcheanceTranche;
+use App\Models\EleveBourseRemise;
 use App\Models\FraisScolaire;
 use App\Models\Inscription;
+use App\Models\ModeleEcheance;
+use App\Models\PenaliteConfiguration;
+use App\Models\PenaliteEleve;
 use App\Models\Personnel;
+use App\Models\ReglementDivers;
 use App\Models\User;
 use App\Models\VentilationVersement;
 use App\Models\VersementCaisse;
@@ -95,7 +103,8 @@ class FinanceService
     }
 
     /**
-     * Génère un numéro de reçu séquentiel unique pour l'année en cours (ex: REC-2026-000001).
+     * Génère un numéro de reçu séquentiel unique pour l'année en cours (ex: REC-EPSJ-2026-000001).
+     * Intègre le code officiel de l'établissement pour éliminer toute collision multi-tenant.
      *
      * @param int $etablissementId Identifiant de l'établissement
      * @return string Numéro officiel de reçu
@@ -103,9 +112,12 @@ class FinanceService
     public function genererReferenceRecu(int $etablissementId): string
     {
         $annee = Carbon::now()->year;
-        $prefix = "REC-{$annee}-";
+        $etab = \App\Models\Etablissement::find($etablissementId);
+        $code = $etab?->code ? strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $etab->code)) : "E{$etablissementId}";
+        $prefix = "REC-{$code}-{$annee}-";
 
-        $dernierVersement = VersementCaisse::where('etablissement_id', $etablissementId)
+        $dernierVersement = VersementCaisse::withoutGlobalScopes()
+            ->where('etablissement_id', $etablissementId)
             ->where('reference_recu', 'LIKE', "{$prefix}%")
             ->orderByDesc('id')
             ->first();
@@ -162,6 +174,12 @@ class FinanceService
         }
 
         return DB::transaction(function () use ($data, $compte, $etablissementId, $caissier, $user) {
+            // Résolution de la caisse cible (caisse spécifiée ou caisse principale par défaut)
+            $caisseId = $data['caisse_id'] ?? Caisse::where('etablissement_id', $etablissementId)
+                ->where('is_principale', true)
+                ->value('id');
+
+            // Génération du numéro officiel séquentiel de reçu
             $referenceRecu = $this->genererReferenceRecu($etablissementId);
 
             // Création du versement
@@ -170,6 +188,7 @@ class FinanceService
                 'compte_financier_id' => $compte->id,
                 'inscription_id' => $compte->inscription_id,
                 'etablissement_id' => $etablissementId,
+                'caisse_id' => $caisseId,
                 'personnel_id' => $caissier?->id,
                 'date_versement' => Carbon::now(),
                 'montant_total' => $data['montant_total'],
@@ -337,6 +356,314 @@ class FinanceService
             'bloque' => false,
             'solde_restant' => 0.0,
             'message' => null,
+        ];
+    }
+
+    /**
+     * Génère une référence unique pour un règlement divers (ex: REC-DIV-EPSJ-2026-000001).
+     * Intègre le code officiel de l'établissement pour éliminer toute collision multi-tenant.
+     *
+     * @param int $etablissementId Identifiant de l'établissement
+     * @return string Référence unique
+     */
+    public function genererReferenceReglementDivers(int $etablissementId): string
+    {
+        $annee = Carbon::now()->year;
+        $etab = \App\Models\Etablissement::find($etablissementId);
+        $code = $etab?->code ? strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $etab->code)) : "E{$etablissementId}";
+        $prefix = "REC-DIV-{$code}-{$annee}-";
+
+        $dernierReglement = ReglementDivers::withoutGlobalScopes()
+            ->where('etablissement_id', $etablissementId)
+            ->where('reference_recu', 'LIKE', "{$prefix}%")
+            ->orderByDesc('id')
+            ->first();
+
+        $numero = $dernierReglement
+            ? ((int) substr($dernierReglement->reference_recu, strlen($prefix)) + 1)
+            : 1;
+
+        return $prefix . str_pad((string) $numero, 6, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * Enregistre un encaissement libre hors scolarité (Aurore §4.2).
+     *
+     * @param array{
+     *     caisse_id: int,
+     *     payeur_nom: string,
+     *     payeur_telephone?: string|null,
+     *     categorie: string,
+     *     libelle: string,
+     *     montant: float,
+     *     mode_paiement: string,
+     *     reference_paiement?: string|null,
+     *     observations?: string|null
+     * } $data Données de la recette
+     * @param Personnel|null $caissier Personnel ayant encaissé
+     * @param User|null $user Utilisateur connecté
+     * @return ReglementDivers
+     */
+    public function enregistrerReglementDivers(array $data, ?Personnel $caissier, ?User $user): ReglementDivers
+    {
+        $caisse = Caisse::findOrFail($data['caisse_id']);
+        $etablissementId = $caisse->etablissement_id;
+        $today = Carbon::today()->toDateString();
+
+        // Contrôle anti-fraude caisse clôturée
+        $clotureExistante = ClotureCaisse::where('etablissement_id', $etablissementId)
+            ->where('caisse_id', $caisse->id)
+            ->whereDate('date_cloture', $today)
+            ->where('statut', 'cloturee')
+            ->first();
+
+        if ($clotureExistante) {
+            throw new InvalidArgumentException("Impossible d'encaisser : cette caisse a déjà été clôturée pour aujourd'hui.");
+        }
+
+        return DB::transaction(function () use ($data, $caisse, $etablissementId, $caissier, $user) {
+            $referenceRecu = $this->genererReferenceReglementDivers($etablissementId);
+
+            return ReglementDivers::create([
+                'etablissement_id' => $etablissementId,
+                'caisse_id' => $caisse->id,
+                'reference_recu' => $referenceRecu,
+                'date_reglement' => Carbon::now(),
+                'payeur_nom' => $data['payeur_nom'],
+                'payeur_telephone' => $data['payeur_telephone'] ?? null,
+                'categorie' => $data['categorie'] ?? 'autre',
+                'libelle' => $data['libelle'],
+                'montant' => $data['montant'],
+                'mode_paiement' => $data['mode_paiement'] ?? 'especes',
+                'reference_paiement' => $data['reference_paiement'] ?? null,
+                'caissier_id' => $caissier?->id,
+                'user_id' => $user?->id,
+                'statut' => 'valide',
+                'observations' => $data['observations'] ?? null,
+            ]);
+        });
+    }
+
+    /**
+     * Annule administrativement un règlement divers.
+     *
+     * @param ReglementDivers $reglement
+     * @param string $motif Justificatif obligatoire
+     * @param User $annulateur Administrateur ayant validé l'annulation
+     * @return ReglementDivers
+     */
+    public function annulerReglementDivers(ReglementDivers $reglement, string $motif, User $annulateur): ReglementDivers
+    {
+        if ($reglement->statut === 'annule') {
+            throw new InvalidArgumentException("Ce règlement a déjà été annulé.");
+        }
+
+        $reglement->update([
+            'statut' => 'annule',
+            'motif_annulation' => $motif,
+        ]);
+
+        return $reglement;
+    }
+
+    /**
+     * Attribue une bourse d'études ou une remise paramétrée au compte scolaire d'un élève (Aurore §4.1.6).
+     *
+     * @param CompteFinancierEleve $compte Compte financier élève
+     * @param BourseRemise $bourseRemise Modèle de bourse/remise à appliquer
+     * @param string|null $motif Justificatif éventuel
+     * @param User|null $user Utilisateur validateur
+     * @return EleveBourseRemise
+     */
+    public function attribuerBourseRemise(
+        CompteFinancierEleve $compte,
+        BourseRemise $bourseRemise,
+        ?string $motif = null,
+        ?User $user = null
+    ): EleveBourseRemise {
+        return DB::transaction(function () use ($compte, $bourseRemise, $motif, $user) {
+            // Calcul du montant déductible
+            if ($bourseRemise->mode_calcul === 'pourcentage') {
+                $montant = round(((float) $compte->debit_initial * (float) $bourseRemise->valeur) / 100);
+            } else {
+                $montant = min((float) $compte->debit_initial, (float) $bourseRemise->valeur);
+            }
+
+            // Enregistrement de l'attribution
+            $attribution = EleveBourseRemise::updateOrCreate(
+                [
+                    'compte_financier_id' => $compte->id,
+                    'bourse_remise_id' => $bourseRemise->id,
+                ],
+                [
+                    'montant_calcule' => $montant,
+                    'date_attribution' => Carbon::today(),
+                    'motif' => $motif,
+                    'attribue_par' => $user?->id,
+                ]
+            );
+
+            // Actualisation automatique du solde restant et du statut financier
+            $compte->actualiserSolde();
+
+            return $attribution;
+        });
+    }
+
+    /**
+     * Retire une bourse ou une remise accordée à un compte élève.
+     *
+     * @param EleveBourseRemise $attribution
+     * @return void
+     */
+    public function retirerBourseRemise(EleveBourseRemise $attribution): void
+    {
+        DB::transaction(function () use ($attribution) {
+            $compte = $attribution->compteFinancier;
+            $attribution->delete();
+
+            // Si aucune autre bourse n'est enregistrée, remise_bourse retombe à 0
+            if ($compte->boursesRemises()->count() === 0) {
+                $compte->remise_bourse = 0;
+            }
+
+            $compte->actualiserSolde();
+        });
+    }
+
+    /**
+     * Applique une pénalité financière de retard sur le compte d'un élève (Aurore §3.17).
+     *
+     * @param CompteFinancierEleve $compte Compte financier élève
+     * @param PenaliteConfiguration|null $config Configuration éventuelle
+     * @param string $libelle Intitulé explicite
+     * @param float $montant Montant de la pénalité
+     * @param string|null $motif Justificatif
+     * @param User|null $user Utilisateur ayant appliqué la pénalité
+     * @return PenaliteEleve
+     */
+    public function appliquerPenalite(
+        CompteFinancierEleve $compte,
+        ?PenaliteConfiguration $config,
+        string $libelle,
+        float $montant,
+        ?string $motif = null,
+        ?User $user = null
+    ): PenaliteEleve {
+        return DB::transaction(function () use ($compte, $config, $libelle, $montant, $motif, $user) {
+            $penalite = PenaliteEleve::create([
+                'compte_financier_id' => $compte->id,
+                'penalite_configuration_id' => $config?->id,
+                'libelle' => $libelle,
+                'montant' => $montant,
+                'date_application' => Carbon::today(),
+                'statut' => 'a_payer',
+                'motif' => $motif,
+                'applique_par' => $user?->id,
+            ]);
+
+            $compte->actualiserSolde();
+
+            return $penalite;
+        });
+    }
+
+    /**
+     * Annule une pénalité appliquée sur le compte d'un élève.
+     *
+     * @param PenaliteEleve $penalite
+     * @return void
+     */
+    public function annulerPenalite(PenaliteEleve $penalite): void
+    {
+        DB::transaction(function () use ($penalite) {
+            $penalite->update(['statut' => 'annule']);
+            $penalite->compteFinancier->actualiserSolde();
+        });
+    }
+
+    /**
+     * Détecte les retards selon l'échéancier par défaut et applique les pénalités configurées.
+     *
+     * @param int $etablissementId Identifiant de l'établissement
+     * @param int $anneeId Identifiant de l'année scolaire
+     * @param User|null $user Utilisateur déclencheur
+     * @return array{penalites_appliquees: int, total_montant: float}
+     */
+    public function appliquerPenalitesAutomatiquesEcheances(
+        int $etablissementId,
+        int $anneeId,
+        ?User $user = null
+    ): array {
+        $echeancier = ModeleEcheance::with('tranches')
+            ->where('etablissement_id', $etablissementId)
+            ->where('annee_scolaire_id', $anneeId)
+            ->where('is_default', true)
+            ->first();
+
+        if (! $echeancier) {
+            return ['penalites_appliquees' => 0, 'total_montant' => 0.0];
+        }
+
+        $configPenalite = PenaliteConfiguration::where('etablissement_id', $etablissementId)
+            ->where('is_active', true)
+            ->first();
+
+        if (! $configPenalite) {
+            return ['penalites_appliquees' => 0, 'total_montant' => 0.0];
+        }
+
+        $today = Carbon::today();
+        $comptes = CompteFinancierEleve::where('etablissement_id', $etablissementId)
+            ->where('annee_scolaire_id', $anneeId)
+            ->where('solde_restant', '>', 0)
+            ->get();
+
+        $nbAppliquees = 0;
+        $totalMontant = 0.0;
+
+        foreach ($echeancier->tranches as $tranche) {
+            $dateExigibilite = Carbon::parse($tranche->date_limite)->addDays($configPenalite->jours_grace);
+
+            if ($today->greaterThan($dateExigibilite)) {
+                foreach ($comptes as $compte) {
+                    // Calcul du montant exigible à cette tranche selon le pourcentage
+                    $montantTheoriqueExigible = ((float) $compte->montant_net_exigible * (float) $tranche->pourcentage_exigible) / 100;
+
+                    if ($compte->total_paye < $montantTheoriqueExigible) {
+                        $libelle = "Pénalité de retard - {$tranche->libelle}";
+
+                        // Vérifier si cette pénalité n'a pas déjà été appliquée pour cette tranche
+                        $existe = $compte->penalites()
+                            ->where('libelle', $libelle)
+                            ->where('statut', '!=', 'annule')
+                            ->exists();
+
+                        if (! $existe) {
+                            $montantPenalite = $configPenalite->mode_calcul === 'pourcentage'
+                                ? round((($montantTheoriqueExigible - $compte->total_paye) * $configPenalite->valeur) / 100)
+                                : $configPenalite->valeur;
+
+                            $this->appliquerPenalite(
+                                $compte,
+                                $configPenalite,
+                                $libelle,
+                                $montantPenalite,
+                                "Échéance du " . $tranche->date_limite->format('d/m/Y') . " non respectée",
+                                $user
+                            );
+
+                            $nbAppliquees++;
+                            $totalMontant += $montantPenalite;
+                        }
+                    }
+                }
+            }
+        }
+
+        return [
+            'penalites_appliquees' => $nbAppliquees,
+            'total_montant' => $totalMontant,
         ];
     }
 }

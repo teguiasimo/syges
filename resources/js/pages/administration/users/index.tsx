@@ -12,7 +12,8 @@ import {
     Edit2,
     Check,
     X,
-    Sparkles,
+    Crown,
+    Globe,
     ArrowUpDown,
     CheckCircle2,
     XCircle,
@@ -21,6 +22,7 @@ import {
     AlertTriangle,
     Eye,
     EyeOff,
+    Building2,
 } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -60,6 +62,12 @@ export interface UserItem {
     email: string;
     /** Indique si le compte est actif ou suspendu */
     isActive: boolean;
+    /** Identifiant de l'établissement / campus de rattachement */
+    etablissementId?: number | null;
+    /** Nom du campus de rattachement */
+    etablissementNom?: string | null;
+    /** Code du campus de rattachement */
+    etablissementCode?: string | null;
     /** Noms techniques des rôles Spatie attribués */
     roles: string[];
     /** Libellés conviviaux des rôles pour l'affichage */
@@ -85,11 +93,23 @@ export interface AvailableRole {
 }
 
 /**
+ * Interface décrivant un établissement / campus succinct.
+ */
+export interface EtablissementOption {
+    id: number;
+    nom: string;
+    code?: string;
+}
+
+/**
  * Propriétés reçues par la vue Inertia depuis UserController.
  */
 interface UsersPageProps {
     users: UserItem[];
     availableRoles: AvailableRole[];
+    etablissements?: EtablissementOption[];
+    currentEtablissementId?: number | null;
+    isSuperAdmin?: boolean;
     can?: {
         create?: boolean;
         edit?: boolean;
@@ -108,14 +128,21 @@ interface UsersPageProps {
  * universel des données sous forme de tableau interactif (tri, recherche, pagination).
  *
  * Permet :
- * - La consultation de la liste des utilisateurs avec leurs rôles et statuts.
+ * - La consultation de la liste des utilisateurs avec leurs rôles, statuts et campus de rattachement.
  * - Le filtrage par rôle et par statut d'activation (Actif / Bloqué).
- * - La création d'un utilisateur avec login, email, mot de passe, confirmation et rôles à cocher.
+ * - La création d'un utilisateur avec login, email, mot de passe, confirmation, établissement et rôles.
  * - La modification d'un utilisateur existant.
  * - Le blocage / déblocage instantané avec modale de confirmation.
  * - La suppression définitive avec sécurités sur le super-admin et l'utilisateur connecté.
  */
-export default function UsersIndex({ users, availableRoles, can }: UsersPageProps) {
+export default function UsersIndex({
+    users,
+    availableRoles,
+    etablissements = [],
+    currentEtablissementId,
+    isSuperAdmin = false,
+    can,
+}: UsersPageProps) {
     const { flash } = usePage<{ flash?: { success?: string | null; error?: string | null } }>().props;
 
     // Habilitations de l'utilisateur connecté
@@ -143,6 +170,7 @@ export default function UsersIndex({ users, availableRoles, can }: UsersPageProp
         email: '',
         password: '',
         password_confirmation: '',
+        etablissement_id: (currentEtablissementId ? String(currentEtablissementId) : '') as string,
         roles: [] as string[],
         is_active: true,
     });
@@ -154,6 +182,7 @@ export default function UsersIndex({ users, availableRoles, can }: UsersPageProp
         email: '',
         password: '',
         password_confirmation: '',
+        etablissement_id: '' as string,
         roles: [] as string[],
     });
 
@@ -231,6 +260,7 @@ export default function UsersIndex({ users, availableRoles, can }: UsersPageProp
             email: user.email,
             password: '',
             password_confirmation: '',
+            etablissement_id: user.etablissementId ? String(user.etablissementId) : '',
             roles: [...user.roles],
         });
         editForm.clearErrors();
@@ -386,6 +416,33 @@ export default function UsersIndex({ users, availableRoles, can }: UsersPageProp
                 },
             },
             {
+                accessorKey: 'etablissementNom',
+                header: 'Campus / Établissement',
+                cell: ({ row }) => {
+                    const user = row.original;
+                    if (user.isSuperAdmin || !user.etablissementId) {
+                        return (
+                            <Badge
+                                variant="outline"
+                                className="text-[11px] font-medium py-0.5 px-2 bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800 flex items-center gap-1 w-fit"
+                            >
+                                <Globe className="size-3 text-purple-500" />
+                                Accès Global (Tous)
+                            </Badge>
+                        );
+                    }
+                    return (
+                        <Badge
+                            variant="outline"
+                            className="text-[11px] font-medium py-0.5 px-2 bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-800 flex items-center gap-1 w-fit"
+                        >
+                            <Building2 className="size-3 text-sky-500" />
+                            {user.etablissementNom || 'Campus assigné'}
+                        </Badge>
+                    );
+                },
+            },
+            {
                 accessorKey: 'roles',
                 header: 'Rôles attribués',
                 cell: ({ row }) => {
@@ -417,7 +474,7 @@ export default function UsersIndex({ users, availableRoles, can }: UsersPageProp
                                                 : 'bg-emerald-500/10 text-emerald-700 border-emerald-300 dark:text-emerald-300 dark:border-emerald-700/60'
                                         }`}
                                     >
-                                        {isSuper && <Sparkles className="size-3 text-amber-500" />}
+                                        {isSuper && <Crown className="size-3 text-amber-500" />}
                                         {isAdmin && <ShieldCheck className="size-3 text-blue-500" />}
                                         {!isSuper && !isAdmin && <Shield className="size-3 text-emerald-500" />}
                                         {roleName}
@@ -832,6 +889,52 @@ export default function UsersIndex({ users, availableRoles, can }: UsersPageProp
                             </div>
                         </div>
 
+                        {/* Établissement / Campus de rattachement */}
+                        {etablissements.length > 0 && (
+                            <div className="space-y-1.5 pt-1">
+                                <Label htmlFor="create-etablissement" className="text-xs font-semibold flex items-center gap-1">
+                                    <Building2 className="size-3 text-muted-foreground" />
+                                    Campus / Établissement <span className="text-destructive">*</span>
+                                </Label>
+                                {isSuperAdmin ? (
+                                    <Select
+                                        value={createForm.data.etablissement_id || 'none'}
+                                        onValueChange={(val) =>
+                                            createForm.setData('etablissement_id', val === 'none' ? '' : val)
+                                        }
+                                    >
+                                        <SelectTrigger id="create-etablissement" className="h-9 text-sm">
+                                            <SelectValue placeholder="Sélectionner le campus de rattachement..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="none">
+                                                <span className="font-semibold text-purple-600">
+                                                    Accès Global (Aucun campus spécifique / Super-Admin)
+                                                </span>
+                                            </SelectItem>
+                                            {etablissements.map((etab) => (
+                                                <SelectItem key={etab.id} value={String(etab.id)}>
+                                                    {etab.nom} {etab.code ? `(${etab.code})` : ''}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                ) : (
+                                    <div className="flex items-center gap-2 p-2.5 rounded-md border bg-muted/40 text-xs font-medium text-foreground">
+                                        <Building2 className="size-4 text-sky-600 shrink-0" />
+                                        <span>
+                                            {etablissements.find((e) => e.id === currentEtablissementId)?.nom ||
+                                                'Campus de rattachement actuel'}{' '}
+                                            (Verrouillé)
+                                        </span>
+                                    </div>
+                                )}
+                                {createForm.errors.etablissement_id && (
+                                    <p className="text-xs text-destructive">{createForm.errors.etablissement_id}</p>
+                                )}
+                            </div>
+                        )}
+
                         {/* Attribution des rôles (Select Multiple shadcn/ui) */}
                         <div className="space-y-1.5 pt-1">
                             <Label className="text-xs font-semibold flex items-center justify-between">
@@ -1020,6 +1123,41 @@ export default function UsersIndex({ users, availableRoles, can }: UsersPageProp
                                 </div>
                             </div>
                         </div>
+
+                        {/* Établissement / Campus de rattachement pour modification */}
+                        {etablissements.length > 0 && isSuperAdmin && !userToEdit?.isSuperAdmin && (
+                            <div className="space-y-1.5 pt-1">
+                                <Label htmlFor="edit-etablissement" className="text-xs font-semibold flex items-center gap-1">
+                                    <Building2 className="size-3 text-muted-foreground" />
+                                    Campus / Établissement
+                                </Label>
+                                <Select
+                                    value={editForm.data.etablissement_id || 'none'}
+                                    onValueChange={(val) =>
+                                        editForm.setData('etablissement_id', val === 'none' ? '' : val)
+                                    }
+                                >
+                                    <SelectTrigger id="edit-etablissement" className="h-9 text-sm">
+                                        <SelectValue placeholder="Sélectionner le campus..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="none">
+                                            <span className="font-semibold text-purple-600">
+                                                Accès Global (Aucun campus spécifique)
+                                            </span>
+                                        </SelectItem>
+                                        {etablissements.map((etab) => (
+                                            <SelectItem key={etab.id} value={String(etab.id)}>
+                                                {etab.nom} {etab.code ? `(${etab.code})` : ''}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                {editForm.errors.etablissement_id && (
+                                    <p className="text-xs text-destructive">{editForm.errors.etablissement_id}</p>
+                                )}
+                            </div>
+                        )}
 
                         {/* Attribution des rôles (Select Multiple shadcn/ui) */}
                         <div className="space-y-1.5 pt-1">

@@ -100,8 +100,6 @@ export interface Departement {
     nom: string;
     /** Code ou sigle court (ex: DPT-MATH) */
     code?: string | null;
-    /** Description ou objectifs pédagogiques */
-    description?: string | null;
     /** Indique si le département est actif */
     is_active: boolean;
     /** Nombre de membres du personnel rattachés (enseignants) */

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Administration;
 
+use App\Concerns\ScopesEtablissement;
 use App\Http\Controllers\Controller;
 use App\Models\AnneeScolaire;
 use App\Models\Etablissement;
@@ -25,6 +26,7 @@ use Inertia\Response;
  */
 class PeriodeEvaluationController extends Controller implements HasMiddleware
 {
+    use ScopesEtablissement;
     /**
      * Définition de la matrice des middlewares d'autorisation pour le module Périodes & Évaluations.
      *
@@ -34,20 +36,16 @@ class PeriodeEvaluationController extends Controller implements HasMiddleware
     {
         return [
             new Middleware('can:periodes.view', only: ['index']),
-            new Middleware('can:periodes.manage', only: [
-                'storeAnnee',
-                'updateAnnee',
-                'setCurrentAnnee',
-                'updateModeCalcul',
-                'generateStandardStructure',
-                'storeTrimestre',
-                'updateTrimestre',
-                'destroyTrimestre',
-                'storeEvaluation',
-                'updateEvaluation',
-                'destroyEvaluation',
-            ]),
-            new Middleware('can:periodes.lock', only: ['toggleLockEvaluation']),
+            new Middleware('can:annees.create|periodes.manage', only: ['storeAnnee']),
+            new Middleware('can:annees.edit|periodes.manage', only: ['updateAnnee']),
+            new Middleware('can:annees.set_current|periodes.manage', only: ['setCurrentAnnee']),
+            new Middleware('can:periodes.create|periodes.manage', only: ['generateStandardStructure', 'storeTrimestre']),
+            new Middleware('can:periodes.edit|periodes.manage', only: ['updateTrimestre', 'updateModeCalcul']),
+            new Middleware('can:periodes.delete|periodes.manage', only: ['destroyTrimestre']),
+            new Middleware('can:evaluations.create|periodes.manage', only: ['storeEvaluation']),
+            new Middleware('can:evaluations.edit|periodes.manage', only: ['updateEvaluation']),
+            new Middleware('can:evaluations.delete|periodes.manage', only: ['destroyEvaluation']),
+            new Middleware('can:evaluations.lock|periodes.lock|periodes.manage', only: ['toggleLockEvaluation']),
         ];
     }
 
@@ -61,10 +59,10 @@ class PeriodeEvaluationController extends Controller implements HasMiddleware
     {
         abort_unless($request->user()->can('periodes.view'), 403, 'Accès non autorisé au module Périodes.');
 
-        // Récupération de tous les campus / établissements de l'institution
-        $etablissements = Etablissement::orderBy('nom')->get();
-        $etablissementId = $request->query('etablissement_id');
-        $selectedEtablissement = $etablissementId ? Etablissement::find($etablissementId) : $etablissements->first();
+        // Résolution hermétique du contexte établissement (Super-Admin vs Utilisateur local)
+        $context = $this->resolveEtablissementContext($request);
+        $etablissements = $context['etablissements'];
+        $selectedEtablissement = $context['selectedEtablissement'];
 
         // Récupération des années scolaires
         $annees = AnneeScolaire::orderByDesc('date_debut')->get();
@@ -252,7 +250,10 @@ class PeriodeEvaluationController extends Controller implements HasMiddleware
     {
         abort_unless($request->user()->can('periodes.manage'), 403, 'Permission requise : periodes.manage');
 
-        $etablissementId = $request->input('etablissement_id') ?? Etablissement::first()?->id;
+        $context = $this->resolveEtablissementContext($request);
+        $etablissementId = $context['isSuperAdmin']
+            ? ($request->input('etablissement_id') ?? $context['etablissementId'])
+            : $context['etablissementId'];
 
         $hasPeriodes = $anneeScolaire->periodes()
             ->when($etablissementId, fn ($q) => $q->where('etablissement_id', $etablissementId))
@@ -264,7 +265,7 @@ class PeriodeEvaluationController extends Controller implements HasMiddleware
 
         $this->seedStandardPeriodes($anneeScolaire, $etablissementId);
 
-        return back()->with('success', 'La structure officielle (3 Trimestres et 6 Séquences) a été générée avec succès pour cet établissement.');
+        return back()->with('success', 'La structure officielle (3 Trimestres et 6 Évaluations) a été générée avec succès pour cet établissement.');
     }
 
     /**
@@ -289,7 +290,10 @@ class PeriodeEvaluationController extends Controller implements HasMiddleware
             'statut' => ['required', 'string', 'in:a_venir,en_cours,cloturee'],
         ]);
 
-        $etablissementId = $validated['etablissement_id'] ?? Etablissement::first()?->id;
+        $context = $this->resolveEtablissementContext($request);
+        $etablissementId = $context['isSuperAdmin']
+            ? ($validated['etablissement_id'] ?? $context['etablissementId'])
+            : $context['etablissementId'];
         $validated['etablissement_id'] = $etablissementId;
 
         $exists = Periode::where('annee_scolaire_id', $validated['annee_scolaire_id'])
@@ -316,6 +320,11 @@ class PeriodeEvaluationController extends Controller implements HasMiddleware
     public function updateTrimestre(Request $request, Periode $periode): RedirectResponse
     {
         abort_unless($request->user()->can('periodes.manage'), 403, 'Permission requise : periodes.manage');
+
+        $context = $this->resolveEtablissementContext($request);
+        if (! $context['isSuperAdmin'] && (int) $periode->etablissement_id !== (int) $context['etablissementId']) {
+            abort(403, 'Accès non autorisé : vous ne pouvez modifier que les périodes de votre établissement.');
+        }
 
         $validated = $request->validate([
             'code' => [
@@ -351,6 +360,11 @@ class PeriodeEvaluationController extends Controller implements HasMiddleware
     {
         abort_unless($request->user()->can('periodes.manage'), 403, 'Permission requise : periodes.manage');
 
+        $context = $this->resolveEtablissementContext($request);
+        if (! $context['isSuperAdmin'] && (int) $periode->etablissement_id !== (int) $context['etablissementId']) {
+            abort(403, 'Accès non autorisé : vous ne pouvez supprimer que les périodes de votre établissement.');
+        }
+
         if ($periode->evaluations()->exists()) {
             return back()->with('error', 'Suppression impossible : ce trimestre contient encore des séquences d\'évaluation.');
         }
@@ -384,6 +398,12 @@ class PeriodeEvaluationController extends Controller implements HasMiddleware
             'statut' => ['required', 'string', 'in:a_venir,ouverte,verrouillee,cloturee'],
         ]);
 
+        $context = $this->resolveEtablissementContext($request);
+        $periode = Periode::findOrFail($validated['periode_id']);
+        if (! $context['isSuperAdmin'] && (int) $periode->etablissement_id !== (int) $context['etablissementId']) {
+            abort(403, 'Accès non autorisé : vous ne pouvez ajouter des évaluations que pour votre établissement.');
+        }
+
         if (!isset($validated['ponderation']) || $validated['ponderation'] === null) {
             $validated['ponderation'] = 50.0;
         }
@@ -411,6 +431,11 @@ class PeriodeEvaluationController extends Controller implements HasMiddleware
     public function updateEvaluation(Request $request, Evaluation $evaluation): RedirectResponse
     {
         abort_unless($request->user()->can('periodes.manage'), 403, 'Permission requise : periodes.manage');
+
+        $context = $this->resolveEtablissementContext($request);
+        if (! $context['isSuperAdmin'] && (int) $evaluation->periode?->etablissement_id !== (int) $context['etablissementId']) {
+            abort(403, 'Accès non autorisé : vous ne pouvez modifier que les évaluations de votre établissement.');
+        }
 
         $validated = $request->validate([
             'code' => [
@@ -451,6 +476,11 @@ class PeriodeEvaluationController extends Controller implements HasMiddleware
     {
         abort_unless($request->user()->can('periodes.manage'), 403, 'Permission requise : periodes.manage');
 
+        $context = $this->resolveEtablissementContext($request);
+        if (! $context['isSuperAdmin'] && (int) $evaluation->periode?->etablissement_id !== (int) $context['etablissementId']) {
+            abort(403, 'Accès non autorisé : vous ne pouvez supprimer que les évaluations de votre établissement.');
+        }
+
         $nom = $evaluation->nom;
         $evaluation->delete();
 
@@ -467,6 +497,11 @@ class PeriodeEvaluationController extends Controller implements HasMiddleware
     public function toggleLockEvaluation(Request $request, Evaluation $evaluation): RedirectResponse
     {
         abort_unless($request->user()->can('periodes.lock'), 403, 'Permission requise : periodes.lock');
+
+        $context = $this->resolveEtablissementContext($request);
+        if (! $context['isSuperAdmin'] && (int) $evaluation->periode?->etablissement_id !== (int) $context['etablissementId']) {
+            abort(403, 'Accès non autorisé : vous ne pouvez verrouiller que les évaluations de votre établissement.');
+        }
 
         $evaluation->is_locked = ! $evaluation->is_locked;
         if ($evaluation->is_locked) {
@@ -503,8 +538,8 @@ class PeriodeEvaluationController extends Controller implements HasMiddleware
                 'date_fin' => "{$yearStart}-11-30",
                 'statut' => 'en_cours',
                 'sequences' => [
-                    ['code' => 'SEQ-1', 'nom' => 'Séquence 1', 'nom_en' => 'Sequence 1', 'ordre' => 1, 'ponderation' => 50.0, 'date_debut' => "{$yearStart}-09-01", 'date_fin' => "{$yearStart}-10-15", 'date_limite_saisie' => "{$yearStart}-10-22"],
-                    ['code' => 'SEQ-2', 'nom' => 'Séquence 2', 'nom_en' => 'Sequence 2', 'ordre' => 2, 'ponderation' => 50.0, 'date_debut' => "{$yearStart}-10-16", 'date_fin' => "{$yearStart}-11-30", 'date_limite_saisie' => "{$yearStart}-12-05"],
+                    ['code' => 'EVA-1', 'nom' => 'Évaluation 1', 'nom_en' => 'Evaluation 1', 'ordre' => 1, 'ponderation' => 50.0, 'date_debut' => "{$yearStart}-09-01", 'date_fin' => "{$yearStart}-10-15", 'date_limite_saisie' => "{$yearStart}-10-22"],
+                    ['code' => 'EVA-2', 'nom' => 'Évaluation 2', 'nom_en' => 'Evaluation 2', 'ordre' => 2, 'ponderation' => 50.0, 'date_debut' => "{$yearStart}-10-16", 'date_fin' => "{$yearStart}-11-30", 'date_limite_saisie' => "{$yearStart}-12-05"],
                 ],
             ],
             [
@@ -516,8 +551,8 @@ class PeriodeEvaluationController extends Controller implements HasMiddleware
                 'date_fin' => "{$yearEnd}-03-15",
                 'statut' => 'a_venir',
                 'sequences' => [
-                    ['code' => 'SEQ-3', 'nom' => 'Séquence 3', 'nom_en' => 'Sequence 3', 'ordre' => 3, 'ponderation' => 50.0, 'date_debut' => "{$yearStart}-12-01", 'date_fin' => "{$yearEnd}-01-31", 'date_limite_saisie' => "{$yearEnd}-02-07"],
-                    ['code' => 'SEQ-4', 'nom' => 'Séquence 4', 'nom_en' => 'Sequence 4', 'ordre' => 4, 'ponderation' => 50.0, 'date_debut' => "{$yearEnd}-02-01", 'date_fin' => "{$yearEnd}-03-15", 'date_limite_saisie' => "{$yearEnd}-03-22"],
+                    ['code' => 'EVA-3', 'nom' => 'Évaluation 3', 'nom_en' => 'Evaluation 3', 'ordre' => 3, 'ponderation' => 50.0, 'date_debut' => "{$yearStart}-12-01", 'date_fin' => "{$yearEnd}-01-31", 'date_limite_saisie' => "{$yearEnd}-02-07"],
+                    ['code' => 'EVA-4', 'nom' => 'Évaluation 4', 'nom_en' => 'Evaluation 4', 'ordre' => 4, 'ponderation' => 50.0, 'date_debut' => "{$yearEnd}-02-01", 'date_fin' => "{$yearEnd}-03-15", 'date_limite_saisie' => "{$yearEnd}-03-22"],
                 ],
             ],
             [
@@ -529,8 +564,8 @@ class PeriodeEvaluationController extends Controller implements HasMiddleware
                 'date_fin' => "{$yearEnd}-06-30",
                 'statut' => 'a_venir',
                 'sequences' => [
-                    ['code' => 'SEQ-5', 'nom' => 'Séquence 5', 'nom_en' => 'Sequence 5', 'ordre' => 5, 'ponderation' => 50.0, 'date_debut' => "{$yearEnd}-03-16", 'date_fin' => "{$yearEnd}-05-15", 'date_limite_saisie' => "{$yearEnd}-05-22"],
-                    ['code' => 'SEQ-6', 'nom' => 'Séquence 6', 'nom_en' => 'Sequence 6', 'ordre' => 6, 'ponderation' => 50.0, 'date_debut' => "{$yearEnd}-05-16", 'date_fin' => "{$yearEnd}-06-30", 'date_limite_saisie' => "{$yearEnd}-07-05"],
+                    ['code' => 'EVA-5', 'nom' => 'Évaluation 5', 'nom_en' => 'Evaluation 5', 'ordre' => 5, 'ponderation' => 50.0, 'date_debut' => "{$yearEnd}-03-16", 'date_fin' => "{$yearEnd}-05-15", 'date_limite_saisie' => "{$yearEnd}-05-22"],
+                    ['code' => 'EVA-6', 'nom' => 'Évaluation 6', 'nom_en' => 'Evaluation 6', 'ordre' => 6, 'ponderation' => 50.0, 'date_debut' => "{$yearEnd}-05-16", 'date_fin' => "{$yearEnd}-06-30", 'date_limite_saisie' => "{$yearEnd}-07-05"],
                 ],
             ],
         ];

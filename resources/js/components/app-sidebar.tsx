@@ -49,6 +49,8 @@ export function AppSidebar() {
                 p.startsWith('eleves.') ||
                 p.startsWith('inscriptions.') ||
                 p.startsWith('notes.') ||
+                p.startsWith('releves_notes.') ||
+                p.startsWith('progression.') ||
                 p.startsWith('bulletins.') ||
                 p.startsWith('settings.') ||
                 p.startsWith('grades.') ||

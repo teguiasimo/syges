@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Schema;
  *
  * Crée les tables :
  * 1. annees_scolaires (Cadre temporel global, statut, mode de calcul des moyennes).
- * 2. periodes (Trimestres ou semestres d'évaluation).
+ * 2. periodes (Trimestres ou semestres d'évaluation avec etablissement_id direct pour cloisonnement multi-campus).
  * 3. evaluations (Séquences ou examens, pondérations, dates limites et verrouillage).
  */
 return new class extends Migration
@@ -36,6 +36,7 @@ return new class extends Migration
         // 2. Table des Périodes (Trimestres / Semestres)
         Schema::create('periodes', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('etablissement_id')->nullable()->constrained('etablissements')->cascadeOnDelete();
             $table->foreignId('annee_scolaire_id')->constrained('annees_scolaires')->cascadeOnDelete();
             $table->string('code', 30)->comment('Code de la période (ex: TRIM-1, TERM-1)');
             $table->string('nom', 100)->comment('Nom en français (ex: 1er Trimestre)');
@@ -46,7 +47,7 @@ return new class extends Migration
             $table->string('statut', 30)->default('a_venir')->comment('a_venir, en_cours, cloturee');
             $table->timestamps();
 
-            $table->unique(['annee_scolaire_id', 'code']);
+            $table->unique(['etablissement_id', 'annee_scolaire_id', 'code'], 'periodes_etablissement_annee_code_unique');
         });
 
         // 3. Table des Évaluations (Séquences / Contrôles)

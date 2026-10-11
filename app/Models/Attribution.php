@@ -114,4 +114,15 @@ class Attribution extends Model
     {
         return $query->where('is_active', true);
     }
+
+    /**
+     * Fiches de progression pédagogique (Cahier de texte) consignées pour cette attribution.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function fichesProgression(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(FicheProgression::class, 'attribution_id');
+    }
 }
+

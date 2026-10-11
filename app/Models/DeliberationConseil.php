@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Concerns\BelongsToEtablissement;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -38,7 +39,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class DeliberationConseil extends Model
 {
-    use HasFactory;
+    use HasFactory, BelongsToEtablissement;
 
     /**
      * Nom de la table associée dans la base de données.
@@ -87,15 +88,6 @@ class DeliberationConseil extends Model
         'valide_at' => 'datetime',
     ];
 
-    /**
-     * Relation vers l'établissement scolaire.
-     *
-     * @return BelongsTo<Etablissement, DeliberationConseil>
-     */
-    public function etablissement(): BelongsTo
-    {
-        return $this->belongsTo(Etablissement::class, 'etablissement_id');
-    }
 
     /**
      * Relation vers l'inscription de l'élève.

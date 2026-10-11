@@ -134,7 +134,6 @@ test('on peut enregistrer un nouvel élève avec auto-génération de matricule 
         'nom_pere' => 'NKWENTI John',
         'nom_mere' => 'BIH Grace',
         'adresse' => 'Up Station, Bamenda',
-        'groupe_sanguin' => 'O+',
         'classe_id' => $this->classe->id,
         'annee_scolaire_id' => $this->annee->id,
         'statut' => 'validee',
@@ -151,6 +150,7 @@ test('on peut enregistrer un nouvel élève avec auto-génération de matricule 
     expect($eleve->matricule)->not->toBeEmpty();
     expect($eleve->matricule_national)->toBe('MIN-2026-44112');
     expect($eleve->telephone_parent)->toBe('+237 677 88 99 11');
+    expect($eleve->adresse)->toBe('Up Station, Bamenda');
 
     // Vérifie que son inscription annuelle est bien active
     $inscription = Inscription::where('eleve_id', $eleve->id)
@@ -192,7 +192,7 @@ test('on peut modifier les informations civiles et de contact d un élève', fun
         'prenom' => 'André Joseph',
         'sexe' => 'M',
         'telephone_parent' => '+237 699 11 11 11',
-        'groupe_sanguin' => 'B+',
+        'adresse' => 'Quartier Bastos, Yaoundé',
     ];
 
     actingAs($this->adminUser)
@@ -202,7 +202,7 @@ test('on peut modifier les informations civiles et de contact d un élève', fun
     $eleve->refresh();
     expect($eleve->nom)->toBe('ONANA MODIFIE');
     expect($eleve->telephone_parent)->toBe('+237 699 11 11 11');
-    expect($eleve->groupe_sanguin)->toBe('B+');
+    expect($eleve->adresse)->toBe('Quartier Bastos, Yaoundé');
 });
 
 test('on peut modifier le statut d une inscription en suspendue ou exclu', function () {

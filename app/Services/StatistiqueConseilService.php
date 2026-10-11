@@ -112,6 +112,27 @@ class StatistiqueConseilService
 
         $nombreClassesSurchargees = $classesDetails->where('is_surchargee', true)->count();
 
+        // Répartition par Cycle et Section (conforme au graphique ministériel)
+        $cyclesData = Inscription::query()
+            ->join('classes', 'inscriptions.classe_id', '=', 'classes.id')
+            ->join('niveaux', 'classes.niveau_id', '=', 'niveaux.id')
+            ->join('cycles', 'niveaux.cycle_id', '=', 'cycles.id')
+            ->join('sections', 'cycles.section_id', '=', 'sections.id')
+            ->where('sections.etablissement_id', $etablissementId)
+            ->where('inscriptions.statut', 'validee')
+            ->when($anneeId, fn ($q) => $q->where('inscriptions.annee_scolaire_id', $anneeId))
+            ->selectRaw('cycles.nom as cycle_nom, sections.nom as section_nom, count(inscriptions.id) as total')
+            ->groupBy('cycles.id', 'cycles.nom', 'sections.id', 'sections.nom')
+            ->get()
+            ->map(fn ($r) => [
+                'nom' => "{$r->cycle_nom} - {$r->section_nom}",
+                'cycle' => $r->cycle_nom,
+                'section' => $r->section_nom,
+                'total' => (int) $r->total,
+                'pourcentage' => $totalEffectif > 0 ? round(((int) $r->total / $totalEffectif) * 100, 1) : 0.0,
+            ])
+            ->toArray();
+
         return [
             'annee_scolaire' => $anneeActive?->nom ?? 'N/A',
             'effectif_total' => $totalEffectif,
@@ -133,6 +154,7 @@ class StatistiqueConseilService
                 'classes_surchargees' => $nombreClassesSurchargees,
                 'details' => $classesDetails,
             ],
+            'repartition_cycles' => $cyclesData,
         ];
     }
 

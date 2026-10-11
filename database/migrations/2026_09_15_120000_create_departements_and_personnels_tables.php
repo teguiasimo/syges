@@ -31,7 +31,6 @@ return new class extends Migration
             // Identité du département
             $table->string('nom')->comment('Nom du département, ex: Mathématiques');
             $table->string('code', 20)->nullable()->comment('Code court du département, ex: MATH');
-            $table->text('description')->nullable();
 
             // Animateur pédagogique / Chef de département (clé étrangère nullable ajoutée ultérieurement)
             $table->unsignedBigInteger('chef_departement_id')->nullable()->comment('Enseignant désigné chef de département');

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Head, router } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import {
     type ColumnDef,
     type SortingState,
@@ -34,7 +34,13 @@ import {
     ChevronRight,
     ChevronsLeft,
     ChevronsRight,
+    FileText,
+    Wallet,
+    CreditCard,
+    Download,
+    Printer,
 } from 'lucide-react';
+import { SearchableSelect, type SearchableOption } from '@/components/ui/searchable-select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -58,7 +64,6 @@ import {
 import { toast } from 'sonner';
 import { formatDate } from '@/lib/utils';
 
-import { CreateEleveModal } from './modals/create-eleve-modal';
 import { EditEleveModal } from './modals/edit-eleve-modal';
 import { ReinscriptionModal } from './modals/reinscription-modal';
 import { TransfertModal } from './modals/transfert-modal';
@@ -117,8 +122,6 @@ export default function ElevesIndex({
     filters,
     can,
 }: ElevesPageProps) {
-    // États des modales
-    const [createModalOpen, setCreateModalOpen] = useState(false);
     const [editModalOpen, setEditModalOpen] = useState(false);
     const [selectedEleveForEdit, setSelectedEleveForEdit] = useState<Eleve | null>(null);
 
@@ -251,7 +254,7 @@ export default function ElevesIndex({
                                     {el.matricule}
                                 </Badge>
                                 {el.matricule_national && (
-                                    <span className="text-[10px] text-muted-foreground font-mono truncate max-w-[120px]">
+                                    <span className="text-[10px] text-muted-foreground font-mono truncate max-w-30">
                                         Nat: {el.matricule_national}
                                     </span>
                                 )}
@@ -440,6 +443,57 @@ export default function ElevesIndex({
                                             Marquer Exclu
                                         </DropdownMenuItem>
                                     )}
+
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuLabel className="text-xs font-bold text-slate-500">États Imprimables Officiels</DropdownMenuLabel>
+                                    <DropdownMenuItem
+                                        onClick={() => window.open(`/administration/documents/certificat-scolarite/${insc.id}`, '_blank')}
+                                        className="gap-2 cursor-pointer font-medium"
+                                    >
+                                        <FileText className="size-4 text-indigo-600" />
+                                        Certificat de Scolarité (PDF)
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                        onClick={() => window.open(`/administration/eleves/${insc.id}/carte-scolaire-pdf`, '_blank')}
+                                        className="gap-2 cursor-pointer font-medium"
+                                    >
+                                        <CreditCard className="size-4 text-sky-600" />
+                                        Carte Scolaire (Badge PDF)
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                        onClick={() => window.open(`/administration/documents/certificat-radiation/${insc.id}`, '_blank')}
+                                        className="gap-2 cursor-pointer font-medium"
+                                    >
+                                        <FileText className="size-4 text-rose-600" />
+                                        Certificat de Radiation (PDF)
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                        onClick={() => window.open(`/administration/documents/situation-financiere/${insc.id}`, '_blank')}
+                                        className="gap-2 cursor-pointer font-medium"
+                                    >
+                                        <Wallet className="size-4 text-emerald-600" />
+                                        Situation Financière (PDF)
+                                    </DropdownMenuItem>
+
+                                    {insc.classe_id && (
+                                        <>
+                                            <DropdownMenuItem
+                                                onClick={() => window.open(`/administration/documents/liste-eleves/${insc.classe_id}?type=definitive&annee_id=${selectedAnneeId}`, '_blank')}
+                                                className="gap-2 cursor-pointer font-medium"
+                                            >
+                                                <Users className="size-4 text-teal-600" />
+                                                Liste classe ({insc.classe?.nom})
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem
+                                                onClick={() => window.open(`/administration/documents/fiche-appel/${insc.classe_id}?annee_id=${selectedAnneeId}`, '_blank')}
+                                                className="gap-2 cursor-pointer font-medium"
+                                            >
+                                                <Printer className="size-4 text-blue-600" />
+                                                Fiche d'appel ({insc.classe?.nom})
+                                            </DropdownMenuItem>
+                                        </>
+                                    )}
+
                                     {can.eleves_delete && (
                                         <>
                                             <DropdownMenuSeparator />
@@ -480,7 +534,7 @@ export default function ElevesIndex({
         getPaginationRowModel: getPaginationRowModel(),
         initialState: {
             pagination: {
-                pageSize: 15,
+                pageSize: 50,
             },
         },
     });
@@ -513,6 +567,16 @@ export default function ElevesIndex({
         return list;
     }, [etablissements, selectedEtab]);
 
+    // Options formatées pour le sélecteur avec recherche de classe
+    const classeOptions: SearchableOption[] = useMemo(() => [
+        { value: '', label: 'Toutes les classes' },
+        ...filterClasses.map((cls) => ({
+            value: String(cls.id),
+            label: `${cls.nom} (${cls.niveauNom})`,
+            group: cls.niveauNom,
+        })),
+    ], [filterClasses]);
+
     return (
         <>
             <Head title="Gestion des Élèves & Inscriptions" />
@@ -543,24 +607,129 @@ export default function ElevesIndex({
                             onChange={(e) => handleFilterChange({ annee_scolaire_id: e.target.value })}
                             className="h-9 rounded-md border border-input bg-background px-3 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-ring"
                         >
-                            {anneesScolaires.map((a) => (
-                                <option key={a.id} value={a.id}>
-                                    Année {a.nom} {a.is_current ? '★' : ''}
-                                </option>
-                            ))}
+                            {anneesScolaires.map((a) => {
+                                const codeAnnee = a.code || a.nom.replace(/^année\s*scolaire\s*/i, '').trim();
+                                return (
+                                    <option key={a.id} value={a.id}>
+                                        {codeAnnee} {a.is_current ? '★' : ''}
+                                    </option>
+                                );
+                            })}
                         </select>
 
                         {can.inscriptions_manage && (
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setImportModalOpen(true)}
-                                className="gap-1.5 h-9"
-                            >
-                                <FileSpreadsheet className="size-4 text-emerald-600" />
-                                <span className="hidden sm:inline">Importer CSV</span>
-                            </Button>
+                            <>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setImportModalOpen(true)}
+                                    className="gap-1.5 h-9"
+                                    title="Importer une liste d'élèves depuis un fichier CSV"
+                                >
+                                    <FileSpreadsheet className="size-4 text-emerald-600" />
+                                    <span className="hidden sm:inline">Importer CSV</span>
+                                </Button>
+
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                        const params = new URLSearchParams();
+                                        if (selectedAnneeId) params.append('annee_scolaire_id', String(selectedAnneeId));
+                                        if (selectedEtab) params.append('etablissement_id', selectedEtab);
+                                        if (selectedClasse) params.append('classe_id', selectedClasse);
+                                        if (selectedStatut) params.append('statut', selectedStatut);
+                                        if (selectedSexe) params.append('sexe', selectedSexe);
+                                        if (searchTerm) params.append('search', searchTerm);
+                                        window.open(`/administration/eleves/export-csv?${params.toString()}`, '_blank');
+                                    }}
+                                    className="gap-1.5 h-9"
+                                    title="Exporter la liste des élèves au format CSV (Excel)"
+                                >
+                                    <Download className="size-4 text-sky-600" />
+                                    <span className="hidden sm:inline">Exporter CSV</span>
+                                </Button>
+                            </>
                         )}
+
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            asChild
+                            className="gap-1.5 h-9 border-sky-300 text-sky-700 dark:border-sky-800 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-sky-950/40"
+                        >
+                            <Link href="/administration/eleves/cartes-scolaires">
+                                <CreditCard className="size-4 text-sky-600" />
+                                <span className="hidden sm:inline">Cartes Scolaires</span>
+                            </Link>
+                        </Button>
+
+                        {/* Menu d'impression des états et listes administratives officielles */}
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="gap-1.5 h-9 border-indigo-200 text-indigo-700 dark:border-indigo-800 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 cursor-pointer"
+                                    title="Imprimer les listes et fiches administratives officielles (PDF)"
+                                >
+                                    <Printer className="size-4 text-indigo-600 dark:text-indigo-400" />
+                                    <span className="hidden sm:inline">Listes & Fiches (PDF)</span>
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-64">
+                                <DropdownMenuLabel className="text-xs font-bold text-slate-500">
+                                    {selectedClasse
+                                        ? `Classe : ${filterClasses.find((c) => String(c.id) === selectedClasse)?.nom ?? ''}`
+                                        : 'Documents de classe'}
+                                </DropdownMenuLabel>
+
+                                {selectedClasse ? (
+                                    <>
+                                        <DropdownMenuItem
+                                            onClick={() => window.open(`/administration/documents/liste-eleves/${selectedClasse}?type=definitive&annee_id=${selectedAnneeId}`, '_blank')}
+                                            className="gap-2 cursor-pointer font-medium"
+                                        >
+                                            <FileText className="size-4 text-emerald-600" />
+                                            <span>Liste Définitive des élèves</span>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                            onClick={() => window.open(`/administration/documents/liste-eleves/${selectedClasse}?type=provisoire&annee_id=${selectedAnneeId}`, '_blank')}
+                                            className="gap-2 cursor-pointer font-medium"
+                                        >
+                                            <FileText className="size-4 text-amber-600" />
+                                            <span>Liste Provisoire des élèves</span>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                            onClick={() => window.open(`/administration/documents/fiche-appel/${selectedClasse}?annee_id=${selectedAnneeId}`, '_blank')}
+                                            className="gap-2 cursor-pointer font-medium"
+                                        >
+                                            <Printer className="size-4 text-blue-600" />
+                                            <span>Fiche d'Appel (Émargement)</span>
+                                        </DropdownMenuItem>
+                                    </>
+                                ) : (
+                                    <div className="px-2 py-1.5 text-xs text-muted-foreground italic">
+                                        Sélectionnez une classe dans les filtres pour générer sa fiche d'appel ou sa liste nominative.
+                                    </div>
+                                )}
+
+                                <DropdownMenuSeparator />
+                                <DropdownMenuLabel className="text-xs font-bold text-slate-500">
+                                    Répertoire Général
+                                </DropdownMenuLabel>
+                                <DropdownMenuItem
+                                    onClick={() => {
+                                        const etabParam = selectedEtab ? `&etablissement_id=${selectedEtab}` : '';
+                                        window.open(`/administration/documents/liste-classes?annee_id=${selectedAnneeId}${etabParam}`, '_blank');
+                                    }}
+                                    className="gap-2 cursor-pointer font-medium"
+                                >
+                                    <School className="size-4 text-indigo-600" />
+                                    <span>Liste Récapitulative des Classes</span>
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
 
                         {can.inscriptions_transfer && (
                             <Button
@@ -579,29 +748,33 @@ export default function ElevesIndex({
                             <Button
                                 variant="secondary"
                                 size="sm"
-                                onClick={() => setReinscriptionModalOpen(true)}
+                                asChild
                                 className="gap-1.5 h-9"
                             >
-                                <UserCheck className="size-4 text-emerald-600" />
-                                <span className="hidden sm:inline">Réinscrire Ancien</span>
+                                <Link href="/administration/eleves/reinscription">
+                                    <UserCheck className="size-4 text-emerald-600" />
+                                    <span className="hidden sm:inline">Réinscrire Ancien</span>
+                                </Link>
                             </Button>
                         )}
 
                         {can.eleves_create && (
                             <Button
                                 size="sm"
-                                onClick={() => setCreateModalOpen(true)}
+                                asChild
                                 className="gap-1.5 h-9"
                             >
-                                <Plus className="size-4" />
-                                Nouvel Élève
+                                <Link href="/administration/eleves/create">
+                                    <Plus className="size-4" />
+                                    Nouvel Élève
+                                </Link>
                             </Button>
                         )}
                     </div>
                 </div>
 
                 {/* Sélecteur Maître de Campus (Multi-Établissements) */}
-                {etablissements.length > 1 && (
+                {etablissements.length > 1 ? (
                     <div className="flex items-center gap-2 overflow-x-auto pb-1">
                         <span className="text-xs font-semibold text-muted-foreground shrink-0 flex items-center gap-1.5 mr-1">
                             <School className="size-4 text-primary" />
@@ -631,13 +804,26 @@ export default function ElevesIndex({
                                     setSelectedClasse('');
                                     handleFilterChange({ etablissement_id: String(etab.id), classe_id: '' });
                                 }}
-                                className="h-8 text-xs font-medium rounded-full cursor-pointer"
+                                className="h-8 text-xs font-medium rounded-full cursor-pointer max-w-50 truncate"
+                                title={etab.nom}
                             >
-                                {etab.nom}
+                                {etab.nom.length > 25 ? `${etab.nom.substring(0, 25)}…` : etab.nom}
                             </Button>
                         ))}
                     </div>
-                )}
+                ) : etablissements.length === 1 ? (
+                    <div className="flex items-center gap-2 p-2.5 rounded-xl bg-muted/40 border border-border/60">
+                        <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 text-xs font-semibold px-2.5 py-1">
+                            {etablissements[0].code || 'Campus'}
+                        </Badge>
+                        <span className="text-xs font-medium text-foreground">
+                            {etablissements[0].nom}
+                        </span>
+                        <span className="text-xs text-muted-foreground ml-auto">
+                            (Votre campus assigné)
+                        </span>
+                    </div>
+                ) : null}
 
                 {/* Grille des 4 KPIs en temps réel */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -656,7 +842,7 @@ export default function ElevesIndex({
                                 Validés
                             </Badge>
                         </div>
-                        <p className="text-[11px] text-muted-foreground mt-1">Année {currentAnneeObj?.nom ?? ''}</p>
+                        <p className="text-[11px] text-muted-foreground mt-1">{currentAnneeObj?.nom ?? ''}</p>
                     </div>
 
                     <div className="rounded-2xl border border-border/80 bg-card p-4 shadow-xs">
@@ -774,22 +960,20 @@ export default function ElevesIndex({
                             ))}
                         </select>
 
-                        {/* Filtre Classe */}
-                        <select
-                            value={selectedClasse}
-                            onChange={(e) => {
-                                setSelectedClasse(e.target.value);
-                                handleFilterChange({ classe_id: e.target.value });
-                            }}
-                            className="w-full md:w-44 h-9 rounded-md border border-input bg-background px-3 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
-                        >
-                            <option value="">Toutes les classes</option>
-                            {filterClasses.map((cls) => (
-                                <option key={cls.id} value={cls.id}>
-                                    {cls.nom} ({cls.niveauNom})
-                                </option>
-                            ))}
-                        </select>
+                        {/* Filtre Classe avec recherche instantanée */}
+                        <div className="w-full md:w-56">
+                            <SearchableSelect
+                                options={classeOptions}
+                                value={selectedClasse}
+                                onChange={(val) => {
+                                    setSelectedClasse(val);
+                                    handleFilterChange({ classe_id: val });
+                                }}
+                                placeholder="Toutes les classes"
+                                searchPlaceholder="Rechercher une classe..."
+                                className="h-9 text-xs"
+                            />
+                        </div>
 
                         {/* Filtre Statut Inscription */}
                         <select
@@ -832,6 +1016,58 @@ export default function ElevesIndex({
                         </Button>
                     </div>
                 </div>
+
+                {/* Bandeau d'actions rapides pour la classe activement filtrée */}
+                {selectedClasse && (
+                    <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-2xl bg-indigo-50/70 border border-indigo-200 dark:bg-indigo-950/30 dark:border-indigo-800 shadow-xs">
+                        <div className="flex items-center gap-2.5 text-xs font-semibold text-indigo-950 dark:text-indigo-200">
+                            <div className="p-1.5 rounded-lg bg-indigo-600 text-white shrink-0 shadow-xs">
+                                <Printer className="size-3.5" />
+                            </div>
+                            <div>
+                                <span>Documents officiels de la division : </span>
+                                <strong className="font-bold underline text-indigo-800 dark:text-indigo-300">
+                                    {filterClasses.find((c) => String(c.id) === selectedClasse)?.nom ?? 'Classe sélectionnée'}
+                                </strong>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="h-8 text-xs font-semibold gap-1.5 bg-white dark:bg-slate-900 border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-950 text-emerald-700 dark:text-emerald-400 cursor-pointer shadow-xs"
+                                onClick={() => window.open(`/administration/documents/liste-eleves/${selectedClasse}?type=definitive&annee_id=${selectedAnneeId}`, '_blank')}
+                                title="Télécharger la liste définitive officielle de cette classe"
+                            >
+                                <FileText className="size-3.5 text-emerald-600" />
+                                <span>Liste Définitive (PDF)</span>
+                            </Button>
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="h-8 text-xs font-semibold gap-1.5 bg-white dark:bg-slate-900 border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-950 text-amber-700 dark:text-amber-400 cursor-pointer shadow-xs"
+                                onClick={() => window.open(`/administration/documents/liste-eleves/${selectedClasse}?type=provisoire&annee_id=${selectedAnneeId}`, '_blank')}
+                                title="Télécharger la liste provisoire de cette classe"
+                            >
+                                <FileText className="size-3.5 text-amber-600" />
+                                <span>Liste Provisoire (PDF)</span>
+                            </Button>
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="h-8 text-xs font-semibold gap-1.5 bg-white dark:bg-slate-900 border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-950 text-blue-700 dark:text-blue-400 cursor-pointer shadow-xs"
+                                onClick={() => window.open(`/administration/documents/fiche-appel/${selectedClasse}?annee_id=${selectedAnneeId}`, '_blank')}
+                                title="Télécharger la fiche d'appel mensuelle d'émargement"
+                            >
+                                <Printer className="size-3.5 text-blue-600" />
+                                <span>Fiche d'Appel (PDF)</span>
+                            </Button>
+                        </div>
+                    </div>
+                )}
 
                 {/* TABLEAU DE DONNÉES TANSTACK TABLE */}
                 <div className="rounded-2xl border border-border/80 bg-card overflow-hidden shadow-xs">
@@ -903,7 +1139,7 @@ export default function ElevesIndex({
                                     onChange={(e) => table.setPageSize(Number(e.target.value))}
                                     className="h-8 rounded-md border border-input bg-background px-2 text-xs"
                                 >
-                                    {[10, 15, 25, 50, 100].map((size) => (
+                                    {[25, 50, 100, 200].map((size) => (
                                         <option key={size} value={size}>
                                             {size}
                                         </option>
@@ -960,15 +1196,6 @@ export default function ElevesIndex({
             </div>
 
             {/* MODALES & TIROIRS */}
-            {can.eleves_create && (
-                <CreateEleveModal
-                    open={createModalOpen}
-                    onOpenChange={setCreateModalOpen}
-                    etablissements={etablissements}
-                    anneesScolaires={anneesScolaires}
-                    selectedAnneeId={selectedAnneeId}
-                />
-            )}
 
             {can.eleves_edit && (
                 <EditEleveModal

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Administration;
 
+use App\Concerns\ScopesEtablissement;
 use App\Http\Controllers\Controller;
 use App\Models\AnneeScolaire;
 use App\Models\Attribution;
@@ -27,9 +28,13 @@ use Inertia\Response as InertiaResponse;
  * - Le référentiel des locaux et gestion des capacités d'accueil.
  * - Les alertes de remplacement et d'annulation.
  * - Les décomptes horaires RH des enseignants.
+ *
+ * Utilise ScopesEtablissement pour cloisonner hermétiquement les plannings par campus.
  */
 class EmploiDuTempsController extends Controller implements HasMiddleware
 {
+    use ScopesEtablissement;
+
     /**
      * Définition de la matrice des middlewares d'autorisation pour le module Emplois du Temps & Salles.
      *
@@ -68,12 +73,12 @@ class EmploiDuTempsController extends Controller implements HasMiddleware
             ?? AnneeScolaire::latest()->first();
 
         $anneeId = $request->integer('annee_scolaire_id', $currentAnnee?->id ?? 0);
-        $etablissements = Etablissement::with('institution')->get();
-        $currentEtablissement = $request->has('etablissement_id')
-            ? Etablissement::find($request->integer('etablissement_id'))
-            : $etablissements->first();
 
-        $etablissementId = $currentEtablissement?->id ?? 0;
+        // Résolution hermétique du campus selon les prérogatives de l'utilisateur
+        $context = $this->resolveEtablissementContext($request, ['institution']);
+        $etablissements = $context['etablissements'];
+        $currentEtablissement = $context['selectedEtablissement'];
+        $etablissementId = $context['etablissementId'] ?? 0;
 
         // Classes de l'établissement
         $classes = Classe::whereHas('niveau.cycle.section', fn ($q) => $q->where('etablissement_id', $etablissementId))
@@ -111,19 +116,48 @@ class EmploiDuTempsController extends Controller implements HasMiddleware
             ->orderByRaw("CASE jour_semaine WHEN 'lundi' THEN 1 WHEN 'mardi' THEN 2 WHEN 'mercredi' THEN 3 WHEN 'jeudi' THEN 4 WHEN 'vendredi' THEN 5 WHEN 'samedi' THEN 6 ELSE 7 END")
             ->orderBy('heure_debut');
 
-        if ($classeId > 0) {
-            $seancesQuery->where('classe_id', $classeId);
-        }
+        $user = $request->user();
+        $isGestionnaire = $user?->hasRole(['super-admin', 'admin', 'directeur-etudes', 'censeur', 'surveillant-general'])
+            || $user?->can('emplois_du_temps.manage');
 
-        if ($salleId > 0) {
-            $seancesQuery->where('salle_id', $salleId);
-        }
+        if (! $isGestionnaire) {
+            // Un enseignant ne consulte que son propre emploi du temps
+            $personnel = $user->personnel ?? ($user->email ? Personnel::where('email', $user->email)->first() : null);
+            $personnelId = $personnel?->id ?? -1;
 
-        if ($personnelId > 0) {
             $seancesQuery->where(function ($q) use ($personnelId) {
                 $q->whereHas('attribution', fn ($sq) => $sq->where('personnel_id', $personnelId))
                   ->orWhere('remplace_par_personnel_id', $personnelId);
             });
+
+            // Ne lister que ses propres classes et son propre profil
+            $classes = Classe::whereHas('attributions', fn ($q) => $q->where('personnel_id', $personnelId)->where('annee_scolaire_id', $anneeId))
+                ->orderBy('nom')
+                ->get();
+            $enseignants = $personnel ? collect([$personnel]) : collect([]);
+            $salles = collect([]);
+            $decomptesRH = $personnel ? [$personnel->id => $service->calculerDecompteHeuresEnseignant($anneeId, $personnel->id)] : [];
+        } else {
+            if ($classeId > 0) {
+                $seancesQuery->where('classe_id', $classeId);
+            }
+
+            if ($salleId > 0) {
+                $seancesQuery->where('salle_id', $salleId);
+            }
+
+            if ($personnelId > 0) {
+                $seancesQuery->where(function ($q) use ($personnelId) {
+                    $q->whereHas('attribution', fn ($sq) => $sq->where('personnel_id', $personnelId))
+                      ->orWhere('remplace_par_personnel_id', $personnelId);
+                });
+            }
+
+            // Décomptes RH pour les gestionnaires
+            $decomptesRH = [];
+            foreach ($enseignants as $ens) {
+                $decomptesRH[$ens->id] = $service->calculerDecompteHeuresEnseignant($anneeId, $ens->id);
+            }
         }
 
         $seances = $seancesQuery->get();
@@ -136,13 +170,7 @@ class EmploiDuTempsController extends Controller implements HasMiddleware
             $attributionsQuery->where('classe_id', $classeId);
         }
 
-        $attributions = $attributionsQuery->get();
-
-        // Décomptes RH pour les enseignants
-        $decomptesRH = [];
-        foreach ($enseignants as $ens) {
-            $decomptesRH[$ens->id] = $service->calculerDecompteHeuresEnseignant($anneeId, $ens->id);
-        }
+        $attributions = $isGestionnaire ? $attributionsQuery->get() : collect([]);
 
         return Inertia::render('administration/emplois-du-temps/index', [
             'seances' => $seances,
@@ -183,6 +211,12 @@ class EmploiDuTempsController extends Controller implements HasMiddleware
             'heure_fin' => 'required|date_format:H:i|after:heure_debut',
         ]);
 
+        $classe = Classe::findOrFail($validated['classe_id']);
+        $context = $this->resolveEtablissementContext($request);
+        if (! $context['isSuperAdmin'] && (int) $classe->etablissement_id !== (int) $context['etablissementId']) {
+            abort(403, 'Action non autorisée sur une classe d\'un autre établissement.');
+        }
+
         $service->planifierSeance($validated);
 
         return back()->with('success', "Cours planifié avec succès dans l'emploi du temps (aucun conflit détecté).");
@@ -199,6 +233,12 @@ class EmploiDuTempsController extends Controller implements HasMiddleware
     public function updateSeance(Request $request, SeanceEmploiTemps $seance, EmploiDuTempsService $service): RedirectResponse
     {
         abort_if(! $request->user()?->can('emplois_du_temps.manage') && ! $request->user()?->hasRole('super-admin'), 403);
+
+        $seance->load('classe');
+        $context = $this->resolveEtablissementContext($request);
+        if (! $context['isSuperAdmin'] && (int) $seance->classe?->etablissement_id !== (int) $context['etablissementId']) {
+            abort(403, 'Action non autorisée sur une séance d\'un autre établissement.');
+        }
 
         $validated = $request->validate([
             'attribution_id' => 'sometimes|exists:attributions,id',
@@ -223,6 +263,12 @@ class EmploiDuTempsController extends Controller implements HasMiddleware
     {
         abort_if(! request()->user()?->can('emplois_du_temps.manage') && ! request()->user()?->hasRole('super-admin'), 403);
 
+        $seance->load('classe');
+        $context = $this->resolveEtablissementContext(request());
+        if (! $context['isSuperAdmin'] && (int) $seance->classe?->etablissement_id !== (int) $context['etablissementId']) {
+            abort(403, 'Action non autorisée sur une séance d\'un autre établissement.');
+        }
+
         $seance->delete();
 
         return back()->with('success', "Séance retirée de la grille hebdomadaire.");
@@ -239,6 +285,12 @@ class EmploiDuTempsController extends Controller implements HasMiddleware
     public function annulerSeance(Request $request, SeanceEmploiTemps $seance, EmploiDuTempsService $service): RedirectResponse
     {
         abort_if(! $request->user()?->can('emplois_du_temps.manage') && ! $request->user()?->hasRole('super-admin'), 403);
+
+        $seance->load('classe');
+        $context = $this->resolveEtablissementContext($request);
+        if (! $context['isSuperAdmin'] && (int) $seance->classe?->etablissement_id !== (int) $context['etablissementId']) {
+            abort(403, 'Action non autorisée sur une séance d\'un autre établissement.');
+        }
 
         $validated = $request->validate([
             'motif_annulation' => 'required|string|min:3|max:500',
@@ -261,6 +313,12 @@ class EmploiDuTempsController extends Controller implements HasMiddleware
     {
         abort_if(! $request->user()?->can('emplois_du_temps.manage') && ! $request->user()?->hasRole('super-admin'), 403);
 
+        $seance->load('classe');
+        $context = $this->resolveEtablissementContext($request);
+        if (! $context['isSuperAdmin'] && (int) $seance->classe?->etablissement_id !== (int) $context['etablissementId']) {
+            abort(403, 'Action non autorisée sur une séance d\'un autre établissement.');
+        }
+
         $validated = $request->validate([
             'remplace_par_personnel_id' => 'required|exists:personnels,id',
             'motif_annulation' => 'nullable|string|max:500',
@@ -281,6 +339,12 @@ class EmploiDuTempsController extends Controller implements HasMiddleware
     public function retablirSeance(SeanceEmploiTemps $seance, EmploiDuTempsService $service): RedirectResponse
     {
         abort_if(! request()->user()?->can('emplois_du_temps.manage') && ! request()->user()?->hasRole('super-admin'), 403);
+
+        $seance->load('classe');
+        $context = $this->resolveEtablissementContext(request());
+        if (! $context['isSuperAdmin'] && (int) $seance->classe?->etablissement_id !== (int) $context['etablissementId']) {
+            abort(403, 'Action non autorisée sur une séance d\'un autre établissement.');
+        }
 
         $service->retablirSeance($seance);
 
@@ -307,6 +371,11 @@ class EmploiDuTempsController extends Controller implements HasMiddleware
             'description' => 'nullable|string|max:1000',
         ]);
 
+        $context = $this->resolveEtablissementContext($request);
+        if (! $context['isSuperAdmin']) {
+            $validated['etablissement_id'] = $context['etablissementId'];
+        }
+
         Salle::create($validated);
 
         return back()->with('success', "Salle pédagogique enregistrée avec succès.");
@@ -322,6 +391,11 @@ class EmploiDuTempsController extends Controller implements HasMiddleware
     public function updateSalle(Request $request, Salle $salle): RedirectResponse
     {
         abort_if(! $request->user()?->can('emplois_du_temps.manage') && ! $request->user()?->hasRole('super-admin'), 403);
+
+        $context = $this->resolveEtablissementContext($request);
+        if (! $context['isSuperAdmin'] && (int) $salle->etablissement_id !== (int) $context['etablissementId']) {
+            abort(403, 'Action non autorisée sur une salle d\'un autre établissement.');
+        }
 
         $validated = $request->validate([
             'nom' => 'required|string|max:100',
@@ -346,6 +420,11 @@ class EmploiDuTempsController extends Controller implements HasMiddleware
     public function destroySalle(Salle $salle): RedirectResponse
     {
         abort_if(! request()->user()?->can('emplois_du_temps.manage') && ! request()->user()?->hasRole('super-admin'), 403);
+
+        $context = $this->resolveEtablissementContext(request());
+        if (! $context['isSuperAdmin'] && (int) $salle->etablissement_id !== (int) $context['etablissementId']) {
+            abort(403, 'Action non autorisée sur une salle d\'un autre établissement.');
+        }
 
         $salle->delete();
 

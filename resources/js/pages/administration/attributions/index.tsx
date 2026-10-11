@@ -1,4 +1,4 @@
-import { Head, router } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { type ColumnDef } from '@tanstack/react-table';
 import {
     AlertTriangle,
@@ -9,6 +9,7 @@ import {
     Clock,
     Edit2,
     Eye,
+    FileSpreadsheet,
     Filter,
     Layers,
     Plus,
@@ -91,8 +92,23 @@ export default function AttributionsIndex({
     const [attributionToDelete, setAttributionToDelete] = useState<Attribution | null>(null);
 
     // Filtres locaux
-    const [filterEtablissement, setFilterEtablissement] = useState<string>(filters?.etablissement_id || 'all');
+    const [filterEtablissement, setFilterEtablissement] = useState<string>(String(filters?.etablissement_id || 'all'));
     const [filterCharge, setFilterCharge] = useState<string>('all');
+
+    /**
+     * Changement d'établissement scolaire via rechargement Inertia.
+     */
+    const handleEtablissementChange = (newEtab: string) => {
+        setFilterEtablissement(newEtab);
+        router.get(
+            '/administration/attributions',
+            {
+                annee_scolaire_id: selectedAnneeId,
+                etablissement_id: newEtab !== 'all' ? newEtab : undefined,
+            },
+            { preserveState: true, replace: true }
+        );
+    };
 
     /**
      * Changement d'année scolaire via rechargement Inertia.
@@ -114,20 +130,24 @@ export default function AttributionsIndex({
     const filteredClasses = useMemo(() => {
         return classes.filter((c) => {
             if (filterEtablissement !== 'all') {
-                const etabId = c.niveau?.cycle?.section?.etablissement?.id;
-                if (String(etabId) !== filterEtablissement) return false;
+                const etabId = c.etablissement_id ?? c.niveau?.cycle?.section?.etablissement?.id;
+                if (String(etabId) !== String(filterEtablissement)) return false;
             }
             return true;
         });
     }, [classes, filterEtablissement]);
 
     /**
-     * Filtrage des enseignants selon la charge de travail.
+     * Filtrage des enseignants selon la charge de travail et l'établissement.
      */
     const filteredEnseignants = useMemo(() => {
         return enseignants.filter((e) => {
-            if (filterEtablissement !== 'all' && String(e.etablissement?.id) !== filterEtablissement) {
-                return false;
+            if (filterEtablissement !== 'all') {
+                const etabId = e.etablissement?.id;
+                // Si l'enseignant est rattaché à un campus différent, on filtre
+                if (etabId && String(etabId) !== String(filterEtablissement)) {
+                    return false;
+                }
             }
             if (filterCharge !== 'all' && e.statut_charge !== filterCharge) {
                 return false;
@@ -196,17 +216,29 @@ export default function AttributionsIndex({
                     const c = row.original;
                     if (c.professeur_principal) {
                         return (
-                            <div className="flex items-center gap-2">
-                                <Award className="size-4 text-amber-600 shrink-0" />
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    if (can.manage) {
+                                        setSelectedClasseForPP(c);
+                                        setIsPPOpen(true);
+                                    }
+                                }}
+                                className={`flex items-center gap-2 text-left group p-1.5 rounded-lg transition-colors ${
+                                    can.manage ? 'hover:bg-amber-50 dark:hover:bg-amber-950/40 cursor-pointer' : ''
+                                }`}
+                                title={can.manage ? 'Cliquer pour modifier le professeur principal de cette classe' : undefined}
+                            >
+                                <Award className="size-4 text-amber-600 shrink-0 group-hover:scale-110 transition-transform" />
                                 <div className="text-xs">
-                                    <span className="font-semibold text-foreground block">
+                                    <span className="font-semibold text-foreground block group-hover:text-amber-700 dark:group-hover:text-amber-400">
                                         {c.professeur_principal.nom} {c.professeur_principal.prenom}
                                     </span>
                                     <span className="text-[11px] text-muted-foreground font-mono">
                                         {c.professeur_principal.matricule}
                                     </span>
                                 </div>
-                            </div>
+                            </button>
                         );
                     }
                     return (
@@ -290,20 +322,14 @@ export default function AttributionsIndex({
                     const c = row.original;
                     return (
                         <div className="flex items-center justify-end gap-1.5">
-                            {/* Bouton Matrice de la classe */}
-                            <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                    setSelectedClasseForMatrix(c);
-                                    setIsMatrixOpen(true);
-                                }}
-                                className="h-8 text-xs font-semibold cursor-pointer border-indigo-200 text-indigo-700 hover:bg-indigo-50 dark:border-indigo-800 dark:text-indigo-400 dark:hover:bg-indigo-950/50"
+                            {/* Bouton vers la page dédiée de la grille de classe */}
+                            <Link
+                                href={`/administration/attributions/grille?classe_id=${c.id}&annee_scolaire_id=${selectedAnneeId}`}
+                                className="inline-flex items-center justify-center h-8 px-2.5 rounded-md border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-xs font-semibold cursor-pointer transition-colors shadow-2xs"
                             >
                                 <Layers className="size-3.5 mr-1 text-indigo-600" />
                                 Grille Classe
-                            </Button>
+                            </Link>
 
                             {/* Bouton Affecter un cours rapide */}
                             {can.manage && (
@@ -319,23 +345,6 @@ export default function AttributionsIndex({
                                     className="size-8 rounded-lg text-muted-foreground hover:text-foreground cursor-pointer"
                                 >
                                     <Plus className="size-4" />
-                                </Button>
-                            )}
-
-                            {/* Bouton Désignation Professeur Principal */}
-                            {can.manage && (
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => {
-                                        setSelectedClasseForPP(c);
-                                        setIsPPOpen(true);
-                                    }}
-                                    title="Désigner le Professeur Principal"
-                                    className="size-8 rounded-lg text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/50 cursor-pointer"
-                                >
-                                    <Award className="size-4" />
                                 </Button>
                             )}
                         </div>
@@ -539,6 +548,15 @@ export default function AttributionsIndex({
                             ))}
                         </select>
 
+                        {/* Bouton vers la page dédiée de la grille de classe */}
+                        <Link
+                            href={`/administration/attributions/grille?annee_scolaire_id=${selectedAnneeId}`}
+                            className="inline-flex items-center justify-center h-9 px-3 rounded-md border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-950/40 hover:bg-indigo-100/60 font-semibold text-xs transition-colors shadow-2xs"
+                        >
+                            <FileSpreadsheet className="size-4 mr-1.5 text-indigo-600" />
+                            Grille par classe
+                        </Link>
+
                         {can.manage && (
                             <Button
                                 type="button"
@@ -664,20 +682,21 @@ export default function AttributionsIndex({
                             columns={classeColumns}
                             data={filteredClasses}
                             searchPlaceholder="Rechercher une classe, un niveau..."
+                            initialPageSize={20}
                             filterSlot={
                                 <div className="flex items-center gap-2">
                                     <Select
                                         value={filterEtablissement}
-                                        onValueChange={setFilterEtablissement}
+                                        onValueChange={handleEtablissementChange}
                                     >
-                                        <SelectTrigger className="h-9 w-42.5 text-xs bg-card">
+                                        <SelectTrigger className="h-9 w-48 text-xs bg-card">
                                             <SelectValue placeholder="Établissement" />
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="all">Tous les campus</SelectItem>
                                             {etablissements.map((e) => (
                                                 <SelectItem key={e.id} value={String(e.id)}>
-                                                    {e.code}
+                                                    {e.nom} ({e.code})
                                                 </SelectItem>
                                             ))}
                                         </SelectContent>
@@ -695,8 +714,26 @@ export default function AttributionsIndex({
                             columns={enseignantColumns}
                             data={filteredEnseignants}
                             searchPlaceholder="Rechercher un enseignant, matricule..."
+                            initialPageSize={20}
                             filterSlot={
                                 <div className="flex items-center gap-2">
+                                    <Select
+                                        value={filterEtablissement}
+                                        onValueChange={handleEtablissementChange}
+                                    >
+                                        <SelectTrigger className="h-9 w-48 text-xs bg-card">
+                                            <SelectValue placeholder="Établissement" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">Tous les campus</SelectItem>
+                                            {etablissements.map((e) => (
+                                                <SelectItem key={e.id} value={String(e.id)}>
+                                                    {e.nom} ({e.code})
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+
                                     <Select
                                         value={filterCharge}
                                         onValueChange={setFilterCharge}

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Administration;
 
+use App\Concerns\ScopesEtablissement;
 use App\Http\Controllers\Controller;
 use App\Models\Departement;
 use App\Models\Etablissement;
@@ -29,6 +30,7 @@ use Spatie\Permission\Models\Role;
  */
 class PersonnelController extends Controller implements HasMiddleware
 {
+    use ScopesEtablissement;
     /**
      * Définition de la matrice des middlewares d'autorisation pour le module Personnel & RH.
      *
@@ -38,9 +40,13 @@ class PersonnelController extends Controller implements HasMiddleware
     {
         return [
             new Middleware('can:personnels.view', only: ['index']),
-            new Middleware('can:personnels.manage', only: ['store', 'update', 'toggleStatus']),
-            new Middleware('can:personnels.delete', only: ['destroy']),
-            new Middleware('can:departements.manage', only: ['storeDepartement', 'updateDepartement', 'destroyDepartement']),
+            new Middleware('can:personnels.create|personnels.manage', only: ['create', 'store']),
+            new Middleware('can:personnels.edit|personnels.manage', only: ['update']),
+            new Middleware('can:personnels.toggle_status|personnels.manage', only: ['toggleStatus']),
+            new Middleware('can:personnels.delete|personnels.manage', only: ['destroy']),
+            new Middleware('can:departements.create|departements.manage', only: ['storeDepartement']),
+            new Middleware('can:departements.edit|departements.manage', only: ['updateDepartement']),
+            new Middleware('can:departements.delete|departements.manage', only: ['destroyDepartement']),
         ];
     }
 
@@ -59,63 +65,68 @@ class PersonnelController extends Controller implements HasMiddleware
         abort_unless(
             $isSuperAdmin || $user?->can('personnels.view'),
             403,
-            'Accès non autorisé : vous ne disposez pas de la permission de consulter le personnel.'
+            'Accès non autorisé : vous ne disposez pas de la permission de visualisation du personnel.'
         );
 
-        // 1. Récupération des filtres
-        $etablissementId = $request->input('etablissement_id');
+        $context = $this->resolveEtablissementContext($request, ['institution']);
+        $selectedEtablissement = $context['selectedEtablissement'];
+        $etablissementId = $selectedEtablissement?->id;
+
+        $requestedEtabId = $request->input('etablissement_id') ?? $request->query('etablissement_id');
+        $filterEtabId = null;
+        if (! $isSuperAdmin) {
+            $filterEtabId = $etablissementId;
+        } elseif ($requestedEtabId && $requestedEtabId !== 'all') {
+            $filterEtabId = (int) $requestedEtabId;
+        }
+
+        // 1. Récupération des filtres de recherche
         $departementId = $request->input('departement_id');
         $fonction = $request->input('fonction');
         $contrat = $request->input('contrat');
         $statut = $request->input('statut');
         $search = $request->input('search');
 
-        // 2. Requête du personnel avec eager-loading
-        $query = Personnel::query()
-            ->with(['etablissement:id,nom,code', 'departement:id,nom,code', 'user:id,name,email,login,is_active'])
-            ->latest('id');
+        // 2. Requête filtrée sur le personnel
+        $personnelsQuery = Personnel::with([
+            'etablissement:id,nom,code',
+            'departement:id,nom,code',
+            'user:id,name,email,login,is_active',
+        ])
+            ->when($filterEtabId, fn ($q) => $q->where('etablissement_id', $filterEtabId))
+            ->when($departementId && $departementId !== 'all', function ($q) use ($departementId) {
+                if ($departementId === 'none') {
+                    $q->whereNull('departement_id');
+                } else {
+                    $q->where('departement_id', $departementId);
+                }
+            })
+            ->when($fonction && $fonction !== 'all', fn ($q) => $q->where('fonction_principale', $fonction))
+            ->when($contrat && $contrat !== 'all', fn ($q) => $q->where('type_contrat', $contrat))
+            ->when($statut && $statut !== 'all', fn ($q) => $q->where('statut', $statut))
+            ->when($search, function ($q) use ($search) {
+                $q->where(function ($sub) use ($search) {
+                    $sub->where('nom', 'like', "%{$search}%")
+                        ->orWhere('prenom', 'like', "%{$search}%")
+                        ->orWhere('matricule', 'like', "%{$search}%")
+                        ->orWhere('telephone', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%");
+                });
+            })
+            ->orderBy('nom')
+            ->orderBy('prenom');
 
-        if ($etablissementId) {
-            $query->where('etablissement_id', $etablissementId);
-        }
+        $personnels = $personnelsQuery->get();
 
-        if ($departementId) {
-            $query->where('departement_id', $departementId);
-        }
-
-        if ($fonction) {
-            $query->where('fonction_principale', $fonction);
-        }
-
-        if ($contrat) {
-            $query->where('type_contrat', $contrat);
-        }
-
-        if ($statut) {
-            $query->where('statut', $statut);
-        }
-
-        if ($search) {
-            $query->where(function ($q) use ($search) {
-                $q->where('nom', 'LIKE', "%{$search}%")
-                    ->orWhere('prenom', 'LIKE', "%{$search}%")
-                    ->orWhere('matricule', 'LIKE', "%{$search}%")
-                    ->orWhere('telephone', 'LIKE', "%{$search}%")
-                    ->orWhere('email', 'LIKE', "%{$search}%");
-            });
-        }
-
-        $personnels = $query->get();
-
-        // 3. Départements avec chef et effectifs
+        // 3. Départements pédagogiques de l'institution
         $institution = Institution::first();
         $departements = Departement::with(['chefDepartement:id,nom,prenom,matricule'])
             ->withCount('personnels')
             ->orderBy('nom')
             ->get();
 
-        // 4. Établissements actifs
-        $etablissements = Etablissement::select('id', 'nom', 'code')->orderBy('nom')->get();
+        // 4. Établissements autorisés pour l'utilisateur
+        $etablissements = $context['etablissements'];
 
         // 5. Utilisateurs existants sans fiche de personnel (pour liaison optionnelle)
         $assignedUserIds = Personnel::whereNotNull('user_id')->pluck('user_id')->toArray();
@@ -137,11 +148,18 @@ class PersonnelController extends Controller implements HasMiddleware
             'avecCompte' => Personnel::whereNotNull('user_id')->count(),
         ];
 
-        // 8. Droits d'habilitation
+        // 8. Droits d'habilitation granulaires et rétrocompatibles
         $can = [
-            'manage' => $isSuperAdmin || $user?->can('personnels.manage'),
+            'view' => $isSuperAdmin || $user?->can('personnels.view'),
+            'create' => $isSuperAdmin || $user?->can('personnels.create') || $user?->can('personnels.manage'),
+            'edit' => $isSuperAdmin || $user?->can('personnels.edit') || $user?->can('personnels.manage'),
             'delete' => $isSuperAdmin || $user?->can('personnels.delete'),
+            'toggle_status' => $isSuperAdmin || $user?->can('personnels.toggle_status') || $user?->can('personnels.manage'),
+            'manage' => $isSuperAdmin || $user?->can('personnels.manage'),
             'departements' => $isSuperAdmin || $user?->can('departements.manage'),
+            'departements_create' => $isSuperAdmin || $user?->can('departements.create') || $user?->can('departements.manage'),
+            'departements_edit' => $isSuperAdmin || $user?->can('departements.edit') || $user?->can('departements.manage'),
+            'departements_delete' => $isSuperAdmin || $user?->can('departements.delete') || $user?->can('departements.manage'),
         ];
 
         return Inertia::render('administration/personnels/index', [
@@ -153,13 +171,50 @@ class PersonnelController extends Controller implements HasMiddleware
             'stats' => $stats,
             'can' => $can,
             'filters' => [
-                'etablissement_id' => $etablissementId ?? '',
-                'departement_id' => $departementId ?? '',
-                'fonction' => $fonction ?? '',
-                'contrat' => $contrat ?? '',
-                'statut' => $statut ?? '',
+                'etablissement_id' => $filterEtabId ? (string) $filterEtabId : 'all',
+                'departement_id' => $departementId ?: 'all',
+                'fonction' => $fonction ?: 'all',
+                'contrat' => $contrat ?: 'all',
+                'statut' => $statut ?: 'all',
                 'search' => $search ?? '',
             ],
+        ]);
+    }
+
+    /**
+     * Affiche le formulaire dédié de création d'un nouveau membre du personnel.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Inertia\Response
+     */
+    public function create(Request $request): Response
+    {
+        $context = $this->resolveEtablissementContext($request, ['institution']);
+        $etablissements = $context['etablissements'];
+        $selectedEtablissement = $context['selectedEtablissement'];
+
+        // Départements pédagogiques
+        $departements = Departement::with(['chefDepartement:id,nom,prenom,matricule'])
+            ->orderBy('nom')
+            ->get();
+
+        // Utilisateurs existants sans fiche personnel
+        $assignedUserIds = Personnel::whereNotNull('user_id')->pluck('user_id')->toArray();
+        $availableUsers = User::whereNotIn('id', $assignedUserIds)
+            ->where('is_active', true)
+            ->select('id', 'name', 'email', 'login')
+            ->orderBy('name')
+            ->get();
+
+        // Rôles Spatie
+        $roles = Role::whereNotIn('name', ['super-admin'])->pluck('name')->toArray();
+
+        return Inertia::render('administration/personnels/create', [
+            'etablissements' => $etablissements,
+            'selectedEtablissement' => $selectedEtablissement,
+            'departements' => $departements,
+            'availableUsers' => $availableUsers,
+            'roles' => $roles,
         ]);
     }
 
@@ -216,26 +271,33 @@ class PersonnelController extends Controller implements HasMiddleware
             'user_email' => ['nullable', 'email', 'max:150', 'unique:users,email'],
             'user_password' => ['nullable', 'string', 'min:6'],
             'user_role' => ['nullable', 'string'],
+            'create_another' => ['nullable', 'boolean'],
         ]);
 
         DB::transaction(function () use ($validated, $request) {
             $userId = $validated['user_id'] ?? null;
 
-            // 1. Création automatique du compte utilisateur si demandée (Gesco 7 & 8 unifiés)
+            // 1. Génération du matricule séquentiel officiel en premier (ex: 26PLYCEXC0001)
+            $matricule = Personnel::generateMatricule((int) $validated['etablissement_id']);
+
+            // 2. Création automatique du compte utilisateur si demandée (Gesco 7 & 8 unifiés)
             if (! empty($validated['create_user_account'])) {
                 $fullName = trim($validated['nom'] . ' ' . ($validated['prenom'] ?? ''));
+
+                // Login par défaut : matricule officiel unique (évite toute collision ou doublon)
                 $login = ! empty($validated['user_login'])
                     ? $validated['user_login']
-                    : strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $validated['nom'])) . rand(10, 99);
+                    : $matricule;
+
+                // Mot de passe initial par défaut : matricule du membre du personnel
+                $password = ! empty($validated['user_password'])
+                    ? $validated['user_password']
+                    : $matricule;
 
                 // Si aucun email spécifié, utilise l'email de contact ou en génère un interne
                 $userEmail = ! empty($validated['user_email'])
                     ? $validated['user_email']
-                    : (! empty($validated['email']) ? $validated['email'] : "{$login}@syges.local");
-
-                $password = ! empty($validated['user_password'])
-                    ? $validated['user_password']
-                    : 'syges2026';
+                    : (! empty($validated['email']) ? $validated['email'] : strtolower($matricule) . '@syges.local');
 
                 $newUser = User::create([
                     'name' => $fullName,
@@ -253,9 +315,6 @@ class PersonnelController extends Controller implements HasMiddleware
 
                 $userId = $newUser->id;
             }
-
-            // 2. Génération du matricule séquentiel officiel
-            $matricule = Personnel::generateMatricule();
 
             // 3. Déduction de is_enseignant si fonction = Enseignant
             $isEnseignant = isset($validated['is_enseignant'])
@@ -291,7 +350,13 @@ class PersonnelController extends Controller implements HasMiddleware
             ]);
         });
 
-        return back()->with('success', 'Nouveau membre du personnel enregistré avec succès.');
+        if ($request->boolean('create_another')) {
+            return redirect()->route('administration.personnels.create')
+                ->with('success', 'Nouveau membre du personnel enregistré avec succès.');
+        }
+
+        return redirect()->route('administration.personnels.index')
+            ->with('success', 'Nouveau membre du personnel enregistré avec succès.');
     }
 
     /**
@@ -417,7 +482,6 @@ class PersonnelController extends Controller implements HasMiddleware
         $validated = $request->validate([
             'nom' => ['required', 'string', 'max:120'],
             'code' => ['nullable', 'string', 'max:20'],
-            'description' => ['nullable', 'string'],
             'chef_departement_id' => ['nullable', 'exists:personnels,id'],
             'is_active' => ['boolean'],
         ]);
@@ -426,7 +490,6 @@ class PersonnelController extends Controller implements HasMiddleware
             'institution_id' => $institution->id,
             'nom' => $validated['nom'],
             'code' => $validated['code'] ?? null,
-            'description' => $validated['description'] ?? null,
             'chef_departement_id' => $validated['chef_departement_id'] ?? null,
             'is_active' => $validated['is_active'] ?? true,
         ]);
@@ -453,7 +516,6 @@ class PersonnelController extends Controller implements HasMiddleware
         $validated = $request->validate([
             'nom' => ['required', 'string', 'max:120'],
             'code' => ['nullable', 'string', 'max:20'],
-            'description' => ['nullable', 'string'],
             'chef_departement_id' => ['nullable', 'exists:personnels,id'],
             'is_active' => ['boolean'],
         ]);

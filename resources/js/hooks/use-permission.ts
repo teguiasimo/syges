@@ -28,7 +28,17 @@ export type PermissionName =
     | 'periodes.lock'
     // Module Matières & Coefficients (Gesco 4)
     | 'matieres.view'
+    | 'matieres.create'
+    | 'matieres.edit'
+    | 'matieres.delete'
     | 'matieres.manage'
+    | 'groupes_matieres.view'
+    | 'groupes_matieres.create'
+    | 'groupes_matieres.edit'
+    | 'groupes_matieres.delete'
+    | 'coefficients.view'
+    | 'coefficients.edit'
+    | 'coefficients.duplicate'
     // Module Élèves & Inscriptions (Gesco 5)
     | 'eleves.view'
     | 'eleves.create'

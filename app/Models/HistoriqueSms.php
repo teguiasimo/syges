@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Concerns\BelongsToEtablissement;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -30,7 +31,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class HistoriqueSms extends Model
 {
-    use HasFactory;
+    use HasFactory, BelongsToEtablissement;
 
     /**
      * Table associée au modèle.
@@ -66,15 +67,6 @@ class HistoriqueSms extends Model
         'credits_consommes' => 'integer',
     ];
 
-    /**
-     * Relation avec l'établissement émetteur.
-     *
-     * @return BelongsTo
-     */
-    public function etablissement(): BelongsTo
-    {
-        return $this->belongsTo(Etablissement::class);
-    }
 
     /**
      * Relation avec la campagne de masse éventuelle.

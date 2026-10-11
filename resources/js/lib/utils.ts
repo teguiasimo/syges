@@ -52,4 +52,17 @@ export function formatDateForInput(dateStr?: string | Date | null): string {
     }
     return dateStr.substring(0, 10);
 }
-
+/**
+ * Tronque une chaîne de caractères si sa longueur dépasse une limite maximale définie
+ * et lui accole des points de suspension (...) pour préserver l'intégrité visuelle des composants
+ * (modales, listes déroulantes, cellules de tableaux).
+ *
+ * @param text Chaîne de texte source à tronquer (accepte undefined ou null).
+ * @param maxLength Nombre maximal de caractères avant troncature (défaut : 45).
+ * @returns Chaîne tronquée avec '...' ou texte d'origine s'il respecte la limite.
+ */
+export function truncateText(text?: string | null, maxLength = 45): string {
+    if (!text) return '';
+    if (text.length <= maxLength) return text;
+    return `${text.slice(0, maxLength).trimEnd()}...`;
+}

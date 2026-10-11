@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Concerns\BelongsToEtablissement;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -15,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * Exemples : 6ème M1, Terminale C, Form 3 Science.
  *
  * @property int $id
+ * @property int $etablissement_id
  * @property int $niveau_id
  * @property string $code
  * @property string $nom
@@ -24,10 +26,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read \App\Models\Niveau $niveau
+ * @property-read \App\Models\Etablissement $etablissement
  */
 class Classe extends Model
 {
-    use HasFactory;
+    use HasFactory, BelongsToEtablissement;
 
     /**
      * Initialisation du modèle avec garde-fou strict d'intégrité pédagogique

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Concerns\BelongsToEtablissement;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -26,7 +27,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  */
 class TypeFrais extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, BelongsToEtablissement;
 
     /**
      * Nom de la table associée dans la base de données.
@@ -62,15 +63,6 @@ class TypeFrais extends Model
         'is_active' => 'boolean',
     ];
 
-    /**
-     * Relation vers l'établissement scolaire de rattachement.
-     *
-     * @return BelongsTo<Etablissement, TypeFrais>
-     */
-    public function etablissement(): BelongsTo
-    {
-        return $this->belongsTo(Etablissement::class);
-    }
 
     /**
      * Relation vers les tarifs définis dans la grille tarifaire.

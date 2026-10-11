@@ -8,12 +8,13 @@ use Illuminate\Support\Facades\Schema;
  * Migration de création de l'arborescence pédagogique et institutionnelle de SYGES.
  *
  * Crée les tables hiérarchiques :
- * 1. institutions (organisme faîtier unique)
+ * 1. institutions (organisme faîtier unique avec sigle)
  * 2. etablissements (campus et écoles physiques rattachés)
- * 3. sections (sous-systèmes linguistiques et filières : FR, EN, Technique)
- * 4. cycles (grandes étapes académiques : 1er cycle, 2nd cycle, primaire...)
- * 5. niveaux (paliers d'études ordonnés : 6ème, 3ème, Tle, Form 1...)
- * 6. classes (groupes et salles réelles d'élèves)
+ * 3. sections (sous-systèmes linguistiques et filières : FR, EN, Technique avec unicité par campus)
+ * 4. cycles (grandes étapes académiques avec etablissement_id direct et unicité par campus)
+ * 5. niveaux (paliers d'études ordonnés avec etablissement_id direct et unicité par campus)
+ * 6. classes (groupes et salles réelles d'élèves avec etablissement_id direct)
+ * 7. Clé étrangère etablissement_id sur la table users.
  */
 return new class extends Migration
 {
@@ -27,6 +28,7 @@ return new class extends Migration
             $table->id();
             $table->string('code', 30)->unique()->comment('Code court ou acronyme unique (ex: GSB-STP)');
             $table->string('nom', 150)->comment('Nom officiel de l\'institution en français');
+            $table->string('sigle', 50)->nullable()->comment('Sigle institutionnel officiel (ex: GSJF, MINESEC)');
             $table->string('nom_en', 150)->nullable()->comment('Nom officiel en anglais');
             $table->string('devise', 150)->nullable()->comment('Devise officielle en français');
             $table->string('devise_en', 150)->nullable()->comment('Devise officielle en anglais');
@@ -69,6 +71,14 @@ return new class extends Migration
             $table->timestamps();
         });
 
+        // Contrainte de clé étrangère sur la table users (après création de etablissements)
+        Schema::table('users', function (Blueprint $table) {
+            $table->foreign('etablissement_id')
+                ->references('id')
+                ->on('etablissements')
+                ->nullOnDelete();
+        });
+
         // 3. Table des Sections (Sous-systèmes éducatifs)
         Schema::create('sections', function (Blueprint $table) {
             $table->id();
@@ -80,11 +90,13 @@ return new class extends Migration
             $table->timestamps();
 
             $table->unique(['etablissement_id', 'code']);
+            $table->unique(['etablissement_id', 'nom']);
         });
 
         // 4. Table des Cycles (Grandes étapes pédagogiques)
         Schema::create('cycles', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('etablissement_id')->nullable()->constrained('etablissements')->cascadeOnDelete();
             $table->foreignId('section_id')->constrained('sections')->cascadeOnDelete();
             $table->string('code', 20)->comment('Code court (CYC1, CYC2, LOW-SEC, UPP-SEC)');
             $table->string('nom', 100)->comment('Libellé en français (ex: Premier Cycle, Second Cycle)');
@@ -94,11 +106,13 @@ return new class extends Migration
             $table->timestamps();
 
             $table->unique(['section_id', 'code']);
+            $table->unique(['etablissement_id', 'nom']);
         });
 
         // 5. Table des Niveaux (Paliers d'apprentissage)
         Schema::create('niveaux', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('etablissement_id')->nullable()->constrained('etablissements')->cascadeOnDelete();
             $table->foreignId('cycle_id')->constrained('cycles')->cascadeOnDelete();
             $table->string('code', 20)->comment('Code court (6EME, 3EME, TLE, F1, F5)');
             $table->string('nom', 100)->comment('Libellé en français (ex: Sixième, Troisième)');
@@ -107,11 +121,13 @@ return new class extends Migration
             $table->timestamps();
 
             $table->unique(['cycle_id', 'code']);
+            $table->unique(['etablissement_id', 'nom']);
         });
 
         // 6. Table des Classes (Salles / Groupes réels d'élèves)
         Schema::create('classes', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('etablissement_id')->nullable()->constrained('etablissements')->cascadeOnDelete();
             $table->foreignId('niveau_id')->constrained('niveaux')->cascadeOnDelete();
             $table->string('code', 30)->comment('Code d\'identification (ex: 6M1, TLE-C1, F3-SCI)');
             $table->string('nom', 100)->comment('Libellé complet (ex: 6ème Moderne 1, Terminale C1)');
@@ -121,6 +137,7 @@ return new class extends Migration
             $table->timestamps();
 
             $table->unique(['niveau_id', 'code']);
+            $table->index(['etablissement_id', 'is_active']);
         });
     }
 
@@ -129,6 +146,10 @@ return new class extends Migration
      */
     public function down(): void
     {
+        Schema::table('users', function (Blueprint $table) {
+            $table->dropForeign(['etablissement_id']);
+        });
+
         Schema::dropIfExists('classes');
         Schema::dropIfExists('niveaux');
         Schema::dropIfExists('cycles');

@@ -2,15 +2,24 @@
 
 namespace App\Http\Controllers\Administration;
 
+use App\Concerns\ScopesEtablissement;
 use App\Http\Controllers\Controller;
 use App\Models\AnneeScolaire;
+use App\Models\BourseRemise;
+use App\Models\Caisse;
 use App\Models\Classe;
 use App\Models\ClotureCaisse;
 use App\Models\CompteFinancierEleve;
+use App\Models\EcheanceTranche;
+use App\Models\EleveBourseRemise;
 use App\Models\Etablissement;
 use App\Models\FraisScolaire;
+use App\Models\ModeleEcheance;
 use App\Models\Niveau;
+use App\Models\PenaliteConfiguration;
+use App\Models\PenaliteEleve;
 use App\Models\Personnel;
+use App\Models\ReglementDivers;
 use App\Models\TypeFrais;
 use App\Models\VersementCaisse;
 use App\Services\FinanceService;
@@ -27,7 +36,7 @@ use Inertia\Response as InertiaResponse;
 use InvalidArgumentException;
 
 /**
- * Contrôleur principal pour le Module 11 : Gestion de la Caisse & Paiements (Gesco V1.1).
+ * Contrôleur principal pour le Module 11 : Gestion de la Caisse & Paiements (Gesco V1.1 & Aurore).
  *
  * Coordonne les opérations financières de l'établissement :
  * - Guichet d'encaissement et émission des reçus officiels infalsifiables.
@@ -35,9 +44,13 @@ use InvalidArgumentException;
  * - Paramétrage de la nomenclature des frais et de la matrice tarifaire.
  * - Journal quotidien de caisse et clôture journalière des comptes.
  * - Activation/désactivation du verrou de solvabilité sur les bulletins.
+ * - Caisses multiples et encaissements hors scolarité (Aurore §3.20, §4.2).
+ * - Bourses d'études et remises automatiques (Aurore §3.19, §3.21, §3.25).
+ * - Échéanciers calendaires et pénalités de retard (Aurore §3.17, §3.24).
  */
 class FinanceController extends Controller implements HasMiddleware
 {
+    use ScopesEtablissement;
     /**
      * Définition de la matrice des middlewares d'autorisation pour le module Finances & Caisse.
      *
@@ -46,9 +59,15 @@ class FinanceController extends Controller implements HasMiddleware
     public static function middleware(): array
     {
         return [
-            new Middleware('can:finances.view', only: ['index', 'imprimerRecu']),
+            new Middleware('can:finances.view', only: ['index', 'imprimerRecu', 'imprimerRecuDivers']),
+            new Middleware('can:versements.create|finances.manage', only: ['storeVersement', 'storeReglementDivers']),
+            new Middleware('can:versements.cancel|finances.annuler|finances.manage', only: ['annulerVersement', 'annulerReglementDivers']),
+            new Middleware('can:caisses.cloture|finances.cloture|finances.manage', only: ['cloturerJournee']),
+            new Middleware('can:caisses.create|caisses.edit|finances.manage', only: ['storeCaisse', 'updateCaisse', 'destroyCaisse']),
+            new Middleware('can:bourses.manage|finances.manage', only: ['storeBourseRemise', 'updateBourseRemise', 'destroyBourseRemise', 'attribuerBourseRemise', 'retirerBourseRemise']),
+            new Middleware('can:echeances.manage|finances.manage', only: ['storeModeleEcheance', 'destroyModeleEcheance']),
+            new Middleware('can:penalites.manage|finances.manage', only: ['storePenaliteConfiguration', 'appliquerPenalitesRetard', 'annulerPenaliteEleve']),
             new Middleware('can:finances.manage', only: [
-                'storeVersement',
                 'ajusterCompte',
                 'storeTypeFrais',
                 'destroyTypeFrais',
@@ -56,8 +75,6 @@ class FinanceController extends Controller implements HasMiddleware
                 'destroyTarif',
                 'toggleVerrouSolvabilite',
             ]),
-            new Middleware('can:finances.annuler', only: ['annulerVersement']),
-            new Middleware('can:finances.cloture', only: ['cloturerJournee']),
         ];
     }
 
@@ -73,13 +90,11 @@ class FinanceController extends Controller implements HasMiddleware
 
         $currentAnnee = AnneeScolaire::where('is_current', true)->first()
             ?? AnneeScolaire::latest()->first();
+        $anneeId = $currentAnnee?->id;
 
-        $anneeId = $request->integer('annee_scolaire_id', $currentAnnee?->id ?? 0);
-        $etablissements = Etablissement::with('institution')->get();
-        $currentEtablissement = $request->has('etablissement_id')
-            ? Etablissement::find($request->integer('etablissement_id'))
-            : $etablissements->first();
-
+        $context = $this->resolveEtablissementContext($request, ['institution']);
+        $etablissements = $context['etablissements'];
+        $currentEtablissement = $context['selectedEtablissement'];
         $etablissementId = $currentEtablissement?->id ?? 0;
 
         // 1. Liste des versements avec pagination et filtres
@@ -88,6 +103,7 @@ class FinanceController extends Controller implements HasMiddleware
             'inscription.classe',
             'ventilations',
             'caissier',
+            'caisse',
         ])
             ->where('etablissement_id', $etablissementId)
             ->latest('date_versement');
@@ -119,6 +135,8 @@ class FinanceController extends Controller implements HasMiddleware
         $comptesQuery = CompteFinancierEleve::with([
             'eleve',
             'inscription.classe',
+            'boursesRemises.bourseRemise',
+            'penalites',
         ])
             ->where('etablissement_id', $etablissementId)
             ->where('annee_scolaire_id', $anneeId);
@@ -157,35 +175,77 @@ class FinanceController extends Controller implements HasMiddleware
             ->orderBy('tranche_numero')
             ->get();
 
-        // 5. Journal du jour et état de la caisse
+        // 5. Caisses de l'établissement (Aurore §3.20)
+        $caisses = Caisse::with('responsable')
+            ->where('etablissement_id', $etablissementId)
+            ->orderByDesc('is_principale')
+            ->orderBy('nom')
+            ->get();
+
+        // 6. Règlements divers hors scolarité (Aurore §4.2)
+        $reglementsDivers = ReglementDivers::with(['caisse', 'caissier'])
+            ->where('etablissement_id', $etablissementId)
+            ->latest('date_reglement')
+            ->take(100)
+            ->get();
+
+        // 7. Référentiel des bourses et remises (Aurore §3.19, §3.21, §3.25)
+        $boursesRemises = BourseRemise::with(['niveau', 'typeFrais'])
+            ->where('etablissement_id', $etablissementId)
+            ->orderBy('type')
+            ->orderBy('nom')
+            ->get();
+
+        // 8. Modèles d'échéances calendaires (Aurore §3.24)
+        $modelesEcheances = ModeleEcheance::with('tranches')
+            ->where('etablissement_id', $etablissementId)
+            ->where('annee_scolaire_id', $anneeId)
+            ->orderByDesc('is_default')
+            ->get();
+
+        // 9. Configurations des pénalités de retard (Aurore §3.17)
+        $penalitesConfigurations = PenaliteConfiguration::where('etablissement_id', $etablissementId)->get();
+
+        // 10. Journal du jour et état de la caisse
         $today = Carbon::today()->toDateString();
         $versementsDuJour = VersementCaisse::where('etablissement_id', $etablissementId)
             ->whereDate('date_versement', $today)
             ->where('statut', 'valide')
             ->get();
 
+        $reglementsDiversDuJour = ReglementDivers::where('etablissement_id', $etablissementId)
+            ->whereDate('date_reglement', $today)
+            ->where('statut', 'valide')
+            ->get();
+
+        $totalGeneralDuJour = (float) $versementsDuJour->sum('montant_total') + (float) $reglementsDiversDuJour->sum('montant');
+
         $journalDuJour = [
             'date' => $today,
-            'total_especes' => (float) $versementsDuJour->where('mode_paiement', 'especes')->sum('montant_total'),
-            'total_cheques' => (float) $versementsDuJour->where('mode_paiement', 'cheque')->sum('montant_total'),
-            'total_virements' => (float) $versementsDuJour->where('mode_paiement', 'virement')->sum('montant_total'),
-            'total_mobile_money' => (float) $versementsDuJour->where('mode_paiement', 'mobile_money_manuel')->sum('montant_total'),
-            'total_general' => (float) $versementsDuJour->sum('montant_total'),
-            'nombre_transactions' => $versementsDuJour->count(),
+            'total_especes' => (float) $versementsDuJour->where('mode_paiement', 'especes')->sum('montant_total')
+                + (float) $reglementsDiversDuJour->where('mode_paiement', 'especes')->sum('montant'),
+            'total_cheques' => (float) $versementsDuJour->where('mode_paiement', 'cheque')->sum('montant_total')
+                + (float) $reglementsDiversDuJour->where('mode_paiement', 'cheque')->sum('montant'),
+            'total_virements' => (float) $versementsDuJour->where('mode_paiement', 'virement')->sum('montant_total')
+                + (float) $reglementsDiversDuJour->where('mode_paiement', 'virement')->sum('montant'),
+            'total_mobile_money' => (float) $versementsDuJour->where('mode_paiement', 'mobile_money_manuel')->sum('montant_total')
+                + (float) $reglementsDiversDuJour->where('mode_paiement', 'mobile_money_manuel')->sum('montant'),
+            'total_general' => $totalGeneralDuJour,
+            'nombre_transactions' => $versementsDuJour->count() + $reglementsDiversDuJour->count(),
             'est_cloture' => ClotureCaisse::where('etablissement_id', $etablissementId)
                 ->where('date_cloture', $today)
                 ->where('statut', 'cloturee')
                 ->exists(),
         ];
 
-        // 6. Historique des clôtures passées
+        // 11. Historique des clôtures passées
         $historiqueClotures = ClotureCaisse::with(['caissier', 'verificateur'])
             ->where('etablissement_id', $etablissementId)
             ->latest('date_cloture')
             ->take(30)
             ->get();
 
-        // 7. Données d'appui pour les formulaires (filtrage direct par établissement)
+        // 12. Données d'appui pour les formulaires
         $classes = Classe::where('etablissement_id', $etablissementId)
             ->where('is_active', true)
             ->orderBy('nom')
@@ -205,6 +265,11 @@ class FinanceController extends Controller implements HasMiddleware
             'comptes' => $comptes,
             'typesFrais' => $typesFrais,
             'tarifs' => $tarifs,
+            'caisses' => $caisses,
+            'reglementsDivers' => $reglementsDivers,
+            'boursesRemises' => $boursesRemises,
+            'modelesEcheances' => $modelesEcheances,
+            'penalitesConfigurations' => $penalitesConfigurations,
             'journalDuJour' => $journalDuJour,
             'historiqueClotures' => $historiqueClotures,
             'classes' => $classes,
@@ -215,6 +280,17 @@ class FinanceController extends Controller implements HasMiddleware
             'anneesScolaires' => AnneeScolaire::orderBy('code', 'desc')->get(),
             'currentAnnee' => $currentAnnee,
             'filters' => $request->only(['search', 'mode_paiement', 'statut', 'classe_id', 'statut_financier', 'tab']),
+            'can' => [
+                'view' => $request->user()?->hasRole('super-admin') || $request->user()?->can('finances.view'),
+                'manage' => $request->user()?->hasRole('super-admin') || $request->user()?->can('finances.manage'),
+                'versements_create' => $request->user()?->hasRole('super-admin') || $request->user()?->can('versements.create') || $request->user()?->can('finances.manage'),
+                'versements_cancel' => $request->user()?->hasRole('super-admin') || $request->user()?->can('versements.cancel') || $request->user()?->can('finances.annuler') || $request->user()?->can('finances.manage'),
+                'caisses_manage' => $request->user()?->hasRole('super-admin') || $request->user()?->can('caisses.create') || $request->user()?->can('caisses.edit') || $request->user()?->can('finances.manage'),
+                'caisses_cloture' => $request->user()?->hasRole('super-admin') || $request->user()?->can('caisses.cloture') || $request->user()?->can('finances.cloture') || $request->user()?->can('finances.manage'),
+                'bourses_manage' => $request->user()?->hasRole('super-admin') || $request->user()?->can('bourses.manage') || $request->user()?->can('finances.manage'),
+                'echeances_manage' => $request->user()?->hasRole('super-admin') || $request->user()?->can('echeances.manage') || $request->user()?->can('finances.manage'),
+                'penalites_manage' => $request->user()?->hasRole('super-admin') || $request->user()?->can('penalites.manage') || $request->user()?->can('finances.manage'),
+            ],
         ]);
     }
 
@@ -227,7 +303,7 @@ class FinanceController extends Controller implements HasMiddleware
      */
     public function storeVersement(Request $request, FinanceService $financeService): RedirectResponse
     {
-        abort_if(! $request->user()?->can('finances.manage') && ! $request->user()?->hasRole('super-admin'), 403);
+        abort_if(! $request->user()?->can('versements.create') && ! $request->user()?->can('finances.manage') && ! $request->user()?->hasRole('super-admin'), 403);
 
         $validated = $request->validate([
             'compte_financier_id' => 'required|exists:comptes_financiers_eleves,id',
@@ -316,7 +392,7 @@ class FinanceController extends Controller implements HasMiddleware
      */
     public function annulerVersement(Request $request, VersementCaisse $versement, FinanceService $financeService): RedirectResponse
     {
-        abort_if(! $request->user()?->can('finances.annuler') && ! $request->user()?->hasRole('super-admin'), 403);
+        abort_if(! $request->user()?->can('versements.cancel') && ! $request->user()?->can('finances.annuler') && ! $request->user()?->can('finances.manage') && ! $request->user()?->hasRole('super-admin'), 403);
 
         $request->validate([
             'motif_annulation' => 'required|string|min:5|max:500',
@@ -340,7 +416,7 @@ class FinanceController extends Controller implements HasMiddleware
      */
     public function cloturerJournee(Request $request, FinanceService $financeService): RedirectResponse
     {
-        abort_if(! $request->user()?->can('finances.cloture') && ! $request->user()?->hasRole('super-admin'), 403);
+        abort_if(! $request->user()?->can('caisses.cloture') && ! $request->user()?->can('finances.cloture') && ! $request->user()?->can('finances.manage') && ! $request->user()?->hasRole('super-admin'), 403);
 
         $validated = $request->validate([
             'etablissement_id' => 'required|exists:etablissements,id',
@@ -489,5 +565,408 @@ class FinanceController extends Controller implements HasMiddleware
         $etat = $etablissement->verrou_solvabilite_actif ? 'activé' : 'désactivé';
 
         return back()->with('success', "Le verrou de solvabilité a été {$etat} pour cet établissement.");
+    }
+
+    /**
+     * Crée une nouvelle caisse d'encaissement (Aurore §3.20).
+     *
+     * @param Request $request
+     * @return RedirectResponse
+     */
+    public function storeCaisse(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'etablissement_id' => 'required|exists:etablissements,id',
+            'code' => 'required|string|max:50',
+            'nom' => 'required|string|max:150',
+            'solde_initial' => 'nullable|numeric|min:0',
+            'responsable_id' => 'nullable|exists:personnels,id',
+            'is_principale' => 'nullable|boolean',
+            'is_active' => 'nullable|boolean',
+            'description' => 'nullable|string|max:500',
+        ]);
+
+        if (! empty($validated['is_principale'])) {
+            Caisse::where('etablissement_id', $validated['etablissement_id'])
+                ->update(['is_principale' => false]);
+        }
+
+        Caisse::create($validated);
+
+        return back()->with('success', "Caisse « {$validated['nom']} » créée avec succès.");
+    }
+
+    /**
+     * Met à jour les informations d'une caisse.
+     *
+     * @param Request $request
+     * @param Caisse $caisse
+     * @return RedirectResponse
+     */
+    public function updateCaisse(Request $request, Caisse $caisse): RedirectResponse
+    {
+        $validated = $request->validate([
+            'code' => 'required|string|max:50',
+            'nom' => 'required|string|max:150',
+            'solde_initial' => 'nullable|numeric|min:0',
+            'responsable_id' => 'nullable|exists:personnels,id',
+            'is_principale' => 'nullable|boolean',
+            'is_active' => 'nullable|boolean',
+            'description' => 'nullable|string|max:500',
+        ]);
+
+        if (! empty($validated['is_principale']) && ! $caisse->is_principale) {
+            Caisse::where('etablissement_id', $caisse->etablissement_id)
+                ->update(['is_principale' => false]);
+        }
+
+        $caisse->update($validated);
+
+        return back()->with('success', "Caisse « {$caisse->nom} » mise à jour avec succès.");
+    }
+
+    /**
+     * Supprime une caisse (si aucun versement rattaché).
+     *
+     * @param Caisse $caisse
+     * @return RedirectResponse
+     */
+    public function destroyCaisse(Caisse $caisse): RedirectResponse
+    {
+        if ($caisse->is_principale) {
+            return back()->withErrors(['error' => "La caisse principale de l'établissement ne peut pas être supprimée."]);
+        }
+
+        if ($caisse->versements()->exists() || $caisse->reglementsDivers()->exists()) {
+            return back()->withErrors(['error' => "Impossible de supprimer cette caisse car elle contient déjà des opérations d'encaissement."]);
+        }
+
+        $caisse->delete();
+
+        return back()->with('success', "Caisse supprimée avec succès.");
+    }
+
+    /**
+     * Enregistre un règlement divers hors scolarité (Aurore §4.2).
+     *
+     * @param Request $request
+     * @param FinanceService $financeService
+     * @return RedirectResponse
+     */
+    public function storeReglementDivers(Request $request, FinanceService $financeService): RedirectResponse
+    {
+        $validated = $request->validate([
+            'caisse_id' => 'required|exists:caisses,id',
+            'payeur_nom' => 'required|string|max:150',
+            'payeur_telephone' => 'nullable|string|max:50',
+            'categorie' => 'required|in:uniformes,cantine_libre,macaron,location,don,autre',
+            'libelle' => 'required|string|max:255',
+            'montant' => 'required|numeric|min:1',
+            'mode_paiement' => 'required|in:especes,cheque,virement,mobile_money_manuel',
+            'reference_paiement' => 'nullable|string|max:100',
+            'personnel_id' => 'nullable|exists:personnels,id',
+            'observations' => 'nullable|string|max:500',
+        ]);
+
+        $caissier = null;
+        if (! empty($validated['personnel_id'])) {
+            $caissier = Personnel::find($validated['personnel_id']);
+        }
+
+        try {
+            $reglement = $financeService->enregistrerReglementDivers($validated, $caissier, $request->user());
+
+            return back()->with([
+                'success' => "Recette diverse de " . number_format($reglement->montant, 0) . " FCFA enregistrée (Reçu N° {$reglement->reference_recu}).",
+                'dernier_recu_divers_id' => $reglement->id,
+            ]);
+        } catch (InvalidArgumentException $e) {
+            return back()->withErrors(['error' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Annule un règlement divers avec justification.
+     *
+     * @param Request $request
+     * @param ReglementDivers $reglement
+     * @param FinanceService $financeService
+     * @return RedirectResponse
+     */
+    public function annulerReglementDivers(Request $request, ReglementDivers $reglement, FinanceService $financeService): RedirectResponse
+    {
+        $request->validate([
+            'motif_annulation' => 'required|string|min:5|max:500',
+        ]);
+
+        try {
+            $financeService->annulerReglementDivers($reglement, $request->input('motif_annulation'), $request->user());
+
+            return back()->with('success', "Le règlement divers {$reglement->reference_recu} a été annulé avec succès.");
+        } catch (InvalidArgumentException $e) {
+            return back()->withErrors(['error' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Imprime le reçu d'un règlement divers avec QR code.
+     *
+     * @param ReglementDivers $reglement
+     * @param QrCodeService $qrCodeService
+     * @return Response
+     */
+    public function imprimerRecuDivers(ReglementDivers $reglement, QrCodeService $qrCodeService): Response
+    {
+        $reglement->load(['caisse', 'caissier', 'etablissement']);
+        $etablissement = $reglement->etablissement;
+
+        $qrData = sprintf(
+            "SYGES-REC-DIV:%s|DATE:%s|PAYEUR:%s|MONTANT:%s FCFA|MOTIF:%s|MODE:%s",
+            $reglement->reference_recu,
+            $reglement->date_reglement->format('d/m/Y H:i'),
+            $reglement->payeur_nom,
+            number_format($reglement->montant, 0, ',', ' '),
+            $reglement->libelle,
+            strtoupper($reglement->mode_paiement)
+        );
+
+        $qrCodeBase64 = $qrCodeService->generateBase64Svg($qrData, 90);
+
+        $pdf = Pdf::loadView('finances.recu_divers', compact('reglement', 'etablissement', 'qrCodeBase64'))
+            ->setPaper('a5', 'landscape');
+
+        return $pdf->stream("Recu_Divers_{$reglement->reference_recu}.pdf");
+    }
+
+    /**
+     * Crée un modèle de bourse ou de remise (Aurore §3.19, §3.21, §3.25).
+     *
+     * @param Request $request
+     * @return RedirectResponse
+     */
+    public function storeBourseRemise(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'etablissement_id' => 'required|exists:etablissements,id',
+            'annee_scolaire_id' => 'nullable|exists:annees_scolaires,id',
+            'code' => 'required|string|max:50',
+            'nom' => 'required|string|max:150',
+            'type' => 'required|in:bourse,remise',
+            'categorie' => 'required|in:excellence,sociale,fratrie,personnel,autre',
+            'mode_calcul' => 'required|in:pourcentage,montant_fixe',
+            'valeur' => 'required|numeric|min:0.01',
+            'niveau_id' => 'nullable|exists:niveaux,id',
+            'type_frais_id' => 'nullable|exists:types_frais,id',
+            'description' => 'nullable|string|max:500',
+            'is_active' => 'nullable|boolean',
+        ]);
+
+        BourseRemise::create($validated);
+
+        return back()->with('success', "Modèle de {$validated['type']} « {$validated['nom']} » créé avec succès.");
+    }
+
+    /**
+     * Met à jour une bourse ou remise.
+     *
+     * @param Request $request
+     * @param BourseRemise $bourseRemise
+     * @return RedirectResponse
+     */
+    public function updateBourseRemise(Request $request, BourseRemise $bourseRemise): RedirectResponse
+    {
+        $validated = $request->validate([
+            'code' => 'required|string|max:50',
+            'nom' => 'required|string|max:150',
+            'type' => 'required|in:bourse,remise',
+            'categorie' => 'required|in:excellence,sociale,fratrie,personnel,autre',
+            'mode_calcul' => 'required|in:pourcentage,montant_fixe',
+            'valeur' => 'required|numeric|min:0.01',
+            'niveau_id' => 'nullable|exists:niveaux,id',
+            'type_frais_id' => 'nullable|exists:types_frais,id',
+            'description' => 'nullable|string|max:500',
+            'is_active' => 'nullable|boolean',
+        ]);
+
+        $bourseRemise->update($validated);
+
+        return back()->with('success', "Modèle mis à jour avec succès.");
+    }
+
+    /**
+     * Supprime un modèle de bourse ou remise.
+     *
+     * @param BourseRemise $bourseRemise
+     * @return RedirectResponse
+     */
+    public function destroyBourseRemise(BourseRemise $bourseRemise): RedirectResponse
+    {
+        $bourseRemise->delete();
+
+        return back()->with('success', "Modèle supprimé avec succès.");
+    }
+
+    /**
+     * Attribue une bourse ou remise au compte d'un élève (Aurore §4.1.6).
+     *
+     * @param Request $request
+     * @param FinanceService $financeService
+     * @return RedirectResponse
+     */
+    public function attribuerBourseRemise(Request $request, FinanceService $financeService): RedirectResponse
+    {
+        $validated = $request->validate([
+            'compte_financier_id' => 'required|exists:comptes_financiers_eleves,id',
+            'bourse_remise_id' => 'required|exists:bourses_remises,id',
+            'motif' => 'nullable|string|max:255',
+        ]);
+
+        $compte = CompteFinancierEleve::findOrFail($validated['compte_financier_id']);
+        $bourseRemise = BourseRemise::findOrFail($validated['bourse_remise_id']);
+
+        $attribution = $financeService->attribuerBourseRemise($compte, $bourseRemise, $validated['motif'] ?? null, $request->user());
+
+        return back()->with('success', "{$bourseRemise->nom} de " . number_format($attribution->montant_calcule, 0) . " FCFA attribuée avec succès. L'ardoise de l'élève a été recalculée.");
+    }
+
+    /**
+     * Retire une bourse ou remise accordée à un élève.
+     *
+     * @param EleveBourseRemise $attribution
+     * @param FinanceService $financeService
+     * @return RedirectResponse
+     */
+    public function retirerBourseRemise(EleveBourseRemise $attribution, FinanceService $financeService): RedirectResponse
+    {
+        $financeService->retirerBourseRemise($attribution);
+
+        return back()->with('success', "Attribution de bourse/remise retirée avec succès.");
+    }
+
+    /**
+     * Crée un modèle d'échéancier calendaire avec ses tranches (Aurore §3.24).
+     *
+     * @param Request $request
+     * @return RedirectResponse
+     */
+    public function storeModeleEcheance(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'etablissement_id' => 'required|exists:etablissements,id',
+            'annee_scolaire_id' => 'required|exists:annees_scolaires,id',
+            'nom' => 'required|string|max:150',
+            'description' => 'nullable|string|max:500',
+            'is_default' => 'nullable|boolean',
+            'tranches' => 'required|array|min:1',
+            'tranches.*.tranche_numero' => 'required|integer|min:1',
+            'tranches.*.libelle' => 'required|string|max:150',
+            'tranches.*.date_limite' => 'required|date',
+            'tranches.*.pourcentage_exigible' => 'required|numeric|min:0|max:100',
+        ]);
+
+        if (! empty($validated['is_default'])) {
+            ModeleEcheance::where('etablissement_id', $validated['etablissement_id'])
+                ->where('annee_scolaire_id', $validated['annee_scolaire_id'])
+                ->update(['is_default' => false]);
+        }
+
+        $modele = ModeleEcheance::create([
+            'etablissement_id' => $validated['etablissement_id'],
+            'annee_scolaire_id' => $validated['annee_scolaire_id'],
+            'nom' => $validated['nom'],
+            'description' => $validated['description'] ?? null,
+            'is_default' => $validated['is_default'] ?? false,
+        ]);
+
+        foreach ($validated['tranches'] as $tr) {
+            EcheanceTranche::create([
+                'modele_echeance_id' => $modele->id,
+                'tranche_numero' => $tr['tranche_numero'],
+                'libelle' => $tr['libelle'],
+                'date_limite' => $tr['date_limite'],
+                'pourcentage_exigible' => $tr['pourcentage_exigible'],
+            ]);
+        }
+
+        return back()->with('success', "Modèle d'échéancier « {$modele->nom} » enregistré avec succès.");
+    }
+
+    /**
+     * Supprime un modèle d'échéancier.
+     *
+     * @param ModeleEcheance $modeleEcheance
+     * @return RedirectResponse
+     */
+    public function destroyModeleEcheance(ModeleEcheance $modeleEcheance): RedirectResponse
+    {
+        $modeleEcheance->delete();
+
+        return back()->with('success', "Échéancier supprimé avec succès.");
+    }
+
+    /**
+     * Enregistre ou met à jour la configuration des pénalités de retard (Aurore §3.17).
+     *
+     * @param Request $request
+     * @return RedirectResponse
+     */
+    public function storePenaliteConfiguration(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'etablissement_id' => 'required|exists:etablissements,id',
+            'nom' => 'required|string|max:150',
+            'mode_calcul' => 'required|in:montant_fixe,pourcentage',
+            'valeur' => 'required|numeric|min:1',
+            'jours_grace' => 'required|integer|min:0',
+            'is_active' => 'nullable|boolean',
+        ]);
+
+        PenaliteConfiguration::updateOrCreate(
+            ['etablissement_id' => $validated['etablissement_id']],
+            $validated
+        );
+
+        return back()->with('success', "Paramétrage des pénalités de retard enregistré avec succès.");
+    }
+
+    /**
+     * Déclenche l'analyse des retards d'échéances et applique les pénalités.
+     *
+     * @param Request $request
+     * @param FinanceService $financeService
+     * @return RedirectResponse
+     */
+    public function appliquerPenalitesRetard(Request $request, FinanceService $financeService): RedirectResponse
+    {
+        $validated = $request->validate([
+            'etablissement_id' => 'required|exists:etablissements,id',
+            'annee_scolaire_id' => 'required|exists:annees_scolaires,id',
+        ]);
+
+        $res = $financeService->appliquerPenalitesAutomatiquesEcheances(
+            $validated['etablissement_id'],
+            $validated['annee_scolaire_id'],
+            $request->user()
+        );
+
+        if ($res['penalites_appliquees'] > 0) {
+            return back()->with('success', "{$res['penalites_appliquees']} pénalité(s) de retard appliquée(s) pour un montant total de " . number_format($res['total_montant'], 0) . " FCFA.");
+        }
+
+        return back()->with('info', "Aucun nouveau retard de paiement à pénaliser à cette date.");
+    }
+
+    /**
+     * Annule une pénalité appliquée sur le compte d'un élève.
+     *
+     * @param PenaliteEleve $penalite
+     * @param FinanceService $financeService
+     * @return RedirectResponse
+     */
+    public function annulerPenaliteEleve(PenaliteEleve $penalite, FinanceService $financeService): RedirectResponse
+    {
+        $financeService->annulerPenalite($penalite);
+
+        return back()->with('success', "Pénalité de retard annulée avec succès.");
     }
 }

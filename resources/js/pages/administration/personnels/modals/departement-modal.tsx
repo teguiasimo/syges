@@ -1,5 +1,5 @@
 import { useForm } from '@inertiajs/react';
-import { BookOpen, Check, Plus, Trash2, Users } from 'lucide-react';
+import { BookOpen, Check, Plus, PlusCircle } from 'lucide-react';
 import React, { useEffect } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -14,14 +14,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import type { Departement, Personnel } from '@/types/personnel';
 
 /**
@@ -40,6 +33,9 @@ interface DepartementModalProps {
 
 /**
  * Modale de gestion des départements pédagogiques (Sections Gesco 8.1, 8.2).
+ * Permet la création et l'édition rapide d'une discipline/département sans champ description superflu.
+ * Intègre un bouton "+ Nouveau" pour enchaîner les créations de départements sans fermer la modale,
+ * et utilise SearchableSelect pour éliminer tout débordement causé par les noms longs des chefs.
  */
 export function DepartementModal({
     departement,
@@ -49,20 +45,24 @@ export function DepartementModal({
 }: DepartementModalProps) {
     const isEditing = !!departement;
 
+    /**
+     * Formulaire Inertia pour la gestion du département.
+     */
     const { data, setData, post, put, processing, errors, reset, clearErrors } = useForm({
         nom: '',
         code: '',
-        description: '',
         chef_departement_id: '' as string | number,
         is_active: true,
     });
 
+    /**
+     * Synchronise le formulaire lors de l'ouverture ou du changement de département sélectionné.
+     */
     useEffect(() => {
         if (departement) {
             setData({
                 nom: departement.nom,
                 code: departement.code || '',
-                description: departement.description || '',
                 chef_departement_id: departement.chef_departement_id || '',
                 is_active: departement.is_active,
             });
@@ -74,11 +74,11 @@ export function DepartementModal({
     }, [departement, isOpen]);
 
     /**
-     * Traitement de la soumission de création ou de modification.
+     * Traitement de l'enregistrement avec option de conservation de la modale ouverte.
+     *
+     * @param {boolean} keepOpen Indique s'il faut réinitialiser le formulaire pour ajouter le département suivant sans fermer la modale.
      */
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-
+    const handleSave = (keepOpen: boolean = false) => {
         if (isEditing) {
             put(`/administration/personnels/departements/${departement.id}`, {
                 onSuccess: () => {
@@ -100,7 +100,10 @@ export function DepartementModal({
                         description: `Le département ${data.nom} a été ajouté.`,
                     });
                     reset();
-                    onClose();
+                    clearErrors();
+                    if (!keepOpen) {
+                        onClose();
+                    }
                 },
                 onError: () => {
                     toast.error('Erreur lors de la création', {
@@ -109,6 +112,14 @@ export function DepartementModal({
                 },
             });
         }
+    };
+
+    /**
+     * Soumission classique du formulaire.
+     */
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        handleSave(false);
     };
 
     // Filtrer les enseignants pour suggérer les chefs de département
@@ -130,6 +141,7 @@ export function DepartementModal({
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit} className="space-y-4 pt-2">
+                    {/* Nom du département */}
                     <div>
                         <Label htmlFor="dep_nom" className="text-xs font-semibold">
                             Nom du département <span className="text-rose-500">*</span>
@@ -139,13 +151,14 @@ export function DepartementModal({
                             required
                             value={data.nom}
                             onChange={(e) => setData('nom', e.target.value)}
-                            placeholder="ex: Département des Mathématiques"
+                            placeholder="ex: Mathématiques"
                             className="mt-1 h-9 text-sm"
                         />
                         {errors.nom && <p className="text-rose-500 text-xs mt-1">{errors.nom}</p>}
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    {/* Code et Statut actif regroupés harmonieusement */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
                         <div>
                             <Label htmlFor="dep_code" className="text-xs font-semibold">
                                 Code / Sigle court
@@ -160,67 +173,73 @@ export function DepartementModal({
                             {errors.code && <p className="text-rose-500 text-xs mt-1">{errors.code}</p>}
                         </div>
 
-                        <div>
-                            <Label htmlFor="dep_chef" className="text-xs font-semibold">
-                                Chef de Département
+                        <div className="flex items-center gap-2 pt-4 sm:pt-5">
+                            <Checkbox
+                                id="dep_is_active"
+                                checked={data.is_active}
+                                onCheckedChange={(checked) => setData('is_active', !!checked)}
+                            />
+                            <Label htmlFor="dep_is_active" className="text-xs font-medium cursor-pointer">
+                                Département actif
                             </Label>
-                            <Select
-                                value={data.chef_departement_id ? String(data.chef_departement_id) : 'none'}
-                                onValueChange={(val) => setData('chef_departement_id', val === 'none' ? '' : Number(val))}
-                            >
-                                <SelectTrigger id="dep_chef" className="mt-1 h-9 text-sm">
-                                    <SelectValue placeholder="Aucun chef désigné" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="none">Aucun chef désigné</SelectItem>
-                                    {eligibleChefs.map((p) => (
-                                        <SelectItem key={p.id} value={String(p.id)}>
-                                            {p.nom} {p.prenom} ({p.matricule})
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
                         </div>
                     </div>
 
-                    <div>
-                        <Label htmlFor="dep_desc" className="text-xs font-semibold">
-                            Description ou objectifs pédagogiques
+                    {/* Chef de Département avec champ de recherche et protection contre les débordements */}
+                    <div className="w-full min-w-0">
+                        <Label htmlFor="dep_chef" className="text-xs font-semibold">
+                            Chef de Département (Optionnel)
                         </Label>
-                        <Textarea
-                            id="dep_desc"
-                            rows={3}
-                            value={data.description}
-                            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setData('description', e.target.value)}
-                            placeholder="ex: Coordination des programmes de mathématiques, organisation des devoirs communs..."
-                            className="mt-1 text-xs"
-                        />
+                        <div className="mt-1 w-full min-w-0">
+                            <SearchableSelect
+                                id="dep_chef"
+                                options={[
+                                    { value: '', label: 'Aucun chef désigné', group: 'Général' },
+                                    ...eligibleChefs.map((p) => ({
+                                        value: String(p.id),
+                                        label: `${p.nom} ${p.prenom || ''} (${p.matricule})`,
+                                        group: 'Enseignants éligibles',
+                                    })),
+                                ]}
+                                value={data.chef_departement_id ? String(data.chef_departement_id) : ''}
+                                onValueChange={(val) => setData('chef_departement_id', val ? Number(val) : '')}
+                                placeholder="Aucun chef désigné"
+                                searchPlaceholder="Rechercher un enseignant ou matricule..."
+                                className="h-9 text-xs w-full"
+                            />
+                        </div>
+                        {errors.chef_departement_id && (
+                            <p className="text-rose-500 text-xs mt-1">{errors.chef_departement_id}</p>
+                        )}
                     </div>
 
-                    <div className="flex items-center gap-2 pt-1">
-                        <Checkbox
-                            id="dep_is_active"
-                            checked={data.is_active}
-                            onCheckedChange={(checked) => setData('is_active', !!checked)}
-                        />
-                        <Label htmlFor="dep_is_active" className="text-xs font-medium cursor-pointer">
-                            Département actif dans l'institution
-                        </Label>
-                    </div>
-
-                    <DialogFooter className="gap-2 border-t pt-4">
+                    <DialogFooter className="gap-2 border-t pt-4 flex flex-wrap justify-end">
                         <Button
                             type="button"
                             variant="outline"
                             onClick={onClose}
-                            className="cursor-pointer"
+                            className="cursor-pointer text-xs"
                         >
                             Annuler
                         </Button>
+
+                        {!isEditing && (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                disabled={processing}
+                                onClick={() => handleSave(true)}
+                                className="cursor-pointer text-xs border-teal-600/40 text-teal-700 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-950/50 font-medium"
+                            >
+                                <PlusCircle className="size-4 mr-1.5 text-teal-600" />
+                                + Nouveau
+                            </Button>
+                        )}
+
                         <Button
                             type="submit"
                             disabled={processing}
-                            className="bg-teal-600 hover:bg-teal-700 text-white cursor-pointer font-semibold"
+                            className="bg-teal-600 hover:bg-teal-700 text-white cursor-pointer font-semibold text-xs"
                         >
                             {isEditing ? <Check className="size-4 mr-1.5" /> : <Plus className="size-4 mr-1.5" />}
                             {processing ? 'Enregistrement...' : isEditing ? 'Mettre à jour' : 'Créer le département'}

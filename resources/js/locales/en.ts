@@ -101,14 +101,25 @@ export const en: Translations = {
         notes_title: 'Grade Entry & Evaluations',
         notes_desc: 'Sequential grade entry, attendance, CBA competencies and session locking.',
 
+        releves_notes_title: 'Grade Sheets & Mark Registers',
+        releves_notes_desc: 'Generation and printing of blank or pre-filled grade sheets by class and subject.',
+
         bulletins_title: 'Report Cards & Academic Results',
         bulletins_desc: 'Term average calculations, class rankings, honors and official PDF generation.',
+
+        progression_title: 'Curriculum Progress & Logbook',
+        progression_desc: 'Lesson tracking, hourly quota monitoring, homework assignment and censor official stamp (Aurore §5.1.8).',
+
 
         finances_title: 'Cashier & Fee Payments',
         finances_desc: 'Cashier desk, student ledger accounts, tamper-proof receipts, cash closing and solvency lock.',
 
         discipline_title: 'Absences, Lateness & Discipline',
         discipline_desc: 'Attendance tracking, justifications, disciplinary sanctions and honor roll forfeiture checks.',
+
+        archivage_title: 'Administrative Archives & School Re-entry',
+        archivage_desc: 'Outgoing student & staff folders, numbering masks and 1-click annual replication assistant (Aurore §3.15, §3.16).',
+
 
         emplois_du_temps_title: 'Timetables & Classrooms',
         emplois_du_temps_desc: 'Weekly timetable, conflict detection, classroom assignment and HR substitute workload tracking.',

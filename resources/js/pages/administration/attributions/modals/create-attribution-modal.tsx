@@ -14,13 +14,8 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
+import { SearchableSelect, type SearchableOption } from '@/components/ui/searchable-select';
+import { truncateText } from '@/lib/utils';
 import type {
     ClasseWithAttributions,
     EnseignantWithWorkload,
@@ -28,22 +23,40 @@ import type {
 } from '@/types/attribution';
 
 /**
- * Propriétés de la modale d'affectation individuelle d'un cours.
+ * Propriétés attendues pour la modale d'affectation individuelle d'un cours.
  */
 interface CreateAttributionModalProps {
+    /** Indicateur d'ouverture du dialogue */
     isOpen: boolean;
+    /** Callback de fermeture du dialogue */
     onClose: () => void;
+    /** Identifiant de l'année scolaire active */
     anneeScolaireId: number;
+    /** Liste des classes disponibles */
     classes: ClasseWithAttributions[];
+    /** Liste des enseignants avec charge horaire */
     enseignants: EnseignantWithWorkload[];
+    /** Catalogue des matières actives */
     matieres: { id: number; code: string; nom: string }[];
+    /** Matrice des matières par niveau */
     matiereNiveaux: MatiereNiveauRef[];
+    /** Identifiant de classe pré-sélectionnée optionnel */
     initialClasseId?: number | null;
 }
 
 /**
  * Modale d'attribution d'un cours (Enseignant <-> Classe <-> Matière).
- * Permet au Censeur d'affecter un enseignant titulaire et son volume horaire hebdomadaire.
+ * Conforme au Cahier des Charges Gesco V1.1 (Module 9 - Répartition pédagogique).
+ *
+ * Fonctionnalités intégrées :
+ * - Sélection de classe avec recherche temps réel et regroupement par niveau scolaire.
+ * - Sélection de matière avec filtre de recherche et gestion des libellés longs.
+ * - Sélection de l'enseignant responsable sans débordement de fenêtre, avec charge horaire en temps réel.
+ * - Volume horaire hebdomadaire par défaut fixé à 2.0 h avec compacité visuelle optimisée.
+ * - Option titulaire officiel décochée par défaut.
+ *
+ * @param {CreateAttributionModalProps} props
+ * @returns {JSX.Element}
  */
 export function CreateAttributionModal({
     isOpen,
@@ -55,25 +68,30 @@ export function CreateAttributionModal({
     matiereNiveaux,
     initialClasseId,
 }: CreateAttributionModalProps) {
-    const defaultClasseId = initialClasseId ?? (classes.length > 0 ? classes[0].id : '');
+    const defaultClasseId = initialClasseId ? Number(initialClasseId) : '';
 
     const { data, setData, post, processing, errors, reset, clearErrors } = useForm({
         annee_scolaire_id: anneeScolaireId,
         classe_id: defaultClasseId as string | number,
         matiere_id: '' as string | number,
         personnel_id: '' as string | number,
-        volume_horaire_reel: 3.0,
-        is_titulaire: true,
+        volume_horaire_reel: 2.0,
+        is_titulaire: false,
     });
 
-    // Synchronisation de l'année scolaire ou de la classe initiale
+    // Synchronisation de l'état lors de l'ouverture ou du changement d'initialClasseId / anneeScolaireId
     React.useEffect(() => {
-        setData((prev) => ({
-            ...prev,
-            annee_scolaire_id: anneeScolaireId,
-            classe_id: initialClasseId ?? prev.classe_id,
-        }));
-    }, [anneeScolaireId, initialClasseId]);
+        if (isOpen) {
+            setData((prev) => ({
+                ...prev,
+                annee_scolaire_id: anneeScolaireId,
+                classe_id: initialClasseId ? Number(initialClasseId) : '',
+                matiere_id: '',
+                personnel_id: '',
+            }));
+            clearErrors();
+        }
+    }, [isOpen, anneeScolaireId, initialClasseId]);
 
     // Classe actuellement sélectionnée
     const selectedClasse = useMemo(() => {
@@ -104,19 +122,75 @@ export function CreateAttributionModal({
     }, [selectedClasse, matieres, matiereNiveaux]);
 
     /**
-     * Soumission du formulaire d'affectation.
+     * Options formatées pour SearchableSelect : Classes d'affectation regroupées par niveau scolaire.
      */
-    const handleSubmit = (e: React.FormEvent) => {
+    const classeOptions: SearchableOption[] = useMemo(() => {
+        return classes.map((cls) => ({
+            value: String(cls.id),
+            label: `${cls.nom}${cls.serie ? ` (${cls.serie})` : ''}`,
+            group: cls.niveau?.nom || 'Classes',
+        }));
+    }, [classes]);
+
+    /**
+     * Options formatées pour SearchableSelect : Matières & disciplines avec recherche et code officiel.
+     */
+    const matiereOptions: SearchableOption[] = useMemo(() => {
+        return availableMatieres.map((mat) => {
+            // Élimine toute redondance si le nom se termine déjà par le code entre parenthèses
+            const cleanNom = mat.nom.replace(new RegExp(`\\s*\\(${mat.code}\\)$`, 'i'), '').trim();
+            return {
+                value: String(mat.id),
+                label: `${cleanNom} (${mat.code})`,
+                group: 'Disciplines au programme',
+            };
+        });
+    }, [availableMatieres]);
+
+    /**
+     * Options formatées pour SearchableSelect : Enseignants responsables avec spécialité et charge horaire.
+     */
+    const enseignantOptions: SearchableOption[] = useMemo(() => {
+        return enseignants.map((ens) => ({
+            value: String(ens.id),
+            label: `${ens.nom} ${ens.prenom} (${ens.matricule})`,
+            description: `${ens.specialite || 'Général'} • [${ens.heures_attribuees}h / ${ens.volume_horaire_hebdo}h]`,
+            group: ens.departement?.nom || 'Corps professoral',
+        }));
+    }, [enseignants]);
+
+    /**
+     * Soumission du formulaire d'affectation de cours.
+     * Supporte le mode enchaînement (continueAdding) pour affecter plusieurs cours sans fermer la modale.
+     *
+     * @param {React.FormEvent} e Événement de soumission
+     * @param {boolean} continueAdding Si vrai, conserve la classe et prépare l'affectation suivante
+     */
+    const handleSubmit = (e: React.FormEvent, continueAdding: boolean = false) => {
         e.preventDefault();
 
         post('/administration/attributions', {
+            preserveScroll: true,
             onSuccess: () => {
                 toast.success('Attribution validée avec succès !', {
                     description: 'L\'enseignant a été affecté au cours et ses droits de saisie sont activés.',
                 });
-                reset();
-                clearErrors();
-                onClose();
+
+                if (continueAdding) {
+                    // Conserve la classe d'affectation sélectionnée et réinitialise uniquement la matière et l'enseignant
+                    setData((prev) => ({
+                        ...prev,
+                        matiere_id: '',
+                        personnel_id: '',
+                        volume_horaire_reel: 2.0,
+                        is_titulaire: false,
+                    }));
+                    clearErrors();
+                } else {
+                    reset();
+                    clearErrors();
+                    onClose();
+                }
             },
             onError: () => {
                 toast.error('Erreur lors de l\'attribution', {
@@ -137,94 +211,79 @@ export function CreateAttributionModal({
                         Affecter un Enseignant à un Cours
                     </DialogTitle>
                     <DialogDescription className="text-xs text-muted-foreground mt-1">
-                        Sélectionnez la classe, la discipline et l'enseignant responsable avec son volume horaire effectif hebdomadaire.
+                        Sélectionnez la classe, la discipline et l'enseignant responsable avec son volume horaire hebdomadaire effectif.
                     </DialogDescription>
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit} className="space-y-4 pt-2">
-                    {/* Choix de la Classe */}
-                    <div>
-                        <Label htmlFor="attr_classe_id" className="text-xs font-semibold">
+                    {/* Choix de la Classe (avec zone de recherche et regroupement par niveau) */}
+                    <div className="space-y-1">
+                        <Label htmlFor="attr_classe_id" className="text-xs font-semibold text-foreground">
                             Classe d'affectation <span className="text-rose-500">*</span>
                         </Label>
-                        <Select
-                            value={data.classe_id ? String(data.classe_id) : ''}
-                            onValueChange={(val) => {
+                        <SearchableSelect
+                            id="attr_classe_id"
+                            options={classeOptions}
+                            value={String(data.classe_id || '')}
+                            onChange={(val) => {
                                 setData((prev) => ({
                                     ...prev,
-                                    classe_id: Number(val),
-                                    matiere_id: '', // Réinitialise la matière au changement de classe
+                                    classe_id: val ? Number(val) : '',
+                                    matiere_id: '', // Réinitialise la discipline au changement de classe
                                 }));
                             }}
-                        >
-                            <SelectTrigger id="attr_classe_id" className="mt-1 h-9 text-sm">
-                                <SelectValue placeholder="Sélectionner une classe" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {classes.map((cls) => (
-                                    <SelectItem key={cls.id} value={String(cls.id)}>
-                                        {cls.nom} {cls.serie ? `(${cls.serie})` : ''} — {cls.niveau?.nom}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                            placeholder="Sélectionner une classe..."
+                            searchPlaceholder="Rechercher une classe, un niveau..."
+                            emptyMessage="Aucune classe trouvée pour"
+                            className="h-9 text-xs"
+                        />
                         {errors.classe_id && <p className="text-rose-500 text-xs mt-1">{errors.classe_id}</p>}
                     </div>
 
-                    {/* Choix de la Matière */}
-                    <div>
-                        <Label htmlFor="attr_matiere_id" className="text-xs font-semibold">
+                    {/* Choix de la Matière (avec zone de recherche et gestion des noms longs) */}
+                    <div className="space-y-1">
+                        <Label htmlFor="attr_matiere_id" className="text-xs font-semibold text-foreground">
                             Matière / Discipline <span className="text-rose-500">*</span>
                         </Label>
-                        <Select
-                            value={data.matiere_id ? String(data.matiere_id) : ''}
-                            onValueChange={(val) => setData('matiere_id', Number(val))}
-                        >
-                            <SelectTrigger id="attr_matiere_id" className="mt-1 h-9 text-sm">
-                                <SelectValue placeholder="Sélectionner la discipline" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {availableMatieres.map((mat) => (
-                                    <SelectItem key={mat.id} value={String(mat.id)}>
-                                        {mat.nom} ({mat.code})
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                        <SearchableSelect
+                            id="attr_matiere_id"
+                            options={matiereOptions}
+                            value={String(data.matiere_id || '')}
+                            onChange={(val) => setData('matiere_id', val ? Number(val) : '')}
+                            placeholder="Sélectionner la discipline..."
+                            searchPlaceholder="Rechercher une matière ou un code..."
+                            emptyMessage="Aucune discipline trouvée pour"
+                            className="h-9 text-xs"
+                        />
                         {errors.matiere_id && <p className="text-rose-500 text-xs mt-1">{errors.matiere_id}</p>}
                     </div>
 
-                    {/* Choix de l'Enseignant */}
-                    <div>
-                        <Label htmlFor="attr_personnel_id" className="text-xs font-semibold">
+                    {/* Choix de l'Enseignant (avec zone de recherche et protection contre le débordement) */}
+                    <div className="space-y-1">
+                        <Label htmlFor="attr_personnel_id" className="text-xs font-semibold text-foreground">
                             Enseignant responsable <span className="text-rose-500">*</span>
                         </Label>
-                        <Select
-                            value={data.personnel_id ? String(data.personnel_id) : ''}
-                            onValueChange={(val) => setData('personnel_id', Number(val))}
-                        >
-                            <SelectTrigger id="attr_personnel_id" className="mt-1 h-9 text-sm">
-                                <SelectValue placeholder="Sélectionner un enseignant" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {enseignants.map((ens) => (
-                                    <SelectItem key={ens.id} value={String(ens.id)}>
-                                        {ens.nom} {ens.prenom} ({ens.matricule}) — {ens.specialite || 'Général'} [{ens.heures_attribuees}h / {ens.volume_horaire_hebdo}h]
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                        <SearchableSelect
+                            id="attr_personnel_id"
+                            options={enseignantOptions}
+                            value={String(data.personnel_id || '')}
+                            onChange={(val) => setData('personnel_id', val ? Number(val) : '')}
+                            placeholder="Sélectionner un enseignant..."
+                            searchPlaceholder="Rechercher par nom, prénom, matricule..."
+                            emptyMessage="Aucun enseignant trouvé pour"
+                            className="h-9 text-xs"
+                        />
                         {errors.personnel_id && <p className="text-rose-500 text-xs mt-1">{errors.personnel_id}</p>}
                     </div>
 
-                    {/* Volume horaire réel hebdomadaire */}
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <Label htmlFor="attr_volume" className="text-xs font-semibold">
-                                Heures hebdo réelles <span className="text-rose-500">*</span>
+                    {/* Réorganisation compacte : Volume horaire hebdo & Titulaire officiel */}
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-3 bg-muted/40 rounded-lg border">
+                        <div className="flex items-center gap-3">
+                            <Label htmlFor="attr_volume" className="text-xs font-semibold shrink-0 text-foreground">
+                                Horaire hebdo <span className="text-rose-500">*</span>
                             </Label>
-                            <div className="relative mt-1">
-                                <Clock className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+                            <div className="relative w-24">
+                                <Clock className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
                                 <Input
                                     id="attr_volume"
                                     type="number"
@@ -234,42 +293,60 @@ export function CreateAttributionModal({
                                     required
                                     value={data.volume_horaire_reel}
                                     onChange={(e) => setData('volume_horaire_reel', parseFloat(e.target.value) || 0)}
-                                    className="pl-8 h-9 text-sm"
+                                    className="pl-8 h-8 text-xs font-bold text-center"
                                 />
                             </div>
+                            <span className="text-[11px] text-muted-foreground shrink-0">heures/sem</span>
                         </div>
 
-                        <div className="flex items-center pt-5">
-                            <div className="flex items-center gap-2">
-                                <Checkbox
-                                    id="attr_is_titulaire"
-                                    checked={data.is_titulaire}
-                                    onCheckedChange={(checked) => setData('is_titulaire', !!checked)}
-                                />
-                                <Label htmlFor="attr_is_titulaire" className="text-xs font-medium cursor-pointer">
-                                    Enseignant titulaire officiel
-                                </Label>
-                            </div>
+                        <div className="flex items-center gap-2">
+                            <Checkbox
+                                id="attr_is_titulaire"
+                                checked={data.is_titulaire}
+                                onCheckedChange={(checked) => setData('is_titulaire', !!checked)}
+                            />
+                            <Label htmlFor="attr_is_titulaire" className="text-xs font-medium cursor-pointer select-none">
+                                Enseignant titulaire officiel
+                            </Label>
                         </div>
                     </div>
+                    {errors.volume_horaire_reel && (
+                        <p className="text-rose-500 text-xs mt-0.5">{errors.volume_horaire_reel}</p>
+                    )}
 
-                    <DialogFooter className="gap-2 border-t pt-4">
+                    <DialogFooter className="gap-2 border-t pt-4 sm:justify-between flex-wrap">
                         <Button
                             type="button"
                             variant="outline"
                             onClick={onClose}
-                            className="cursor-pointer"
+                            className="cursor-pointer text-xs"
                         >
                             Annuler
                         </Button>
-                        <Button
-                            type="submit"
-                            disabled={processing}
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer font-semibold"
-                        >
-                            <Plus className="size-4 mr-1.5" />
-                            {processing ? 'Enregistrement...' : 'Affecter le cours'}
-                        </Button>
+
+                        <div className="flex items-center gap-2">
+                            {/* Bouton pour enchaîner les attributions sans fermer la modale */}
+                            <Button
+                                type="button"
+                                variant="outline"
+                                disabled={processing}
+                                onClick={(e) => handleSubmit(e, true)}
+                                className="cursor-pointer text-xs border-indigo-600/40 text-indigo-700 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 font-medium"
+                            >
+                                <Plus className="size-3.5 mr-1 text-indigo-600" />
+                                Affecter & Continuer
+                            </Button>
+
+                            {/* Bouton principal pour affecter et fermer la modale */}
+                            <Button
+                                type="submit"
+                                disabled={processing}
+                                className="bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer font-semibold text-xs shadow-xs"
+                            >
+                                <Check className="size-4 mr-1.5" />
+                                {processing ? 'Enregistrement...' : 'Affecter le cours'}
+                            </Button>
+                        </div>
                     </DialogFooter>
                 </form>
             </DialogContent>
@@ -277,6 +354,12 @@ export function CreateAttributionModal({
     );
 }
 
+/**
+ * Fonction utilitaire de vérification de vacuité.
+ *
+ * @param {*} val Valeur à tester
+ * @returns {boolean}
+ */
 function empty(val: any): boolean {
     return val === null || val === undefined || val === '';
 }

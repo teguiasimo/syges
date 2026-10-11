@@ -15,6 +15,7 @@ import {
     KeyRound,
     Lock,
     UserCheck,
+    Crown,
     Sparkles,
     CheckCheck,
     CheckSquare,
@@ -24,6 +25,22 @@ import {
     Save,
     ChevronsUpDown,
     Info,
+    School,
+    Layers,
+    BookOpen,
+    Briefcase,
+    Network,
+    Award,
+    Receipt,
+    Wallet,
+    Scale,
+    Gavel,
+    HeartHandshake,
+    Clock,
+    Calendar,
+    MessageSquare,
+    BarChart,
+    Archive,
 } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -121,12 +138,29 @@ interface RolesPageProps {
  * Dictionnaire associant le nom de l'icône Lucide au composant React correspondant.
  */
 const moduleIconMap: Record<string, React.ElementType> = {
-    Users: Users,
-    ShieldCheck: ShieldCheck,
-    GraduationCap: GraduationCap,
-    FileSpreadsheet: FileSpreadsheet,
-    CalendarRange: CalendarRange,
-    Settings: Settings,
+    School,
+    Layers,
+    CalendarRange,
+    BookOpen,
+    GraduationCap,
+    Briefcase,
+    Network,
+    FileSpreadsheet,
+    Award,
+    Receipt,
+    Wallet,
+    Scale,
+    Gavel,
+    HeartHandshake,
+    Sparkles,
+    Clock,
+    Calendar,
+    MessageSquare,
+    BarChart,
+    Archive,
+    Users,
+    ShieldCheck,
+    Settings,
 };
 
 /**
@@ -160,6 +194,9 @@ export default function RolesIndex({ roles, modules, totalPermissions, can }: Ro
 
     // Champ de recherche dans la liste des rôles
     const [searchQuery, setSearchQuery] = useState('');
+
+    // Champ de recherche dans les permissions unitaires
+    const [permissionSearch, setPermissionSearch] = useState('');
 
     // État pour la modale simplifiée de création de rôle
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -217,6 +254,29 @@ export default function RolesIndex({ roles, modules, totalPermissions, can }: Ro
                 role.name.toLowerCase().includes(query)
         );
     }, [roles, searchQuery]);
+
+    /**
+     * Filtrage des modules et permissions selon la saisie dans le champ de recherche de permissions.
+     */
+    const filteredModules = useMemo(() => {
+        const query = permissionSearch.trim().toLowerCase();
+        if (!query) return modules;
+
+        return modules
+            .map((m) => {
+                const matched = m.permissions.filter(
+                    (p) =>
+                        p.name.toLowerCase().includes(query) ||
+                        p.label.toLowerCase().includes(query) ||
+                        p.description.toLowerCase().includes(query)
+                );
+                return {
+                    ...m,
+                    permissions: matched,
+                };
+            })
+            .filter((m) => m.permissions.length > 0);
+    }, [modules, permissionSearch]);
 
     /**
      * Calcul des métriques statistiques globales affichées en en-tête.
@@ -502,7 +562,7 @@ export default function RolesIndex({ roles, modules, totalPermissions, can }: Ro
                                                     }`}
                                                 >
                                                     {role.isSuperAdmin ? (
-                                                        <Sparkles className="size-4" />
+                                                        <Crown className="size-4" />
                                                     ) : (
                                                         <Shield className="size-4" />
                                                     )}
@@ -620,7 +680,7 @@ export default function RolesIndex({ roles, modules, totalPermissions, can }: Ro
                                                 }`}
                                             >
                                                 {currentRole.isSuperAdmin ? (
-                                                    <Sparkles className="size-6" />
+                                                    <Crown className="size-6" />
                                                 ) : (
                                                     <ShieldCheck className="size-6" />
                                                 )}
@@ -722,9 +782,29 @@ export default function RolesIndex({ roles, modules, totalPermissions, can }: Ro
 
                                 {/* Corps du panneau : Liste des Accordéons par Module Scolaire */}
                                 <CardContent className="p-5 flex flex-col gap-4">
-                                    {modules.map((module) => {
+                                    {/* Champ de recherche rapide de permissions */}
+                                    <div className="relative">
+                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                                        <Input
+                                            placeholder="Filtrer les permissions (ex: supprimer, classe, note, caisse, bulletin)..."
+                                            value={permissionSearch}
+                                            onChange={(e) => setPermissionSearch(e.target.value)}
+                                            className="pl-9 pr-16 h-9 bg-card text-xs border-border/80"
+                                        />
+                                        {permissionSearch && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setPermissionSearch('')}
+                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs font-medium cursor-pointer"
+                                            >
+                                                Effacer
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    {filteredModules.map((module) => {
                                         const IconComp = moduleIconMap[module.icon] || Shield;
-                                        const isOpen = Boolean(openModules[module.id]);
+                                        const isOpen = Boolean(openModules[module.id]) || Boolean(permissionSearch.trim());
                                         const modulePermissionNames = module.permissions.map((p) => p.name);
 
                                         // Calcul du nombre de permissions sélectionnées dans ce module
@@ -815,32 +895,42 @@ export default function RolesIndex({ roles, modules, totalPermissions, can }: Ro
                                                                             !currentRole.isSuperAdmin &&
                                                                             handleTogglePermission(permission.name)
                                                                         }
-                                                                        className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg border transition-all select-none ${
+                                                                        className={`flex items-start gap-2.5 px-3 py-2.5 rounded-lg border transition-all select-none ${
                                                                             canEdit && !currentRole.isSuperAdmin
                                                                                 ? 'cursor-pointer'
                                                                                 : 'cursor-default'
                                                                         } ${
                                                                             isChecked
-                                                                                ? 'bg-primary/10 border-primary shadow-xs'
-                                                                                : 'bg-card border-border hover:border-slate-400 dark:hover:border-slate-600 hover:bg-muted/30'
+                                                                                ? 'bg-primary/10 border-primary shadow-xs ring-1 ring-primary/20'
+                                                                                : 'bg-card border-border/70 hover:border-slate-400 dark:hover:border-slate-600 hover:bg-muted/30'
                                                                         }`}
                                                                     >
                                                                         <Checkbox
                                                                             checked={isChecked}
                                                                             disabled={currentRole.isSuperAdmin}
-                                                                            className={`pointer-events-none shrink-0 ${
+                                                                            className={`pointer-events-none mt-0.5 shrink-0 ${
                                                                                 !isChecked ? 'border-slate-400 dark:border-slate-500' : ''
                                                                             }`}
                                                                         />
-                                                                        <span
-                                                                            className={`text-sm select-none leading-snug ${
-                                                                                isChecked
-                                                                                    ? 'font-semibold text-foreground'
-                                                                                    : 'font-medium text-foreground'
-                                                                            }`}
-                                                                        >
-                                                                            {permission.label}
-                                                                        </span>
+                                                                        <div className="min-w-0 flex-1">
+                                                                            <span
+                                                                                className={`text-xs select-none leading-snug block ${
+                                                                                    isChecked
+                                                                                        ? 'font-semibold text-foreground'
+                                                                                        : 'font-medium text-foreground/90'
+                                                                                }`}
+                                                                            >
+                                                                                {permission.label}
+                                                                            </span>
+                                                                            {permission.description && (
+                                                                                <span
+                                                                                    className="text-[10px] text-muted-foreground block line-clamp-2 mt-0.5 leading-tight"
+                                                                                    title={permission.description}
+                                                                                >
+                                                                                    {permission.description}
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
                                                                     </div>
                                                                 );
                                                             })}
@@ -850,6 +940,16 @@ export default function RolesIndex({ roles, modules, totalPermissions, can }: Ro
                                             </div>
                                         );
                                     })}
+
+                                    {filteredModules.length === 0 && (
+                                        <div className="p-8 text-center border rounded-xl bg-card">
+                                            <AlertCircle className="size-8 text-muted-foreground/60 mx-auto mb-2" />
+                                            <p className="text-sm font-semibold text-foreground">Aucune permission trouvée</p>
+                                            <p className="text-xs text-muted-foreground mt-1">
+                                                Aucune permission ne correspond au filtre « {permissionSearch} ».
+                                            </p>
+                                        </div>
+                                    )}
 
                                     {/* Bouton d'enregistrement secondaire en bas de page (affiché uniquement si modification autorisée) */}
                                     {!currentRole.isSuperAdmin && canEdit && (

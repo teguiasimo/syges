@@ -103,6 +103,7 @@ export default function NotesIndex({
     const [isLocked, setIsLocked] = useState<boolean>(false);
     const [isLoadingGrille, setIsLoadingGrille] = useState<boolean>(false);
     const [isSaving, setIsSaving] = useState<boolean>(false);
+    const [showApcSessionBar, setShowApcSessionBar] = useState<boolean>(false);
 
     // Références pour la navigation au clavier (haut / bas / entrée)
     const inputsRef = useRef<Record<number, HTMLInputElement | null>>({});
@@ -559,7 +560,7 @@ export default function NotesIndex({
                     <CardContent className="p-4">
                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                             {/* Année Scolaire */}
-                            <div>
+                            <div className="min-w-0">
                                 <label className="text-xs font-semibold text-muted-foreground mb-1 block">
                                     {t('notes.select_annee')}
                                 </label>
@@ -571,7 +572,7 @@ export default function NotesIndex({
                                         setSelectedAttribution('');
                                     }}
                                 >
-                                    <SelectTrigger className="h-9">
+                                    <SelectTrigger className="h-9 w-full min-w-0 overflow-hidden [&>span]:truncate [&>span]:block">
                                         <SelectValue placeholder="Choisir une année" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -585,7 +586,7 @@ export default function NotesIndex({
                             </div>
 
                             {/* Classe */}
-                            <div>
+                            <div className="min-w-0">
                                 <label className="text-xs font-semibold text-muted-foreground mb-1 block">
                                     {t('notes.select_classe')}
                                 </label>
@@ -596,7 +597,7 @@ export default function NotesIndex({
                                         setSelectedAttribution('');
                                     }}
                                 >
-                                    <SelectTrigger className="h-9">
+                                    <SelectTrigger className="h-9 w-full min-w-0 overflow-hidden [&>span]:truncate [&>span]:block">
                                         <SelectValue placeholder="Choisir une classe" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -610,7 +611,7 @@ export default function NotesIndex({
                             </div>
 
                             {/* Matière / Cours Attribué */}
-                            <div>
+                            <div className="min-w-0">
                                 <label className="text-xs font-semibold text-muted-foreground mb-1 block">
                                     {t('notes.select_matiere')}
                                 </label>
@@ -619,7 +620,7 @@ export default function NotesIndex({
                                     value={selectedAttribution}
                                     onValueChange={setSelectedAttribution}
                                 >
-                                    <SelectTrigger className="h-9">
+                                    <SelectTrigger className="h-9 w-full min-w-0 overflow-hidden [&>span]:truncate [&>span]:block">
                                         <SelectValue
                                             placeholder={
                                                 attributionsDeLaClasse.length === 0
@@ -628,18 +629,36 @@ export default function NotesIndex({
                                             }
                                         />
                                     </SelectTrigger>
-                                    <SelectContent>
-                                        {attributionsDeLaClasse.map((attr) => (
-                                            <SelectItem key={attr.id} value={String(attr.id)}>
-                                                {attr.matiere?.nom} (Prof: {attr.personnel?.nom_complet})
-                                            </SelectItem>
-                                        ))}
+                                    <SelectContent className="max-w-md">
+                                        {attributionsDeLaClasse.map((attr) => {
+                                            const displayText = isGestionnaire && attr.personnel?.nom_complet
+                                                ? `${attr.matiere?.nom} (${attr.personnel.nom_complet})`
+                                                : (attr.matiere?.nom ?? '-');
+
+                                            return (
+                                                <SelectItem
+                                                    key={attr.id}
+                                                    value={String(attr.id)}
+                                                    title={displayText}
+                                                    className="truncate max-w-full"
+                                                >
+                                                    <span className="truncate block">
+                                                        {attr.matiere?.nom}
+                                                        {isGestionnaire && attr.personnel?.nom_complet && (
+                                                            <span className="text-muted-foreground text-xs ml-1 font-normal">
+                                                                ({attr.personnel.nom_complet})
+                                                            </span>
+                                                        )}
+                                                    </span>
+                                                </SelectItem>
+                                            );
+                                        })}
                                     </SelectContent>
                                 </Select>
                             </div>
 
                             {/* Évaluation / Séquence */}
-                            <div>
+                            <div className="min-w-0">
                                 <label className="text-xs font-semibold text-muted-foreground mb-1 block">
                                     {t('notes.select_periode')}
                                 </label>
@@ -647,7 +666,7 @@ export default function NotesIndex({
                                     value={selectedEvaluation}
                                     onValueChange={setSelectedEvaluation}
                                 >
-                                    <SelectTrigger className="h-9">
+                                    <SelectTrigger className="h-9 w-full min-w-0 overflow-hidden [&>span]:truncate [&>span]:block">
                                         <SelectValue placeholder="Choisir une évaluation" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -657,7 +676,7 @@ export default function NotesIndex({
                                                     {p.nom}
                                                 </div>
                                                 {p.evaluations.map((ev) => (
-                                                    <SelectItem key={ev.id} value={String(ev.id)}>
+                                                    <SelectItem key={ev.id} value={String(ev.id)} className="truncate">
                                                         {ev.nom} ({ev.code})
                                                     </SelectItem>
                                                 ))}
@@ -743,45 +762,47 @@ export default function NotesIndex({
                     </div>
                 ) : grille.length > 0 ? (
                     <div className="flex flex-col gap-3">
-                        {/* Barre d'affectation globale de compétence de session */}
-                        <Card className="border-indigo-100 bg-indigo-50/50 dark:border-indigo-950 dark:bg-indigo-950/20">
-                            <CardContent className="p-3.5 flex flex-col sm:flex-row sm:items-center gap-3">
-                                <div className="flex-1">
-                                    <label className="text-xs font-semibold text-indigo-950 dark:text-indigo-200 block mb-1">
-                                        Compétence évaluée pour cette session (APC - Nouvelles normes Cameroun)
-                                    </label>
-                                    <Input
-                                        disabled={isLocked}
-                                        type="text"
-                                        placeholder="Ex: Résoudre des situations-problèmes relatives aux équations linéaires..."
-                                        value={competenceSession}
-                                        onChange={(e) => setCompetenceSession(e.target.value)}
-                                        className="h-8 text-xs bg-background"
-                                    />
-                                </div>
-                                <Button
-                                    type="button"
-                                    size="sm"
-                                    disabled={isLocked || !competenceSession.trim()}
-                                    onClick={() => {
-                                        setGrille((prev) =>
-                                            prev.map((item) => ({
-                                                ...item,
-                                                competence_evaluee: competenceSession,
-                                            }))
-                                        );
-                                        toast.success('Compétence appliquée à tous les élèves de la classe !', {
-                                            position: 'top-right',
-                                            className: 'bg-emerald-600 text-white border-emerald-700',
-                                        });
-                                    }}
-                                    className="sm:self-end h-8 text-xs bg-indigo-600 hover:bg-indigo-700 text-white gap-1 shrink-0"
-                                >
-                                    <CheckCircle2 className="h-3.5 w-3.5" />
-                                    Appliquer à toute la classe
-                                </Button>
-                            </CardContent>
-                        </Card>
+                        {/* Barre d'affectation globale de compétence de session (masquée par défaut) */}
+                        {showApcSessionBar && (
+                            <Card className="border-indigo-100 bg-indigo-50/50 dark:border-indigo-950 dark:bg-indigo-950/20">
+                                <CardContent className="p-3.5 flex flex-col sm:flex-row sm:items-center gap-3">
+                                    <div className="flex-1">
+                                        <label className="text-xs font-semibold text-indigo-950 dark:text-indigo-200 block mb-1">
+                                            Compétence évaluée pour cette session (APC - Nouvelles normes Cameroun)
+                                        </label>
+                                        <Input
+                                            disabled={isLocked}
+                                            type="text"
+                                            placeholder="Ex: Résoudre des situations-problèmes relatives aux équations linéaires..."
+                                            value={competenceSession}
+                                            onChange={(e) => setCompetenceSession(e.target.value)}
+                                            className="h-8 text-xs bg-background"
+                                        />
+                                    </div>
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        disabled={isLocked || !competenceSession.trim()}
+                                        onClick={() => {
+                                            setGrille((prev) =>
+                                                prev.map((item) => ({
+                                                    ...item,
+                                                    competence_evaluee: competenceSession,
+                                                }))
+                                            );
+                                            toast.success('Compétence appliquée à tous les élèves de la classe !', {
+                                                position: 'top-right',
+                                                className: 'bg-emerald-600 text-white border-emerald-700',
+                                            });
+                                        }}
+                                        className="sm:self-end h-8 text-xs bg-indigo-600 hover:bg-indigo-700 text-white gap-1 shrink-0"
+                                    >
+                                        <CheckCircle2 className="h-3.5 w-3.5" />
+                                        Appliquer à toute la classe
+                                    </Button>
+                                </CardContent>
+                            </Card>
+                        )}
 
                         {/* Grille TanStack Table */}
                         <Card className="border-border/60 shadow-sm overflow-hidden">
@@ -791,6 +812,34 @@ export default function NotesIndex({
                                     data={grille}
                                     searchPlaceholder="Rechercher un élève par nom ou matricule..."
                                     defaultPageSize={50}
+                                    initialColumnVisibility={{
+                                        appreciation: false,
+                                        competence_evaluee: false,
+                                    }}
+                                    showColumnVisibilityToggle={true}
+                                    columnLabels={{
+                                        numero: 'N°',
+                                        matricule: 'Matricule',
+                                        nom_complet: "Nom & Prénom de l'élève",
+                                        statut_presence: 'Présence',
+                                        valeur_note: 'Note / 20',
+                                        cote: 'Cote APC',
+                                        appreciation: "Appréciation de l'enseignant",
+                                        competence_evaluee: 'Compétence évaluée (APC)',
+                                    }}
+                                    actionSlot={
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setShowApcSessionBar(!showApcSessionBar)}
+                                            className="h-9 text-xs gap-1.5 cursor-pointer bg-card border-input hover:bg-accent"
+                                            title="Afficher ou masquer le champ de saisie de compétence globale APC"
+                                        >
+                                            <BookOpen className="size-3.5 text-muted-foreground" />
+                                            <span>{showApcSessionBar ? 'Masquer compétence session' : 'Compétence session (APC)'}</span>
+                                        </Button>
+                                    }
                                 />
                             </CardContent>
                         </Card>

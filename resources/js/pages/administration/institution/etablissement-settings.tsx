@@ -9,10 +9,13 @@ import {
     GraduationCap,
     Lock,
     Save,
+    Scale,
     Shield,
     ShieldAlert,
     Sliders,
     Sparkles,
+    Trash2,
+    UploadCloud,
 } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
@@ -43,15 +46,20 @@ interface EtablissementData {
     logo?: string | null;
     mode_bulletin_defaut: 'sans_competences' | 'avec_competences';
     type_calcul_trimestre: 'arithmetique' | 'pondere';
+    seuil_classement_actif?: boolean;
+    mode_seuil_classement?: 'pourcentage' | 'valeur_fixe';
+    seuil_classement_valeur?: number;
     seuil_absences_decheance_mentions: number;
     verrou_solvabilite_actif: boolean;
     bonus_paiement_anticipe_actif: boolean;
     montant_bonus_anticipe?: number | null;
     date_limite_bonus?: string | null;
+    effective_logo?: string | null;
     institution?: {
         id: number;
         nom: string;
         code: string;
+        logo?: string | null;
     } | null;
 }
 
@@ -107,8 +115,33 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
         }
     }, [flash]);
 
-    // Initialisation du formulaire Inertia avec toutes les options paramétrables
-    const { data, setData, put, processing, errors, isDirty } = useForm({
+    // Initialisation du formulaire Inertia avec toutes les options paramétrables (incluant logo propre au campus)
+    const { data, setData, post, processing, errors, isDirty } = useForm<{
+        code: string;
+        nom: string;
+        nom_en: string;
+        statut_juridique: string;
+        ordre_enseignement: string;
+        decret_creation: string;
+        nom_chef_etablissement: string;
+        email: string;
+        telephone_1: string;
+        telephone_2: string;
+        adresse: string;
+        logo: string;
+        logo_file: File | null;
+        _method: string;
+        mode_bulletin_defaut: 'sans_competences' | 'avec_competences';
+        type_calcul_trimestre: 'arithmetique' | 'pondere';
+        seuil_classement_actif: boolean;
+        mode_seuil_classement: 'pourcentage' | 'valeur_fixe';
+        seuil_classement_valeur: number;
+        seuil_absences_decheance_mentions: number;
+        verrou_solvabilite_actif: boolean;
+        bonus_paiement_anticipe_actif: boolean;
+        montant_bonus_anticipe: number;
+        date_limite_bonus: string;
+    }>({
         // Identité & Coordonnées
         code: etablissement.code || '',
         nom: etablissement.nom || '',
@@ -121,10 +154,16 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
         telephone_1: etablissement.telephone_1 || '',
         telephone_2: etablissement.telephone_2 || '',
         adresse: etablissement.adresse || '',
+        logo: etablissement.logo || '',
+        logo_file: null,
+        _method: 'put',
 
         // Pédagogie & Format des Bulletins (Module 10)
-        mode_bulletin_defaut: etablissement.mode_bulletin_defaut || 'sans_competences',
+        mode_bulletin_defaut: etablissement.mode_bulletin_defaut || 'avec_competences',
         type_calcul_trimestre: etablissement.type_calcul_trimestre || 'arithmetique',
+        seuil_classement_actif: etablissement.seuil_classement_actif !== undefined ? Boolean(etablissement.seuil_classement_actif) : true,
+        mode_seuil_classement: etablissement.mode_seuil_classement || 'pourcentage',
+        seuil_classement_valeur: etablissement.seuil_classement_valeur ?? 60,
 
         // Discipline & Assiduité (Module 12 - Seuil MINESEC Cameroun par défaut : 40h)
         seuil_absences_decheance_mentions: etablissement.seuil_absences_decheance_mentions ?? 40,
@@ -136,15 +175,50 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
         date_limite_bonus: etablissement.date_limite_bonus ? String(etablissement.date_limite_bonus).substring(0, 10) : '',
     });
 
+    // Prévisualisation du logo du campus et référence de l'input fichier
+    const [logoPreview, setLogoPreview] = useState<string | null>(etablissement.logo || null);
+    const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+
     /**
-     * Soumet les modifications pour enregistrement.
+     * Gestion du téléversement du logo propre au campus avec prévisualisation immédiate.
+     *
+     * @param {React.ChangeEvent<HTMLInputElement>} e Événement de sélection de fichier.
+     */
+    const handleLogoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            if (file.size > 2 * 1024 * 1024) {
+                toast.error('Le fichier est trop volumineux. Taille maximale : 2 Mo.');
+                return;
+            }
+            setData('logo_file', file);
+            const previewUrl = URL.createObjectURL(file);
+            setLogoPreview(previewUrl);
+        }
+    };
+
+    /**
+     * Suppression du logo propre au campus (retour automatique au logo faîtier de l'institution).
+     */
+    const handleRemoveLogo = () => {
+        setData('logo', '');
+        setData('logo_file', null);
+        setLogoPreview(null);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+    };
+
+    /**
+     * Soumet les modifications pour enregistrement avec support multipart.
      *
      * @param {React.FormEvent} e Événement de soumission.
      */
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        put(`/administration/etablissements/${etablissement.id}/settings`, {
+        post(`/administration/etablissements/${etablissement.id}/settings`, {
             preserveScroll: true,
+            forceFormData: true,
         });
     };
 
@@ -168,18 +242,52 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
                             <span className="font-semibold text-foreground">{etablissement.nom}</span>
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-2.5">
-                            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground flex items-center gap-2.5">
-                                <Sliders className="size-7 text-indigo-600 dark:text-indigo-400" />
-                                Configuration & Règles de Gestion
-                            </h1>
-                            <Badge variant="outline" className="font-mono text-xs px-2.5 py-0.5 border-indigo-200 text-indigo-700 bg-indigo-50 dark:bg-indigo-950/50 dark:text-indigo-300">
-                                {etablissement.code}
-                            </Badge>
+                        <div className="flex items-center gap-3.5">
+                            <div
+                                className="size-12 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 p-1 flex items-center justify-center shadow-xs shrink-0 overflow-hidden relative"
+                                title={logoPreview ? "Logo propre à cet établissement" : "Logo hérité de l'institution (repli automatique)"}
+                            >
+                                {(logoPreview || etablissement.effective_logo || etablissement.institution?.logo) ? (
+                                    <img
+                                        src={logoPreview || etablissement.effective_logo || etablissement.institution?.logo || ''}
+                                        alt={`Logo ${etablissement.nom}`}
+                                        className="max-h-full max-w-full object-contain"
+                                    />
+                                ) : (
+                                    <Building2 className="size-6 text-indigo-600 dark:text-indigo-400" />
+                                )}
+                                {logoPreview && (
+                                    <span
+                                        title="Logo propre à l'établissement"
+                                        className="absolute -top-0.5 -right-0.5 size-2.5 rounded-full bg-emerald-500 ring-2 ring-background"
+                                    />
+                                )}
+                            </div>
+
+                            <div className="space-y-0.5">
+                                <div className="flex flex-wrap items-center gap-2.5">
+                                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground flex items-center gap-2.5">
+                                        <Sliders className="size-6 text-indigo-600 dark:text-indigo-400" />
+                                        Configuration & Règles de Gestion
+                                    </h1>
+                                    <Badge variant="outline" className="font-mono text-xs px-2.5 py-0.5 border-indigo-200 text-indigo-700 bg-indigo-50 dark:bg-indigo-950/50 dark:text-indigo-300">
+                                        {etablissement.code}
+                                    </Badge>
+                                    {logoPreview ? (
+                                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-medium text-emerald-700 bg-emerald-50 border-emerald-200 dark:text-emerald-300 dark:bg-emerald-950/40">
+                                            Logo propre
+                                        </Badge>
+                                    ) : etablissement.institution?.logo ? (
+                                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-normal text-muted-foreground bg-muted/40 border-border/60" title="En l'absence de logo propre, le logo de l'institution faîtière s'applique automatiquement">
+                                            Logo faîtier (repli)
+                                        </Badge>
+                                    ) : null}
+                                </div>
+                                <p className="text-xs sm:text-sm text-muted-foreground">
+                                    Ajustez les formats de bulletins scolaires, règles de calcul, seuils disciplinaires et verrous financiers de ce campus.
+                                </p>
+                            </div>
                         </div>
-                        <p className="text-xs sm:text-sm text-muted-foreground">
-                            Ajustez les formats de bulletins scolaires, règles de calcul, seuils disciplinaires et verrous financiers de ce campus.
-                        </p>
                     </div>
 
                     {/* Actions de sauvegarde */}
@@ -248,11 +356,11 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
                                 </CardHeader>
                                 <CardContent className="space-y-4">
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        {/* Option 1 : Standard sans compétences (Par défaut) */}
+                                        {/* Option 1 : Avec compétences (APC - Recommandé MINESEC) */}
                                         <div
-                                            onClick={() => setData('mode_bulletin_defaut', 'sans_competences')}
+                                            onClick={() => setData('mode_bulletin_defaut', 'avec_competences')}
                                             className={`relative p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                                                data.mode_bulletin_defaut === 'sans_competences'
+                                                data.mode_bulletin_defaut === 'avec_competences'
                                                     ? 'border-emerald-600 bg-emerald-50/40 dark:bg-emerald-950/20 dark:border-emerald-500 shadow-xs'
                                                     : 'border-border/70 hover:border-border bg-card'
                                             }`}
@@ -260,49 +368,49 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
                                             <div className="flex items-start justify-between gap-3">
                                                 <div className="space-y-1">
                                                     <div className="flex items-center gap-2">
-                                                        <span className="font-bold text-sm text-foreground">Standard sans compétences</span>
+                                                        <span className="font-bold text-sm text-foreground">Approche Par Compétences (APC)</span>
                                                         <Badge className="bg-emerald-600 text-white text-[10px] px-1.5 py-0 font-medium">
-                                                            Recommandé
+                                                            Recommandé (Norme MINESEC)
                                                         </Badge>
                                                     </div>
                                                     <p className="text-xs text-muted-foreground leading-relaxed">
-                                                        Modèle classique standard MINESEC / Cameroun. Présente les matières groupées, coefficients, notes séquentielles sur 20, totaux, moyennes trimestrielles, rangs et appréciations générales.
+                                                        Modèle officiel camerounais avec compétences évaluées par matière, cotes d'acquisition APC (Expert, Acquis, En cours, Non acquis), sous-totaux par bloc pédagogique et profil disciplinaire complet.
                                                     </p>
                                                 </div>
                                                 <div className={`size-5 rounded-full border flex items-center justify-center shrink-0 ${
-                                                    data.mode_bulletin_defaut === 'sans_competences'
+                                                    data.mode_bulletin_defaut === 'avec_competences'
                                                         ? 'border-emerald-600 bg-emerald-600 text-white'
                                                         : 'border-muted-foreground/40'
                                                 }`}>
-                                                    {data.mode_bulletin_defaut === 'sans_competences' && <CheckCircle2 className="size-3.5" />}
+                                                    {data.mode_bulletin_defaut === 'avec_competences' && <CheckCircle2 className="size-3.5" />}
                                                 </div>
                                             </div>
                                         </div>
 
-                                        {/* Option 2 : Avec compétences (APC) */}
+                                        {/* Option 2 : Standard sans compétences (Modèle classique) */}
                                         <div
-                                            onClick={() => setData('mode_bulletin_defaut', 'avec_competences')}
+                                            onClick={() => setData('mode_bulletin_defaut', 'sans_competences')}
                                             className={`relative p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                                                data.mode_bulletin_defaut === 'avec_competences'
-                                                    ? 'border-indigo-600 bg-indigo-50/40 dark:bg-indigo-950/20 dark:border-indigo-500 shadow-xs'
+                                                data.mode_bulletin_defaut === 'sans_competences'
+                                                    ? 'border-slate-600 bg-slate-50/40 dark:bg-slate-950/20 dark:border-slate-500 shadow-xs'
                                                     : 'border-border/70 hover:border-border bg-card'
                                             }`}
                                         >
                                             <div className="flex items-start justify-between gap-3">
                                                 <div className="space-y-1">
                                                     <div className="flex items-center gap-2">
-                                                        <span className="font-bold text-sm text-foreground">Approche Par Compétences (APC)</span>
+                                                        <span className="font-bold text-sm text-foreground">Standard sans compétences</span>
                                                     </div>
                                                     <p className="text-xs text-muted-foreground leading-relaxed">
-                                                        Modèle axé sur l'évaluation par compétences professionnelles et académiques. Intègre les compétences visées, niveaux d'acquisition (Expert, Acquis, En cours, Non acquis) et appréciations modulaires.
+                                                        Modèle classique condensé. Présente les matières groupées, coefficients, notes séquentielles sur 20, totaux, moyennes trimestrielles, rangs et appréciations générales sans libellé de compétence.
                                                     </p>
                                                 </div>
                                                 <div className={`size-5 rounded-full border flex items-center justify-center shrink-0 ${
-                                                    data.mode_bulletin_defaut === 'avec_competences'
-                                                        ? 'border-indigo-600 bg-indigo-600 text-white'
+                                                    data.mode_bulletin_defaut === 'sans_competences'
+                                                        ? 'border-slate-600 bg-slate-600 text-white'
                                                         : 'border-muted-foreground/40'
                                                 }`}>
-                                                    {data.mode_bulletin_defaut === 'avec_competences' && <CheckCircle2 className="size-3.5" />}
+                                                    {data.mode_bulletin_defaut === 'sans_competences' && <CheckCircle2 className="size-3.5" />}
                                                 </div>
                                             </div>
                                         </div>
@@ -381,6 +489,135 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
                                     </div>
                                     {errors.type_calcul_trimestre && (
                                         <p className="text-xs text-rose-500 font-medium">{errors.type_calcul_trimestre}</p>
+                                    )}
+                                </CardContent>
+                            </Card>
+
+                            {/* Règle de Quota Minimal de Coefficients pour le Classement (MINESEC / Gesco) */}
+                            <Card className="border-border/80 shadow-xs">
+                                <CardHeader className="pb-4">
+                                    <div className="flex items-center gap-2">
+                                        <div className="p-2 rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-400">
+                                            <Scale className="size-5" />
+                                        </div>
+                                        <div>
+                                            <CardTitle className="text-base sm:text-lg">Éligibilité au Classement & Quota de Coefficients</CardTitle>
+                                            <CardDescription className="text-xs sm:text-sm">
+                                                Empêche qu'un élève absent ayant composé dans un nombre marginal de matières ne soit artificiellement classé 1er.
+                                            </CardDescription>
+                                        </div>
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="space-y-5">
+                                    <div
+                                        onClick={() => setData('seuil_classement_actif', !data.seuil_classement_actif)}
+                                        className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex items-center justify-between gap-4 ${
+                                            data.seuil_classement_actif
+                                                ? 'border-indigo-600 bg-indigo-50/40 dark:bg-indigo-950/20 dark:border-indigo-500'
+                                                : 'border-border/70 hover:border-border bg-card'
+                                        }`}
+                                    >
+                                        <div className="space-y-1">
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-bold text-sm text-foreground">Activer le seuil minimal de classement</span>
+                                                {data.seuil_classement_actif ? (
+                                                    <Badge className="bg-indigo-600 text-white text-[10px]">Actif</Badge>
+                                                ) : (
+                                                    <Badge variant="outline" className="text-[10px]">Désactivé (Tous classés)</Badge>
+                                                )}
+                                            </div>
+                                            <p className="text-xs text-muted-foreground leading-relaxed">
+                                                Si activé, les élèves n'ayant pas atteint le volume minimal de coefficients requis porteront la mention <strong>NC (Non Classé)</strong> sans décaler le rang des élèves assidus.
+                                            </p>
+                                        </div>
+                                        <div className={`w-11 h-6 rounded-full transition-colors relative shrink-0 ${
+                                            data.seuil_classement_actif ? 'bg-indigo-600' : 'bg-muted-foreground/30'
+                                        }`}>
+                                            <div className={`w-5 h-5 rounded-full bg-white transition-transform absolute top-0.5 ${
+                                                data.seuil_classement_actif ? 'left-5.5' : 'left-0.5'
+                                            }`} />
+                                        </div>
+                                    </div>
+
+                                    {data.seuil_classement_actif && (
+                                        <div className="space-y-4 pt-2 border-t border-border/60">
+                                            <div className="space-y-2">
+                                                <Label className="text-xs font-semibold text-foreground">
+                                                    Mode de définition du seuil réglementaire
+                                                </Label>
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                    <div
+                                                        onClick={() => setData('mode_seuil_classement', 'pourcentage')}
+                                                        className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                                                            data.mode_seuil_classement === 'pourcentage'
+                                                                ? 'border-indigo-600 bg-indigo-50/30 dark:bg-indigo-950/20 dark:border-indigo-500'
+                                                                : 'border-border/60 hover:border-border bg-card'
+                                                        }`}
+                                                    >
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="text-xs font-bold text-foreground">Pourcentage de la classe (Recommandé)</span>
+                                                            {data.mode_seuil_classement === 'pourcentage' && <CheckCircle2 className="size-4 text-indigo-600 shrink-0" />}
+                                                        </div>
+                                                        <p className="text-[11px] text-muted-foreground mt-1">
+                                                            S'adapte dynamiquement à chaque classe (ex: 60% des coefficients totaux).
+                                                        </p>
+                                                    </div>
+
+                                                    <div
+                                                        onClick={() => setData('mode_seuil_classement', 'valeur_fixe')}
+                                                        className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                                                            data.mode_seuil_classement === 'valeur_fixe'
+                                                                ? 'border-indigo-600 bg-indigo-50/30 dark:bg-indigo-950/20 dark:border-indigo-500'
+                                                                : 'border-border/60 hover:border-border bg-card'
+                                                        }`}
+                                                    >
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="text-xs font-bold text-foreground">Nombre fixe de coefficients</span>
+                                                            {data.mode_seuil_classement === 'valeur_fixe' && <CheckCircle2 className="size-4 text-indigo-600 shrink-0" />}
+                                                        </div>
+                                                        <p className="text-[11px] text-muted-foreground mt-1">
+                                                            Impose un plancher absolu uniforme (ex: au moins 15 coefficients évalués).
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="max-w-xs space-y-2">
+                                                <Label htmlFor="seuil_valeur" className="text-xs font-semibold text-foreground">
+                                                    {data.mode_seuil_classement === 'pourcentage'
+                                                        ? 'Pourcentage minimal requis (%)'
+                                                        : 'Nombre minimal de coefficients requis'}
+                                                </Label>
+                                                <div className="flex items-center gap-3">
+                                                    <Input
+                                                        id="seuil_valeur"
+                                                        type="number"
+                                                        min={1}
+                                                        max={data.mode_seuil_classement === 'pourcentage' ? 100 : 50}
+                                                        step={data.mode_seuil_classement === 'pourcentage' ? 5 : 1}
+                                                        value={data.seuil_classement_valeur}
+                                                        onChange={(e) => setData('seuil_classement_valeur', parseFloat(e.target.value) || 0)}
+                                                        className="w-28 font-mono text-center text-base font-bold"
+                                                    />
+                                                    <span className="text-xs font-medium text-muted-foreground">
+                                                        {data.mode_seuil_classement === 'pourcentage' ? '% des coefficients de la classe' : 'coefficients'}
+                                                    </span>
+                                                </div>
+                                                {errors.seuil_classement_valeur && (
+                                                    <p className="text-xs text-rose-500 font-medium">{errors.seuil_classement_valeur}</p>
+                                                )}
+                                            </div>
+
+                                            <div className="p-3.5 rounded-lg bg-indigo-50/70 border border-indigo-200 text-indigo-900 dark:bg-indigo-950/30 dark:border-indigo-800/60 dark:text-indigo-200 text-xs space-y-1.5">
+                                                <div className="font-bold flex items-center gap-1.5 text-xs">
+                                                    <Scale className="size-3.5 text-indigo-600" />
+                                                    Règle appliquée lors du tirage des bulletins :
+                                                </div>
+                                                <p className="leading-relaxed">
+                                                    Tout élève cumulant moins que ce quota (par exemple moins de {data.seuil_classement_valeur}{data.mode_seuil_classement === 'pourcentage' ? '%' : ' coefficients'}) verra son bulletin généré avec sa moyenne et ses notes réelles, mais aura un rang général marqué <strong>« NC »</strong>. Il ne sera pas compté dans le palmarès des meilleurs élèves.
+                                                </p>
+                                            </div>
+                                        </div>
                                     )}
                                 </CardContent>
                             </Card>
@@ -803,6 +1040,119 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
                                             )}
                                         </div>
                                     </div>
+
+                                    {/* Section Logo / Blason Officiel du Campus */}
+                                    <div className="pt-4 border-t border-border/60">
+                                        <div className="p-4 rounded-xl bg-slate-50/70 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 space-y-3">
+                                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                                <div>
+                                                    <Label className="text-xs font-bold text-foreground">
+                                                        Logo / Blason Officiel du Campus
+                                                    </Label>
+                                                    <p className="text-[11px] text-muted-foreground">
+                                                        Chaque établissement est autonome et possède son propre logo sur tous ses états imprimables (bulletins, certificats, reçus).
+                                                    </p>
+                                                </div>
+                                                {logoPreview ? (
+                                                    <Badge variant="outline" className="text-[10px] text-emerald-700 bg-emerald-50 border-emerald-200 dark:text-emerald-300 dark:bg-emerald-950/40">
+                                                        Logo propre actif
+                                                    </Badge>
+                                                ) : etablissement.institution?.logo ? (
+                                                    <Badge variant="outline" className="text-[10px] text-muted-foreground bg-muted/40 border-border/60">
+                                                        Repli sur logo faîtier
+                                                    </Badge>
+                                                ) : null}
+                                            </div>
+
+                                            <input
+                                                type="file"
+                                                ref={fileInputRef}
+                                                onChange={handleLogoFileChange}
+                                                accept="image/png,image/jpeg,image/jpg,image/webp,image/svg+xml"
+                                                className="hidden"
+                                            />
+
+                                            <div className="flex items-center gap-4 pt-1">
+                                                {logoPreview ? (
+                                                    <div className="relative group size-16 shrink-0 rounded-2xl border border-border bg-white dark:bg-slate-900 p-1 flex items-center justify-center overflow-hidden shadow-xs">
+                                                        <img
+                                                            src={logoPreview}
+                                                            alt="Logo campus"
+                                                            className="max-h-full max-w-full object-contain"
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            onClick={handleRemoveLogo}
+                                                            className="absolute inset-0 bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl cursor-pointer"
+                                                            title="Supprimer le logo (revenir au logo de l'institution)"
+                                                        >
+                                                            <Trash2 className="size-5" />
+                                                        </button>
+                                                    </div>
+                                                ) : etablissement.institution?.logo ? (
+                                                    <div
+                                                        onClick={() => fileInputRef.current?.click()}
+                                                        className="relative group size-16 shrink-0 rounded-2xl border-2 border-dashed border-border/80 hover:border-primary/60 bg-muted/20 p-1 flex items-center justify-center cursor-pointer transition-colors"
+                                                        title="Logo hérité de l'institution faîtière (cliquer pour téléverser un logo propre)"
+                                                    >
+                                                        <img
+                                                            src={etablissement.institution.logo}
+                                                            alt="Logo institution (repli)"
+                                                            className="max-h-full max-w-full object-contain opacity-60 group-hover:opacity-40 transition-opacity"
+                                                        />
+                                                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/30 rounded-2xl text-white">
+                                                            <UploadCloud className="size-5" />
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <div
+                                                        onClick={() => fileInputRef.current?.click()}
+                                                        className="size-16 shrink-0 rounded-2xl border-2 border-dashed border-border hover:border-primary/60 bg-muted/20 flex flex-col items-center justify-center cursor-pointer transition-colors"
+                                                        title="Cliquer pour importer un logo"
+                                                    >
+                                                        <UploadCloud className="size-6 text-muted-foreground" />
+                                                    </div>
+                                                )}
+
+                                                <div className="flex flex-col gap-1.5 min-w-0">
+                                                    <div className="flex items-center gap-2">
+                                                        <Button
+                                                            type="button"
+                                                            variant="outline"
+                                                            size="sm"
+                                                            onClick={() => fileInputRef.current?.click()}
+                                                            className="cursor-pointer text-xs h-8 gap-1.5 justify-start w-fit"
+                                                        >
+                                                            <UploadCloud className="size-3.5" />
+                                                            <span>{logoPreview ? 'Changer le logo' : 'Téléverser un logo spécifique'}</span>
+                                                        </Button>
+                                                        {logoPreview && (
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={handleRemoveLogo}
+                                                                className="cursor-pointer text-xs h-8 gap-1 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                                                            >
+                                                                <Trash2 className="size-3.5" />
+                                                                <span>Supprimer</span>
+                                                            </Button>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-[11px] text-muted-foreground">
+                                                        {logoPreview
+                                                            ? 'Ce logo personnalisé sera utilisé en en-tête des bulletins, relevés et certificats de ce campus.'
+                                                            : etablissement.institution?.logo
+                                                            ? 'En l’absence de logo spécifique téléversé, le logo officiel de l’institution sera automatiquement appliqué lors de l’impression.'
+                                                            : 'Formats acceptés : PNG, JPG, SVG, WEBP (Taille maximale : 2 Mo).'}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            {errors.logo && (
+                                                <p className="text-xs text-rose-500 font-medium">{errors.logo}</p>
+                                            )}
+                                        </div>
+                                    </div>
                                 </CardContent>
                             </Card>
                         </TabsContent>
@@ -834,3 +1184,23 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
         </>
     );
 }
+
+/**
+ * Fil d'Ariane (Breadcrumbs) pour la page de configuration des paramètres d'un établissement / campus.
+ */
+EtablissementSettings.layout = {
+    breadcrumbs: [
+        {
+            title: 'Administration',
+            href: '/administration',
+        },
+        {
+            title: 'Institution & Campus',
+            href: '/administration/institution',
+        },
+        {
+            title: 'Paramètres du Campus',
+            href: '/administration/institution',
+        },
+    ],
+};

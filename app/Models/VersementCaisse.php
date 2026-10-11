@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Concerns\BelongsToEtablissement;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -36,7 +37,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  */
 class VersementCaisse extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, BelongsToEtablissement;
 
     /**
      * Nom de la table associée dans la base de données.
@@ -102,15 +103,6 @@ class VersementCaisse extends Model
         return $this->belongsTo(Inscription::class);
     }
 
-    /**
-     * Relation vers l'établissement scolaire.
-     *
-     * @return BelongsTo<Etablissement, VersementCaisse>
-     */
-    public function etablissement(): BelongsTo
-    {
-        return $this->belongsTo(Etablissement::class);
-    }
 
     /**
      * Relation vers le caissier / personnel ayant encaissé.

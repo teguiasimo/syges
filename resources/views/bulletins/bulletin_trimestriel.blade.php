@@ -6,13 +6,13 @@
     <style>
         @page {
             size: A4 portrait;
-            margin: 7mm 8mm 7mm 8mm;
+            margin: 6mm 7mm 6mm 7mm;
         }
         body {
             font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-            font-size: 8pt;
+            font-size: 7.2pt;
             color: #1a1a1a;
-            line-height: 1.15;
+            line-height: 1.12;
             margin: 0;
             padding: 0;
         }
@@ -20,114 +20,183 @@
             width: 100%;
             border-collapse: collapse;
             text-align: center;
-            margin-bottom: 3px;
+            margin-bottom: 2px;
         }
         .header-table td {
             vertical-align: top;
-            padding: 0 4px;
+            padding: 0 3px;
         }
         .country-title {
-            font-size: 7pt;
+            font-size: 6.8pt;
             font-weight: bold;
             text-transform: uppercase;
         }
         .motto {
-            font-size: 6pt;
+            font-size: 5.6pt;
             font-style: italic;
         }
         .delegation {
-            font-size: 6pt;
+            font-size: 5.6pt;
             text-transform: uppercase;
         }
         .school-name {
-            font-size: 9pt;
+            font-size: 7.8pt;
             font-weight: bold;
             color: #1e3a8a;
             margin-top: 1px;
+            text-transform: uppercase;
+        }
+        .school-contact {
+            font-size: 5.4pt;
+            color: #475569;
+            margin-top: 1px;
+        }
+        .school-year {
+            font-size: 6.5pt;
+            font-weight: bold;
+            color: #0f172a;
+            margin-top: 1px;
+            text-transform: uppercase;
         }
         .logo-img {
-            max-width: 50px;
-            max-height: 50px;
+            max-width: 44px;
+            max-height: 44px;
             object-fit: contain;
         }
         .title-banner {
-            background-color: #f1f5f9;
-            border: 1.5px solid #1e3a8a;
-            border-radius: 3px;
+            background-color: #1e3a8a;
+            border: 1px solid #172554;
+            border-radius: 2.5px;
             text-align: center;
             padding: 2.5px 0;
-            margin: 2px 0 4px 0;
+            margin: 2px 0 3px 0;
         }
         .title-banner h1 {
-            font-size: 10.5pt;
+            font-size: 9.5pt;
             margin: 0;
-            color: #1e3a8a;
+            color: #ffffff;
             text-transform: uppercase;
             letter-spacing: 0.5px;
+            font-weight: bold;
         }
         .title-banner .sub {
-            font-size: 7.5pt;
-            color: #475569;
+            font-size: 6.8pt;
+            color: #ffffff;
             font-weight: bold;
             margin-top: 1px;
         }
         .student-info-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 4px;
-            background-color: #fafafa;
-            border: 1px solid #cbd5e1;
+            margin-bottom: 3px;
+            background-color: #f8fafc;
+            border: 0.8px solid #94a3b8;
         }
         .student-info-table td {
-            padding: 2px 5px;
-            font-size: 7.5pt;
+            padding: 1.5px 4px;
+            font-size: 7pt;
         }
         .student-info-label {
             font-weight: bold;
             color: #334155;
-            width: 16%;
+            width: 15%;
         }
         .student-info-val {
             color: #0f172a;
             font-weight: 600;
         }
         .photo-cell {
-            width: 45px;
+            width: 44px;
+            height: 48px;
+            max-width: 44px;
+            max-height: 48px;
             text-align: center;
-            border: 1px dashed #cbd5e1;
-            padding: 2px;
-            background: #fff;
+            vertical-align: middle;
+            border: 0.8px dashed #94a3b8;
+            padding: 1px;
+            background: #ffffff;
+            overflow: hidden;
         }
         .grades-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 4px;
-            font-size: 7.5pt;
+            margin-bottom: 3px;
+            font-size: 7pt;
         }
         .grades-table th, .grades-table td {
-            border: 0.8px solid #64748b;
-            padding: 2px 3.5px;
+            border: 0.6px solid #64748b;
+            padding: 1.8px 3px;
         }
         .grades-table th {
             background-color: #1e3a8a;
             color: #ffffff;
             font-weight: bold;
             text-align: center;
-            font-size: 6.8pt;
+            font-size: 6.4pt;
             text-transform: uppercase;
+        }
+        .col-n-coef-header {
+            background-color: #172554 !important;
+            border-left: 1px solid #93c5fd !important;
+            border-right: 1px solid #93c5fd !important;
+        }
+        .col-n-coef {
+            background-color: #e0f2fe !important;
+            color: #0369a1 !important;
+            font-weight: bold !important;
+            border-left: 1px solid #93c5fd !important;
+            border-right: 1px solid #93c5fd !important;
         }
         .group-header-row {
             background-color: #e2e8f0;
             font-weight: bold;
             color: #0f172a;
             text-transform: uppercase;
-            font-size: 7pt;
+            font-size: 6.5pt;
+            border-top: 0.8px solid #94a3b8;
+            border-bottom: 0.8px solid #94a3b8;
         }
-        .group-subtotal-row {
-            background-color: #f8fafc;
+        .group-avg-badge {
+            background-color: #1e3a8a;
+            color: #ffffff;
+            padding: 1px 5px;
+            border-radius: 2px;
             font-weight: bold;
+            font-size: 6pt;
+            margin-left: 8px;
+            display: inline-block;
+            text-transform: none;
+            letter-spacing: 0.2px;
+        }
+        .total-general-row td {
+            border-top: 1.5px solid #1e3a8a !important;
+            border-bottom: 1.5px solid #1e3a8a !important;
+            padding: 2px 3px !important;
+            background-color: #f1f5f9;
+        }
+        .total-general-label {
+            background-color: #1e3a8a !important;
+            color: #ffffff !important;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            padding-left: 5px !important;
             font-size: 6.8pt;
-            border-top: 1px solid #475569;
+        }
+        .total-general-points {
+            background-color: #bae6fd !important;
+            color: #0369a1 !important;
+            font-weight: bold !important;
+            font-size: 7.5pt !important;
+            border-left: 1.2px solid #0284c7 !important;
+            border-right: 1.2px solid #0284c7 !important;
+        }
+        .total-general-moyenne {
+            background-color: #1e3a8a !important;
+            color: #ffffff !important;
+            font-weight: bold;
+            font-size: 7.2pt !important;
+            text-align: center;
         }
         .text-center { text-align: center; }
         .text-right { text-align: right; }
@@ -140,117 +209,148 @@
         }
         .cote-badge {
             font-weight: bold;
-            font-size: 6.5pt;
-            padding: 1px 3px;
-            border-radius: 2px;
+            font-size: 6pt;
+            padding: 0.8px 2.5px;
+            border-radius: 1.5px;
+            border: 0.5px solid currentColor;
         }
-        .cote-CTBA { color: #065f46; }
-        .cote-CBA { color: #1e40af; }
-        .cote-CMA { color: #92400e; }
-        .cote-CNA { color: #991b1b; }
+        .cote-CTBA { color: #065f46; background-color: #d1fae5; }
+        .cote-CBA { color: #1e40af; background-color: #dbeafe; }
+        .cote-CMA { color: #92400e; background-color: #fef3c7; }
+        .cote-CNA { color: #991b1b; background-color: #fee2e2; }
+
+        /* Grilles Footer compactes */
         .footer-grid {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 3px;
+            margin-bottom: 2px;
         }
         .footer-grid td {
             vertical-align: top;
-            padding: 0 2px;
+            padding: 0 1.5px;
         }
         .footer-box {
-            border: 1px solid #64748b;
-            border-radius: 3px;
-            padding: 3px 4px;
-            min-height: 72px;
+            border: 0.8px solid #64748b;
+            border-radius: 2.5px;
+            padding: 2px 3px;
+            background: #ffffff;
+            min-height: 64px;
         }
         .box-title {
-            font-size: 6.8pt;
+            font-size: 6.2pt;
             font-weight: bold;
             text-transform: uppercase;
             color: #1e3a8a;
-            border-bottom: 1px solid #cbd5e1;
-            padding-bottom: 1.5px;
-            margin-bottom: 2px;
+            border-bottom: 0.6px solid #cbd5e1;
+            padding-bottom: 1px;
+            margin-bottom: 1.5px;
             text-align: center;
         }
         .mini-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 6.8pt;
+            font-size: 6pt;
         }
-        .mini-table td {
-            padding: 1px 2px;
+        .mini-table td, .mini-table th {
+            padding: 0.8px 1.5px;
         }
+
         .visa-table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 3px;
+            margin-top: 1.5px;
             text-align: center;
-            font-size: 7.2pt;
+            font-size: 6.5pt;
         }
         .visa-table td {
             width: 33.33%;
             vertical-align: top;
-            border: 1px solid #94a3b8;
-            padding: 4px;
-            height: 50px;
+            border: 0.8px solid #94a3b8;
+            padding: 2.5px;
+            height: 44px;
+            background: #ffffff;
         }
         .stamp-box {
-            font-size: 6pt;
+            font-size: 5.5pt;
             color: #64748b;
             font-style: italic;
-            margin-top: 22px;
+            margin-top: 16px;
+        }
+        .bottom-print-info {
+            font-size: 5.2pt;
+            color: #64748b;
+            text-align: right;
+            margin-top: 1px;
         }
     </style>
 </head>
 <body>
 
+    @php
+        $rawBp = $classe['etablissement']['boite_postale'] ?? '---';
+        $cleanBp = trim((string) preg_replace('/^(b\.?p\.?|p\.?o\.?\s*box)\s*:?\s*/i', '', trim((string) $rawBp)));
+        $displayBp = ($cleanBp !== '' && $cleanBp !== '---') ? $cleanBp : '---';
+
+        $dispEnseignant = $disposition_enseignant ?? request('disposition_enseignant', 'sous_matiere');
+    @endphp
+
     {{-- En-tête Officiel MINESEC Bilingue --}}
     <table class="header-table">
         <tr>
-            <td style="width: 36%;">
+            {{-- Partie Gauche (Francophone) --}}
+            <td style="width: 37%; text-align: center;">
                 <div class="country-title">RÉPUBLIQUE DU CAMEROUN</div>
                 <div class="motto">Paix - Travail - Patrie</div>
                 <div class="delegation">MINISTÈRE DES ENSEIGNEMENTS SECONDAIRES</div>
-                {{-- Tutelle Administrative Régionale et Départementale (FR) --}}
                 <div class="delegation">{{ $classe['etablissement']['delegation_regionale'] ?? 'DÉLÉGATION RÉGIONALE DES ENSEIGNEMENTS SECONDAIRES' }}</div>
-                <div class="delegation">{{ $classe['etablissement']['delegation_departementale'] ?? 'DÉLÉGATION DÉPARTEMENTALE' }}</div>
                 <div class="school-name">{{ $classe['etablissement']['nom'] }}</div>
+                <div class="school-contact">BP : {{ $displayBp }} | Tél : {{ $classe['etablissement']['telephone'] ?? '---' }}</div>
+                <div class="school-year">ANNÉE SCOLAIRE {{ $annee_scolaire['nom'] }}</div>
             </td>
-            <td style="width: 28%; text-align: center;">
-                @if(!empty($classe['etablissement']['logo_url']) && file_exists(public_path($classe['etablissement']['logo_url'])))
-                    <img src="{{ public_path($classe['etablissement']['logo_url']) }}" class="logo-img" alt="Logo">
-                @elseif(!empty($classe['etablissement']['logo']) && file_exists(public_path($classe['etablissement']['logo'])))
-                    <img src="{{ public_path($classe['etablissement']['logo']) }}" class="logo-img" alt="Logo">
+
+            {{-- Partie Centrale (Armoiries / Logo Établissement + Devise) --}}
+            <td style="width: 26%; text-align: center; vertical-align: middle;">
+                @php
+                    $logoPath = !empty($classe['etablissement']['logo_url']) ? public_path(ltrim($classe['etablissement']['logo_url'], '/\\')) : null;
+                    if (!$logoPath || !file_exists($logoPath)) {
+                        $logoPath = !empty($classe['etablissement']['logo']) ? public_path(ltrim($classe['etablissement']['logo'], '/\\')) : null;
+                    }
+                    $logoSrc = null;
+                    if ($logoPath && file_exists($logoPath)) {
+                        $logoExt = pathinfo($logoPath, PATHINFO_EXTENSION) ?: 'png';
+                        $logoSrc = 'data:image/' . $logoExt . ';base64,' . base64_encode(file_get_contents($logoPath));
+                    }
+                @endphp
+                @if($logoSrc)
+                    <img src="{{ $logoSrc }}" class="logo-img" alt="Logo">
                 @else
-                    <div style="font-weight: bold; font-size: 13pt; color: #1e3a8a; margin-top: 4px;">
+                    <div style="font-weight: bold; font-size: 11pt; color: #1e3a8a; margin-top: 1px;">
                         {{ $classe['etablissement']['sigle'] ?? 'SYGES' }}
                     </div>
                 @endif
-                <div style="font-size: 6.5pt; font-style: italic; margin-top: 1px;">
+                <div style="font-size: 5.8pt; font-style: italic; margin-top: 1px; color: #334155;">
                     {{ $classe['etablissement']['devise'] ?? 'Discipline - Travail - Succès' }}
                 </div>
-                <div style="font-size: 6pt; color: #64748b;">
-                    BP : {{ $classe['etablissement']['ville'] ?? $classe['etablissement']['boite_postale'] ?? '---' }} | Tél : {{ $classe['etablissement']['telephone'] ?? '---' }}
-                </div>
             </td>
-            <td style="width: 36%;">
+
+            {{-- Partie Droite (Anglophone) --}}
+            <td style="width: 37%; text-align: center;">
                 <div class="country-title">REPUBLIC OF CAMEROON</div>
                 <div class="motto">Peace - Work - Fatherland</div>
                 <div class="delegation">MINISTRY OF SECONDARY EDUCATION</div>
-                {{-- Tutelle Administrative Régionale et Départementale (EN) --}}
                 <div class="delegation">{{ $classe['etablissement']['delegation_regionale_en'] ?? 'REGIONAL DELEGATION OF SECONDARY EDUCATION' }}</div>
-                <div class="delegation">{{ $classe['etablissement']['delegation_departementale_en'] ?? 'DIVISIONAL DELEGATION' }}</div>
                 <div class="school-name">{{ $classe['etablissement']['nom_en'] ?: $classe['etablissement']['nom'] }}</div>
+                <div class="school-contact">PO. Box : {{ $displayBp }} | Phone : {{ $classe['etablissement']['telephone'] ?? '---' }}</div>
+                <div class="school-year">ANNÉE SCOLAIRE {{ $annee_scolaire['nom'] }}</div>
             </td>
         </tr>
     </table>
 
     {{-- Bannière du Titre du Bulletin Trimestriel --}}
     <div class="title-banner">
-        <h1>BULLETIN SCOLAIRE TRIMESTRIEL</h1>
+        <h1>BULLETIN TRIMESTRIEL DE NOTES / TERMLY REPORT CARD</h1>
         <div class="sub">
-            {{ $periode['nom'] }} &bull; ANNÉE SCOLAIRE {{ $annee_scolaire['nom'] }} &bull; CLASSE DE {{ $classe['nom'] }}
+            CLASSE DE {{ $classe['nom'] }} ({{ $classe['niveau'] }}) &bull; {{ $periode['nom'] }}
         </div>
     </div>
 
@@ -258,54 +358,79 @@
     <table class="student-info-table">
         <tr>
             <td class="student-info-label">Nom et Prénom(s) :</td>
-            <td class="student-info-val" style="font-size: 8.5pt;">{{ $eleve['nom_complet'] }}</td>
+            <td class="student-info-val" style="font-size: 8pt;">{{ $eleve['nom_complet'] }}</td>
             <td class="student-info-label">Classe :</td>
             <td class="student-info-val">{{ $classe['nom'] }} ({{ $classe['niveau'] }})</td>
-            <td rowspan="3" class="photo-cell">
-                @if(!empty($eleve['photo_url']))
-                    <img src="{{ public_path($eleve['photo_url']) }}" style="max-width: 40px; max-height: 40px;" alt="Photo">
+            <td rowspan="4" class="photo-cell">
+                @php
+                    $photoPath = !empty($eleve['photo_url']) ? public_path(ltrim($eleve['photo_url'], '/\\')) : null;
+                    $photoSrc = null;
+                    if ($photoPath && file_exists($photoPath)) {
+                        $photoExt = pathinfo($photoPath, PATHINFO_EXTENSION) ?: 'jpeg';
+                        $photoSrc = 'data:image/' . $photoExt . ';base64,' . base64_encode(file_get_contents($photoPath));
+                    }
+                @endphp
+                @if($photoSrc)
+                    <img src="{{ $photoSrc }}" style="width: 42px; height: 46px; object-fit: cover; display: block; margin: 0 auto;" alt="Photo">
                 @else
-                    <span style="font-size: 6pt; color: #94a3b8;">PHOTO</span>
+                    <div style="font-size: 5.5pt; color: #64748b; font-weight: bold; padding: 12px 0;">PHOTO</div>
                 @endif
             </td>
         </tr>
         <tr>
             <td class="student-info-label">Matricule :</td>
-            <td class="student-info-val">{{ $eleve['matricule'] }} @if($eleve['matricule_ministere']) / MIN: {{ $eleve['matricule_ministere'] }} @endif</td>
+            <td class="student-info-val">
+                {{ $eleve['matricule'] }}
+                @php
+                    $matNat = !empty($eleve['matricule_national']) ? $eleve['matricule_national'] : (!empty($eleve['matricule_ministere']) ? $eleve['matricule_ministere'] : null);
+                @endphp
+                @if($matNat)
+                    <span style="font-size: 6.4pt; color: #1e293b; margin-left: 6px;">| Mat. Nat. : <strong style="color: #0f172a;">{{ $matNat }}</strong></span>
+                @endif
+            </td>
             <td class="student-info-label">Effectif :</td>
             <td class="student-info-val">{{ $classe['effectif'] }} élèves</td>
         </tr>
         <tr>
             <td class="student-info-label">Né(e) le :</td>
-            <td class="student-info-val">{{ $eleve['date_naissance'] ?? '---' }} à {{ $eleve['lieu_naissance'] ?? '---' }} ({{ $eleve['genre'] }})</td>
+            <td class="student-info-val">{{ $eleve['date_naissance'] ?? '---' }} à {{ $eleve['lieu_naissance'] ?? '---' }}</td>
             <td class="student-info-label">Prof. Principal :</td>
-            <td class="student-info-val">{{ $classe['professeur_principal'] ?? 'Non désigné' }} ({{ $eleve['is_redoublant'] ? 'Redoublant(e)' : 'Non Redoublant(e)' }})</td>
+            <td class="student-info-val">{{ $classe['professeur_principal'] ?? 'Non désigné' }}</td>
+        </tr>
+        <tr>
+            <td class="student-info-label">Sexe :</td>
+            <td class="student-info-val">{{ $eleve['genre'] ?? ($eleve['sexe'] ?? '---') }}</td>
+            <td class="student-info-label">Redoublant(e) :</td>
+            <td class="student-info-val">{{ !empty($eleve['is_redoublant']) ? 'Oui' : 'Non' }}</td>
         </tr>
     </table>
 
-    {{-- Tableau des Notes du Trimestre (Avec ou Sans Compétences) --}}
+    {{-- Tableau des Notes Trimestrielles --}}
     <table class="grades-table">
         <thead>
             <tr>
-                <th style="{{ $mode_bulletin === 'avec_competences' ? 'width: 22%;' : 'width: 28%;' }}">Matières & Enseignant</th>
+                <th style="{{ $mode_bulletin === 'avec_competences' ? 'width: 22%;' : 'width: 29%;' }}">Matières & Enseignant</th>
                 @if($mode_bulletin === 'avec_competences')
-                    <th style="width: 20%;">Compétences Évaluées (APC)</th>
+                    <th style="width: 19%;">Compétences APC</th>
                 @endif
                 @foreach($periode['evaluations'] as $ev)
-                    <th style="width: 5%;">{{ $ev['code'] }}</th>
+                    <th style="width: 6%;">{{ $ev['code'] }}</th>
                 @endforeach
-                <th style="width: 6%;">Moy/20</th>
+                <th style="width: 6%;">Moy.</th>
                 <th style="width: 4%;">Coef</th>
-                <th style="width: 6%;">M &times; Coef</th>
-                <th style="width: 5%;">Rang</th>
+                <th style="width: 6%;" class="col-n-coef-header">Total</th>
+                <th style="width: 4.5%;">Rg</th>
                 <th style="width: 5%;">Cote</th>
                 <th style="width: 7%;">[Min - Max]</th>
-                <th style="width: 14%;">Appréciation</th>
+                <th style="width: 5.5%;">Moy. Cl.</th>
+                <th style="width: 13%;">Appréciation</th>
             </tr>
         </thead>
         <tbody>
             @php
-                $groupes = collect($eleve['lignes_matieres'])->groupBy('groupe_nom');
+                $groupes = collect($eleve['lignes_matieres'])->groupBy('groupe_nom')->sortBy(function ($lignes) {
+                    return $lignes->first()['groupe_ordre'] ?? 99;
+                });
             @endphp
 
             @foreach($groupes as $nomGroupe => $lignes)
@@ -315,23 +440,32 @@
                     $moyGroupe = $coefGroupe > 0 ? round($ptsGroupe / $coefGroupe, 2) : 0;
                 @endphp
                 <tr class="group-header-row">
-                    <td colspan="{{ ($mode_bulletin === 'avec_competences' ? 8 : 7) + count($periode['evaluations']) }}" style="padding-left: 6px;">
-                        {{ $nomGroupe }} &mdash; <span style="font-size: 6.5pt; font-weight: normal;">Moyenne Groupe : {{ number_format($moyGroupe, 2) }}/20</span>
+                    <td colspan="{{ ($mode_bulletin === 'avec_competences' ? 9 : 8) + count($periode['evaluations']) }}" style="padding: 1.5px 5px;">
+                        <span>{{ $nomGroupe }}</span> &mdash; <span class="group-avg-badge">Moy. Groupe : {{ number_format($moyGroupe, 2) }}/20</span>
                     </td>
                 </tr>
 
                 @foreach($lignes as $ligne)
                     <tr class="{{ $ligne['est_eliminatoire'] ? 'elim-warning' : '' }}">
                         <td class="text-left font-bold">
-                            {{ $ligne['matiere_nom'] }}
-                            <div style="font-size: 6pt; font-weight: normal; color: #475569;">
-                                {{ $ligne['enseignant_nom'] }}
-                            </div>
+                            @if($dispEnseignant === 'en_ligne')
+                                {{ $ligne['matiere_nom'] }}
+                                @if(!empty($ligne['enseignant_nom']) && $ligne['enseignant_nom'] !== 'Non assigné')
+                                    <span style="font-size: 5.5pt; font-weight: normal; color: #475569;">({{ $ligne['enseignant_nom'] }})</span>
+                                @endif
+                            @elseif($dispEnseignant === 'masquer')
+                                {{ $ligne['matiere_nom'] }}
+                            @else
+                                {{ $ligne['matiere_nom'] }}
+                                <div style="font-size: 5.5pt; font-weight: normal; color: #475569; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px;" title="{{ $ligne['enseignant_nom_complet'] ?? $ligne['enseignant_nom'] }}">
+                                    {{ $ligne['enseignant_nom'] }}
+                                </div>
+                            @endif
                         </td>
 
                         @if($mode_bulletin === 'avec_competences')
-                            <td class="text-left" style="font-size: 6.5pt; color: #334155;">
-                                {{ \Illuminate\Support\Str::limit($ligne['competences'] ?: 'Acquisition standard', 65, '...') }}
+                            <td class="text-left" style="font-size: 5.8pt; color: #334155;">
+                                {{ \Illuminate\Support\Str::limit($ligne['competences'] ?: 'Acquisition standard', 60, '...') }}
                             </td>
                         @endif
 
@@ -360,7 +494,7 @@
                             {{ $ligne['moyenne'] !== null ? number_format($ligne['moyenne'], 2) : '-' }}
                         </td>
                         <td class="text-center">{{ $ligne['coefficient'] }}</td>
-                        <td class="text-center font-bold">{{ number_format($ligne['points'], 2) }}</td>
+                        <td class="text-center font-bold col-n-coef">{{ number_format($ligne['points'], 2) }}</td>
                         <td class="text-center font-bold">{{ $ligne['rang_matiere'] ?? '-' }}</td>
                         <td class="text-center">
                             @if($ligne['cote_apc'])
@@ -369,126 +503,195 @@
                                 -
                             @endif
                         </td>
-                        <td class="text-center" style="font-size: 6.5pt; color: #475569;">
+                        <td class="text-center" style="font-size: 5.8pt; color: #475569;">
                             [{{ number_format($ligne['note_min'] ?? 0, 1) }} - {{ number_format($ligne['note_max'] ?? 0, 1) }}]
                         </td>
-                        <td class="text-left" style="font-size: 6.5pt;">
-                            {{ $ligne['appreciation'] }}
+                        <td class="text-center" style="font-size: 6pt;">
+                            {{ number_format($ligne['moyenne_classe'] ?? 0, 2) }}
+                        </td>
+                        <td class="text-left" style="font-size: 5.8pt;">
+                            {{ !empty($ligne['appreciation']) ? $ligne['appreciation'] : \App\Services\BulletinCalculationService::genererAppreciationParDefaut($ligne['moyenne'] ?? null) }}
                         </td>
                     </tr>
                 @endforeach
             @endforeach
 
-            {{-- Ligne Totale Récapitulative --}}
-            <tr style="background-color: #f1f5f9; font-weight: bold; border-top: 1.5px solid #1e3a8a;">
-                <td class="text-left font-bold" colspan="{{ ($mode_bulletin === 'avec_competences' ? 2 : 1) + count($periode['evaluations']) }}">
-                    TOTAL GÉNÉRAL TRIMESTRIEL
+            {{-- Ligne Totale Récapitulative Trimestrielle --}}
+            <tr class="total-general-row">
+                <td class="text-left font-bold total-general-label" colspan="{{ ($mode_bulletin === 'avec_competences' ? 2 : 1) + count($periode['evaluations']) }}">
+                    TOTAUX / TOTALS
                 </td>
-                <td class="text-center font-bold">-</td>
-                <td class="text-center font-bold">{{ $eleve['total_coefficients'] }}</td>
-                <td class="text-center font-bold" style="color: #1e3a8a;">{{ number_format($eleve['total_points'], 2) }}</td>
-                <td class="text-center font-bold" style="color: #1e3a8a;">{{ $eleve['rang_general'] }}</td>
-                <td class="text-center font-bold cote-{{ $eleve['cote_globale'] }}">{{ $eleve['cote_globale'] }}</td>
-                <td class="text-center" colspan="2" style="font-size: 7.2pt; color: #1e3a8a;">
-                    M.G.T. : <strong>{{ number_format($eleve['moyenne_generale'], 2) }} / 20</strong>
+                <td class="text-center font-bold" style="background-color: #e2e8f0;">-</td>
+                <td class="text-center font-bold" style="background-color: #e2e8f0;">{{ $eleve['total_coefficients'] }}</td>
+                <td class="text-center font-bold total-general-points">{{ number_format($eleve['total_points'], 2) }}</td>
+                <td class="text-center font-bold" style="background-color: #e2e8f0; color: #1e3a8a;">{{ $eleve['rang_general'] }}</td>
+                <td class="text-center font-bold" style="background-color: #e2e8f0;">
+                    <span class="cote-badge cote-{{ $eleve['cote_globale'] }}">{{ $eleve['cote_globale'] }}</span>
+                </td>
+                <td class="text-center total-general-moyenne" colspan="3">
+                    MOYENNE TRIMESTRIELLE (M.G.T.) : <strong>{{ number_format($eleve['moyenne_generale'], 2) }} / 20</strong>
                 </td>
             </tr>
         </tbody>
     </table>
 
-    {{-- Panneau Inférieur : Discipline, Travail de l'élève & Profil de la classe --}}
+    {{-- Panneau Inférieur 1 : 4 Cadres Horizontaux (Résultats, Profil Classe, Conduite, Rappels Évaluations) --}}
     <table class="footer-grid">
         <tr>
-            {{-- Discipline --}}
-            <td style="width: 33.33%;">
+            {{-- Cadre 1 : RÉSULTAT TRIM. DE L'ÉLÈVE --}}
+            <td style="width: 25%;">
                 <div class="footer-box">
-                    <div class="box-title">DISCIPLINE DU TRIMESTRE</div>
-                    <table class="mini-table">
-                        <tr><td>Absences non justifiées :</td><td class="text-right font-bold" style="color: #dc2626;">{{ $eleve['discipline']['absences_non_justifiees'] }} h</td></tr>
-                        <tr><td>Absences justifiées :</td><td class="text-right">{{ $eleve['discipline']['absences_justifiees'] }} h</td></tr>
-                        <tr><td>Retards (nombre de fois) :</td><td class="text-right">{{ $eleve['discipline']['retards'] }}</td></tr>
-                        <tr><td>Consignes (heures) :</td><td class="text-right">{{ $eleve['discipline']['consignes'] }} h</td></tr>
-                        <tr><td>Avertissements / Blâmes :</td><td class="text-right">{{ $eleve['discipline']['avertissements'] }} / {{ $eleve['discipline']['blames'] }}</td></tr>
-                        <tr><td>Exclusions temporaires :</td><td class="text-right font-bold">{{ $eleve['discipline']['exclusions'] }} j</td></tr>
-                    </table>
-                </div>
-            </td>
-
-            {{-- Travail de l'élève --}}
-            <td style="width: 33.33%;">
-                <div class="footer-box">
-                    <div class="box-title">BILAN DE L'ÉLÈVE</div>
+                    <div class="box-title">RÉSULTAT TRIM. ÉLÈVE</div>
                     <table class="mini-table">
                         <tr><td>Total des points :</td><td class="text-right font-bold">{{ number_format($eleve['total_points'], 2) }}</td></tr>
-                        <tr><td>Total Coefficients :</td><td class="text-right font-bold">{{ $eleve['total_coefficients'] }}</td></tr>
+                        <tr><td>Total coefficients :</td><td class="text-right font-bold">{{ $eleve['total_coefficients'] }}</td></tr>
                         <tr>
-                            <td>Moyenne Générale (MGT) :</td>
-                            <td class="text-right font-bold" style="font-size: 8.5pt; color: #1e3a8a;">
+                            <td>Moyenne trim. :</td>
+                            <td class="text-right font-bold" style="color: #1e3a8a; font-size: 7.2pt;">
                                 {{ number_format($eleve['moyenne_generale'], 2) }} / 20
                             </td>
                         </tr>
                         <tr>
-                            <td>Rang Trimestriel :</td>
-                            <td class="text-right font-bold" style="font-size: 8.5pt; color: #1e3a8a;">
-                                {{ $eleve['rang_general'] }} / {{ $classe['effectif'] }}
+                            <td>Rang trimestriel :</td>
+                            <td class="text-right font-bold" style="color: #1e3a8a; font-size: 7.2pt;">
+                                @if(($eleve['rang_general'] ?? '') === 'NC')
+                                    <span style="color: #dc2626;">NC</span>
+                                @else
+                                    {{ $eleve['rang_general'] }} / {{ $classe['effectif'] }}
+                                @endif
                             </td>
                         </tr>
-                        <tr>
-                            <td>Cote Globale APC :</td>
-                            <td class="text-right font-bold cote-{{ $eleve['cote_globale'] }}">
-                                {{ $eleve['cote_globale'] }}
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>Distinction / Mention :</td>
-                            <td class="text-right font-bold" style="color: #047857;">
-                                {{ $eleve['mention'] ?? 'Aucune' }}
-                            </td>
-                        </tr>
-                        @if($eleve['a_note_eliminatoire'])
-                            <tr>
-                                <td colspan="2" class="elim-warning text-center" style="font-size: 6.2pt; padding: 1.5px;">
-                                    &bull; Note éliminatoire présente : honneurs suspendus
-                                </td>
-                            </tr>
-                        @endif
                     </table>
                 </div>
             </td>
 
-            {{-- Profil de la classe --}}
-            <td style="width: 33.33%;">
+            {{-- Cadre 2 : PROFIL TRIM. DE LA CLASSE --}}
+            <td style="width: 25%;">
                 <div class="footer-box">
-                    <div class="box-title">PROFIL DE LA CLASSE</div>
+                    <div class="box-title">PROFIL TRIM. CLASSE</div>
                     <table class="mini-table">
-                        <tr><td>Moyenne de la classe :</td><td class="text-right font-bold">{{ number_format($stats_classe['moyenne_classe'], 2) }} / 20</td></tr>
-                        <tr><td>Note minimale de classe :</td><td class="text-right font-bold" style="color: #dc2626;">{{ number_format($stats_classe['moyenne_min'], 2) }}</td></tr>
-                        <tr><td>Note maximale de classe :</td><td class="text-right font-bold" style="color: #1e3a8a;">{{ number_format($stats_classe['moyenne_max'], 2) }}</td></tr>
-                        <tr><td>Élèves ayant la moyenne :</td><td class="text-right font-bold">{{ $stats_classe['nombre_moyennes'] }} / {{ $stats_classe['effectif'] }}</td></tr>
-                        <tr><td>Taux de réussite :</td><td class="text-right font-bold" style="color: #047857;">{{ number_format($stats_classe['taux_reussite'], 1) }} %</td></tr>
+                        <tr><td>Moyenne premier :</td><td class="text-right font-bold" style="color: #1e3a8a;">{{ number_format($stats_classe['moyenne_max'] ?? 0, 2) }}</td></tr>
+                        <tr><td>Moyenne dernier :</td><td class="text-right font-bold" style="color: #dc2626;">{{ number_format($stats_classe['moyenne_min'] ?? 0, 2) }}</td></tr>
+                        <tr><td>Nombre de moy. :</td><td class="text-right font-bold">{{ $stats_classe['nombre_moyennes'] ?? 0 }} / {{ $stats_classe['effectif'] ?? 0 }}</td></tr>
+                        <tr><td>Taux de réussite :</td><td class="text-right font-bold" style="color: #047857;">{{ number_format($stats_classe['taux_reussite'] ?? 0, 1) }} %</td></tr>
+                        <tr><td>Moy. gén. classe :</td><td class="text-right font-bold">{{ number_format($stats_classe['moyenne_classe'] ?? 0, 2) }}</td></tr>
+                    </table>
+                </div>
+            </td>
+
+            {{-- Cadre 3 : CONDUITE DU TRIMESTRE --}}
+            <td style="width: 25%;">
+                <div class="footer-box">
+                    <div class="box-title">CONDUITE TRIMESTRE</div>
+                    <table class="mini-table">
+                        <tr><td>Absences NJ :</td><td class="text-right font-bold" style="color: {{ ($eleve['discipline']['absences_non_justifiees'] ?? 0) > 0 ? '#dc2626' : '#1e293b' }};">{{ $eleve['discipline']['absences_non_justifiees'] ?? 0 }} h</td></tr>
+                        <tr><td>Absences J :</td><td class="text-right">{{ $eleve['discipline']['absences_justifiees'] ?? 0 }} h</td></tr>
+                        <tr><td>Consignes :</td><td class="text-right">{{ ($eleve['discipline']['consignes'] ?? 0) > 0 ? ($eleve['discipline']['consignes'].' h') : 'NON / No' }}</td></tr>
+                        <tr><td>Exclusion :</td><td class="text-right font-bold" style="color: {{ ($eleve['discipline']['exclusions'] ?? 0) > 0 ? '#dc2626' : '#1e293b' }};">{{ ($eleve['discipline']['exclusions'] ?? 0) > 0 ? ($eleve['discipline']['exclusions'].' j') : 'NON / No' }}</td></tr>
+                        <tr><td>Avert. / Blâme :</td><td class="text-right">{{ ($eleve['discipline']['avertissements'] ?? 0) > 0 ? $eleve['discipline']['avertissements'] : 'NON' }} / {{ ($eleve['discipline']['blames'] ?? 0) > 0 ? $eleve['discipline']['blames'] : 'NON' }}</td></tr>
+                    </table>
+                </div>
+            </td>
+
+            {{-- Cadre 4 : RAPPELS ÉVALUATIONS TRIMESTRE --}}
+            <td style="width: 25%;">
+                <div class="footer-box">
+                    <div class="box-title">RAPPELS ÉVALUATIONS</div>
+                    <table class="mini-table" style="text-align: center;">
+                        <tr style="font-weight: bold; background: #f1f5f9; color: #1e3a8a;">
+                            <td style="text-align: left;">Évaluation</td>
+                            <td>Moyenne</td>
+                            <td>Statut</td>
+                        </tr>
+                        @foreach($periode['evaluations'] as $ev)
+                            @php
+                                $notesEval = collect($eleve['lignes_matieres'])->map(fn($l) => $l['notes_evaluations'][$ev['id']]['note'] ?? null)->filter(fn($n) => $n !== null);
+                                $moyEv = $notesEval->count() > 0 ? round($notesEval->avg(), 2) : null;
+                            @endphp
+                            <tr>
+                                <td style="text-align: left; font-weight: 600;">{{ $ev['nom'] }}</td>
+                                <td class="font-bold">{{ $moyEv !== null ? number_format($moyEv, 2) : '-' }}</td>
+                                <td style="color: {{ ($moyEv ?? 0) >= 10 ? '#047857' : '#dc2626' }};">{{ $moyEv !== null ? ($moyEv >= 10 ? 'Admis' : 'Insuff.') : '-' }}</td>
+                            </tr>
+                        @endforeach
                     </table>
                 </div>
             </td>
         </tr>
     </table>
 
-    {{-- Visas et Signatures Officielles --}}
+    {{-- Panneau Inférieur 2 : 3 Blocs (Observations Travail, Décision Conseil & Observations Chef d'Établissement) --}}
     <table class="visa-table">
         <tr>
-            <td>
-                <strong>Le Parent / Tuteur</strong>
-                <div class="stamp-box">Date et signature</div>
+            {{-- Bloc 1 : OBSERVATIONS DU TRAVAIL & VISA PARENT --}}
+            <td style="text-align: left; vertical-align: top;">
+                <div style="font-weight: bold; color: #1e3a8a; text-transform: uppercase; font-size: 6.2pt; border-bottom: 0.5px solid #94a3b8; padding-bottom: 1px; margin-bottom: 2px;">
+                    OBSERVATIONS DU TRAVAIL
+                </div>
+                <div style="font-size: 5.8pt; color: #0f172a; line-height: 1.35; margin-bottom: 2px;">
+                    <span>Cote APC : <strong class="cote-badge cote-{{ $eleve['cote_globale'] }}">{{ $eleve['cote_globale'] }}</strong></span> &bull;
+                    <span>T.H. : <strong>{{ !empty($eleve['tableau_honneur']) ? 'OUI' : 'NON' }}</strong></span><br>
+                    <span>Encouragements : <strong>{{ !empty($eleve['encouragements']) ? 'OUI' : 'NON' }}</strong></span> &bull;
+                    <span>Félicitations : <strong>{{ !empty($eleve['felicitations']) ? 'OUI' : 'NON' }}</strong></span>
+                </div>
+                <div style="font-weight: bold; font-size: 5.8pt; color: #1e293b; border-top: 0.5px dashed #cbd5e1; padding-top: 2px; margin-top: 2px;">
+                    OBS. DU PARENT / TUTEUR :
+                </div>
+                <div class="stamp-box" style="margin-top: 2px; text-align: left; color: #94a3b8; font-size: 5.2pt;">
+                    Date & signature :
+                </div>
             </td>
-            <td>
-                <strong>Le Professeur Principal</strong>
-                <div class="stamp-box">Observations et visa</div>
+
+            {{-- Bloc 2 : DÉCISION DU CONSEIL DE CLASSE & MATIÈRES FAIBLES --}}
+            <td style="text-align: left; vertical-align: top;">
+                <div style="font-weight: bold; color: #0f766e; text-transform: uppercase; font-size: 6.2pt; border-bottom: 0.5px solid #94a3b8; padding-bottom: 1px; margin-bottom: 2px;">
+                    DÉCISION DU CONSEIL DE CLASSE
+                </div>
+                <div style="font-size: 5.8pt; color: #1e293b; margin-bottom: 2px;">
+                    <strong>Un effort s'impose en :</strong>
+                    @if(!empty($eleve['matieres_faibles']))
+                        <div style="color: #b91c1c; font-weight: bold; margin-top: 1px; line-height: 1.1;">
+                            {{ implode(', ', array_slice($eleve['matieres_faibles'], 0, 4)) }}
+                        </div>
+                    @else
+                        <div style="color: #047857; font-weight: bold; margin-top: 1px;">
+                            Aucune matière &lt; 10/20 (Félicitations)
+                        </div>
+                    @endif
+                </div>
+                <div style="font-size: 5.8pt; color: #1e293b; margin-top: 3px;">
+                    <strong>Avis du conseil :</strong>
+                    @if(!empty($eleve['discipline']['decision_conseil']))
+                        <div style="font-style: italic; font-weight: 600; color: #0f172a; margin-top: 1px;">
+                            {{ $eleve['discipline']['decision_conseil'] }}
+                        </div>
+                    @else
+                        <div style="margin-top: 3px;">
+                            <div style="border-bottom: 0.8px dotted #94a3b8; height: 10px;"></div>
+                            <div style="border-bottom: 0.8px dotted #94a3b8; height: 10px;"></div>
+                        </div>
+                    @endif
+                </div>
             </td>
-            <td>
-                <strong>Le Chef d'Établissement</strong>
-                <div class="stamp-box">Sceau officiel & signature</div>
+
+            {{-- Bloc 3 : OBSERVATIONS DU CHEF D'ÉTABLISSEMENT & SCEAU OFFICIEL --}}
+            <td style="text-align: center; vertical-align: top;">
+                <div style="font-weight: bold; text-transform: uppercase; color: #1e3a8a; font-size: 6.5pt; border-bottom: 0.5px solid #94a3b8; padding-bottom: 1px; margin-bottom: 2px;">
+                    {{ mb_strtoupper($classe['etablissement']['titre_chef'] ?? 'LE CHEF D\'ÉTABLISSEMENT', 'UTF-8') }} / {{ mb_strtoupper($classe['etablissement']['titre_chef_en'] ?? 'THE PRINCIPAL', 'UTF-8') }}
+                </div>
+                <div class="stamp-box" style="margin-top: 10px; color: #94a3b8; font-size: 5.2pt;">
+                    Sceau officiel & signature
+                </div>
+                <div style="font-size: 5.6pt; color: #1e293b; margin-top: 14px;">
+                    Fait à {{ $classe['etablissement']['ville'] ?? 'Yaoundé' }}, le {{ date('d-m-Y') }}
+                </div>
             </td>
         </tr>
     </table>
+
+    <div class="bottom-print-info">
+        Imprimé le {{ date('d-m-Y') }} à {{ date('H:i:s') }} &bull; SYGES
+    </div>
 
 </body>
 </html>

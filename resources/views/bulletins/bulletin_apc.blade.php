@@ -243,28 +243,42 @@
     <table class="student-info-table">
         <tr>
             <td class="student-info-label">Nom et Prénom(s) :</td>
-            <td class="student-info-val" style="font-size: 9pt;">{{ $eleve['nom_complet'] }}</td>
+            <td class="student-info-val" style="font-size: 8.5pt;">{{ $eleve['nom_complet'] }}</td>
             <td class="student-info-label">Classe :</td>
             <td class="student-info-val">{{ $classe['nom'] }} ({{ $classe['niveau'] }})</td>
-            <td rowspan="3" class="photo-cell">
-                @if(!empty($eleve['photo_url']))
-                    <img src="{{ public_path($eleve['photo_url']) }}" style="max-width: 45px; max-height: 45px;" alt="Photo">
+            <td rowspan="4" class="photo-cell">
+                @php
+                    $photoPath = !empty($eleve['photo_url']) ? public_path(ltrim($eleve['photo_url'], '/\\')) : null;
+                @endphp
+                @if($photoPath && file_exists($photoPath))
+                    <img src="{{ $photoPath }}" style="max-width: 44px; max-height: 48px;" alt="Photo">
                 @else
-                    <span style="font-size: 6.5pt; color: #94a3b8;">PHOTO</span>
+                    <div style="font-size: 6pt; color: #94a3b8; padding: 10px 0;">PHOTO</div>
                 @endif
             </td>
         </tr>
         <tr>
             <td class="student-info-label">Matricule :</td>
-            <td class="student-info-val">{{ $eleve['matricule'] }} @if($eleve['matricule_ministere']) / MIN: {{ $eleve['matricule_ministere'] }} @endif</td>
+            <td class="student-info-val">
+                {{ $eleve['matricule'] }}
+                @if(!empty($eleve['matricule_ministere']) || !empty($eleve['matricule_national']))
+                    <span style="font-size: 6.8pt; color: #475569; margin-left: 6px;">| Mat. National : <strong style="color: #0f172a;">{{ $eleve['matricule_ministere'] ?? $eleve['matricule_national'] }}</strong></span>
+                @endif
+            </td>
             <td class="student-info-label">Effectif :</td>
             <td class="student-info-val">{{ $classe['effectif'] }} élèves</td>
         </tr>
         <tr>
             <td class="student-info-label">Né(e) le :</td>
-            <td class="student-info-val">{{ $eleve['date_naissance'] ?? '---' }} à {{ $eleve['lieu_naissance'] ?? '---' }} ({{ $eleve['genre'] }})</td>
+            <td class="student-info-val">{{ $eleve['date_naissance'] ?? '---' }} à {{ $eleve['lieu_naissance'] ?? '---' }}</td>
             <td class="student-info-label">Prof. Principal :</td>
-            <td class="student-info-val">{{ $classe['professeur_principal'] ?? 'Non désigné' }} ({{ $eleve['is_redoublant'] ? 'Redoublant(e)' : 'Non Redoublant(e)' }})</td>
+            <td class="student-info-val">{{ $classe['professeur_principal'] ?? 'Non désigné' }}</td>
+        </tr>
+        <tr>
+            <td class="student-info-label">Sexe :</td>
+            <td class="student-info-val">{{ $eleve['genre'] ?? ($eleve['sexe'] ?? '---') }}</td>
+            <td class="student-info-label">Redoublant(e) :</td>
+            <td class="student-info-val">{{ !empty($eleve['is_redoublant']) ? 'Oui' : 'Non' }}</td>
         </tr>
     </table>
 
@@ -408,7 +422,13 @@
                         </tr>
                         <tr>
                             <td class="font-bold">Rang de l'élève :</td>
-                            <td class="text-right font-bold" style="font-size: 8.5pt; color: #0284c7;">{{ $eleve['rang_general'] }} / {{ $classe['effectif'] }}</td>
+                            <td class="text-right font-bold" style="font-size: 8.5pt; color: #0284c7;">
+                                @if(($eleve['rang_general'] ?? '') === 'NC')
+                                    <span style="color: #dc2626;" title="{{ $eleve['motif_non_classe'] ?? 'Non Classé' }}">NC (Non Classé)</span>
+                                @else
+                                    {{ $eleve['rang_general'] }} / {{ $classe['effectif'] }}
+                                @endif
+                            </td>
                         </tr>
                         <tr>
                             <td>Cote globale APC :</td>

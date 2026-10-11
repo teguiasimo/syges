@@ -1,12 +1,12 @@
 import { Check, ChevronDown, Search, X } from 'lucide-react';
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 
 /**
  * Option individuelle pour le composant SearchableSelect.
  */
 export interface SearchableOption {
-    /** Valeur unique ou code technique (ex: 'BEPC', 'BACCALAURÉAT', 'AUCUN') */
+    /** Valeur unique ou code technique (ex: '12', '6EME-A') */
     value: string;
     /** Libellé convivial complet affiché à l'utilisateur */
     label: string;
@@ -20,16 +20,22 @@ export interface SearchableOption {
  * Propriétés du composant SearchableSelect.
  */
 export interface SearchableSelectProps {
+    /** Identifiant HTML du déclencheur pour accessibilité */
+    id?: string;
     /** Liste ordonnée de toutes les options disponibles */
     options: SearchableOption[];
     /** Valeur actuellement sélectionnée */
     value: string;
-    /** Callback déclenché lors du changement de sélection */
-    onChange: (value: string) => void;
+    /** Callback déclenché lors du changement de sélection (convention React standard) */
+    onChange?: (value: string) => void;
+    /** Callback alternatif compatible Radix UI / Shadcn */
+    onValueChange?: (value: string) => void;
     /** Texte affiché dans le bouton de déclenchement lorsqu'aucune option n'est active */
     placeholder?: string;
     /** Texte indicatif dans la zone de recherche */
     searchPlaceholder?: string;
+    /** Message affiché lorsqu'aucun résultat ne correspond */
+    emptyMessage?: string;
     /** Classes CSS supplémentaires pour le déclencheur */
     className?: string;
     /** Désactive l'interaction avec le composant */
@@ -37,44 +43,62 @@ export interface SearchableSelectProps {
 }
 
 /**
- * Composant de sélection simple avec champ de recherche en temps réel et regroupement thématique.
+ * Composant de sélection avec champ de recherche en temps réel et regroupement thématique.
+ * Conçu pour fonctionner sans faille sur les pages standards ET à l'intérieur des modales Radix Dialog
+ * sans provoquer de conflit de capture de focus ou de blocage d'événements pointeurs.
  *
- * Conçu pour faciliter la sélection dans des listes fournies (ex: référentiel des diplômes officiels),
- * avec recherche instantanée par mot-clé, sigle ou catégorie.
+ * @param {SearchableSelectProps} props
+ * @returns {JSX.Element}
  */
 export function SearchableSelect({
+    id,
     options,
     value,
     onChange,
+    onValueChange,
     placeholder = 'Sélectionner une option...',
     searchPlaceholder = 'Rechercher...',
+    emptyMessage = 'Aucun élément ne correspond à',
     className,
     disabled = false,
 }: SearchableSelectProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+    const [placeAbove, setPlaceAbove] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
     const searchInputRef = useRef<HTMLInputElement>(null);
 
     // Retrouve l'option active pour l'afficher dans le déclencheur
     const selectedOption = useMemo(
-        () => options.find((opt) => opt.value === value),
+        () => options.find((opt) => String(opt.value) === String(value)),
         [options, value]
     );
 
+    /**
+     * Détermine la direction d'ouverture (au-dessus ou en-dessous) selon l'espace visible disponible.
+     */
+    const updatePosition = useCallback(() => {
+        if (!containerRef.current) return;
+        const rect = containerRef.current.getBoundingClientRect();
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const shouldPlaceAbove = spaceBelow < 280 && rect.top > spaceBelow;
+        setPlaceAbove(shouldPlaceAbove);
+    }, []);
+
     // Fermeture automatique lors d'un clic en dehors du composant
     useEffect(() => {
+        if (!isOpen) return;
+
         const handleClickOutside = (event: MouseEvent | TouchEvent) => {
-            if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+            const target = event.target as Node;
+            if (containerRef.current && !containerRef.current.contains(target)) {
                 setIsOpen(false);
                 setSearchQuery('');
             }
         };
 
-        if (isOpen) {
-            document.addEventListener('mousedown', handleClickOutside);
-            document.addEventListener('touchstart', handleClickOutside);
-        }
+        document.addEventListener('mousedown', handleClickOutside);
+        document.addEventListener('touchstart', handleClickOutside);
 
         return () => {
             document.removeEventListener('mousedown', handleClickOutside);
@@ -82,32 +106,34 @@ export function SearchableSelect({
         };
     }, [isOpen]);
 
-    // Donne le focus au champ de recherche dès l'ouverture du menu déroulant
+    // Focus automatique dans le champ de recherche à l'ouverture
     useEffect(() => {
         if (isOpen) {
-            setTimeout(() => {
+            updatePosition();
+            const timer = setTimeout(() => {
                 searchInputRef.current?.focus();
-            }, 50);
+            }, 60);
+            return () => clearTimeout(timer);
         } else {
             setSearchQuery('');
         }
-    }, [isOpen]);
+    }, [isOpen, updatePosition]);
 
-    // Filtrage dynamique des options en fonction de la saisie de l'utilisateur
+    // Filtrage dynamique des options en fonction de la saisie
     const filteredOptions = useMemo(() => {
         const query = searchQuery.trim().toLowerCase();
         if (!query) return options;
 
         return options.filter((opt) => {
             const matchLabel = opt.label.toLowerCase().includes(query);
-            const matchValue = opt.value.toLowerCase().includes(query);
+            const matchValue = String(opt.value).toLowerCase().includes(query);
             const matchGroup = opt.group ? opt.group.toLowerCase().includes(query) : false;
             const matchDesc = opt.description ? opt.description.toLowerCase().includes(query) : false;
             return matchLabel || matchValue || matchGroup || matchDesc;
         });
     }, [options, searchQuery]);
 
-    // Regroupement des options filtrées en conservant strictement l'ordre d'origine
+    // Regroupement des options filtrées en conservant strictement l'ordre
     const groupedOptions = useMemo(() => {
         const groupsMap = new Map<string, SearchableOption[]>();
 
@@ -126,10 +152,18 @@ export function SearchableSelect({
     }, [filteredOptions]);
 
     /**
+     * Notifie la valeur sélectionnée aux deux callbacks (onChange et onValueChange).
+     */
+    const triggerChange = (val: string) => {
+        onChange?.(val);
+        onValueChange?.(val);
+    };
+
+    /**
      * Sélectionne une option et referme le menu déroulant.
      */
     const handleSelect = (val: string) => {
-        onChange(val);
+        triggerChange(val);
         setIsOpen(false);
         setSearchQuery('');
     };
@@ -139,33 +173,42 @@ export function SearchableSelect({
      */
     const handleClear = (e: React.MouseEvent) => {
         e.stopPropagation();
-        onChange('');
+        triggerChange('');
     };
 
     return (
-        <div ref={containerRef} className="relative w-full">
+        <div ref={containerRef} className={cn('relative w-full', isOpen ? 'z-50' : 'z-10')}>
             {/* Déclencheur du sélecteur */}
             <button
+                id={id}
                 type="button"
                 disabled={disabled}
-                onClick={() => setIsOpen(!isOpen)}
+                onClick={() => {
+                    if (!disabled) {
+                        updatePosition();
+                        setIsOpen(!isOpen);
+                    }
+                }}
                 className={cn(
-                    'border-input focus-visible:border-ring focus-visible:ring-ring/50 flex h-9 w-full items-center justify-between gap-2 rounded-md border bg-transparent px-3 py-2 text-sm shadow-xs transition-colors outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer text-left',
+                    'border-input focus-visible:border-ring focus-visible:ring-ring/50 flex h-9 w-full min-w-0 items-center justify-between gap-2 rounded-md border bg-transparent px-3 py-2 text-sm shadow-xs transition-colors outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer text-left',
                     isOpen && 'border-ring ring-[3px] ring-ring/50',
                     className
                 )}
             >
-                <span className={cn('truncate', !selectedOption && 'text-muted-foreground')}>
+                <span
+                    className={cn('truncate flex-1 min-w-0 text-left', !selectedOption && 'text-muted-foreground')}
+                    title={selectedOption ? selectedOption.label : undefined}
+                >
                     {selectedOption ? selectedOption.label : placeholder}
                 </span>
 
-                <div className="flex items-center gap-1 shrink-0 text-muted-foreground">
+                <div className="flex items-center gap-1 shrink-0 text-muted-foreground ml-auto">
                     {selectedOption && !disabled && (
                         <span
                             role="button"
                             tabIndex={0}
                             onClick={handleClear}
-                            className="p-0.5 rounded-sm hover:text-foreground hover:bg-muted cursor-pointer transition-colors"
+                            className="p-0.5 rounded-sm hover:text-foreground hover:bg-muted cursor-pointer transition-colors shrink-0"
                             title="Effacer la sélection"
                         >
                             <X className="size-3.5" />
@@ -173,18 +216,23 @@ export function SearchableSelect({
                     )}
                     <ChevronDown
                         className={cn(
-                            'size-4 opacity-50 transition-transform duration-200',
+                            'size-4 opacity-50 transition-transform duration-200 shrink-0',
                             isOpen && 'rotate-180 opacity-100 text-primary'
                         )}
                     />
                 </div>
             </button>
 
-            {/* Menu déroulant avec zone de recherche intégrée */}
+            {/* Menu déroulant positionné de façon absolue directement dans le conteneur */}
             {isOpen && (
-                <div className="absolute top-full left-0 mt-1.5 w-full min-w-[280px] max-w-[calc(100vw-2rem)] z-50 rounded-lg border bg-popover text-popover-foreground shadow-xl animate-in fade-in-0 zoom-in-95 overflow-hidden">
+                <div
+                    className={cn(
+                        'absolute left-0 w-full min-w-70 max-w-[calc(100vw-2rem)] z-50 rounded-lg border border-border bg-popover text-popover-foreground shadow-2xl animate-in fade-in-0 zoom-in-95 overflow-hidden flex flex-col max-h-72',
+                        placeAbove ? 'bottom-full mb-1' : 'top-full mt-1'
+                    )}
+                >
                     {/* Zone de recherche */}
-                    <div className="p-2 border-b border-border bg-muted/20">
+                    <div className="p-2 border-b border-border bg-muted/30 shrink-0">
                         <div className="relative flex items-center">
                             <Search className="size-4 absolute left-2.5 text-muted-foreground pointer-events-none" />
                             <input
@@ -194,7 +242,12 @@ export function SearchableSelect({
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 onKeyDown={(e) => {
                                     if (e.key === 'Escape') {
+                                        e.stopPropagation();
                                         setIsOpen(false);
+                                    } else if (e.key === 'Enter' && filteredOptions.length > 0) {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        handleSelect(filteredOptions[0].value);
                                     }
                                 }}
                                 placeholder={searchPlaceholder}
@@ -216,11 +269,18 @@ export function SearchableSelect({
                         </div>
                     </div>
 
-                    {/* Liste des options découpées par groupes */}
-                    <div className="max-h-64 overflow-y-auto p-1.5 space-y-2">
+                    {/* Liste des options découpées par groupes (visible immédiatement sans taper) */}
+                    <div className="overflow-y-auto p-1.5 space-y-2 flex-1 overscroll-contain">
                         {groupedOptions.length === 0 ? (
                             <div className="py-6 text-center text-xs text-muted-foreground">
-                                Aucun diplôme ne correspond à « <span className="font-medium text-foreground">{searchQuery}</span> »
+                                {emptyMessage}{' '}
+                                {searchQuery ? (
+                                    <>
+                                        « <span className="font-medium text-foreground">{searchQuery}</span> »
+                                    </>
+                                ) : (
+                                    'votre recherche'
+                                )}
                             </div>
                         ) : (
                             groupedOptions.map(({ group, items }) => (
@@ -232,7 +292,7 @@ export function SearchableSelect({
 
                                     {/* Éléments du groupe */}
                                     {items.map((item) => {
-                                        const isSelected = item.value === value;
+                                        const isSelected = String(item.value) === String(value);
 
                                         return (
                                             <button
@@ -240,23 +300,27 @@ export function SearchableSelect({
                                                 type="button"
                                                 onClick={() => handleSelect(item.value)}
                                                 className={cn(
-                                                    'w-full flex items-center justify-between gap-2 px-2.5 py-1.5 text-xs rounded-md text-left transition-colors cursor-pointer',
+                                                    'w-full flex items-center justify-between gap-2 px-2.5 py-2 text-xs rounded-md text-left transition-colors cursor-pointer min-w-0',
                                                     isSelected
-                                                        ? 'bg-emerald-50 text-emerald-900 font-semibold dark:bg-emerald-950/50 dark:text-emerald-300'
+                                                        ? 'bg-emerald-50 text-emerald-900 font-semibold dark:bg-emerald-950/60 dark:text-emerald-300'
                                                         : 'hover:bg-accent hover:text-accent-foreground text-foreground'
                                                 )}
+                                                title={item.label}
                                             >
-                                                <div className="flex flex-col min-w-0 flex-1">
-                                                    <span className="truncate">{item.label}</span>
+                                                <div className="flex flex-col min-w-0 flex-1 overflow-hidden">
+                                                    <span className="truncate block font-medium">{item.label}</span>
                                                     {item.description && (
-                                                        <span className="text-[10px] text-muted-foreground truncate">
+                                                        <span
+                                                            className="text-[10px] text-muted-foreground truncate block"
+                                                            title={item.description}
+                                                        >
                                                             {item.description}
                                                         </span>
                                                     )}
                                                 </div>
 
                                                 {isSelected && (
-                                                    <Check className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                                                    <Check className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400 ml-1" />
                                                 )}
                                             </button>
                                         );

@@ -68,7 +68,21 @@ class BulletinController extends Controller implements HasMiddleware
         $anneeActive = AnneeScolaire::current() ?? $annees->first();
         $anneeId = $request->query('annee_id', $anneeActive?->id);
 
-        $etablissementId = $request->query('etablissement_id');
+        $user = $request->user();
+        $isSuperAdmin = $user ? ($user->hasRole('super-admin') || $user->email === 'admin@gmail.com') : false;
+        $userPersonnel = $user?->personnel ?? ($user?->email ? \App\Models\Personnel::where('email', $user->email)->first() : null);
+
+        $allEtablissements = \App\Models\Etablissement::select('id', 'nom', 'code', 'ordre_enseignement')->orderBy('nom')->get();
+
+        if (! $isSuperAdmin && $userPersonnel?->etablissement_id) {
+            $etablissementId = (int) $userPersonnel->etablissement_id;
+            $etablissements = $allEtablissements->where('id', $etablissementId)->values();
+        } else {
+            $etablissementId = $request->query('etablissement_id')
+                ? (int) $request->query('etablissement_id')
+                : ($request->session()->get('current_etablissement_id') ?: $allEtablissements->first()?->id);
+            $etablissements = $allEtablissements;
+        }
 
         $periodesQuery = Periode::with(['evaluations' => fn ($q) => $q->orderBy('ordre')])
             ->where('annee_scolaire_id', $anneeId)
@@ -83,14 +97,31 @@ class BulletinController extends Controller implements HasMiddleware
             $classesQuery->where('etablissement_id', $etablissementId);
         }
 
+        // Pour un enseignant (non-gestionnaire) : restreindre aux classes où il a des attributions
+        if (! $isSuperAdmin && $userPersonnel && $user->hasRole('enseignant') && ! $user->hasRole(['directeur-etudes', 'admin', 'censeur'])) {
+            $classesEnseignantIds = \App\Models\Attribution::where('personnel_id', $userPersonnel->id)
+                ->where('annee_scolaire_id', $anneeId)
+                ->pluck('classe_id');
+            $classesQuery->whereIn('id', $classesEnseignantIds);
+        }
+
         $periodes = $periodesQuery->get();
         $classes = $classesQuery->get();
 
-        $typeBulletin = $request->query('type_bulletin', 'trimestriel');
+        $typeBulletin = $request->query('type_bulletin', 'sequentiel');
         $classeId = $request->query('classe_id');
         $periodeId = $request->query('periode_id');
         $evaluationId = $request->query('evaluation_id');
         $modeBulletin = $request->query('mode_bulletin');
+
+        // Pré-sélection logique de la 1ère séquence (Évaluation 1) ou du 1er trimestre si non spécifié
+        if ($typeBulletin === 'sequentiel' && ! $evaluationId) {
+            $firstEval = $periodes->flatMap->evaluations->first();
+            $evaluationId = $firstEval ? (string) $firstEval->id : null;
+        } elseif ($typeBulletin === 'trimestriel' && ! $periodeId) {
+            $firstPeriode = $periodes->first();
+            $periodeId = $firstPeriode ? (string) $firstPeriode->id : null;
+        }
 
         $donneesClasse = null;
 
@@ -117,7 +148,7 @@ class BulletinController extends Controller implements HasMiddleware
         return Inertia::render('administration/bulletins/index', [
             'annees' => $annees,
             'anneeActiveId' => (int) $anneeId,
-            'etablissements' => \App\Models\Etablissement::select('id', 'nom', 'code')->orderBy('nom')->get(),
+            'etablissements' => $etablissements,
             'periodes' => $periodes,
             'classes' => $classes,
             'donneesClasse' => $donneesClasse,
@@ -134,15 +165,15 @@ class BulletinController extends Controller implements HasMiddleware
     }
 
     /**
-     * Prévisualise le bulletin d'un élève dans le navigateur.
+     * Prévisualise le bulletin officiel scellé d'un élève dans un nouvel onglet (affichage plein écran sans téléchargement forcé).
      *
-     * @return View
+     * @return Response|View
      */
     public function previsualiser(Request $request, Inscription $inscription, ?Periode $periode = null)
     {
         $classe = $inscription->classe()->with(['niveau.cycle.section.etablissement.institution', 'professeurPrincipal'])->firstOrFail();
-        $mode = $classe->niveau->cycle->section->etablissement->mode_bulletin_defaut ?? 'sans_competences';
-        $type = $request->query('type_bulletin', 'trimestriel');
+        $mode = $request->query('mode', $classe->niveau->cycle->section->etablissement->mode_bulletin_defaut ?? 'sans_competences');
+        $type = $request->query('type_bulletin', 'sequentiel');
 
         if ($type === 'sequentiel') {
             $evaluationId = $request->query('evaluation_id');
@@ -152,7 +183,7 @@ class BulletinController extends Controller implements HasMiddleware
 
             abort_if(! $eleveData, 404, 'Données introuvables pour cet élève.');
 
-            return view('bulletins.bulletin_sequentiel', [
+            $viewData = [
                 'eleve' => $eleveData,
                 'classe' => $resultat['classe'],
                 'evaluation' => $resultat['evaluation'],
@@ -160,7 +191,9 @@ class BulletinController extends Controller implements HasMiddleware
                 'annee_scolaire' => $resultat['annee_scolaire'],
                 'stats_classe' => $resultat['stats_classe'],
                 'mode_bulletin' => $mode,
-            ]);
+            ];
+            $viewName = 'bulletins.bulletin_sequentiel';
+            $nomFichier = 'Apercu_Bulletin_Seq_'.str_replace(['/', ' '], '_', $eleveData['matricule']).'_'.$evaluation->code.'.pdf';
         } elseif ($type === 'annuel') {
             $anneeId = $request->query('annee_id', $inscription->annee_scolaire_id);
             $annee = AnneeScolaire::findOrFail($anneeId);
@@ -169,31 +202,49 @@ class BulletinController extends Controller implements HasMiddleware
 
             abort_if(! $eleveData, 404, 'Données introuvables pour cet élève.');
 
-            return view('bulletins.bulletin_annuel', [
+            $viewData = [
                 'eleve' => $eleveData,
                 'classe' => $resultat['classe'],
                 'periodes' => $resultat['periodes'],
                 'annee_scolaire' => $resultat['annee_scolaire'],
                 'stats_classe' => $resultat['stats_classe'],
                 'mode_bulletin' => $mode,
-            ]);
+            ];
+            $viewName = 'bulletins.bulletin_annuel';
+            $safeAnneeCode = str_replace(['/', '\\', ' '], '-', $annee->code);
+            $nomFichier = 'Apercu_Bulletin_Annuel_'.str_replace(['/', ' '], '_', $eleveData['matricule']).'_'.$safeAnneeCode.'.pdf';
+        } else {
+            // Trimestriel par défaut
+            $periode = $periode ?? Periode::with('anneeScolaire')->findOrFail($request->query('periode_id'));
+            $resultat = $this->calculationService->calculerTrimestre($classe, $periode, null, $mode);
+            $eleveData = collect($resultat['eleves'])->firstWhere('inscription_id', $inscription->id);
+
+            abort_if(! $eleveData, 404, 'Données introuvables pour cet élève.');
+
+            $viewData = [
+                'eleve' => $eleveData,
+                'classe' => $resultat['classe'],
+                'periode' => $resultat['periode'],
+                'annee_scolaire' => $resultat['annee_scolaire'],
+                'stats_classe' => $resultat['stats_classe'],
+                'mode_bulletin' => $mode,
+            ];
+            $viewName = 'bulletins.bulletin_trimestriel';
+            $nomFichier = 'Apercu_Bulletin_Trim_'.str_replace(['/', ' '], '_', $eleveData['matricule']).'_'.$periode->code.'.pdf';
         }
 
-        // Trimestriel par défaut
-        $periode = $periode ?? Periode::with('anneeScolaire')->findOrFail($request->query('periode_id'));
-        $resultat = $this->calculationService->calculerTrimestre($classe, $periode, null, $mode);
-        $eleveData = collect($resultat['eleves'])->firstWhere('inscription_id', $inscription->id);
+        // Si le format HTML brut est expressément requis
+        if ($request->query('format') === 'html') {
+            return view($viewName, $viewData);
+        }
 
-        abort_if(! $eleveData, 404, 'Données introuvables pour cet élève.');
+        // Flux PDF direct en mode inline : affichage pleine page natif dans le nouvel onglet sans téléchargement forcé
+        $pdf = Pdf::loadView($viewName, $viewData);
+        $pdf->setPaper('a4', 'portrait')
+            ->setOption('isRemoteEnabled', true)
+            ->setOption('isHtml5ParserEnabled', true);
 
-        return view('bulletins.bulletin_trimestriel', [
-            'eleve' => $eleveData,
-            'classe' => $resultat['classe'],
-            'periode' => $resultat['periode'],
-            'annee_scolaire' => $resultat['annee_scolaire'],
-            'stats_classe' => $resultat['stats_classe'],
-            'mode_bulletin' => $mode,
-        ]);
+        return $pdf->stream($nomFichier, ['Attachment' => false]);
     }
 
     /**
@@ -202,8 +253,8 @@ class BulletinController extends Controller implements HasMiddleware
     public function telechargerPdf(Request $request, Inscription $inscription, ?Periode $periode = null): Response
     {
         $classe = $inscription->classe()->with(['niveau.cycle.section.etablissement.institution', 'professeurPrincipal'])->firstOrFail();
-        $mode = $classe->niveau->cycle->section->etablissement->mode_bulletin_defaut ?? 'sans_competences';
-        $type = $request->query('type_bulletin', 'trimestriel');
+        $mode = $request->query('mode', $classe->niveau->cycle->section->etablissement->mode_bulletin_defaut ?? 'sans_competences');
+        $type = $request->query('type_bulletin', 'sequentiel');
 
         if ($type === 'sequentiel') {
             $evaluationId = $request->query('evaluation_id');
@@ -275,8 +326,8 @@ class BulletinController extends Controller implements HasMiddleware
         $classeWithRel = Classe::with(['niveau.cycle.section.etablissement.institution', 'professeurPrincipal'])
             ->findOrFail($classe->id);
 
-        $mode = $classeWithRel->niveau->cycle->section->etablissement->mode_bulletin_defaut ?? 'sans_competences';
-        $type = $request->query('type_bulletin', 'trimestriel');
+        $mode = $request->query('mode', $classeWithRel->niveau->cycle->section->etablissement->mode_bulletin_defaut ?? 'sans_competences');
+        $type = $request->query('type_bulletin', 'sequentiel');
 
         if ($type === 'sequentiel') {
             $evaluationId = $request->query('evaluation_id');

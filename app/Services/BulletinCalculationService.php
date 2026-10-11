@@ -5,10 +5,14 @@ namespace App\Services;
 use App\Models\AnneeScolaire;
 use App\Models\Attribution;
 use App\Models\Classe;
+use App\Models\CompetencePeriodique;
+use App\Models\CoteConfiguration;
 use App\Models\DisciplineBulletin;
+use App\Models\DispenseEleve;
 use App\Models\Evaluation;
 use App\Models\Inscription;
 use App\Models\MatiereNiveau;
+use App\Models\Niveau;
 use App\Models\Note;
 use App\Models\Periode;
 use Illuminate\Support\Str;
@@ -44,9 +48,9 @@ class BulletinCalculationService
         ?string $modeBulletin = null
     ): array {
         // Détermination du mode de calcul et de bulletin
-        $etablissement = $classe->niveau->cycle->section->etablissement;
-        $modeCalcul = $modeCalcul ?? $etablissement->type_calcul_trimestre ?? 'arithmetique';
-        $modeBulletin = $modeBulletin ?? $etablissement->mode_bulletin_defaut ?? 'sans_competences';
+        $etablissement = $classe->etablissement ?? $classe->niveau?->cycle?->section?->etablissement;
+        $modeCalcul = $modeCalcul ?? $etablissement?->type_calcul_trimestre ?? 'arithmetique';
+        $modeBulletin = $modeBulletin ?? $etablissement?->mode_bulletin_defaut ?? 'sans_competences';
 
         // 1. Récupération des inscriptions validées dans la classe
         $inscriptions = Inscription::with(['eleve'])
@@ -96,6 +100,34 @@ class BulletinCalculationService
             ->get()
             ->keyBy('inscription_id');
 
+        // Récupération des dispenses médicales et dérogations officielles validées (Phase 4)
+        $dispenses = DispenseEleve::validees()
+            ->whereIn('inscription_id', $inscriptionIds)
+            ->where(function ($q) use ($periode) {
+                $q->whereNull('periode_id')->orWhere('periode_id', $periode->id);
+            })
+            ->get()
+            ->groupBy('inscription_id');
+
+        // Récupération des compétences officielles APC configurées pour la classe et la période (Phase 3)
+        $competencesOfficielles = CompetencePeriodique::where('classe_id', $classe->id)
+            ->where(function ($q) use ($periode, $evaluationIds) {
+                $q->where('periode_id', $periode->id)
+                  ->orWhereIn('evaluation_id', $evaluationIds);
+            })
+            ->where('is_active', true)
+            ->get()
+            ->groupBy('matiere_id');
+
+        // Total théorique des coefficients de la classe et quota minimal pour être classé (MINESEC / Gesco)
+        $totalCoefficientsTheoriqueClasse = (float) $attributions->sum(function ($attr) use ($coefficients) {
+            $matiereNiveau = $coefficients->get($attr->matiere_id);
+            return (float) ($matiereNiveau ? $matiereNiveau->coefficient : $attr->matiere->coefficient_defaut);
+        });
+        $seuilCoeffsMinimalClasse = $etablissement
+            ? $etablissement->getSeuilCoefficientsMinimal($totalCoefficientsTheoriqueClasse)
+            : round($totalCoefficientsTheoriqueClasse * 0.60, 2);
+
         // 4. Calcul par élève et par matière
         $elevesData = [];
         $matieresStats = []; // Pour calculer [Min, Max, Moyenne classe] par matière
@@ -124,6 +156,15 @@ class BulletinCalculationService
                     : null;
                 $isComptabilisee = $coefConfig ? (bool) $coefConfig->is_comptabilisee : true;
                 $groupe = $coefConfig?->groupeMatiere;
+
+                // Vérification d'une dispense officielle active (Phase 4)
+                $dispenseEleve = $dispenses->get($insc->id)?->firstWhere('matiere_id', $attr->matiere_id);
+                $estDispense = $dispenseEleve !== null;
+                if ($estDispense && $dispenseEleve->neutraliser_coefficient) {
+                    $coef = 0.0;
+                    $isComptabilisee = false;
+                    $noteEliminatoireSeuil = null;
+                }
 
                 // Notes de l'élève pour cette matière aux différentes séquences
                 $notesParEvaluation = [];
@@ -169,7 +210,7 @@ class BulletinCalculationService
 
                 // Calcul de la moyenne de la matière pour ce trimestre
                 $moyenneMatiere = null;
-                if ($nbNotesPresentes > 0) {
+                if (! $estDispense && $nbNotesPresentes > 0) {
                     if ($modeCalcul === 'pondere' && $sommePonderations > 0) {
                         $moyenneMatiere = round($sommePondereeEval / $sommePonderations, 2);
                     } else {
@@ -179,19 +220,21 @@ class BulletinCalculationService
 
                 // Test de la note éliminatoire (Gesco 4.3)
                 $estEliminatoire = false;
-                if ($moyenneMatiere !== null && $noteEliminatoireSeuil !== null) {
+                if (! $estDispense && $moyenneMatiere !== null && $noteEliminatoireSeuil !== null) {
                     if ($moyenneMatiere < $noteEliminatoireSeuil) {
                         $estEliminatoire = true;
                         $aNoteEliminatoire = true;
                     }
                 }
 
-                // Cote APC de la matière
-                $coteAPC = $moyenneMatiere !== null ? Note::determinerCoteAPC($moyenneMatiere) : null;
+                // Cote APC de la matière (Phase 3 & barème configurable)
+                $coteAPC = ($moyenneMatiere !== null && ! $estDispense)
+                    ? CoteConfiguration::determinerCote($moyenneMatiere, $etablissement?->id)
+                    : null;
 
                 // Total de points (Moyenne x Coef) si comptabilisée
                 $pointsMatiere = 0.0;
-                if ($moyenneMatiere !== null && $isComptabilisee) {
+                if ($moyenneMatiere !== null && $isComptabilisee && ! $estDispense) {
                     $pointsMatiere = round($moyenneMatiere * $coef, 2);
                     $totalPoints += $pointsMatiere;
                     $totalCoefficients += $coef;
@@ -200,31 +243,68 @@ class BulletinCalculationService
                     $matieresStats[$attr->id]['notes_classe'][$insc->id] = $moyenneMatiere;
                 }
 
+                // Intitulé de compétence officiel ou saisi
+                $texteCompetence = ! empty($competencesEvaluees)
+                    ? implode(' ; ', array_filter(array_unique($competencesEvaluees)))
+                    : ($competencesOfficielles->get($attr->matiere_id)?->pluck('libelle_competence')->implode(' ; ') ?: '');
+
+                $appreciationFinale = $estDispense
+                    ? 'Dispensé(e) (' . ucfirst($dispenseEleve->type_dispense) . ')'
+                    : ($derniereAppreciation ?: self::genererAppreciationParDefaut($moyenneMatiere));
+
                 $lignesMatieres[$attr->id] = [
                     'attribution_id' => $attr->id,
                     'matiere_id' => $attr->matiere_id,
                     'matiere_code' => $attr->matiere->code,
                     'matiere_nom' => $attr->matiere->libelle_bulletin ?: $attr->matiere->nom,
-                    'enseignant_nom' => $attr->personnel ? $attr->personnel->nom_complet : 'Non assigné',
+                    'enseignant_nom' => $attr->personnel ? ($attr->personnel->nom ?: $attr->personnel->nom_complet) : 'Non assigné',
+                    'enseignant_nom_complet' => $attr->personnel ? $attr->personnel->nom_complet : 'Non assigné',
                     'groupe_id' => $groupe ? $groupe->id : 0,
                     'groupe_nom' => $groupe ? $groupe->nom : 'Autres Enseignements',
-                    'groupe_ordre' => $groupe ? $groupe->ordre : 99,
+                    'groupe_ordre' => $groupe ? $groupe->getOrdrePourSerie($classe->serie) : 99,
                     'coefficient' => $coef,
+                    'is_dispense' => $estDispense,
+                    'dispense' => $dispenseEleve,
                     'note_eliminatoire' => $noteEliminatoireSeuil,
                     'est_eliminatoire' => $estEliminatoire,
                     'notes_evaluations' => $notesParEvaluation,
-                    'moyenne' => $moyenneMatiere,
+                    'moyenne' => $estDispense ? null : $moyenneMatiere,
                     'points' => $pointsMatiere,
                     'cote_apc' => $coteAPC,
-                    'competences' => Str::limit(implode(' ; ', array_filter(array_unique($competencesEvaluees))), 75, '...'),
-                    'appreciation' => $derniereAppreciation ?: self::genererAppreciationParDefaut($moyenneMatiere),
+                    'competences' => Str::limit($texteCompetence, 75, '...'),
+                    'appreciation' => $appreciationFinale,
                     'rang_matiere' => null, // Rempli après calcul global
                 ];
             }
 
+            // Tri ordonné des matières par l'ordre contextuel du bloc selon la série, puis par code matière
+            uasort($lignesMatieres, function ($a, $b) {
+                if ($a['groupe_ordre'] === $b['groupe_ordre']) {
+                    return strcmp($a['matiere_code'], $b['matiere_code']);
+                }
+                return $a['groupe_ordre'] <=> $b['groupe_ordre'];
+            });
+
             // Moyenne Générale Trimestrielle (M.G.T.)
             $moyenneGenerale = $totalCoefficients > 0 ? round($totalPoints / $totalCoefficients, 2) : 0.0;
-            $coteGlobale = Note::determinerCoteAPC($moyenneGenerale);
+            $coteGlobale = CoteConfiguration::determinerCote($moyenneGenerale, $etablissement?->id);
+
+            // Calcul de l'éligibilité au classement selon le quota de coefficients (MINESEC / Gesco)
+            $dispensesEleve = $dispenses->get($insc->id) ?? collect();
+            $coeffsDispensesEleve = (float) $dispensesEleve->where('neutraliser_coefficient', true)->sum(function ($disp) use ($coefficients, $attributions) {
+                $attr = $attributions->firstWhere('matiere_id', $disp->matiere_id);
+                if (! $attr) {
+                    return 0.0;
+                }
+                $matiereNiveau = $coefficients->get($attr->matiere_id);
+                return (float) ($matiereNiveau ? $matiereNiveau->coefficient : $attr->matiere->coefficient_defaut);
+            });
+            $totalTheoriqueEleve = max(0.0, $totalCoefficientsTheoriqueClasse - $coeffsDispensesEleve);
+            $seuilRequisEleve = $etablissement
+                ? $etablissement->getSeuilCoefficientsMinimal($totalTheoriqueEleve)
+                : round($totalTheoriqueEleve * 0.60, 2);
+
+            $isEligibleClassement = ($totalCoefficients >= $seuilRequisEleve) && ($totalCoefficients > 0);
 
             // Données disciplinaires
             $disciplineRec = $disciplines->get($insc->id);
@@ -233,15 +313,23 @@ class BulletinCalculationService
                 'inscription_id' => $insc->id,
                 'matricule' => $insc->eleve->matricule,
                 'matricule_ministere' => $insc->eleve->matricule_national,
+                'matricule_national' => $insc->eleve->matricule_national,
                 'nom_complet' => $insc->eleve->nom.' '.$insc->eleve->prenom,
                 'date_naissance' => $insc->eleve->date_naissance?->format('d/m/Y'),
                 'lieu_naissance' => $insc->eleve->lieu_naissance,
                 'genre' => $insc->eleve->sexe,
+                'sexe' => $insc->eleve->sexe,
                 'photo_url' => $insc->eleve->photo_url,
                 'is_redoublant' => $insc->is_redoublant,
                 'lignes_matieres' => $lignesMatieres,
                 'total_points' => round($totalPoints, 2),
                 'total_coefficients' => $totalCoefficients,
+                'total_coefficients_classe' => $totalCoefficientsTheoriqueClasse,
+                'seuil_coefficients_requis' => $seuilRequisEleve,
+                'is_eligible_classement' => $isEligibleClassement,
+                'motif_non_classe' => ! $isEligibleClassement && $totalCoefficients > 0
+                    ? "Coefficients insuffisants ({$totalCoefficients} / {$seuilRequisEleve} requis)"
+                    : (! $isEligibleClassement ? 'Aucune matière composée' : null),
                 'moyenne_generale' => $moyenneGenerale,
                 'cote_globale' => $coteGlobale,
                 'a_note_eliminatoire' => $aNoteEliminatoire,
@@ -283,45 +371,67 @@ class BulletinCalculationService
             }
         }
 
-        // 6. Calcul des rangs généraux et des distinctions honorifiques
+        // 6. Calcul des rangs généraux et des distinctions honorifiques (seuls les élèves éligibles sont classés)
         $moyennesClasseGenerale = [];
         foreach ($elevesData as $inscId => $data) {
-            $moyennesClasseGenerale[$inscId] = $data['moyenne_generale'];
+            if ($data['is_eligible_classement']) {
+                $moyennesClasseGenerale[$inscId] = $data['moyenne_generale'];
+            }
         }
         arsort($moyennesClasseGenerale);
         $rangsGeneraux = self::attribuerRangsAvecExAequo($moyennesClasseGenerale);
 
         $nbMoyennes = 0;
         foreach ($elevesData as $inscId => &$data) {
-            $data['rang_general'] = $rangsGeneraux[$inscId] ?? 'N/A';
-
-            // Distinction / Mention
-            $moy = $data['moyenne_generale'];
-            if ($moy >= 10.0) {
-                $nbMoyennes++;
-            }
-
-            if ($data['a_note_eliminatoire']) {
-                $data['mention'] = 'Non éligible aux mentions (Note éliminatoire)';
-                $data['distinction'] = 'Aucune (Note éliminatoire)';
+            if (! $data['is_eligible_classement']) {
+                $data['rang_general'] = 'NC';
+                $data['mention'] = 'Non Classé (NC)';
+                $data['distinction'] = 'Non éligible (Coefficients insuffisants)';
             } else {
-                if ($moy >= 16.0) {
-                    $data['mention'] = 'Très Bien';
-                    $data['distinction'] = 'Tableau d\'Honneur avec Félicitations';
-                } elseif ($moy >= 14.0) {
-                    $data['mention'] = 'Bien';
-                    $data['distinction'] = 'Tableau d\'Honneur avec Encouragements';
-                } elseif ($moy >= 12.0) {
-                    $data['mention'] = 'Assez Bien';
-                    $data['distinction'] = 'Tableau d\'Honneur';
-                } elseif ($moy >= 10.0) {
-                    $data['mention'] = 'Passable';
-                    $data['distinction'] = 'Encourageant';
+                $data['rang_general'] = $rangsGeneraux[$inscId] ?? 'N/A';
+
+                // Distinction / Mention
+                $moy = $data['moyenne_generale'];
+                if ($moy >= 10.0) {
+                    $nbMoyennes++;
+                }
+
+                $hasElim = $data['a_note_eliminatoire'];
+                $data['tableau_honneur'] = ($moy >= 12.0 && ! $hasElim);
+                $data['encouragements'] = ($moy >= 14.0 && ! $hasElim);
+                $data['felicitations'] = ($moy >= 16.0 && ! $hasElim);
+
+                if ($data['a_note_eliminatoire']) {
+                    $data['mention'] = 'Non éligible aux mentions (Note éliminatoire)';
+                    $data['distinction'] = 'Aucune (Note éliminatoire)';
                 } else {
-                    $data['mention'] = 'Insuffisant';
-                    $data['distinction'] = 'Avertissement travail';
+                    if ($moy >= 16.0) {
+                        $data['mention'] = 'Très Bien';
+                        $data['distinction'] = 'Tableau d\'Honneur avec Félicitations';
+                    } elseif ($moy >= 14.0) {
+                        $data['mention'] = 'Bien';
+                        $data['distinction'] = 'Tableau d\'Honneur avec Encouragements';
+                    } elseif ($moy >= 12.0) {
+                        $data['mention'] = 'Assez Bien';
+                        $data['distinction'] = 'Tableau d\'Honneur';
+                    } elseif ($moy >= 10.0) {
+                        $data['mention'] = 'Passable';
+                        $data['distinction'] = 'Encourageant';
+                    } else {
+                        $data['mention'] = 'Insuffisant';
+                        $data['distinction'] = 'Avertissement travail';
+                    }
                 }
             }
+
+            // Identification des matières faibles (note < 10) pour l'orientation et l'effort
+            $matieresFaibles = [];
+            foreach ($data['lignes_matieres'] as $ligne) {
+                if (isset($ligne['moyenne']) && $ligne['moyenne'] !== null && $ligne['moyenne'] < 10.0) {
+                    $matieresFaibles[] = $ligne['matiere_nom'];
+                }
+            }
+            $data['matieres_faibles'] = $matieresFaibles;
 
             // Regroupement des matières par blocs pour affichage structuré
             $groupesOrganises = [];
@@ -362,6 +472,10 @@ class BulletinCalculationService
             'effectif_total' => $effectifTotal,
             'effectif' => $effectifTotal,
             'effectif_evalue' => count($toutesLesMoyennes),
+            'effectif_classe' => count($moyennesClasseGenerale),
+            'effectif_non_classe' => $effectifTotal - count($moyennesClasseGenerale),
+            'seuil_coefficients_classement' => $seuilCoeffsMinimalClasse,
+            'total_coefficients_classe' => $totalCoefficientsTheoriqueClasse,
             'moyenne_generale' => count($toutesLesMoyennes) > 0 ? round(array_sum($toutesLesMoyennes) / count($toutesLesMoyennes), 2) : 0.0,
             'moyenne_classe' => count($toutesLesMoyennes) > 0 ? round(array_sum($toutesLesMoyennes) / count($toutesLesMoyennes), 2) : 0.0,
             'min_generale' => count($toutesLesMoyennes) > 0 ? min($toutesLesMoyennes) : 0.0,
@@ -371,6 +485,7 @@ class BulletinCalculationService
             'nb_moyennes' => $nbMoyennes,
             'nombre_moyennes' => $nbMoyennes,
             'taux_reussite' => $effectifTotal > 0 ? round(($nbMoyennes / $effectifTotal) * 100, 1) : 0.0,
+            'ecart_type' => self::calculerEcartType($toutesLesMoyennes),
         ];
 
         return [
@@ -386,8 +501,10 @@ class BulletinCalculationService
                     'nom' => $etablissement->nom,
                     'nom_en' => $etablissement->nom_en,
                     'code' => $etablissement->code,
-                    'logo' => $etablissement->logo ?: $etablissement->institution->logo,
-                    'boite_postale' => $etablissement->institution->boite_postale,
+                    // Logo effectif de l'établissement avec repli automatique sur l'institution faîtière
+                    'logo_url' => $etablissement->logo_url,
+                    'logo' => $etablissement->effective_logo,
+                    'boite_postale' => self::formaterBoitePostale($etablissement->institution?->boite_postale),
                     'telephone' => $etablissement->telephone_1 ?: $etablissement->institution->telephone_1,
                     'email' => $etablissement->email ?: $etablissement->institution->email,
                     'region' => $etablissement->institution->region,
@@ -396,7 +513,10 @@ class BulletinCalculationService
                     'delegation_regionale_en' => $etablissement->institution?->delegation_regionale_en,
                     'delegation_departementale' => $etablissement->institution?->delegation_departementale,
                     'delegation_departementale_en' => $etablissement->institution?->delegation_departementale_en,
+                    'titre_chef' => $etablissement->titre_chef,
+                    'titre_chef_en' => $etablissement->titre_chef_en,
                     'nom_chef' => $etablissement->nom_chef_etablissement,
+                    'ville' => $etablissement->ville ?: $etablissement->institution?->ville,
                 ],
             ],
             'periode' => [
@@ -415,6 +535,23 @@ class BulletinCalculationService
             'stats_classe' => $statsClasse,
             'eleves' => array_values($elevesData),
         ];
+    }
+
+    /**
+     * Nettoie et formate la boîte postale pour supprimer tout préfixe redondant ("BP", "B.P.", "P.O. Box").
+     *
+     * @param  string|null  $bp  Valeur brute de la boîte postale.
+     * @return string Valeur nettoyée sans préfixe redondant, ou '---' si vide.
+     */
+    public static function formaterBoitePostale(?string $bp): string
+    {
+        if (empty($bp) || trim($bp) === '---') {
+            return '---';
+        }
+
+        $nettoyee = trim((string) preg_replace('/^(b\.?p\.?|p\.?o\.?\s*box)\s*:?\s*/i', '', trim($bp)));
+
+        return $nettoyee !== '' ? $nettoyee : '---';
     }
 
     /**
@@ -466,10 +603,36 @@ class BulletinCalculationService
     }
 
     /**
-     * Génère une appréciation automatique par défaut basée sur le barème officiel.
+     * Calcule l'écart-type d'une série statistique de valeurs chiffrées (moyennes ou notes).
+     *
+     * Formule mathématique : racine carrée de la variance (somme des carrés des écarts à la moyenne divisée par N).
+     *
+     * @param  array<int, float>  $valeurs  Liste des notes ou moyennes numériques
+     * @return float Écart-type arrondi à 2 décimales (ex: 2.21)
+     */
+    public static function calculerEcartType(array $valeurs): float
+    {
+        $count = count($valeurs);
+        if ($count === 0) {
+            return 0.0;
+        }
+
+        $moyenne = array_sum($valeurs) / $count;
+        $sommeCarres = 0.0;
+        foreach ($valeurs as $val) {
+            $sommeCarres += pow((float) $val - $moyenne, 2);
+        }
+
+        return round(sqrt($sommeCarres / $count), 2);
+    }
+
+    /**
+     * Génère une appréciation pédagogique automatique par défaut selon le barème officiel MINESEC / Gesco.
+     *
+     * Utilisée lorsque l'enseignant n'a pas renseigné d'appréciation textuelle individualisée lors de la saisie des notes.
      *
      * @param  float|null  $note  Note sur 20
-     * @return string Appréciation qualitative
+     * @return string Mention qualitative concise ('Excellent', 'Très bien', 'Bien', 'Assez bien', 'Passable', 'Insuffisant', 'Faible' ou 'Non évalué')
      */
     public static function genererAppreciationParDefaut(?float $note): string
     {
@@ -478,19 +641,19 @@ class BulletinCalculationService
         }
 
         if ($note >= 18.0) {
-            return 'Excellent travail';
+            return 'Excellent';
         } elseif ($note >= 16.0) {
-            return 'Très bon travail';
+            return 'Très bien';
         } elseif ($note >= 14.0) {
-            return 'Bon travail';
+            return 'Bien';
         } elseif ($note >= 12.0) {
-            return 'Travail satisfaisant';
+            return 'Assez bien';
         } elseif ($note >= 10.0) {
-            return 'Juste la moyenne, poursuivez vos efforts';
+            return 'Passable';
         } elseif ($note >= 8.0) {
-            return 'Insuffisant, des efforts s\'imposent';
+            return 'Insuffisant';
         } else {
-            return 'Très insuffisant, travaillez davantage';
+            return 'Faible';
         }
     }
 
@@ -507,8 +670,8 @@ class BulletinCalculationService
         Evaluation $evaluation,
         ?string $modeBulletin = null
     ): array {
-        $etablissement = $classe->niveau->cycle->section->etablissement;
-        $modeBulletin = $modeBulletin ?? $etablissement->mode_bulletin_defaut ?? 'sans_competences';
+        $etablissement = $classe->etablissement ?? $classe->niveau?->cycle?->section?->etablissement;
+        $modeBulletin = $modeBulletin ?? $etablissement?->mode_bulletin_defaut ?? 'sans_competences';
 
         $periode = $evaluation->periode;
         $anneeScolaire = $periode->anneeScolaire;
@@ -546,6 +709,29 @@ class BulletinCalculationService
             ->get()
             ->groupBy('inscription_id');
 
+        // Dispenses médicales et dérogations officielles
+        $dispenses = DispenseEleve::validees()
+            ->whereIn('inscription_id', $inscriptions->pluck('id'))
+            ->where(function ($q) use ($periode) {
+                $q->whereNull('periode_id')->orWhere('periode_id', $periode->id);
+            })
+            ->get()
+            ->groupBy('inscription_id');
+
+        // Récupération des synthèses disciplinaires de la période associée
+        $disciplines = DisciplineBulletin::whereIn('inscription_id', $inscriptions->pluck('id'))
+            ->where('periode_id', $periode->id)
+            ->get()
+            ->keyBy('inscription_id');
+
+        $totalCoefficientsTheoriqueClasse = (float) $attributions->sum(function ($attr) use ($coefficients) {
+            $matiereNiveau = $coefficients->get($attr->matiere_id);
+            return (float) ($matiereNiveau ? $matiereNiveau->coefficient : $attr->matiere->coefficient_defaut);
+        });
+        $seuilCoeffsMinimalClasse = $etablissement
+            ? $etablissement->getSeuilCoefficientsMinimal($totalCoefficientsTheoriqueClasse)
+            : round($totalCoefficientsTheoriqueClasse * 0.60, 2);
+
         $elevesData = [];
         $matieresStats = [];
         foreach ($attributions as $attr) {
@@ -557,6 +743,7 @@ class BulletinCalculationService
         foreach ($inscriptions as $insc) {
             $notesEleve = $notes->get($insc->id, collect())->keyBy('attribution_id');
             $lignesMatieres = [];
+            $matieresFaibles = [];
             $totalPoints = 0.0;
             $totalCoefficients = 0.0;
             $aNoteEliminatoire = false;
@@ -573,12 +760,18 @@ class BulletinCalculationService
                 $presence = $noteObj ? $noteObj->statut_presence : 'non_evalue';
                 $cote = $noteObj ? $noteObj->cote_apc : ($valeurNote !== null ? Note::determinerCoteAPC($valeurNote) : null);
                 $competence = $noteObj ? $noteObj->competence_evaluee : '';
-                $appreciation = $noteObj ? $noteObj->appreciation : self::genererAppreciationParDefaut($valeurNote);
+                $appreciation = (! empty($noteObj?->appreciation))
+                    ? $noteObj->appreciation
+                    : self::genererAppreciationParDefaut($valeurNote);
 
                 $estEliminatoire = false;
                 if ($valeurNote !== null && $noteEliminatoireSeuil !== null && $valeurNote <= $noteEliminatoireSeuil) {
                     $estEliminatoire = true;
                     $aNoteEliminatoire = true;
+                }
+
+                if ($valeurNote !== null && $valeurNote < 10.0) {
+                    $matieresFaibles[] = $attr->matiere->libelle_bulletin ?: $attr->matiere->nom;
                 }
 
                 $pointsMatiere = 0.0;
@@ -594,10 +787,11 @@ class BulletinCalculationService
                     'matiere_id' => $attr->matiere_id,
                     'matiere_code' => $attr->matiere->code,
                     'matiere_nom' => $attr->matiere->libelle_bulletin ?: $attr->matiere->nom,
-                    'enseignant_nom' => $attr->personnel ? $attr->personnel->nom_complet : 'Non assigné',
+                    'enseignant_nom' => $attr->personnel ? ($attr->personnel->nom ?: $attr->personnel->nom_complet) : 'Non assigné',
+                    'enseignant_nom_complet' => $attr->personnel ? $attr->personnel->nom_complet : 'Non assigné',
                     'groupe_id' => $groupe ? $groupe->id : 0,
                     'groupe_nom' => $groupe ? $groupe->nom : 'Autres Enseignements',
-                    'groupe_ordre' => $groupe ? $groupe->ordre : 99,
+                    'groupe_ordre' => $groupe ? $groupe->getOrdrePourSerie($classe->serie) : 99,
                     'coefficient' => $coef,
                     'note' => $valeurNote,
                     'statut_presence' => $presence,
@@ -611,59 +805,122 @@ class BulletinCalculationService
                 ];
             }
 
+            // Tri ordonné des matières par l'ordre contextuel du bloc selon la série, puis par code matière
+            uasort($lignesMatieres, function ($a, $b) {
+                if ($a['groupe_ordre'] === $b['groupe_ordre']) {
+                    return strcmp($a['matiere_code'], $b['matiere_code']);
+                }
+                return $a['groupe_ordre'] <=> $b['groupe_ordre'];
+            });
+
             $moyenneGenerale = $totalCoefficients > 0 ? round($totalPoints / $totalCoefficients, 2) : 0.0;
             $coteGlobale = Note::determinerCoteAPC($moyenneGenerale);
+
+            // Calcul de l'éligibilité au classement selon le quota de coefficients (MINESEC / Gesco)
+            $dispensesEleve = $dispenses->get($insc->id) ?? collect();
+            $coeffsDispensesEleve = (float) $dispensesEleve->where('neutraliser_coefficient', true)->sum(function ($disp) use ($coefficients, $attributions) {
+                $attr = $attributions->firstWhere('matiere_id', $disp->matiere_id);
+                if (! $attr) {
+                    return 0.0;
+                }
+                $matiereNiveau = $coefficients->get($attr->matiere_id);
+                return (float) ($matiereNiveau ? $matiereNiveau->coefficient : $attr->matiere->coefficient_defaut);
+            });
+            $totalTheoriqueEleve = max(0.0, $totalCoefficientsTheoriqueClasse - $coeffsDispensesEleve);
+            $seuilRequisEleve = $etablissement
+                ? $etablissement->getSeuilCoefficientsMinimal($totalTheoriqueEleve)
+                : round($totalTheoriqueEleve * 0.60, 2);
+
+            $isEligibleClassement = ($totalCoefficients >= $seuilRequisEleve) && ($totalCoefficients > 0);
+
+            $disciplineRec = $disciplines->get($insc->id);
 
             $elevesData[$insc->id] = [
                 'inscription_id' => $insc->id,
                 'matricule' => $insc->eleve->matricule,
                 'matricule_ministere' => $insc->eleve->matricule_national,
+                'matricule_national' => $insc->eleve->matricule_national,
                 'nom_complet' => $insc->eleve->nom.' '.$insc->eleve->prenom,
                 'date_naissance' => $insc->eleve->date_naissance?->format('d/m/Y'),
                 'lieu_naissance' => $insc->eleve->lieu_naissance,
                 'genre' => $insc->eleve->sexe,
+                'sexe' => $insc->eleve->sexe,
                 'photo_url' => $insc->eleve->photo_url,
                 'is_redoublant' => $insc->is_redoublant,
                 'lignes_matieres' => $lignesMatieres,
+                'matieres_faibles' => $matieresFaibles,
                 'total_points' => round($totalPoints, 2),
                 'total_coefficients' => $totalCoefficients,
+                'total_coefficients_classe' => $totalCoefficientsTheoriqueClasse,
+                'seuil_coefficients_requis' => $seuilRequisEleve,
+                'is_eligible_classement' => $isEligibleClassement,
+                'motif_non_classe' => ! $isEligibleClassement && $totalCoefficients > 0
+                    ? "Coefficients insuffisants ({$totalCoefficients} / {$seuilRequisEleve} requis)"
+                    : (! $isEligibleClassement ? 'Aucune matière composée' : null),
                 'moyenne_generale' => $moyenneGenerale,
                 'cote_globale' => $coteGlobale,
                 'a_note_eliminatoire' => $aNoteEliminatoire,
                 'rang_general' => null,
                 'mention' => null,
                 'discipline' => [
-                    'absences_justifiees' => 0,
-                    'absences_non_justifiees' => 0,
-                    'retards' => 0,
-                    'consignes' => 0,
-                    'avertissements' => 0,
-                    'blames' => 0,
-                    'exclusions' => 0,
-                    'decision_conseil' => '',
+                    'absences_justifiees' => (int) ($disciplineRec?->absences_justifiees ?? 0),
+                    'absences_non_justifiees' => (int) ($disciplineRec?->absences_non_justifiees ?? 0),
+                    'retards' => (int) ($disciplineRec?->retards ?? 0),
+                    'consignes' => (int) ($disciplineRec?->consignes ?? 0),
+                    'avertissements' => (int) ($disciplineRec?->avertissements_conduite ?? 0),
+                    'blames' => (int) ($disciplineRec?->blames_conduite ?? 0),
+                    'exclusions' => (int) ($disciplineRec?->exclusions_jours ?? 0),
+                    'decision_conseil' => $disciplineRec?->decision_conseil ?? '',
                 ],
             ];
 
-            $rangsSequentielsPrepares[$insc->id] = $moyenneGenerale;
+            if ($isEligibleClassement) {
+                $rangsSequentielsPrepares[$insc->id] = $moyenneGenerale;
+            }
         }
 
-        // Calcul des rangs généraux
+        // Calcul des rangs généraux (uniquement les élèves éligibles au classement)
         arsort($rangsSequentielsPrepares);
         $rangsCalcules = self::attribuerRangsAvecExAequo($rangsSequentielsPrepares);
-        foreach ($rangsCalcules as $inscId => $rang) {
-            $elevesData[$inscId]['rang_general'] = $rang;
-            $moy = $elevesData[$inscId]['moyenne_generale'];
-            $hasElim = $elevesData[$inscId]['a_note_eliminatoire'];
-            if (! $hasElim) {
-                if ($moy >= 16.0) {
-                    $elevesData[$inscId]['mention'] = 'Félicitations du Conseil';
-                } elseif ($moy >= 14.0) {
-                    $elevesData[$inscId]['mention'] = 'Encouragements';
-                } elseif ($moy >= 12.0) {
-                    $elevesData[$inscId]['mention'] = 'Tableau d\'Honneur';
+        foreach ($elevesData as $inscId => &$data) {
+            if (! $data['is_eligible_classement']) {
+                $data['rang_general'] = 'NC';
+                $data['mention'] = 'Non Classé (NC)';
+                $data['distinction'] = 'Non éligible (Coefficients insuffisants)';
+                $data['tableau_honneur'] = false;
+                $data['encouragements'] = false;
+                $data['felicitations'] = false;
+            } else {
+                $data['rang_general'] = $rangsCalcules[$inscId] ?? 'N/A';
+                $moy = $data['moyenne_generale'];
+                $hasElim = $data['a_note_eliminatoire'];
+                $data['tableau_honneur'] = ($moy >= 12.0 && ! $hasElim);
+                $data['encouragements'] = ($moy >= 14.0 && ! $hasElim);
+                $data['felicitations'] = ($moy >= 16.0 && ! $hasElim);
+                if (! $hasElim) {
+                    if ($moy >= 16.0) {
+                        $data['mention'] = 'Félicitations du Conseil';
+                        $data['distinction'] = 'Tableau d\'Honneur avec Félicitations';
+                    } elseif ($moy >= 14.0) {
+                        $data['mention'] = 'Encouragements';
+                        $data['distinction'] = 'Tableau d\'Honneur avec Encouragements';
+                    } elseif ($moy >= 12.0) {
+                        $data['mention'] = 'Tableau d\'Honneur';
+                        $data['distinction'] = 'Tableau d\'Honneur';
+                    } elseif ($moy >= 10.0) {
+                        $data['mention'] = 'Passable';
+                        $data['distinction'] = 'Encourageant';
+                    } else {
+                        $data['mention'] = 'Insuffisant';
+                        $data['distinction'] = 'Avertissement travail';
+                    }
+                } else {
+                    $data['mention'] = 'Non éligible (Note éliminatoire)';
+                    $data['distinction'] = 'Aucune (Note éliminatoire)';
                 }
             }
         }
+        unset($data);
 
         // Rangs par matière et statistiques
         foreach ($matieresStats as $attrId => $statsMatiere) {
@@ -694,11 +951,48 @@ class BulletinCalculationService
         $minClasse = $effectifTotal > 0 ? min($toutesMoyennes) : 0.0;
         $maxClasse = $effectifTotal > 0 ? max($toutesMoyennes) : 0.0;
 
+        $effectifInscrits = count($inscriptions);
+        $effectifClasse = count($rangsSequentielsPrepares);
+        $effectifNonClasse = $effectifInscrits - $effectifClasse;
+
+        // Construction des rappels d'évaluations pour la période
+        $evaluationsPeriode = Evaluation::where('periode_id', $periode->id)
+            ->where('ordre', '<=', $evaluation->ordre)
+            ->orderBy('ordre')
+            ->get();
+
+        foreach ($elevesData as $inscId => &$data) {
+            $rappels = [];
+            foreach ($evaluationsPeriode as $ev) {
+                if ($ev->id === $evaluation->id) {
+                    $rappels[] = [
+                        'code' => $ev->code,
+                        'nom' => $ev->nom,
+                        'moyenne' => $data['moyenne_generale'],
+                        'rang' => $data['rang_general'],
+                    ];
+                } else {
+                    $rappels[] = [
+                        'code' => $ev->code,
+                        'nom' => $ev->nom,
+                        'moyenne' => null,
+                        'rang' => '-',
+                    ];
+                }
+            }
+            $data['rappels_evaluations'] = $rappels;
+        }
+        unset($data);
+
         // Statistiques globales de classe avec clés harmonisées
         $statsClasse = [
-            'effectif_total' => $effectifTotal,
-            'effectif' => $effectifTotal,
-            'effectif_evalue' => $effectifTotal,
+            'effectif_total' => $effectifInscrits,
+            'effectif' => $effectifInscrits,
+            'effectif_evalue' => $effectifInscrits,
+            'effectif_classe' => $effectifClasse,
+            'effectif_non_classe' => $effectifNonClasse,
+            'seuil_coefficients_classement' => $seuilCoeffsMinimalClasse,
+            'total_coefficients_classe' => $totalCoefficientsTheoriqueClasse,
             'moyenne_generale' => $moyenneClasse,
             'moyenne_classe' => $moyenneClasse,
             'min_generale' => $minClasse,
@@ -708,6 +1002,7 @@ class BulletinCalculationService
             'nb_moyennes' => $nbreMoyennes,
             'nombre_moyennes' => $nbreMoyennes,
             'taux_reussite' => $tauxReussite,
+            'ecart_type' => self::calculerEcartType($toutesMoyennes),
         ];
 
         return [
@@ -717,16 +1012,17 @@ class BulletinCalculationService
                 'nom' => $classe->nom,
                 'code' => $classe->code,
                 'niveau' => $classe->niveau->nom,
-                'effectif' => $effectifTotal,
-                'professeur_principal' => $classe->professeurPrincipal?->nom_complet,
+                'effectif' => $effectifInscrits,
+                'professeur_principal' => $classe->professeurPrincipal ? ($classe->professeurPrincipal->nom ?: $classe->professeurPrincipal->nom_complet) : null,
                 'etablissement' => [
                     'nom' => $etablissement->nom,
                     'nom_en' => $etablissement->nom_en,
                     'sigle' => $etablissement->code,
                     'logo_url' => $etablissement->logo_url,
                     'logo' => $etablissement->logo ?: $etablissement->institution?->logo,
-                    'ville' => $etablissement->ville,
-                    'telephone' => $etablissement->telephone_1 ?: $etablissement->institution?->telephone_1,
+                    'ville' => $etablissement->ville ?: $etablissement->institution?->ville,
+                    'boite_postale' => self::formaterBoitePostale($etablissement->institution?->boite_postale),
+                    'telephone' => $etablissement->telephone_1 ?: ($etablissement->institution?->telephone_1 ?: '---'),
                     'email' => $etablissement->email ?: $etablissement->institution?->email,
                     'devise' => $etablissement->devise ?: $etablissement->institution?->devise,
                     'devise_en' => $etablissement->institution?->devise_en,
@@ -734,6 +1030,9 @@ class BulletinCalculationService
                     'delegation_regionale_en' => $etablissement->institution?->delegation_regionale_en,
                     'delegation_departementale' => $etablissement->institution?->delegation_departementale,
                     'delegation_departementale_en' => $etablissement->institution?->delegation_departementale_en,
+                    'titre_chef' => $etablissement->titre_chef,
+                    'titre_chef_en' => $etablissement->titre_chef_en,
+                    'nom_chef' => $etablissement->nom_chef_etablissement,
                 ],
             ],
             'evaluation' => [
@@ -771,8 +1070,8 @@ class BulletinCalculationService
         AnneeScolaire $annee,
         ?string $modeBulletin = null
     ): array {
-        $etablissement = $classe->niveau->cycle->section->etablissement;
-        $modeBulletin = $modeBulletin ?? $etablissement->mode_bulletin_defaut ?? 'sans_competences';
+        $etablissement = $classe->etablissement ?? $classe->niveau?->cycle?->section?->etablissement;
+        $modeBulletin = $modeBulletin ?? $etablissement?->mode_bulletin_defaut ?? 'sans_competences';
 
         // 1. Récupération des périodes ordonnées de l'année scolaire (filtrées par établissement de la classe)
         $periodes = Periode::where('annee_scolaire_id', $annee->id)
@@ -812,6 +1111,33 @@ class BulletinCalculationService
             ->get()
             ->keyBy('matiere_id');
 
+        $totalCoefficientsTheoriqueClasse = (float) $attributions->sum(function ($attr) use ($coefficients) {
+            $matiereNiveau = $coefficients->get($attr->matiere_id);
+            return (float) ($matiereNiveau ? $matiereNiveau->coefficient : $attr->matiere->coefficient_defaut);
+        });
+        $seuilCoeffsMinimalClasse = $etablissement
+            ? $etablissement->getSeuilCoefficientsMinimal($totalCoefficientsTheoriqueClasse)
+            : round($totalCoefficientsTheoriqueClasse * 0.60, 2);
+
+        // Détermination dynamique des paliers pédagogiques pour la promotion de fin d'année
+        $niveauActuel = $classe->niveau;
+        $nomNiveauActuel = $niveauActuel ? mb_strtoupper($niveauActuel->nom, 'UTF-8') : 'CLASSE ACTUELLE';
+        $nomNiveauSuivant = 'CLASSE SUPÉRIEURE';
+        if ($niveauActuel) {
+            $niveauSuivant = Niveau::where('cycle_id', $niveauActuel->cycle_id)
+                ->where('ordre', '>', $niveauActuel->ordre)
+                ->orderBy('ordre')
+                ->first();
+            if (! $niveauSuivant) {
+                $niveauSuivant = Niveau::where('ordre', '>', $niveauActuel->ordre)
+                    ->orderBy('ordre')
+                    ->first();
+            }
+            if ($niveauSuivant) {
+                $nomNiveauSuivant = mb_strtoupper($niveauSuivant->nom, 'UTF-8');
+            }
+        }
+
         $elevesData = [];
         $matieresStats = [];
         foreach ($attributions as $attr) {
@@ -826,7 +1152,8 @@ class BulletinCalculationService
             $totalCoefficients = 0.0;
             $aNoteEliminatoire = false;
 
-            // Cumul de discipline sur les trimestres
+            // Matrice et cumul de discipline sur les trimestres (format 5 colonnes)
+            $disciplineParPeriode = [];
             $cumulDiscipline = [
                 'absences_justifiees' => 0,
                 'absences_non_justifiees' => 0,
@@ -838,21 +1165,47 @@ class BulletinCalculationService
                 'decision_conseil' => '',
             ];
 
-            foreach ($resultatsTrimestres as $resTrim) {
-                $eleveTrim = collect($resTrim['eleves'])->firstWhere('inscription_id', $insc->id);
-                if ($eleveTrim && isset($eleveTrim['discipline'])) {
-                    $cumulDiscipline['absences_justifiees'] += $eleveTrim['discipline']['absences_justifiees'] ?? 0;
-                    $cumulDiscipline['absences_non_justifiees'] += $eleveTrim['discipline']['absences_non_justifiees'] ?? 0;
-                    $cumulDiscipline['retards'] += $eleveTrim['discipline']['retards'] ?? 0;
-                    $cumulDiscipline['consignes'] += $eleveTrim['discipline']['consignes'] ?? 0;
-                    $cumulDiscipline['avertissements'] += $eleveTrim['discipline']['avertissements'] ?? 0;
-                    $cumulDiscipline['blames'] += $eleveTrim['discipline']['blames'] ?? 0;
-                    $cumulDiscipline['exclusions'] += $eleveTrim['discipline']['exclusions'] ?? 0;
-                    if (! empty($eleveTrim['discipline']['decision_conseil'])) {
-                        $cumulDiscipline['decision_conseil'] = $eleveTrim['discipline']['decision_conseil'];
-                    }
+            foreach ($periodes as $p) {
+                $resTrim = $resultatsTrimestres[$p->id] ?? null;
+                $eleveTrim = $resTrim ? collect($resTrim['eleves'])->firstWhere('inscription_id', $insc->id) : null;
+                $disc = $eleveTrim['discipline'] ?? [
+                    'absences_justifiees' => 0,
+                    'absences_non_justifiees' => 0,
+                    'retards' => 0,
+                    'consignes' => 0,
+                    'avertissements' => 0,
+                    'blames' => 0,
+                    'exclusions' => 0,
+                    'decision_conseil' => '',
+                ];
+                $disciplineParPeriode[$p->id] = $disc;
+                $cumulDiscipline['absences_justifiees'] += (int) $disc['absences_justifiees'];
+                $cumulDiscipline['absences_non_justifiees'] += (int) $disc['absences_non_justifiees'];
+                $cumulDiscipline['retards'] += (int) $disc['retards'];
+                $cumulDiscipline['consignes'] += (int) $disc['consignes'];
+                $cumulDiscipline['avertissements'] += (int) $disc['avertissements'];
+                $cumulDiscipline['blames'] += (int) $disc['blames'];
+                $cumulDiscipline['exclusions'] += (int) $disc['exclusions'];
+                if (! empty($disc['decision_conseil'])) {
+                    $cumulDiscipline['decision_conseil'] = $disc['decision_conseil'];
                 }
             }
+
+            // Synthèse des moyennes trimestrielles de l'élève
+            $moyennesTrimestres = [];
+            foreach ($periodes as $p) {
+                $resTrim = $resultatsTrimestres[$p->id] ?? null;
+                $elTrim = $resTrim ? collect($resTrim['eleves'])->firstWhere('inscription_id', $insc->id) : null;
+                $moyennesTrimestres[$p->id] = [
+                    'id' => $p->id,
+                    'code' => $p->code,
+                    'nom' => $p->nom,
+                    'moyenne' => $elTrim ? $elTrim['moyenne_generale'] : null,
+                    'rang' => $elTrim ? $elTrim['rang_general'] : null,
+                ];
+            }
+
+            $matieresFaibles = [];
 
             foreach ($attributions as $attr) {
                 $coeffRecord = $coefficients->get($attr->matiere_id);
@@ -878,6 +1231,10 @@ class BulletinCalculationService
                 $notesDispos = array_filter($notesTrimestres, fn ($n) => $n !== null);
                 $moyenneAnnuelleMatiere = count($notesDispos) > 0 ? round(array_sum($notesDispos) / count($notesDispos), 2) : null;
 
+                if ($moyenneAnnuelleMatiere !== null && $moyenneAnnuelleMatiere < 10.0) {
+                    $matieresFaibles[] = $attr->matiere->libelle_bulletin ?: $attr->matiere->nom;
+                }
+
                 $estEliminatoire = false;
                 if ($moyenneAnnuelleMatiere !== null && $noteEliminatoireSeuil !== null && $moyenneAnnuelleMatiere <= $noteEliminatoireSeuil) {
                     $estEliminatoire = true;
@@ -899,10 +1256,11 @@ class BulletinCalculationService
                     'matiere_id' => $attr->matiere_id,
                     'matiere_code' => $attr->matiere->code,
                     'matiere_nom' => $attr->matiere->libelle_bulletin ?: $attr->matiere->nom,
-                    'enseignant_nom' => $attr->personnel ? $attr->personnel->nom_complet : 'Non assigné',
+                    'enseignant_nom' => $attr->personnel ? ($attr->personnel->nom ?: $attr->personnel->nom_complet) : 'Non assigné',
+                    'enseignant_nom_complet' => $attr->personnel ? $attr->personnel->nom_complet : 'Non assigné',
                     'groupe_id' => $groupe ? $groupe->id : 0,
                     'groupe_nom' => $groupe ? $groupe->nom : 'Autres Enseignements',
-                    'groupe_ordre' => $groupe ? $groupe->ordre : 99,
+                    'groupe_ordre' => $groupe ? $groupe->getOrdrePourSerie($classe->serie) : 99,
                     'coefficient' => $coef,
                     'notes_trimestres' => $notesTrimestres,
                     'moyenne' => $moyenneAnnuelleMatiere,
@@ -916,57 +1274,110 @@ class BulletinCalculationService
                 ];
             }
 
+            // Tri ordonné des matières par l'ordre contextuel du bloc selon la série, puis par code matière
+            uasort($lignesMatieres, function ($a, $b) {
+                if ($a['groupe_ordre'] === $b['groupe_ordre']) {
+                    return strcmp($a['matiere_code'], $b['matiere_code']);
+                }
+                return $a['groupe_ordre'] <=> $b['groupe_ordre'];
+            });
+
             // Moyenne Générale Annuelle (M.G.A.)
             $mga = $totalCoefficients > 0 ? round($totalPoints / $totalCoefficients, 2) : 0.0;
             $coteGlobale = Note::determinerCoteAPC($mga);
 
-            // Décision automatique du conseil de fin d'année
+            // Décision automatique du conseil de fin d'année orientée niveau supérieur
             $decisionAuto = $mga >= 10.0
-                ? 'Admis(e) en classe supérieure'
-                : ($mga >= 8.5 ? 'Proposé(e) au redoublement' : 'Non admis(e) / Exclu(e)');
+                ? "Promu(e) en classe de {$nomNiveauSuivant}."
+                : ($mga >= 8.5 ? "Redouble la classe de {$nomNiveauActuel}." : 'Exclu(e) / Non admis(e)');
+
+            // Calcul de l'éligibilité au classement selon le quota de coefficients (MINESEC / Gesco)
+            $dispensesEleve = DispenseEleve::validees()
+                ->where('inscription_id', $insc->id)
+                ->get();
+            $coeffsDispensesEleve = (float) $dispensesEleve->where('neutraliser_coefficient', true)->sum(function ($disp) use ($coefficients, $attributions) {
+                $attr = $attributions->firstWhere('matiere_id', $disp->matiere_id);
+                if (! $attr) {
+                    return 0.0;
+                }
+                $matiereNiveau = $coefficients->get($attr->matiere_id);
+                return (float) ($matiereNiveau ? $matiereNiveau->coefficient : $attr->matiere->coefficient_defaut);
+            });
+            $totalTheoriqueEleve = max(0.0, $totalCoefficientsTheoriqueClasse - $coeffsDispensesEleve);
+            $seuilRequisEleve = $etablissement
+                ? $etablissement->getSeuilCoefficientsMinimal($totalTheoriqueEleve)
+                : round($totalTheoriqueEleve * 0.60, 2);
+
+            $isEligibleClassement = ($totalCoefficients >= $seuilRequisEleve) && ($totalCoefficients > 0);
 
             $elevesData[$insc->id] = [
                 'inscription_id' => $insc->id,
                 'matricule' => $insc->eleve->matricule,
                 'matricule_ministere' => $insc->eleve->matricule_national,
+                'matricule_national' => $insc->eleve->matricule_national,
                 'nom_complet' => $insc->eleve->nom.' '.$insc->eleve->prenom,
                 'date_naissance' => $insc->eleve->date_naissance?->format('d/m/Y'),
                 'lieu_naissance' => $insc->eleve->lieu_naissance,
                 'genre' => $insc->eleve->sexe,
+                'sexe' => $insc->eleve->sexe,
                 'photo_url' => $insc->eleve->photo_url,
                 'is_redoublant' => $insc->is_redoublant,
                 'lignes_matieres' => $lignesMatieres,
+                'matieres_faibles' => $matieresFaibles,
+                'moyennes_trimestres' => $moyennesTrimestres,
                 'total_points' => round($totalPoints, 2),
                 'total_coefficients' => $totalCoefficients,
+                'total_coefficients_classe' => $totalCoefficientsTheoriqueClasse,
+                'seuil_coefficients_requis' => $seuilRequisEleve,
+                'is_eligible_classement' => $isEligibleClassement,
+                'motif_non_classe' => ! $isEligibleClassement && $totalCoefficients > 0
+                    ? "Coefficients insuffisants ({$totalCoefficients} / {$seuilRequisEleve} requis)"
+                    : (! $isEligibleClassement ? 'Aucune matière composée' : null),
                 'moyenne_generale' => $mga,
                 'cote_globale' => $coteGlobale,
                 'a_note_eliminatoire' => $aNoteEliminatoire,
                 'rang_general' => null,
                 'mention' => null,
                 'discipline' => $cumulDiscipline,
+                'discipline_matrice' => [
+                    'par_periode' => $disciplineParPeriode,
+                    'total' => $cumulDiscipline,
+                ],
                 'decision_finale' => ! empty($cumulDiscipline['decision_conseil']) ? $cumulDiscipline['decision_conseil'] : $decisionAuto,
             ];
 
-            $rangsAnnuelsPrepares[$insc->id] = $mga;
+            if ($isEligibleClassement) {
+                $rangsAnnuelsPrepares[$insc->id] = $mga;
+            }
         }
 
-        // Calcul des rangs généraux annuels
+        // Calcul des rangs généraux annuels (uniquement les élèves éligibles au classement)
         arsort($rangsAnnuelsPrepares);
         $rangsCalcules = self::attribuerRangsAvecExAequo($rangsAnnuelsPrepares);
-        foreach ($rangsCalcules as $inscId => $rang) {
-            $elevesData[$inscId]['rang_general'] = $rang;
-            $moy = $elevesData[$inscId]['moyenne_generale'];
-            $hasElim = $elevesData[$inscId]['a_note_eliminatoire'];
-            if (! $hasElim) {
-                if ($moy >= 16.0) {
-                    $elevesData[$inscId]['mention'] = 'Félicitations du Conseil';
-                } elseif ($moy >= 14.0) {
-                    $elevesData[$inscId]['mention'] = 'Encouragements';
-                } elseif ($moy >= 12.0) {
-                    $elevesData[$inscId]['mention'] = 'Tableau d\'Honneur';
+        foreach ($elevesData as $inscId => &$data) {
+            if (! $data['is_eligible_classement']) {
+                $data['rang_general'] = 'NC';
+                $data['mention'] = 'Non Classé (NC)';
+                $data['distinction'] = 'Non éligible (Coefficients insuffisants)';
+            } else {
+                $data['rang_general'] = $rangsCalcules[$inscId] ?? 'N/A';
+                $moy = $data['moyenne_generale'];
+                $hasElim = $data['a_note_eliminatoire'];
+                $data['tableau_honneur'] = ($moy >= 12.0 && ! $hasElim);
+                $data['encouragements'] = ($moy >= 14.0 && ! $hasElim);
+                $data['felicitations'] = ($moy >= 16.0 && ! $hasElim);
+                if (! $hasElim) {
+                    if ($moy >= 16.0) {
+                        $data['mention'] = 'Félicitations du Conseil';
+                    } elseif ($moy >= 14.0) {
+                        $data['mention'] = 'Encouragements';
+                    } elseif ($moy >= 12.0) {
+                        $data['mention'] = 'Tableau d\'Honneur';
+                    }
                 }
             }
         }
+        unset($data);
 
         // Rangs par matière et statistiques
         foreach ($matieresStats as $attrId => $statsMatiere) {
@@ -997,11 +1408,19 @@ class BulletinCalculationService
         $minClasse = $effectifTotal > 0 ? min($toutesMoyennes) : 0.0;
         $maxClasse = $effectifTotal > 0 ? max($toutesMoyennes) : 0.0;
 
+        $effectifInscrits = count($inscriptions);
+        $effectifClasse = count($rangsAnnuelsPrepares);
+        $effectifNonClasse = $effectifInscrits - $effectifClasse;
+
         // Statistiques globales annuelles avec clés harmonisées
         $statsClasse = [
-            'effectif_total' => $effectifTotal,
-            'effectif' => $effectifTotal,
-            'effectif_evalue' => $effectifTotal,
+            'effectif_total' => $effectifInscrits,
+            'effectif' => $effectifInscrits,
+            'effectif_evalue' => $effectifInscrits,
+            'effectif_classe' => $effectifClasse,
+            'effectif_non_classe' => $effectifNonClasse,
+            'seuil_coefficients_classement' => $seuilCoeffsMinimalClasse,
+            'total_coefficients_classe' => $totalCoefficientsTheoriqueClasse,
             'moyenne_generale' => $moyenneClasse,
             'moyenne_classe' => $moyenneClasse,
             'min_generale' => $minClasse,
@@ -1011,6 +1430,7 @@ class BulletinCalculationService
             'nb_moyennes' => $nbreMoyennes,
             'nombre_moyennes' => $nbreMoyennes,
             'taux_reussite' => $tauxReussite,
+            'ecart_type' => self::calculerEcartType($toutesMoyennes),
         ];
 
         return [
@@ -1020,16 +1440,17 @@ class BulletinCalculationService
                 'nom' => $classe->nom,
                 'code' => $classe->code,
                 'niveau' => $classe->niveau->nom,
-                'effectif' => $effectifTotal,
-                'professeur_principal' => $classe->professeurPrincipal?->nom_complet,
+                'effectif' => $effectifInscrits,
+                'professeur_principal' => $classe->professeurPrincipal ? ($classe->professeurPrincipal->nom ?: $classe->professeurPrincipal->nom_complet) : null,
                 'etablissement' => [
                     'nom' => $etablissement->nom,
                     'nom_en' => $etablissement->nom_en,
                     'sigle' => $etablissement->code,
                     'logo_url' => $etablissement->logo_url,
                     'logo' => $etablissement->logo ?: $etablissement->institution?->logo,
-                    'ville' => $etablissement->ville,
-                    'telephone' => $etablissement->telephone_1 ?: $etablissement->institution?->telephone_1,
+                    'ville' => $etablissement->ville ?: $etablissement->institution?->ville,
+                    'boite_postale' => self::formaterBoitePostale($etablissement->institution?->boite_postale),
+                    'telephone' => $etablissement->telephone_1 ?: ($etablissement->institution?->telephone_1 ?: '---'),
                     'email' => $etablissement->email ?: $etablissement->institution?->email,
                     'devise' => $etablissement->devise ?: $etablissement->institution?->devise,
                     'devise_en' => $etablissement->institution?->devise_en,
@@ -1037,6 +1458,9 @@ class BulletinCalculationService
                     'delegation_regionale_en' => $etablissement->institution?->delegation_regionale_en,
                     'delegation_departementale' => $etablissement->institution?->delegation_departementale,
                     'delegation_departementale_en' => $etablissement->institution?->delegation_departementale_en,
+                    'titre_chef' => $etablissement->titre_chef,
+                    'titre_chef_en' => $etablissement->titre_chef_en,
+                    'nom_chef' => $etablissement->nom_chef_etablissement,
                 ],
             ],
             'periodes' => $periodes->map(fn ($p) => [

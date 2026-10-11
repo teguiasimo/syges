@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Concerns\BelongsToEtablissement;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -45,7 +46,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  */
 class Personnel extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, BelongsToEtablissement;
 
     /**
      * Les attributs assignables en masse.
@@ -143,25 +144,37 @@ class Personnel extends Model
     }
 
     /**
-     * Génère automatiquement un matricule séquentiel unique pour un nouveau personnel.
-     * Format : PERS-AAAA-XXXX (ex: PERS-2026-0001).
+     * Génère automatiquement un matricule séquentiel unique pour un nouveau membre du personnel.
+     * Format officiel : {ANNEE_2_CHIFFRES}P{SIGLE_ETABLISSEMENT}{NUMERO_4_CHIFFRES} (ex: 26PLYCEXC0001).
+     * Garantit l'étanchéité multi-tenant SaaS absolue, une lecture immédiate et l'unicité par établissement.
      *
+     * @param int|null $etablissementId Identifiant de l'établissement
      * @param int|null $annee Année civile de référence (par défaut l'année en cours).
-     * @return string Le matricule généré.
+     * @return string Le matricule généré (ex: 26PLYCEXC0001)
      */
-    public static function generateMatricule(?int $annee = null): string
+    public static function generateMatricule(?int $etablissementId = null, ?int $annee = null): string
     {
         $year = $annee ?? (int) date('Y');
-        $prefix = "PERS-{$year}-";
+        $yearShort = substr((string) $year, -2);
 
-        // Récupère le dernier numéro séquentiel attribué pour cette année
-        $last = static::where('matricule', 'LIKE', "{$prefix}%")
+        if ($etablissementId) {
+            $etab = \App\Models\Etablissement::find($etablissementId);
+            $code = $etab?->code ? strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $etab->code)) : "E{$etablissementId}";
+            $prefix = "{$yearShort}P{$code}";
+        } else {
+            $prefix = "{$yearShort}P";
+        }
+
+        // Récupère le dernier numéro séquentiel attribué pour cette souche sans interférence de Global Scope
+        $last = static::withoutGlobalScopes()
+            ->when($etablissementId, fn ($q) => $q->where('etablissement_id', $etablissementId))
+            ->where('matricule', 'LIKE', "{$prefix}%")
             ->orderBy('matricule', 'desc')
             ->value('matricule');
 
         $sequence = 1;
         if ($last) {
-            $numPart = str_replace($prefix, '', $last);
+            $numPart = substr($last, strlen($prefix));
             if (is_numeric($numPart)) {
                 $sequence = (int) $numPart + 1;
             }

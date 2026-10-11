@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Administration;
 
+use App\Concerns\ScopesEtablissement;
 use App\Http\Controllers\Controller;
 use App\Models\AnneeScolaire;
 use App\Models\Assiduite;
@@ -29,9 +30,13 @@ use Inertia\Response as InertiaResponse;
  * - Registre officiel des sanctions disciplinaires.
  * - Synchronisation automatique avec la synthèse des bulletins scolaires (Module 10).
  * - Contrôle de déchéance des mentions honorifiques pour absentéisme.
+ *
+ * Utilise ScopesEtablissement pour cloisonner hermétiquement les données par campus.
  */
 class DisciplineController extends Controller implements HasMiddleware
 {
+    use ScopesEtablissement;
+
     /**
      * Définition de la matrice des middlewares d'autorisation pour le module Discipline & Assiduité.
      *
@@ -41,8 +46,11 @@ class DisciplineController extends Controller implements HasMiddleware
     {
         return [
             new Middleware('can:discipline.view', only: ['index']),
-            new Middleware('can:discipline.manage', only: ['storeAssiduite', 'justifierAssiduite', 'destroyAssiduite']),
-            new Middleware('can:discipline.sanction', only: ['storeSanction', 'destroySanction']),
+            new Middleware('can:discipline.assiduite_create|discipline.manage', only: ['storeAssiduite']),
+            new Middleware('can:discipline.manage', only: ['justifierAssiduite']),
+            new Middleware('can:discipline.assiduite_delete|discipline.manage', only: ['destroyAssiduite']),
+            new Middleware('can:discipline.sanction_create|discipline.sanction|discipline.manage', only: ['storeSanction']),
+            new Middleware('can:discipline.sanction_delete|discipline.sanction|discipline.manage', only: ['destroySanction']),
         ];
     }
 
@@ -60,12 +68,12 @@ class DisciplineController extends Controller implements HasMiddleware
             ?? AnneeScolaire::latest()->first();
 
         $anneeId = $request->integer('annee_scolaire_id', $currentAnnee?->id ?? 0);
-        $etablissements = Etablissement::with('institution')->get();
-        $currentEtablissement = $request->has('etablissement_id')
-            ? Etablissement::find($request->integer('etablissement_id'))
-            : $etablissements->first();
 
-        $etablissementId = $currentEtablissement?->id ?? 0;
+        // Résolution hermétique du campus selon les prérogatives de l'utilisateur
+        $context = $this->resolveEtablissementContext($request, ['institution']);
+        $etablissements = $context['etablissements'];
+        $currentEtablissement = $context['selectedEtablissement'];
+        $etablissementId = $context['etablissementId'] ?? 0;
 
         // Périodes / Trimestres de l'année
         $periodes = Periode::where('annee_scolaire_id', $anneeId)
@@ -162,6 +170,14 @@ class DisciplineController extends Controller implements HasMiddleware
             'anneesScolaires' => AnneeScolaire::orderBy('code', 'desc')->get(),
             'currentAnnee' => $currentAnnee,
             'filters' => $request->only(['classe_id', 'periode_id', 'type_evenement', 'statut_justification', 'tab']),
+            'can' => [
+                'view' => $request->user()?->hasRole('super-admin') || $request->user()?->can('discipline.view'),
+                'manage' => $request->user()?->hasRole('super-admin') || $request->user()?->can('discipline.manage'),
+                'assiduite_create' => $request->user()?->hasRole('super-admin') || $request->user()?->can('discipline.assiduite_create') || $request->user()?->can('discipline.manage'),
+                'assiduite_delete' => $request->user()?->hasRole('super-admin') || $request->user()?->can('discipline.assiduite_delete') || $request->user()?->can('discipline.manage'),
+                'sanction_create' => $request->user()?->hasRole('super-admin') || $request->user()?->can('discipline.sanction_create') || $request->user()?->can('discipline.sanction') || $request->user()?->can('discipline.manage'),
+                'sanction_delete' => $request->user()?->hasRole('super-admin') || $request->user()?->can('discipline.sanction_delete') || $request->user()?->can('discipline.sanction') || $request->user()?->can('discipline.manage'),
+            ],
         ]);
     }
 
@@ -187,6 +203,12 @@ class DisciplineController extends Controller implements HasMiddleware
             'motif_justification' => 'nullable|string|max:500',
         ]);
 
+        $inscription = Inscription::findOrFail($validated['inscription_id']);
+        $context = $this->resolveEtablissementContext($request);
+        if (! $context['isSuperAdmin'] && (int) $inscription->etablissement_id !== (int) $context['etablissementId']) {
+            abort(403, 'Action non autorisée sur un élève d\'un autre établissement.');
+        }
+
         $disciplineService->enregistrerAssiduite($validated, $request->user());
 
         $typeLib = $validated['type_evenement'] === 'absence' ? 'Absence' : 'Retard';
@@ -205,6 +227,12 @@ class DisciplineController extends Controller implements HasMiddleware
     public function justifierAssiduite(Request $request, Assiduite $assiduite, DisciplineService $disciplineService): RedirectResponse
     {
         abort_if(! $request->user()?->can('discipline.manage') && ! $request->user()?->hasRole('super-admin'), 403);
+
+        $assiduite->load('inscription');
+        $context = $this->resolveEtablissementContext($request);
+        if (! $context['isSuperAdmin'] && (int) $assiduite->inscription?->etablissement_id !== (int) $context['etablissementId']) {
+            abort(403, 'Action non autorisée sur un événement d\'un autre établissement.');
+        }
 
         $validated = $request->validate([
             'motif_justification' => 'required|string|min:3|max:500',
@@ -225,6 +253,12 @@ class DisciplineController extends Controller implements HasMiddleware
     public function destroyAssiduite(Assiduite $assiduite, DisciplineService $disciplineService): RedirectResponse
     {
         abort_if(! request()->user()?->can('discipline.manage') && ! request()->user()?->hasRole('super-admin'), 403);
+
+        $assiduite->load('inscription');
+        $context = $this->resolveEtablissementContext(request());
+        if (! $context['isSuperAdmin'] && (int) $assiduite->inscription?->etablissement_id !== (int) $context['etablissementId']) {
+            abort(403, 'Action non autorisée sur un événement d\'un autre établissement.');
+        }
 
         $inscriptionId = $assiduite->inscription_id;
         $periodeId = $assiduite->periode_id;
@@ -257,6 +291,12 @@ class DisciplineController extends Controller implements HasMiddleware
             'decide_par' => 'required|string|max:100',
         ]);
 
+        $inscription = Inscription::findOrFail($validated['inscription_id']);
+        $context = $this->resolveEtablissementContext($request);
+        if (! $context['isSuperAdmin'] && (int) $inscription->etablissement_id !== (int) $context['etablissementId']) {
+            abort(403, 'Action non autorisée sur un élève d\'un autre établissement.');
+        }
+
         $disciplineService->enregistrerSanction($validated);
 
         return back()->with('success', "Sanction disciplinaire enregistrée. Synthèse du bulletin actualisée.");
@@ -272,6 +312,12 @@ class DisciplineController extends Controller implements HasMiddleware
     public function destroySanction(SanctionDisciplinaire $sanction, DisciplineService $disciplineService): RedirectResponse
     {
         abort_if(! request()->user()?->can('discipline.sanction') && ! request()->user()?->hasRole('super-admin'), 403);
+
+        $sanction->load('inscription');
+        $context = $this->resolveEtablissementContext(request());
+        if (! $context['isSuperAdmin'] && (int) $sanction->inscription?->etablissement_id !== (int) $context['etablissementId']) {
+            abort(403, 'Action non autorisée sur une sanction d\'un autre établissement.');
+        }
 
         $inscriptionId = $sanction->inscription_id;
         $periodeId = $sanction->periode_id;

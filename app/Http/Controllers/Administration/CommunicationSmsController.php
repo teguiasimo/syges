@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Administration;
 
+use App\Concerns\ScopesEtablissement;
 use App\Http\Controllers\Controller;
 use App\Models\Classe;
 use App\Models\Etablissement;
@@ -26,9 +27,13 @@ use Inertia\Response as InertiaResponse;
  * - L'envoi direct de SMS unitaires aux parents d'élèves.
  * - La traçabilité exhaustive et l'historique d'audit des messages émis.
  * - La configuration technique de la passerelle (Orange, MTN, Africa's Talking) et du Sender ID.
+ *
+ * Utilise ScopesEtablissement pour cloisonner hermétiquement la gestion des SMS par campus.
  */
 class CommunicationSmsController extends Controller implements HasMiddleware
 {
+    use ScopesEtablissement;
+
     /**
      * Définition de la matrice des middlewares d'autorisation pour le module Communication SMS.
      *
@@ -38,8 +43,8 @@ class CommunicationSmsController extends Controller implements HasMiddleware
     {
         return [
             new Middleware('can:communication.view', only: ['index']),
-            new Middleware('can:communication.send', only: ['storeCampagne', 'storeSmsDirect']),
-            new Middleware('can:communication.manage', only: ['updateConfig', 'rechargerCredits']),
+            new Middleware('can:communication.send|communication.manage', only: ['storeCampagne', 'storeSmsDirect']),
+            new Middleware('can:communication.settings|communication.manage', only: ['updateConfig', 'rechargerCredits']),
         ];
     }
 
@@ -54,48 +59,49 @@ class CommunicationSmsController extends Controller implements HasMiddleware
     {
         abort_if(! $request->user()?->can('communication.view') && ! $request->user()?->hasRole('super-admin'), 403);
 
-        $etablissements = Etablissement::with('institution')->get();
-        $currentEtablissement = $request->has('etablissement_id')
-            ? Etablissement::find($request->integer('etablissement_id'))
-            : $etablissements->first();
-
+        // Résolution hermétique du campus selon les prérogatives de l'utilisateur
+        $context = $this->resolveEtablissementContext($request, ['institution']);
+        $etablissements = $context['etablissements'];
+        $currentEtablissement = $context['selectedEtablissement'];
         $etablissementId = $currentEtablissement?->id ?? 0;
 
-        // Configuration passerelle et solde actif
+        // Configuration passerelle et solde actif (gère gracieusement le cas sans campus)
         $config = $smsService->getConfiguration($etablissementId);
 
         // Classes de l'établissement
-        $classes = Classe::whereHas('niveau.cycle.section', fn ($q) => $q->where('etablissement_id', $etablissementId))
-            ->orderBy('nom')
-            ->get();
+        $classes = $etablissementId > 0
+            ? Classe::whereHas('niveau.cycle.section', fn ($q) => $q->where('etablissement_id', $etablissementId))->orderBy('nom')->get()
+            : collect();
 
         // Niveaux de l'établissement
-        $niveaux = Niveau::whereHas('cycle.section', fn ($q) => $q->where('etablissement_id', $etablissementId))
-            ->orderBy('ordre')
-            ->get();
+        $niveaux = $etablissementId > 0
+            ? Niveau::whereHas('cycle.section', fn ($q) => $q->where('etablissement_id', $etablissementId))->orderBy('ordre')->get()
+            : collect();
 
         // Sections de l'établissement
-        $sections = Section::where('etablissement_id', $etablissementId)
-            ->orderBy('nom')
-            ->get();
+        $sections = $etablissementId > 0
+            ? Section::where('etablissement_id', $etablissementId)->orderBy('nom')->get()
+            : collect();
 
         // Campagnes de masse
-        $campagnes = SmsCampagne::with('lanceur')
-            ->where('etablissement_id', $etablissementId)
-            ->latest()
-            ->take(50)
-            ->get();
+        $campagnes = $etablissementId > 0
+            ? SmsCampagne::with('lanceur')->where('etablissement_id', $etablissementId)->latest()->take(50)->get()
+            : collect();
 
         // Historique détaillé des messages individuels
-        $historiqueQuery = HistoriqueSms::with(['campagne', 'inscription.eleve'])
-            ->where('etablissement_id', $etablissementId)
-            ->latest();
+        if ($etablissementId > 0) {
+            $historiqueQuery = HistoriqueSms::with(['campagne', 'inscription.eleve'])
+                ->where('etablissement_id', $etablissementId)
+                ->latest();
 
-        if ($request->filled('type_notification')) {
-            $historiqueQuery->where('type_notification', $request->input('type_notification'));
+            if ($request->filled('type_notification')) {
+                $historiqueQuery->where('type_notification', $request->input('type_notification'));
+            }
+
+            $historiqueSms = $historiqueQuery->take(100)->get();
+        } else {
+            $historiqueSms = collect();
         }
-
-        $historiqueSms = $historiqueQuery->take(100)->get();
 
         return Inertia::render('administration/communication/index', [
             'config' => $config,
@@ -107,6 +113,12 @@ class CommunicationSmsController extends Controller implements HasMiddleware
             'etablissements' => $etablissements,
             'currentEtablissement' => $currentEtablissement,
             'filters' => $request->only(['type_notification', 'tab']),
+            'can' => [
+                'view' => $request->user()?->hasRole('super-admin') || $request->user()?->can('communication.view'),
+                'send' => $request->user()?->hasRole('super-admin') || $request->user()?->can('communication.send') || $request->user()?->can('communication.manage'),
+                'settings' => $request->user()?->hasRole('super-admin') || $request->user()?->can('communication.settings') || $request->user()?->can('communication.manage'),
+                'manage' => $request->user()?->hasRole('super-admin') || $request->user()?->can('communication.manage'),
+            ],
         ]);
     }
 
@@ -119,7 +131,7 @@ class CommunicationSmsController extends Controller implements HasMiddleware
      */
     public function storeCampagne(Request $request, SmsService $smsService): RedirectResponse
     {
-        abort_if(! $request->user()?->can('communication.send') && ! $request->user()?->hasRole('super-admin'), 403);
+        abort_if(! $request->user()?->can('communication.send') && ! $request->user()?->can('communication.manage') && ! $request->user()?->hasRole('super-admin'), 403);
 
         $validated = $request->validate([
             'etablissement_id' => 'required|exists:etablissements,id',
@@ -128,6 +140,11 @@ class CommunicationSmsController extends Controller implements HasMiddleware
             'cible_type' => 'required|in:tous,section,niveau,classe,insolvables',
             'cible_id' => 'nullable|integer',
         ]);
+
+        $context = $this->resolveEtablissementContext($request);
+        if (! $context['isSuperAdmin']) {
+            $validated['etablissement_id'] = $context['etablissementId'];
+        }
 
         $campagne = $smsService->lancerCampagneMasse(
             (int) $validated['etablissement_id'],
@@ -147,7 +164,7 @@ class CommunicationSmsController extends Controller implements HasMiddleware
      */
     public function storeSmsDirect(Request $request, SmsService $smsService): RedirectResponse
     {
-        abort_if(! $request->user()?->can('communication.send') && ! $request->user()?->hasRole('super-admin'), 403);
+        abort_if(! $request->user()?->can('communication.send') && ! $request->user()?->can('communication.manage') && ! $request->user()?->hasRole('super-admin'), 403);
 
         $validated = $request->validate([
             'etablissement_id' => 'required|exists:etablissements,id',
@@ -156,6 +173,11 @@ class CommunicationSmsController extends Controller implements HasMiddleware
             'destinataire_nom' => 'nullable|string|max:150',
             'type' => 'sometimes|in:personnalise,alerte_absence,alerte_sanction,rappel_paiement',
         ]);
+
+        $context = $this->resolveEtablissementContext($request);
+        if (! $context['isSuperAdmin']) {
+            $validated['etablissement_id'] = $context['etablissementId'];
+        }
 
         $smsService->envoyerSmsDirect(
             (int) $validated['etablissement_id'],
@@ -177,7 +199,7 @@ class CommunicationSmsController extends Controller implements HasMiddleware
      */
     public function updateConfig(Request $request, SmsService $smsService): RedirectResponse
     {
-        abort_if(! $request->user()?->can('communication.manage') && ! $request->user()?->hasRole('super-admin'), 403);
+        abort_if(! $request->user()?->can('communication.settings') && ! $request->user()?->can('communication.manage') && ! $request->user()?->hasRole('super-admin'), 403);
 
         $validated = $request->validate([
             'etablissement_id' => 'required|exists:etablissements,id',
@@ -189,6 +211,11 @@ class CommunicationSmsController extends Controller implements HasMiddleware
             'seuil_alerte_solde' => 'required|integer|min:1|max:1000',
             'is_active' => 'required|boolean',
         ]);
+
+        $context = $this->resolveEtablissementContext($request);
+        if (! $context['isSuperAdmin']) {
+            $validated['etablissement_id'] = $context['etablissementId'];
+        }
 
         $config = $smsService->getConfiguration((int) $validated['etablissement_id']);
         $config->update($validated);
@@ -205,12 +232,17 @@ class CommunicationSmsController extends Controller implements HasMiddleware
      */
     public function rechargerCredits(Request $request, SmsService $smsService): RedirectResponse
     {
-        abort_if(! $request->user()?->can('communication.manage') && ! $request->user()?->hasRole('super-admin'), 403);
+        abort_if(! $request->user()?->can('communication.settings') && ! $request->user()?->can('communication.manage') && ! $request->user()?->hasRole('super-admin'), 403);
 
         $validated = $request->validate([
             'etablissement_id' => 'required|exists:etablissements,id',
             'credits' => 'required|integer|min:10|max:100000',
         ]);
+
+        $context = $this->resolveEtablissementContext($request);
+        if (! $context['isSuperAdmin']) {
+            $validated['etablissement_id'] = $context['etablissementId'];
+        }
 
         $config = $smsService->rechargerCredits((int) $validated['etablissement_id'], (int) $validated['credits']);
 

@@ -14,6 +14,7 @@ import {
     Layers,
     Printer,
     RefreshCw,
+    School,
     SlidersHorizontal,
     TrendingUp,
     Users,
@@ -57,6 +58,7 @@ import type { CoteAPC } from '@/types/note';
 interface BulletinsPageProps {
     annees: Array<{ id: number; nom: string; is_active: boolean }>;
     anneeActiveId: number;
+    etablissements?: Array<{ id: number; nom: string; code: string; ordre_enseignement?: string }>;
     periodes: Array<{
         id: number;
         nom: string;
@@ -68,6 +70,7 @@ interface BulletinsPageProps {
     filters: {
         type_bulletin?: 'sequentiel' | 'trimestriel' | 'annuel';
         annee_id?: number | string;
+        etablissement_id?: number | string;
         classe_id?: number | string;
         periode_id?: number | string;
         evaluation_id?: number | string;
@@ -91,6 +94,7 @@ interface BulletinsPageProps {
 export default function BulletinsIndex({
     annees,
     anneeActiveId,
+    etablissements = [],
     periodes,
     classes,
     donneesClasse,
@@ -100,8 +104,11 @@ export default function BulletinsIndex({
     const { flash } = usePage<{ flash?: { success?: string; error?: string } }>().props;
 
     // Filtres d'état
+    const [selectedEtab, setSelectedEtab] = useState<string>(
+        String(filters.etablissement_id || '')
+    );
     const [typeBulletin, setTypeBulletin] = useState<'sequentiel' | 'trimestriel' | 'annuel'>(
-        filters.type_bulletin || 'trimestriel'
+        filters.type_bulletin || 'sequentiel'
     );
     const [selectedAnnee, setSelectedAnnee] = useState<string>(
         String(filters.annee_id || anneeActiveId || (annees[0]?.id ?? ''))
@@ -123,8 +130,6 @@ export default function BulletinsIndex({
         return periodes.flatMap((p) => p.evaluations || []);
     }, [periodes]);
 
-    // État pour la modale de prévisualisation
-    const [previewStudent, setPreviewStudent] = useState<EleveBulletin | null>(null);
 
     // État pour la modale de saisie de discipline
     const [disciplineStudent, setDisciplineStudent] = useState<EleveBulletin | null>(null);
@@ -172,6 +177,7 @@ export default function BulletinsIndex({
         const params: Record<string, any> = {
             type_bulletin: type,
             annee_id: selectedAnnee,
+            etablissement_id: selectedEtab,
             classe_id: cId,
         };
 
@@ -309,10 +315,15 @@ export default function BulletinsIndex({
                 cell: ({ row }) => {
                     const rang = row.original.rang_general;
                     const isFirst = rang === '1er' || rang === '1er ex';
+                    const isNC = rang === 'NC';
+                    const motifNC = row.original.motif_non_classe;
                     return (
                         <span
+                            title={isNC ? (motifNC || 'Non classé (quota de coefficients insuffisant)') : undefined}
                             className={`font-bold px-2 py-1 rounded text-xs inline-flex items-center justify-center ${
-                                isFirst
+                                isNC
+                                    ? 'bg-rose-100 text-rose-800 border border-rose-300 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800 cursor-help'
+                                    : isFirst
                                     ? 'bg-amber-100 text-amber-900 border border-amber-300 dark:bg-amber-950 dark:text-amber-200'
                                     : 'bg-muted text-foreground'
                             }`}
@@ -466,15 +477,22 @@ export default function BulletinsIndex({
                                 </Button>
                             )}
 
-                            {/* Bouton Prévisualiser */}
+                            {/* Bouton Prévisualiser dans un nouvel onglet */}
                             <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => setPreviewStudent(eleve)}
-                                className="h-8 px-2.5 text-xs gap-1"
+                                asChild
+                                className="h-8 px-2.5 text-xs gap-1 hover:bg-sky-50 dark:hover:bg-sky-950/40 hover:text-sky-600"
                             >
-                                <Eye className="h-3.5 w-3.5" />
-                                {t('bulletins.btn_preview')}
+                                <a
+                                    href={getPreviewUrl(eleve)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    title="Ouvrir l'aperçu officiel sur toute la page dans un nouvel onglet"
+                                >
+                                    <Eye className="h-3.5 w-3.5" />
+                                    {t('bulletins.btn_preview')}
+                                </a>
                             </Button>
 
                             {/* Bouton Télécharger PDF */}
@@ -527,6 +545,46 @@ export default function BulletinsIndex({
                     )}
                 </div>
 
+                {/* Sélecteur Maître de Campus (Multi-Établissements) */}
+                {etablissements && etablissements.length > 1 && (
+                    <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                        <span className="text-xs font-semibold text-muted-foreground shrink-0 flex items-center gap-1.5 mr-1">
+                            <School className="size-4 text-primary" />
+                            Campus :
+                        </span>
+                        {etablissements.map((etab) => {
+                            const isSelected = selectedEtab === String(etab.id) || (!selectedEtab && etab.id === etablissements[0].id);
+                            return (
+                                <Button
+                                    key={etab.id}
+                                    type="button"
+                                    variant={isSelected ? 'default' : 'outline'}
+                                    size="sm"
+                                    onClick={() => {
+                                        setSelectedEtab(String(etab.id));
+                                        setSelectedClasse('');
+                                        setSelectedPeriode('');
+                                        setSelectedEvaluation('');
+                                        router.get(
+                                            '/administration/bulletins',
+                                            {
+                                                type_bulletin: typeBulletin,
+                                                annee_id: selectedAnnee,
+                                                etablissement_id: String(etab.id),
+                                            },
+                                            { preserveState: false }
+                                        );
+                                    }}
+                                    className="h-8 text-xs font-medium rounded-full cursor-pointer gap-1.5"
+                                >
+                                    <School className="size-3.5" />
+                                    {etab.nom}
+                                </Button>
+                            );
+                        })}
+                    </div>
+                )}
+
                 {/* Filtres : Choix de la Vague (Séquentiel, Trimestriel, Annuel) & Paramètres */}
                 <Card className="border-border/60 shadow-sm">
                     <CardContent className="p-4 flex flex-col gap-4">
@@ -546,7 +604,9 @@ export default function BulletinsIndex({
                                     size="sm"
                                     onClick={() => {
                                         setTypeBulletin('sequentiel');
-                                        handleFilterChange('sequentiel', selectedClasse, selectedPeriode, selectedEvaluation);
+                                        const targetEval = selectedEvaluation || String(toutesLesEvaluations[0]?.id || '');
+                                        if (!selectedEvaluation && targetEval) setSelectedEvaluation(targetEval);
+                                        handleFilterChange('sequentiel', selectedClasse, selectedPeriode, targetEval);
                                     }}
                                     className={`text-xs h-7 px-3 gap-1.5 ${
                                         typeBulletin === 'sequentiel'
@@ -563,7 +623,9 @@ export default function BulletinsIndex({
                                     size="sm"
                                     onClick={() => {
                                         setTypeBulletin('trimestriel');
-                                        handleFilterChange('trimestriel', selectedClasse, selectedPeriode, selectedEvaluation);
+                                        const targetPer = selectedPeriode || String(periodes[0]?.id || '');
+                                        if (!selectedPeriode && targetPer) setSelectedPeriode(targetPer);
+                                        handleFilterChange('trimestriel', selectedClasse, targetPer, selectedEvaluation);
                                     }}
                                     className={`text-xs h-7 px-3 gap-1.5 ${
                                         typeBulletin === 'trimestriel'
@@ -615,7 +677,7 @@ export default function BulletinsIndex({
                                     </SelectTrigger>
                                     <SelectContent>
                                         {annees.map((a) => (
-                                            <SelectItem key={a.id} value={String(a.id)}>
+                                             <SelectItem key={a.id} value={String(a.id)}>
                                                 {a.nom}
                                             </SelectItem>
                                         ))}
@@ -632,7 +694,15 @@ export default function BulletinsIndex({
                                     value={selectedClasse}
                                     onValueChange={(val) => {
                                         setSelectedClasse(val);
-                                        handleFilterChange(typeBulletin, val, selectedPeriode, selectedEvaluation);
+                                        const targetEval = (typeBulletin === 'sequentiel' && !selectedEvaluation)
+                                            ? String(toutesLesEvaluations[0]?.id || '')
+                                            : selectedEvaluation;
+                                        const targetPer = (typeBulletin === 'trimestriel' && !selectedPeriode)
+                                            ? String(periodes[0]?.id || '')
+                                            : selectedPeriode;
+                                        if (targetEval && !selectedEvaluation) setSelectedEvaluation(targetEval);
+                                        if (targetPer && !selectedPeriode) setSelectedPeriode(targetPer);
+                                        handleFilterChange(typeBulletin, val, targetPer, targetEval);
                                     }}
                                 >
                                     <SelectTrigger className="h-9">
@@ -795,6 +865,50 @@ export default function BulletinsIndex({
                 {/* Tableau TanStack Table des Bulletins */}
                 {donneesClasse ? (
                     <Card className="border-border/60 shadow-sm overflow-hidden">
+                        <div className="flex items-center justify-between px-4 py-2.5 border-b bg-muted/20 flex-wrap gap-2">
+                            <span className="text-xs font-semibold text-muted-foreground">
+                                {donneesClasse.eleves.length} élèves classés
+                            </span>
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 gap-1.5 text-xs font-semibold text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 cursor-pointer shadow-xs"
+                                    onClick={() => {
+                                        const perId = selectedPeriode ? `/${selectedPeriode}` : '';
+                                        window.open(`/administration/documents/babillard/${selectedClasse}${perId}`, '_blank');
+                                    }}
+                                    title="Afficher et imprimer le babillard officiel d'affichage de la classe"
+                                >
+                                    <Printer className="size-3.5 text-indigo-600 dark:text-indigo-400" />
+                                    <span>Babillard (PDF)</span>
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 cursor-pointer shadow-xs"
+                                    onClick={() => {
+                                        window.open(`/administration/documents/liste-eleves/${selectedClasse}?type=definitive&annee_id=${selectedAnnee}`, '_blank');
+                                    }}
+                                    title="Télécharger la liste nominative définitive des élèves de la classe"
+                                >
+                                    <FileText className="size-3.5 text-emerald-600 dark:text-emerald-400" />
+                                    <span>Liste Élèves (PDF)</span>
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 gap-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-blue-950/40 cursor-pointer shadow-xs"
+                                    onClick={() => {
+                                        window.open(`/administration/documents/fiche-appel/${selectedClasse}?annee_id=${selectedAnnee}`, '_blank');
+                                    }}
+                                    title="Télécharger la fiche d'émargement et d'appel mensuelle de cette classe"
+                                >
+                                    <Printer className="size-3.5 text-blue-600 dark:text-blue-400" />
+                                    <span>Fiche d'Appel (PDF)</span>
+                                </Button>
+                            </div>
+                        </div>
                         <CardContent className="p-0">
                             <DataTable
                                 columns={columns}
@@ -821,46 +935,7 @@ export default function BulletinsIndex({
                 )}
             </div>
 
-            {/* Modale de Prévisualisation du Bulletin */}
-            <Dialog open={!!previewStudent} onOpenChange={(open) => !open && setPreviewStudent(null)}>
-                <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0 overflow-hidden">
-                    <DialogHeader className="p-4 border-b border-border/60 bg-muted/30">
-                        <DialogTitle className="flex items-center justify-between text-base">
-                            <span>
-                                Aperçu officiel : {previewStudent?.nom_complet} ({previewStudent?.matricule})
-                            </span>
-                            {previewStudent && (
-                                <Button
-                                    size="sm"
-                                    asChild
-                                    className="gap-1.5 bg-sky-600 hover:bg-sky-700 text-white mr-6"
-                                >
-                                    <a
-                                        href={getPdfUrl(previewStudent)}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                    >
-                                        <Download className="h-4 w-4" />
-                                        Télécharger PDF
-                                    </a>
-                                </Button>
-                            )}
-                        </DialogTitle>
-                        <DialogDescription className="text-xs">
-                            Format : {modeBulletin === 'avec_competences' ? 'Avec Compétences APC (Normes Cameroun)' : 'Format Standard'} &bull; Vague : {typeBulletin.toUpperCase()}
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="flex-1 bg-slate-100 p-2 overflow-hidden">
-                        {previewStudent && (
-                            <iframe
-                                src={getPreviewUrl(previewStudent)}
-                                className="w-full h-full border rounded bg-white shadow-inner"
-                                title="Aperçu du Bulletin"
-                            />
-                        )}
-                    </div>
-                </DialogContent>
-            </Dialog>
+
 
             {/* Modale de Saisie Disciplinaire */}
             <Dialog open={!!disciplineStudent} onOpenChange={(open) => !open && setDisciplineStudent(null)}>

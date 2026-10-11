@@ -67,6 +67,7 @@ return new class extends Migration
             $table->foreignId('etablissement_id')->constrained('etablissements')->cascadeOnDelete();
             $table->foreignId('annee_scolaire_id')->constrained('annees_scolaires')->cascadeOnDelete();
             $table->decimal('debit_initial', 12, 2)->default(0);
+            $table->decimal('arrieres_anterieurs', 12, 2)->default(0)->comment('Dette ou arriérés de scolarité reportés manuellement d\'une année antérieure');
             $table->decimal('remise_bourse', 12, 2)->default(0);
             $table->decimal('montant_net_exigible', 12, 2)->default(0);
             $table->decimal('total_paye', 12, 2)->default(0);

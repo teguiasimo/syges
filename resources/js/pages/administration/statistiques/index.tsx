@@ -239,7 +239,7 @@ export default function StatistiquesIndex({
                     onValueChange={(val: string) => handleNavigation({ tab: val })}
                     className="w-full"
                 >
-                    <TabsList className="grid grid-cols-3 max-w-lg mb-4">
+                    <TabsList className="grid grid-cols-1 sm:grid-cols-3 w-full max-w-lg mb-4 h-auto p-1 gap-1">
                         <TabsTrigger value="demographie" className="text-xs">
                             Démographie & Effectifs
                         </TabsTrigger>

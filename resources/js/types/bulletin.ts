@@ -89,6 +89,10 @@ export interface EleveBulletin {
     groupes_matieres?: GroupeMatiereBulletin[];
     total_points: number;
     total_coefficients: number;
+    total_coefficients_classe?: number;
+    seuil_coefficients_requis?: number;
+    is_eligible_classement?: boolean;
+    motif_non_classe?: string | null;
     moyenne_generale: number;
     cote_globale: CoteAPC;
     a_note_eliminatoire: boolean;
@@ -108,6 +112,14 @@ export interface StatsClasseBulletin {
     effectif_total?: number;
     /** Alias effectif pour compatibilité séquentiel/annuel */
     effectif?: number;
+    /** Effectif des élèves ayant atteint le quota minimal de coefficients et classés */
+    effectif_classe?: number;
+    /** Effectif des élèves non classés (NC) */
+    effectif_non_classe?: number;
+    /** Quota minimal de coefficients requis */
+    seuil_coefficients_classement?: number;
+    /** Total des coefficients de la classe */
+    total_coefficients_classe?: number;
     /** Effectif des élèves ayant composé */
     effectif_evalue?: number;
     /** Moyenne générale de la classe sur 20 */

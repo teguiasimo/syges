@@ -1,16 +1,25 @@
 import { Link } from '@inertiajs/react';
 import {
+    Archive,
     Award,
+    Banknote,
     BarChart3,
     BookOpen,
     Briefcase,
     CalendarDays,
     CalendarRange,
+    CheckSquare,
+    Contact,
+    CreditCard,
     Edit3,
+    FileCheck,
+    FileSpreadsheet,
     FileText,
+    Gavel,
     GraduationCap,
     Layers,
     MessageSquare,
+    Receipt,
     School,
     ShieldAlert,
     ShieldCheck,
@@ -27,7 +36,7 @@ import {
 } from '@/components/ui/sidebar';
 import { useCurrentUrl } from '@/hooks/use-current-url';
 import { usePermission } from '@/hooks/use-permission';
-import { cn } from '@/lib/utils';
+import { cn, toUrl } from '@/lib/utils';
 
 /**
  * Définition d'un élément de navigation pour un module administratif.
@@ -142,6 +151,7 @@ const MODULE_GROUPS: NavModuleGroup[] = [
                 permission: 'eleves.view',
                 tooltip: 'Élèves & Inscriptions (Gesco 5)',
             },
+
             {
                 title: 'Caisse & Scolarités',
                 href: '/administration/finances',
@@ -151,12 +161,36 @@ const MODULE_GROUPS: NavModuleGroup[] = [
                 tooltip: 'Encaissements, Reçus & Caisse (Gesco 11)',
             },
             {
+                title: 'Dépenses & Charges',
+                href: '/administration/finances/depenses',
+                icon: Banknote,
+                color: 'text-emerald-500 dark:text-emerald-400',
+                permission: 'finances.view',
+                tooltip: 'Charges, Décharges & Bilan Entrées/Sorties (Phase 1)',
+            },
+            {
                 title: 'Discipline & Absences',
                 href: '/administration/discipline',
                 icon: ShieldAlert,
                 color: 'text-red-500 dark:text-red-400',
                 permission: 'discipline.view',
                 tooltip: 'Assiduité, Absences & Sanctions (Gesco 12)',
+            },
+            {
+                title: 'Conseil de Discipline',
+                href: '/administration/discipline/conseil',
+                icon: Gavel,
+                color: 'text-rose-600 dark:text-rose-400',
+                permission: 'discipline.view',
+                tooltip: 'Sessions CD, Convocations & Heures de Consigne (Phase 5)',
+            },
+            {
+                title: 'Centre d\'Archivage',
+                href: '/administration/archivage',
+                icon: Archive,
+                color: 'text-amber-600 dark:text-amber-400',
+                permission: 'eleves.view',
+                tooltip: 'Archives administratives, masques & reconduction (Aurore §3.15, §3.28)',
             },
         ],
     },
@@ -172,12 +206,44 @@ const MODULE_GROUPS: NavModuleGroup[] = [
                 tooltip: 'Saisie des Notes Séquentielles (Gesco 10)',
             },
             {
+                title: 'Relevés de Notes',
+                href: '/administration/notes/releves',
+                icon: FileSpreadsheet,
+                color: 'text-amber-500 dark:text-amber-400',
+                permission: 'releves_notes.view',
+                tooltip: 'Fiches de report & relevés de notes imprimables',
+            },
+            {
+                title: 'Compétences APC',
+                href: '/administration/pedagogie/competences',
+                icon: CheckSquare,
+                color: 'text-purple-600 dark:text-purple-400',
+                permission: 'competences_apc.view',
+                tooltip: "Compétences Périodiques & Cotes d'Évaluation (Phase 3)",
+            },
+            {
+                title: 'Dispenses & Dérogations',
+                href: '/administration/pedagogie/dispenses',
+                icon: FileCheck,
+                color: 'text-teal-600 dark:text-teal-400',
+                permission: 'dispenses.view',
+                tooltip: 'Dispenses EPS, Médicales & PV Officiel (Phase 4)',
+            },
+            {
                 title: 'Bulletins Scolaires',
                 href: '/administration/bulletins',
                 icon: FileText,
                 color: 'text-sky-500 dark:text-sky-400',
                 permission: 'bulletins.view',
                 tooltip: 'Calculs & Bulletins Officiels (Gesco 10)',
+            },
+            {
+                title: 'Cahier de Texte & Progression',
+                href: '/administration/progression-pedagogique',
+                icon: BookOpen,
+                color: 'text-indigo-500 dark:text-indigo-400',
+                permission: 'progression.view',
+                tooltip: 'Cahier de texte, suivi horaire & visas (Aurore §5.1.8)',
             },
             {
                 title: 'Délibérations & Conseil',
@@ -271,7 +337,7 @@ interface NavModulesProps {
  * @returns {JSX.Element | null}
  */
 export function NavModules({ permissions: propPermissions, isSuperAdmin: propIsSuperAdmin }: NavModulesProps = {}) {
-    const { isCurrentOrParentUrl } = useCurrentUrl();
+    const { currentUrl } = useCurrentUrl();
     const { can, isSuperAdmin: hookIsSuperAdmin } = usePermission();
 
     const isSuperAdmin = propIsSuperAdmin ?? hookIsSuperAdmin;
@@ -289,6 +355,41 @@ export function NavModules({ permissions: propPermissions, isSuperAdmin: propIsS
         })).filter((group) => group.items.length > 0);
     }, [propPermissions, isSuperAdmin, can]);
 
+    /**
+     * Résout l'item de menu actif de manière univoque (Exact Match puis Longest Prefix Match).
+     * Empêche que des URLs sœurs partageant un préfixe commun (ex: /notes et /notes/releves,
+     * ou /finances et /finances/depenses) ne soient actives simultanément dans la barre latérale.
+     */
+    const activeHref = React.useMemo(() => {
+        // Normaliser l'URL courante en retirant les barres obliques finales et les paramètres de requête
+        const cleanCurrentUrl = (currentUrl || '').split('?')[0].replace(/\/+$/, '') || '/';
+        let bestMatch = '';
+        let longestLength = 0;
+
+        // Passe 1 : Priorité absolue aux correspondances exactes
+        for (const group of authorizedGroups) {
+            for (const item of group.items) {
+                const itemPath = toUrl(item.href).split('?')[0].replace(/\/+$/, '') || '/';
+                if (cleanCurrentUrl === itemPath) {
+                    return item.href;
+                }
+            }
+        }
+
+        // Passe 2 : Si aucune correspondance exacte, retenir le préfixe parent le plus long et spécifique
+        for (const group of authorizedGroups) {
+            for (const item of group.items) {
+                const itemPath = toUrl(item.href).split('?')[0].replace(/\/+$/, '') || '/';
+                if (cleanCurrentUrl.startsWith(itemPath + '/') && itemPath.length > longestLength) {
+                    longestLength = itemPath.length;
+                    bestMatch = item.href;
+                }
+            }
+        }
+
+        return bestMatch;
+    }, [authorizedGroups, currentUrl]);
+
     if (authorizedGroups.length === 0) {
         return null;
     }
@@ -303,7 +404,7 @@ export function NavModules({ permissions: propPermissions, isSuperAdmin: propIsS
                     <SidebarMenu>
                         {group.items.map((item) => {
                             const IconComponent = item.icon;
-                            const isActive = isCurrentOrParentUrl(item.href);
+                            const isActive = item.href === activeHref;
 
                             return (
                                 <SidebarMenuItem key={item.href}>

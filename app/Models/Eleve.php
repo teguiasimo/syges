@@ -30,13 +30,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $nom_tuteur
  * @property string|null $telephone_parent Contact téléphonique principal du tuteur
  * @property string|null $email_parent
- * @property string|null $profession_parent
  * @property string|null $adresse Quartier ou adresse physique
- * @property string|null $ville
- * @property string|null $groupe_sanguin
- * @property string|null $contact_urgence_nom
- * @property string|null $contact_urgence_telephone
- * @property string|null $allergies_conditions
  * @property bool $is_active
  * @property Carbon $created_at
  * @property Carbon $updated_at
@@ -49,7 +43,7 @@ class Eleve extends Model
     use HasFactory;
 
     /**
-     * Les attributs assignables en masse.
+     * Les attributs assignables en masse (conformes à la vue create.tsx).
      *
      * @var array<int, string>
      */
@@ -68,13 +62,7 @@ class Eleve extends Model
         'nom_tuteur',
         'telephone_parent',
         'email_parent',
-        'profession_parent',
         'adresse',
-        'ville',
-        'groupe_sanguin',
-        'contact_urgence_nom',
-        'contact_urgence_telephone',
-        'allergies_conditions',
         'is_active',
     ];
 
@@ -176,17 +164,30 @@ class Eleve extends Model
 
     /**
      * Génère un matricule unique pour un nouvel élève.
-     * Format par défaut : [PREFIX][YY]-[00001], ex: GS26-0001.
+     * Format officiel court et parlant : [YY]-[0001], ex: 26-0001 (pour l'année 2026/2027).
      *
-     * @param string $prefix
-     * @return string
+     * @param int|null $anneeScolaireId Identifiant de l'année scolaire pour extraire les 2 chiffres
+     * @param string|null $prefix Préfixe optionnel si besoin
+     * @return string Le matricule unique formaté
      */
-    public static function generateNextMatricule(string $prefix = 'GS'): string
+    public static function generateNextMatricule(?int $anneeScolaireId = null, ?string $prefix = null): string
     {
-        $year = Carbon::now()->format('y'); // Ex: 26 pour 2026
-        $base = strtoupper($prefix) . $year . '-';
+        // 1. Détermine l'année sur 2 chiffres depuis l'année scolaire ou l'année active
+        $yearCode = null;
+        if ($anneeScolaireId) {
+            $annee = AnneeScolaire::find($anneeScolaireId);
+            $yearCode = $annee?->date_debut ? $annee->date_debut->format('y') : null;
+        }
 
-        // Trouve le dernier matricule commençant par cette base
+        if (! $yearCode) {
+            $currentAnnee = AnneeScolaire::current();
+            $yearCode = $currentAnnee?->date_debut ? $currentAnnee->date_debut->format('y') : Carbon::now()->format('y');
+        }
+
+        // 2. Base du matricule : ex: "26-" (ou avec préfixe optionnel si spécifié)
+        $base = $prefix ? strtoupper(trim($prefix)) . $yearCode . '-' : $yearCode . '-';
+
+        // 3. Trouve le dernier numéro incrémental attribué pour cette base
         $lastRecord = static::where('matricule', 'like', $base . '%')
             ->orderByDesc('matricule')
             ->first();
@@ -196,6 +197,15 @@ class Eleve extends Model
             $nextNum = ((int) $matches[1]) + 1;
         }
 
-        return sprintf('%s%04d', $base, $nextNum);
+        // 4. Boucle de garantie stricte d'unicité en base de données
+        do {
+            $candidate = sprintf('%s%04d', $base, $nextNum);
+            $exists = static::where('matricule', $candidate)->exists();
+            if ($exists) {
+                $nextNum++;
+            }
+        } while ($exists);
+
+        return $candidate;
     }
 }

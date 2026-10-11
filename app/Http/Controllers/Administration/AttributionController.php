@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Administration;
 
+use App\Concerns\ScopesEtablissement;
 use App\Http\Controllers\Controller;
 use App\Models\AnneeScolaire;
 use App\Models\Attribution;
@@ -30,6 +31,7 @@ use Inertia\Response;
  */
 class AttributionController extends Controller implements HasMiddleware
 {
+    use ScopesEtablissement;
     /**
      * Définition de la matrice des middlewares d'autorisation pour le module Attributions.
      *
@@ -38,14 +40,11 @@ class AttributionController extends Controller implements HasMiddleware
     public static function middleware(): array
     {
         return [
-            new Middleware('can:attributions.view', only: ['index']),
-            new Middleware('can:attributions.manage', only: [
-                'store',
-                'update',
-                'setProfesseurPrincipal',
-                'batchAssign',
-            ]),
-            new Middleware('can:attributions.delete', only: ['destroy']),
+            new Middleware('can:attributions.view', only: ['index', 'grille']),
+            new Middleware('can:attributions.create|attributions.manage', only: ['store', 'batchAssign']),
+            new Middleware('can:attributions.edit|attributions.manage', only: ['update']),
+            new Middleware('can:attributions.prof_principal|attributions.manage', only: ['setProfesseurPrincipal']),
+            new Middleware('can:attributions.delete|attributions.manage', only: ['destroy']),
         ];
     }
 
@@ -70,12 +69,19 @@ class AttributionController extends Controller implements HasMiddleware
         $anneesScolaires = AnneeScolaire::orderByDesc('is_current')->orderByDesc('date_debut')->get();
         $selectedAnneeId = (int) ($request->query('annee_scolaire_id') ?? ($anneesScolaires->firstWhere('is_current', true)?->id ?? $anneesScolaires->first()?->id ?? 1));
 
-        // 2. Filtres
-        $etablissementId = $request->query('etablissement_id');
+        // 2. Filtres & Établissements hermétiques
+        $context = $this->resolveEtablissementContext($request);
+        $etablissements = $context['etablissements'];
+        $etablissementId = $context['etablissementId'];
         $classeId = $request->query('classe_id');
 
-        // 3. Établissements pour le filtrage
-        $etablissements = Etablissement::select('id', 'nom', 'code')->orderBy('nom')->get();
+        $requestedEtabId = $request->input('etablissement_id') ?? $request->query('etablissement_id');
+        $filterEtabId = null;
+        if (! $isSuperAdmin) {
+            $filterEtabId = $etablissementId;
+        } elseif ($requestedEtabId && $requestedEtabId !== 'all') {
+            $filterEtabId = (int) $requestedEtabId;
+        }
 
         // 4. Récupération des classes avec niveau, professeur principal et attributions pour l'année active
         $classesQuery = Classe::query()
@@ -90,8 +96,8 @@ class AttributionController extends Controller implements HasMiddleware
             ->where('is_active', true)
             ->orderBy('nom');
 
-        if ($etablissementId) {
-            $classesQuery->where('etablissement_id', $etablissementId);
+        if ($filterEtabId) {
+            $classesQuery->where('etablissement_id', $filterEtabId);
         }
 
         if ($classeId) {
@@ -101,7 +107,7 @@ class AttributionController extends Controller implements HasMiddleware
         $classes = $classesQuery->get();
 
         // 5. Matrice des coefficients par niveau pour identifier les matières requises par classe
-        $matiereNiveaux = MatiereNiveau::with(['matiere:id,code,nom,libelle_bulletin', 'groupeMatiere:id,code,nom,ordre'])
+        $matiereNiveaux = MatiereNiveau::with(['matiere:id,code,nom,libelle_bulletin', 'groupeMatiere:id,code,nom,couleur,ordre'])
             ->get();
 
         // 6. Corps enseignant avec calcul de la charge horaire pour l'année active
@@ -120,9 +126,9 @@ class AttributionController extends Controller implements HasMiddleware
                 },
             ]);
 
-        if ($etablissementId) {
-            $enseignantsQuery->where(function ($q) use ($etablissementId) {
-                $q->where('etablissement_id', $etablissementId)
+        if ($filterEtabId) {
+            $enseignantsQuery->where(function ($q) use ($filterEtabId) {
+                $q->where('etablissement_id', $filterEtabId)
                     ->orWhereNull('etablissement_id');
             });
         }
@@ -162,9 +168,9 @@ class AttributionController extends Controller implements HasMiddleware
 
         // 7. Catalogue des matières pour le sélecteur d'attribution (scopé par campus)
         $matieresQuery = Matiere::where('is_active', true)->orderBy('nom');
-        if ($etablissementId) {
-            $matieresQuery->where(function ($q) use ($etablissementId) {
-                $q->where('etablissement_id', $etablissementId)
+        if ($filterEtabId) {
+            $matieresQuery->where(function ($q) use ($filterEtabId) {
+                $q->where('etablissement_id', $filterEtabId)
                     ->orWhereNull('etablissement_id');
             });
         }
@@ -173,8 +179,8 @@ class AttributionController extends Controller implements HasMiddleware
         // 8. Synthèse statistique globale KPI
         $totalClasses = $classes->count();
         $attributionsQuery = Attribution::where('annee_scolaire_id', $selectedAnneeId);
-        if ($etablissementId) {
-            $attributionsQuery->whereHas('classe', fn ($q) => $q->where('etablissement_id', $etablissementId));
+        if ($filterEtabId) {
+            $attributionsQuery->whereHas('classe', fn ($q) => $q->where('etablissement_id', $filterEtabId));
         }
         $totalAttributions = $attributionsQuery->count();
         $enseignantsMobilises = $enseignants->where('heures_attribuees', '>', 0)->count();
@@ -214,8 +220,12 @@ class AttributionController extends Controller implements HasMiddleware
         ];
 
         $can = [
-            'manage' => $isSuperAdmin || $user?->can('attributions.manage'),
+            'view' => $isSuperAdmin || $user?->can('attributions.view'),
+            'create' => $isSuperAdmin || $user?->can('attributions.create') || $user?->can('attributions.manage'),
+            'edit' => $isSuperAdmin || $user?->can('attributions.edit') || $user?->can('attributions.manage'),
+            'prof_principal' => $isSuperAdmin || $user?->can('attributions.prof_principal') || $user?->can('attributions.manage'),
             'delete' => $isSuperAdmin || $user?->can('attributions.delete'),
+            'manage' => $isSuperAdmin || $user?->can('attributions.manage'),
         ];
 
         return Inertia::render('administration/attributions/index', [
@@ -230,8 +240,181 @@ class AttributionController extends Controller implements HasMiddleware
             'can' => $can,
             'filters' => [
                 'annee_scolaire_id' => $selectedAnneeId,
-                'etablissement_id' => $etablissementId ?? '',
+                'etablissement_id' => $requestedEtabId ?: ($isSuperAdmin ? 'all' : (string) $filterEtabId),
                 'classe_id' => $classeId ?? '',
+            ],
+        ]);
+    }
+
+    /**
+     * Affiche la page dédiée de la grille de répartition pédagogique d'une classe.
+     * Permet au Censeur / Directeur des Études de visualiser l'ensemble de la maquette
+     * pédagogique d'une classe et de modifier en masse les affectations d'enseignants.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Inertia\Response
+     */
+    public function grille(Request $request): Response
+    {
+        $user = $request->user();
+        $isSuperAdmin = $user?->is_super_admin ?? false;
+
+        abort_unless(
+            $isSuperAdmin || $user?->can('attributions.view'),
+            403,
+            'Accès non autorisé : vous ne disposez pas de la permission de consulter la grille des classes.'
+        );
+
+        // 1. Années scolaires et sélection active
+        $anneesScolaires = AnneeScolaire::orderByDesc('is_current')->orderByDesc('date_debut')->get();
+        $selectedAnneeId = (int) ($request->query('annee_scolaire_id') ?? ($anneesScolaires->firstWhere('is_current', true)?->id ?? $anneesScolaires->first()?->id ?? 1));
+
+        // 2. Filtres & Établissements hermétiques
+        $context = $this->resolveEtablissementContext($request);
+        $etablissements = $context['etablissements'];
+        $etablissementId = $context['etablissementId'];
+
+        $requestedEtabId = $request->input('etablissement_id') ?? $request->query('etablissement_id');
+        $filterEtabId = null;
+        if (! $isSuperAdmin) {
+            $filterEtabId = $etablissementId;
+        } elseif ($requestedEtabId && $requestedEtabId !== 'all') {
+            $filterEtabId = (int) $requestedEtabId;
+        }
+
+        // 3. Classes actives disponibles
+        $classesQuery = Classe::query()
+            ->with([
+                'niveau.cycle.section.etablissement:id,nom,code',
+                'professeurPrincipal:id,nom,prenom,matricule,telephone',
+                'attributions' => function ($q) use ($selectedAnneeId) {
+                    $q->where('annee_scolaire_id', $selectedAnneeId)
+                        ->with(['personnel:id,nom,prenom,matricule,telephone,specialite', 'matiere:id,code,nom,libelle_bulletin']);
+                },
+            ])
+            ->where('is_active', true)
+            ->orderBy('nom');
+
+        if ($filterEtabId) {
+            $classesQuery->where('etablissement_id', $filterEtabId);
+        }
+
+        $classes = $classesQuery->get();
+
+        // 4. Détermination de la classe sélectionnée
+        $requestedClasseId = $request->query('classe_id');
+        $selectedClasse = null;
+        if ($requestedClasseId) {
+            $selectedClasse = $classes->firstWhere('id', (int) $requestedClasseId);
+        }
+        if (! $selectedClasse && $classes->isNotEmpty()) {
+            $selectedClasse = $classes->first();
+        }
+
+        // 5. Matrice des matières requises pour la classe sélectionnée
+        $matiereNiveaux = collect();
+        if ($selectedClasse) {
+            $matiereNiveaux = MatiereNiveau::where('niveau_id', $selectedClasse->niveau_id)
+                ->where(function ($q) use ($selectedClasse) {
+                    $q->where('serie', 'Toutes')
+                        ->orWhereNull('serie')
+                        ->orWhere('serie', '')
+                        ->orWhere('serie', $selectedClasse->serie);
+                })
+                ->with(['matiere:id,code,nom,libelle_bulletin', 'groupeMatiere:id,code,nom,couleur,ordre'])
+                ->get();
+        }
+
+        // 6. Corps enseignant actif avec charge horaire
+        $enseignantsQuery = Personnel::query()
+            ->where(function ($q) {
+                $q->where('is_enseignant', true)
+                    ->orWhere('fonction_principale', 'Enseignant');
+            })
+            ->where('statut', 'Actif')
+            ->with([
+                'departement:id,nom,code',
+                'attributions' => function ($q) use ($selectedAnneeId) {
+                    $q->where('annee_scolaire_id', $selectedAnneeId);
+                },
+            ]);
+
+        if ($filterEtabId) {
+            $enseignantsQuery->where(function ($q) use ($filterEtabId) {
+                $q->where('etablissement_id', $filterEtabId)
+                    ->orWhereNull('etablissement_id');
+            });
+        }
+
+        $enseignants = $enseignantsQuery->orderBy('nom')
+            ->get()
+            ->map(function (Personnel $ens) {
+                $heuresContractuelles = (float) $ens->volume_horaire_hebdo;
+                $heuresAttribuees = (float) $ens->attributions->sum('volume_horaire_reel');
+                $ecart = $heuresAttribuees - $heuresContractuelles;
+
+                $statutCharge = 'equilibre';
+                if ($heuresAttribuees < $heuresContractuelles) {
+                    $statutCharge = 'sous_charge';
+                } elseif ($heuresAttribuees > $heuresContractuelles) {
+                    $statutCharge = 'surcharge';
+                }
+
+                return [
+                    'id' => $ens->id,
+                    'matricule' => $ens->matricule,
+                    'nom' => $ens->nom,
+                    'prenom' => $ens->prenom,
+                    'nom_complet' => $ens->nom_complet,
+                    'telephone' => $ens->telephone,
+                    'specialite' => $ens->specialite,
+                    'departement' => $ens->departement,
+                    'volume_horaire_hebdo' => $heuresContractuelles,
+                    'heures_attribuees' => $heuresAttribuees,
+                    'ecart' => $ecart,
+                    'statut_charge' => $statutCharge,
+                ];
+            });
+
+        // 7. Statistiques de la classe sélectionnée
+        $totalRequises = $matiereNiveaux->count();
+        $assignedIds = $selectedClasse ? $selectedClasse->attributions->pluck('matiere_id')->toArray() : [];
+        $pourvuesCount = $matiereNiveaux->filter(fn ($mn) => in_array($mn->matiere_id, $assignedIds))->count();
+        $totalHeuresClasse = $selectedClasse ? (float) $selectedClasse->attributions->sum('volume_horaire_reel') : 0.0;
+        $totalCoefficients = $matiereNiveaux->sum('coefficient');
+        $tauxCouverture = $totalRequises > 0 ? round(($pourvuesCount / $totalRequises) * 100, 1) : 100.0;
+
+        $stats = [
+            'totalRequises' => $totalRequises,
+            'pourvuesCount' => $pourvuesCount,
+            'totalHeures' => $totalHeuresClasse,
+            'totalCoefficients' => $totalCoefficients,
+            'tauxCouverture' => $tauxCouverture,
+        ];
+
+        $can = [
+            'view' => $isSuperAdmin || $user?->can('attributions.view'),
+            'create' => $isSuperAdmin || $user?->can('attributions.create') || $user?->can('attributions.manage'),
+            'edit' => $isSuperAdmin || $user?->can('attributions.edit') || $user?->can('attributions.manage'),
+            'prof_principal' => $isSuperAdmin || $user?->can('attributions.prof_principal') || $user?->can('attributions.manage'),
+            'delete' => $isSuperAdmin || $user?->can('attributions.delete'),
+            'manage' => $isSuperAdmin || $user?->can('attributions.manage'),
+        ];
+
+        return Inertia::render('administration/attributions/grille', [
+            'anneesScolaires' => $anneesScolaires,
+            'selectedAnneeId' => $selectedAnneeId,
+            'etablissements' => $etablissements,
+            'classes' => $classes,
+            'selectedClasse' => $selectedClasse,
+            'matiereNiveaux' => $matiereNiveaux,
+            'enseignants' => $enseignants,
+            'stats' => $stats,
+            'can' => $can,
+            'filters' => [
+                'annee_scolaire_id' => $selectedAnneeId,
+                'etablissement_id' => $requestedEtabId ?: ($isSuperAdmin ? 'all' : (string) $filterEtabId),
+                'classe_id' => $selectedClasse?->id ? (string) $selectedClasse->id : '',
             ],
         ]);
     }

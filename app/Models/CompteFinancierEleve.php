@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Concerns\BelongsToEtablissement;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -34,7 +35,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class CompteFinancierEleve extends Model
 {
-    use HasFactory;
+    use HasFactory, BelongsToEtablissement;
 
     /**
      * Nom de la table associée dans la base de données.
@@ -97,15 +98,6 @@ class CompteFinancierEleve extends Model
         return $this->belongsTo(Eleve::class);
     }
 
-    /**
-     * Relation vers l'établissement scolaire.
-     *
-     * @return BelongsTo<Etablissement, CompteFinancierEleve>
-     */
-    public function etablissement(): BelongsTo
-    {
-        return $this->belongsTo(Etablissement::class);
-    }
 
     /**
      * Relation vers l'année scolaire.
@@ -128,24 +120,56 @@ class CompteFinancierEleve extends Model
     }
 
     /**
+     * Relation vers les bourses et remises accordées à cet élève.
+     *
+     * @return HasMany<EleveBourseRemise>
+     */
+    public function boursesRemises(): HasMany
+    {
+        return $this->hasMany(EleveBourseRemise::class, 'compte_financier_id');
+    }
+
+    /**
+     * Relation vers les pénalités de retard appliquées à ce compte.
+     *
+     * @return HasMany<PenaliteEleve>
+     */
+    public function penalites(): HasMany
+    {
+        return $this->hasMany(PenaliteEleve::class, 'compte_financier_id');
+    }
+
+    /**
      * Recalcule et persiste instantanément les soldes et statuts du compte élève.
      *
      * @return void
      */
     public function actualiserSolde(): void
     {
-        // 1. Calcul du montant net exigible (frais annuels bruts + arriérés antérieurs - remise ou bourse)
-        $this->montant_net_exigible = max(0, (float) $this->debit_initial + (float) ($this->arrieres_anterieurs ?? 0) - (float) $this->remise_bourse);
+        // 1. Prise en compte automatique des bourses et remises attribuées
+        $totalBoursesRemises = (float) $this->boursesRemises()->sum('montant_calcule');
+        if ($totalBoursesRemises > 0) {
+            $this->remise_bourse = $totalBoursesRemises;
+        }
 
-        // 2. Cumul des versements au statut 'valide'
+        // 2. Cumul des pénalités actives (non annulées)
+        $totalPenalites = (float) $this->penalites()
+            ->where('statut', '!=', 'annule')
+            ->sum('montant');
+
+        // 3. Calcul du montant net exigible (débit initial + arriérés + pénalités - remises/bourses)
+        $debitTotal = (float) $this->debit_initial + (float) ($this->arrieres_anterieurs ?? 0) + $totalPenalites;
+        $this->montant_net_exigible = max(0, $debitTotal - (float) $this->remise_bourse);
+
+        // 4. Cumul des versements au statut 'valide'
         $this->total_paye = (float) $this->versements()
             ->where('statut', 'valide')
             ->sum('montant_total');
 
-        // 3. Calcul du solde restant dû
+        // 5. Calcul du solde restant dû
         $this->solde_restant = max(0, $this->montant_net_exigible - $this->total_paye);
 
-        // 4. Détermination du statut financier
+        // 6. Détermination du statut financier
         if ($this->solde_restant <= 0 && $this->montant_net_exigible > 0) {
             $this->statut_financier = 'solde';
         } elseif ($this->total_paye <= 0) {

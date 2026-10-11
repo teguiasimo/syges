@@ -1,5 +1,6 @@
 import { Form, Head } from '@inertiajs/react';
 import { useRef } from 'react';
+import { toast } from 'sonner';
 import SecurityController from '@/actions/App/Http/Controllers/Settings/SecurityController';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
@@ -7,32 +8,37 @@ import PasswordInput from '@/components/password-input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { edit } from '@/routes/security';
-import type { Props as ManagePasskeysProps } from '@/components/manage-passkeys';
-import ManagePasskeys from '@/components/manage-passkeys';
-import type { Props as ManageTwoFactorProps } from '@/components/manage-two-factor';
-import ManageTwoFactor from '@/components/manage-two-factor';
 
-// oxfmt-ignore
+/**
+ * Propriétés attendues pour la page des paramètres de sécurité.
+ */
 type Props = {
+    /** Règles de validation du mot de passe */
     passwordRules: string;
-} & ManagePasskeysProps &
-    ManageTwoFactorProps;
+};
 
+/**
+ * Page de gestion de la sécurité du compte utilisateur.
+ * Permet la modification sécurisée du mot de passe avec confirmation.
+ *
+ * @param {Props} props
+ * @returns {JSX.Element}
+ */
 export default function Security(props: Props) {
     const passwordInput = useRef<HTMLInputElement>(null);
     const currentPasswordInput = useRef<HTMLInputElement>(null);
 
     return (
         <>
-            <Head title="Security settings" />
+            <Head title="Mot de passe & Sécurité" />
 
-            <h1 className="sr-only">Security settings</h1>
+            <h1 className="sr-only">Mot de passe & Sécurité</h1>
 
             <div className="space-y-6">
                 <Heading
                     variant="small"
-                    title="Update password"
-                    description="Ensure your account is using a long, random password to stay secure"
+                    title="Modifier votre mot de passe"
+                    description="Choisissez un mot de passe sécurisé et personnalisé pour protéger l'accès à votre compte."
                 />
 
                 <Form
@@ -46,6 +52,12 @@ export default function Security(props: Props) {
                         'current_password',
                     ]}
                     resetOnSuccess
+                    onSuccess={() => {
+                        toast.success('Votre mot de passe a été modifié avec succès.', {
+                            position: 'top-right',
+                            className: 'bg-emerald-600 text-white border-emerald-700',
+                        });
+                    }}
                     onError={(errors) => {
                         if (errors.password) {
                             passwordInput.current?.focus();
@@ -61,7 +73,7 @@ export default function Security(props: Props) {
                         <>
                             <div className="grid gap-2">
                                 <Label htmlFor="current_password">
-                                    Current password
+                                    Mot de passe actuel
                                 </Label>
 
                                 <PasswordInput
@@ -70,14 +82,14 @@ export default function Security(props: Props) {
                                     name="current_password"
                                     className="mt-1 block w-full"
                                     autoComplete="current-password"
-                                    placeholder="Current password"
+                                    placeholder="Entrez votre mot de passe actuel"
                                 />
 
                                 <InputError message={errors.current_password} />
                             </div>
 
                             <div className="grid gap-2">
-                                <Label htmlFor="password">New password</Label>
+                                <Label htmlFor="password">Nouveau mot de passe</Label>
 
                                 <PasswordInput
                                     id="password"
@@ -85,7 +97,7 @@ export default function Security(props: Props) {
                                     name="password"
                                     className="mt-1 block w-full"
                                     autoComplete="new-password"
-                                    placeholder="New password"
+                                    placeholder="Entrez le nouveau mot de passe"
                                     passwordrules={props.passwordRules}
                                 />
 
@@ -94,7 +106,7 @@ export default function Security(props: Props) {
 
                             <div className="grid gap-2">
                                 <Label htmlFor="password_confirmation">
-                                    Confirm password
+                                    Confirmer le mot de passe
                                 </Label>
 
                                 <PasswordInput
@@ -102,7 +114,7 @@ export default function Security(props: Props) {
                                     name="password_confirmation"
                                     className="mt-1 block w-full"
                                     autoComplete="new-password"
-                                    placeholder="Confirm password"
+                                    placeholder="Confirmez le nouveau mot de passe"
                                     passwordrules={props.passwordRules}
                                 />
 
@@ -115,25 +127,15 @@ export default function Security(props: Props) {
                                 <Button
                                     disabled={processing}
                                     data-test="update-password-button"
+                                    className="bg-primary cursor-pointer"
                                 >
-                                    Save
+                                    {processing ? 'Enregistrement...' : 'Enregistrer le nouveau mot de passe'}
                                 </Button>
                             </div>
                         </>
                     )}
                 </Form>
             </div>
-
-            <ManageTwoFactor
-                canManageTwoFactor={props.canManageTwoFactor}
-                requiresConfirmation={props.requiresConfirmation}
-                twoFactorEnabled={props.twoFactorEnabled}
-            />
-
-            <ManagePasskeys
-                canManagePasskeys={props.canManagePasskeys}
-                passkeys={props.passkeys}
-            />
         </>
     );
 }
@@ -141,7 +143,7 @@ export default function Security(props: Props) {
 Security.layout = {
     breadcrumbs: [
         {
-            title: 'Security settings',
+            title: 'Mot de passe & Sécurité',
             href: edit(),
         },
     ],

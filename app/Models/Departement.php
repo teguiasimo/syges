@@ -18,7 +18,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int $institution_id
  * @property string $nom
  * @property string|null $code
- * @property string|null $description
  * @property int|null $chef_departement_id
  * @property bool $is_active
  * @property \Illuminate\Support\Carbon|null $created_at
@@ -37,7 +36,6 @@ class Departement extends Model
         'institution_id',
         'nom',
         'code',
-        'description',
         'chef_departement_id',
         'is_active',
     ];

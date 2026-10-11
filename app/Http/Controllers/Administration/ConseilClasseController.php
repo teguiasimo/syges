@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Administration;
 
+use App\Concerns\ScopesEtablissement;
 use App\Http\Controllers\Controller;
 use App\Models\AnneeScolaire;
 use App\Models\Classe;
@@ -25,9 +26,13 @@ use Inertia\Response as InertiaResponse;
  * - Saisie des appréciations globales du conseil et ajustement des mentions/décisions.
  * - Validation humaine obligatoire par la Direction (Censeur / Proviseur - Module 2.6 Étape B).
  * - Édition du Procès-Verbal (PV) officiel du conseil de classe scellé pour signature.
+ *
+ * Utilise ScopesEtablissement pour cloisonner strictement les délibérations par campus.
  */
 class ConseilClasseController extends Controller implements HasMiddleware
 {
+    use ScopesEtablissement;
+
     /**
      * Définition de la matrice des middlewares d'autorisation pour le module Délibérations & Conseil de Classe.
      *
@@ -37,8 +42,8 @@ class ConseilClasseController extends Controller implements HasMiddleware
     {
         return [
             new Middleware('can:deliberations.view', only: ['index', 'exportPv']),
-            new Middleware('can:deliberations.manage', only: ['sauvegarder']),
-            new Middleware('can:deliberations.valider', only: ['validerPromotion']),
+            new Middleware('can:deliberations.saisir|deliberations.manage', only: ['sauvegarder']),
+            new Middleware('can:deliberations.valider|deliberations.manage', only: ['validerPromotion']),
         ];
     }
 
@@ -53,12 +58,11 @@ class ConseilClasseController extends Controller implements HasMiddleware
     {
         abort_if(! $request->user()?->can('deliberations.view') && ! $request->user()?->hasRole('super-admin'), 403);
 
-        $etablissements = Etablissement::with('institution')->get();
-        $currentEtablissement = $request->has('etablissement_id')
-            ? Etablissement::find($request->integer('etablissement_id'))
-            : $etablissements->first();
-
-        $etablissementId = $currentEtablissement?->id ?? 0;
+        // Résolution hermétique du campus selon les prérogatives de l'utilisateur
+        $context = $this->resolveEtablissementContext($request, ['institution']);
+        $etablissements = $context['etablissements'];
+        $currentEtablissement = $context['selectedEtablissement'];
+        $etablissementId = $context['etablissementId'] ?? 0;
 
         $annees = AnneeScolaire::orderByDesc('date_debut')->get();
         $anneeActive = AnneeScolaire::current() ?? $annees->first();
@@ -97,8 +101,9 @@ class ConseilClasseController extends Controller implements HasMiddleware
             'selectedPeriodeId' => $selectedPeriodeId,
             'typeSession' => $typeSession,
             'deliberationData' => $deliberationData,
-            'canValider' => $request->user()?->can('deliberations.valider') || $request->user()?->hasRole('super-admin'),
-            'canManage' => $request->user()?->can('deliberations.manage') || $request->user()?->hasRole('super-admin'),
+            'canValider' => $request->user()?->can('deliberations.valider') || $request->user()?->can('deliberations.manage') || $request->user()?->hasRole('super-admin'),
+            'canManage' => $request->user()?->can('deliberations.saisir') || $request->user()?->can('deliberations.manage') || $request->user()?->hasRole('super-admin'),
+            'canSaisir' => $request->user()?->can('deliberations.saisir') || $request->user()?->can('deliberations.manage') || $request->user()?->hasRole('super-admin'),
         ]);
     }
 
@@ -111,7 +116,7 @@ class ConseilClasseController extends Controller implements HasMiddleware
      */
     public function sauvegarder(Request $request, StatistiqueConseilService $statistiqueService): RedirectResponse
     {
-        abort_if(! $request->user()?->can('deliberations.manage') && ! $request->user()?->hasRole('super-admin'), 403);
+        abort_if(! $request->user()?->can('deliberations.saisir') && ! $request->user()?->can('deliberations.manage') && ! $request->user()?->hasRole('super-admin'), 403);
 
         $validated = $request->validate([
             'classe_id' => 'required|exists:classes,id',
@@ -132,6 +137,11 @@ class ConseilClasseController extends Controller implements HasMiddleware
         ]);
 
         $classe = Classe::with('niveau.cycle.section.etablissement')->findOrFail($validated['classe_id']);
+        $context = $this->resolveEtablissementContext($request);
+        if (! $context['isSuperAdmin'] && (int) $classe->etablissement_id !== (int) $context['etablissementId']) {
+            abort(403, 'Accès non autorisé à une classe d\'un autre établissement.');
+        }
+
         $annee = AnneeScolaire::findOrFail($validated['annee_id']);
         $periode = ! empty($validated['periode_id']) ? Periode::find($validated['periode_id']) : null;
 
@@ -167,6 +177,11 @@ class ConseilClasseController extends Controller implements HasMiddleware
         ]);
 
         $classe = Classe::with('niveau.cycle.section.etablissement')->findOrFail($validated['classe_id']);
+        $context = $this->resolveEtablissementContext($request);
+        if (! $context['isSuperAdmin'] && (int) $classe->etablissement_id !== (int) $context['etablissementId']) {
+            abort(403, 'Accès non autorisé à une classe d\'un autre établissement.');
+        }
+
         $annee = AnneeScolaire::findOrFail($validated['annee_id']);
 
         $count = $statistiqueService->validerPromotions(
@@ -191,6 +206,11 @@ class ConseilClasseController extends Controller implements HasMiddleware
         abort_if(! $request->user()?->can('deliberations.view') && ! $request->user()?->hasRole('super-admin'), 403);
 
         $classe = Classe::with(['niveau.cycle.section.etablissement.institution', 'professeurPrincipal'])->findOrFail($request->integer('classe_id'));
+        $context = $this->resolveEtablissementContext($request);
+        if (! $context['isSuperAdmin'] && (int) $classe->etablissement_id !== (int) $context['etablissementId']) {
+            abort(403, 'Accès non autorisé à une classe d\'un autre établissement.');
+        }
+
         $annee = AnneeScolaire::findOrFail($request->integer('annee_id'));
         $periodeId = $request->integer('periode_id');
         $periode = $periodeId ? Periode::find($periodeId) : null;

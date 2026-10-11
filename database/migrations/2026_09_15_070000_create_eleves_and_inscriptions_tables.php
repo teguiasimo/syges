@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\Schema;
  * Migration pour la création des tables du Module 5 : Élèves & Inscriptions.
  * Conforme au Cahier des Charges Gesco V1.1 (Base Élève Globale, Transferts)
  * et à la documentation SAGEES Schooling (format matricule, filiation, urgences).
+ *
+ * Inclut directement etablissement_id sur inscriptions pour le cloisonnement multi-campus hermétique.
  */
 return new class extends Migration
 {
@@ -36,20 +38,12 @@ return new class extends Migration
             $table->string('photo_url')->nullable()->comment('Chemin vers la photo d\'identité');
 
             // Filiation et Parents / Tuteurs (Gesco 5.1 & 16.1)
-            $table->string('nom_pere')->nullable();
-            $table->string('nom_mere')->nullable();
-            $table->string('nom_tuteur')->nullable();
+            $table->string('nom_pere')->nullable()->comment('Nom complet du père');
+            $table->string('nom_mere')->nullable()->comment('Nom complet de la mère');
+            $table->string('nom_tuteur')->nullable()->comment('Nom complet du tuteur légal');
             $table->string('telephone_parent', 50)->nullable()->index()->comment('Téléphone principal tuteur (identifiant SMS & portail)');
-            $table->string('email_parent')->nullable();
-            $table->string('profession_parent')->nullable();
+            $table->string('email_parent')->nullable()->comment('Email du parent ou tuteur');
             $table->string('adresse')->nullable()->comment('Adresse physique ou quartier de résidence');
-            $table->string('ville')->nullable();
-
-            // Informations Médicales & Contact d'Urgence (SAGEES)
-            $table->string('groupe_sanguin', 10)->nullable();
-            $table->string('contact_urgence_nom')->nullable();
-            $table->string('contact_urgence_telephone', 50)->nullable();
-            $table->text('allergies_conditions')->nullable()->comment('Allergies ou antécédents médicaux particuliers');
 
             // Statut global de la fiche
             $table->boolean('is_active')->default(true);
@@ -57,11 +51,12 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        // 2. Table inscriptions : Liaison annuelle Élève <-> Classe <-> Année Scolaire
+        // 2. Table inscriptions : Liaison annuelle Élève <-> Classe <-> Année Scolaire avec etablissement_id direct
         Schema::create('inscriptions', function (Blueprint $table) {
             $table->id();
 
             // Clés étrangères
+            $table->foreignId('etablissement_id')->nullable()->constrained('etablissements')->cascadeOnDelete();
             $table->foreignId('eleve_id')->constrained('eleves')->cascadeOnDelete();
             $table->foreignId('classe_id')->constrained('classes')->cascadeOnDelete();
             $table->foreignId('annee_scolaire_id')->constrained('annees_scolaires')->cascadeOnDelete();
@@ -89,6 +84,7 @@ return new class extends Migration
             $table->timestamps();
 
             // Index de performance et recherche
+            $table->index(['etablissement_id', 'annee_scolaire_id', 'statut'], 'idx_inscriptions_etab_annee_statut');
             $table->index(['eleve_id', 'annee_scolaire_id']);
             $table->index(['classe_id', 'annee_scolaire_id']);
             $table->index(['statut']);

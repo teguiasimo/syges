@@ -14,7 +14,6 @@ import {
     Mail,
     MapPin,
     Calendar,
-    HeartPulse,
     GraduationCap,
     School,
     ShieldAlert,
@@ -203,56 +202,15 @@ export function EleveDetailDrawer({
                                     <span className="font-semibold text-foreground">{eleve.nom_tuteur}</span>
                                 </div>
                             )}
-                            {eleve.profession_parent && (
-                                <div>
-                                    <span className="text-muted-foreground block text-[11px]">Profession du tuteur :</span>
-                                    <span className="font-semibold text-foreground">{eleve.profession_parent}</span>
-                                </div>
-                            )}
                         </div>
 
-                        {(eleve.adresse || eleve.ville) && (
+                        {eleve.adresse && (
                             <div className="pt-2 border-t border-border/60 flex items-start gap-1.5 text-muted-foreground">
                                 <MapPin className="size-3.5 mt-0.5 shrink-0" />
-                                <span>{eleve.adresse ? `${eleve.adresse}, ` : ''}{eleve.ville}</span>
+                                <span>{eleve.adresse}</span>
                             </div>
                         )}
                     </div>
-                </div>
-
-                {/* 3. Données Médicales & Contact d'Urgence */}
-                <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
-                    <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                        <HeartPulse className="size-4 text-rose-600" />
-                        Fiche Médicale & Urgence
-                    </span>
-
-                    <div className="grid grid-cols-2 gap-3 text-xs pt-1">
-                        <div>
-                            <span className="text-muted-foreground block text-[11px]">Groupe Sanguin :</span>
-                            <Badge variant="outline" className="font-bold text-rose-600 border-rose-200 mt-0.5">
-                                {eleve.groupe_sanguin || 'Inconnu'}
-                            </Badge>
-                        </div>
-                        <div>
-                            <span className="text-muted-foreground block text-[11px]">Contact d'urgence :</span>
-                            <span className="font-semibold text-foreground">
-                                {eleve.contact_urgence_nom || 'Non spécifié'}
-                            </span>
-                            {eleve.contact_urgence_telephone && (
-                                <span className="block font-mono text-muted-foreground">
-                                    {eleve.contact_urgence_telephone}
-                                </span>
-                            )}
-                        </div>
-                    </div>
-
-                    {eleve.allergies_conditions && (
-                        <div className="p-2.5 rounded-xl bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 text-xs text-amber-900 dark:text-amber-200">
-                            <span className="font-semibold block mb-0.5">Allergies / Conditions médicales :</span>
-                            <p>{eleve.allergies_conditions}</p>
-                        </div>
-                    )}
                 </div>
 
                 {/* Boutons d'actions */}

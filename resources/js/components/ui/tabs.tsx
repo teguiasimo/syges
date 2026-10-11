@@ -16,15 +16,37 @@ function useTabs() {
     return context;
 }
 
+/**
+ * Propriétés du composant conteneur Tabs.
+ * Prend en charge à la fois le mode contrôlé (value + onValueChange) et non-contrôlé (defaultValue).
+ */
 interface TabsProps extends React.HTMLAttributes<HTMLDivElement> {
-    value: string;
-    onValueChange: (value: string) => void;
+    /** Valeur active de l'onglet en mode contrôlé */
+    value?: string;
+    /** Valeur initiale de l'onglet en mode non-contrôlé */
+    defaultValue?: string;
+    /** Callback de changement d'onglet */
+    onValueChange?: (value: string) => void;
 }
 
 const Tabs = React.forwardRef<HTMLDivElement, TabsProps>(
-    ({ className, value, onValueChange, children, ...props }, ref) => {
+    ({ className, value: controlledValue, defaultValue, onValueChange, children, ...props }, ref) => {
+        const [uncontrolledValue, setUncontrolledValue] = React.useState<string>(defaultValue || '');
+        const isControlled = controlledValue !== undefined;
+        const activeValue = isControlled ? controlledValue : uncontrolledValue;
+
+        const handleValueChange = React.useCallback(
+            (val: string) => {
+                if (!isControlled) {
+                    setUncontrolledValue(val);
+                }
+                onValueChange?.(val);
+            },
+            [isControlled, onValueChange]
+        );
+
         return (
-            <TabsContext.Provider value={{ value, onValueChange }}>
+            <TabsContext.Provider value={{ value: activeValue, onValueChange: handleValueChange }}>
                 <div ref={ref} className={cn('w-full', className)} {...props}>
                     {children}
                 </div>

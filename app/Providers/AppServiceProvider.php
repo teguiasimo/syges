@@ -31,12 +31,23 @@ class AppServiceProvider extends ServiceProvider
     /**
      * Configure les règles globales d'habilitation et privilèges Gate/Spatie.
      * Le Super Administrateur dispose implicitement de l'intégralité des permissions du système.
+     * Prise en charge native du OU logique par tube ('|') pour les middlewares et contrôles d'habilitation.
      */
     protected function configureGates(): void
     {
         Gate::before(function ($user, string $ability) {
             if ($user->hasRole('super-admin') || $user->email === 'admin@gmail.com') {
                 return true;
+            }
+
+            // Prise en charge universelle du OU logique (ex: 'personnels.delete|personnels.manage')
+            if (str_contains($ability, '|')) {
+                foreach (explode('|', $ability) as $subAbility) {
+                    $trimmed = trim($subAbility);
+                    if ($trimmed !== '' && $user->can($trimmed)) {
+                        return true;
+                    }
+                }
             }
 
             return null;

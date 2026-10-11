@@ -162,9 +162,10 @@ test('un administrateur peut enregistrer un personnel avec matricule séquentiel
 
     $personnel = Personnel::where('nom', 'Yao')->first();
     expect($personnel)->not->toBeNull();
-    // Le matricule doit suivre le format officiel PERS-YYYY-XXXX
+    // Le matricule doit suivre le format officiel multi-tenant PERS-CODE-YYYY-XXXX
     $currentYear = date('Y');
-    expect($personnel->matricule)->toStartWith("PERS-{$currentYear}-");
+    $cleanCode = \Illuminate\Support\Str::upper(preg_replace('/[^A-Za-z0-9]/', '', $this->etablissement->code));
+    expect($personnel->matricule)->toStartWith("PERS-{$cleanCode}-{$currentYear}-");
 });
 
 test('enregistrement simultané d un personnel et de son compte utilisateur SYGES', function () {
@@ -356,3 +357,69 @@ test('gestion complète des départements pédagogiques et attribution de chef',
     expect($enseignant->departement_id)->toBeNull();
     expect($enseignant->exists)->toBeTrue();
 });
+
+test('la page dédiée de création de personnel est accessible aux gestionnaires', function () {
+    /** @var \Tests\TestCase $this */
+    $this->actingAs($this->adminUser);
+
+    $response = $this->get(route('administration.personnels.create'));
+    $response->assertOk();
+    $response->assertInertia(fn ($page) => $page
+        ->component('administration/personnels/create')
+        ->has('etablissements')
+        ->has('departements')
+        ->has('availableUsers')
+        ->has('roles')
+    );
+});
+
+test('l\'enregistrement d\'un personnel avec option create_another redirige vers le formulaire de création', function () {
+    /** @var \Tests\TestCase $this */
+    $this->actingAs($this->adminUser);
+
+    $response = $this->post(route('administration.personnels.store'), [
+        'nom' => 'N\'dri',
+        'prenom' => 'Koffi',
+        'sexe' => 'M',
+        'telephone' => '0707010203',
+        'etablissement_id' => $this->etablissement->id,
+        'fonction_principale' => 'Enseignant',
+        'type_contrat' => 'CDI (Contrat à Durée Indéterminée)',
+        'date_embauche' => '2026-09-01',
+        'statut' => 'Actif',
+        'create_another' => true,
+    ]);
+
+    $response->assertSessionHasNoErrors();
+    $response->assertRedirect(route('administration.personnels.create'));
+    $this->assertDatabaseHas('personnels', [
+        'nom' => 'N\'dri',
+        'prenom' => 'Koffi',
+    ]);
+});
+
+test('l\'enregistrement standard d\'un personnel redirige vers l\'index du personnel', function () {
+    /** @var \Tests\TestCase $this */
+    $this->actingAs($this->adminUser);
+
+    $response = $this->post(route('administration.personnels.store'), [
+        'nom' => 'Brou',
+        'prenom' => 'Aya',
+        'sexe' => 'F',
+        'telephone' => '0505010203',
+        'etablissement_id' => $this->etablissement->id,
+        'fonction_principale' => 'Secrétaire',
+        'type_contrat' => 'CDD (Contrat à Durée Déterminée)',
+        'date_embauche' => '2026-09-01',
+        'statut' => 'Actif',
+        'create_another' => false,
+    ]);
+
+    $response->assertSessionHasNoErrors();
+    $response->assertRedirect(route('administration.personnels.index'));
+    $this->assertDatabaseHas('personnels', [
+        'nom' => 'Brou',
+        'prenom' => 'Aya',
+    ]);
+});
+

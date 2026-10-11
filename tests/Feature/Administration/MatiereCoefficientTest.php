@@ -544,3 +544,273 @@ test('seedStandards creates appropriate pedagogical blocks for specific establis
         'code' => 'DOM-SCI',
     ]);
 });
+
+/**
+ * Teste la protection par permissions de la duplication de grille de coefficients.
+ */
+test('duplicateCoefficients forbids unauthorized users without coefficients.duplicate permission', function () {
+    /** @var \Tests\TestCase $this */
+    $unauthorizedUser = User::factory()->create();
+
+    $niveauSource = Niveau::create([
+        'cycle_id' => $this->niveau->cycle_id,
+        'code' => 'NIV-SRC-PERM',
+        'nom' => 'Niveau Source Perm',
+        'ordre' => 50,
+        'etablissement_id' => $this->etablissement->id,
+    ]);
+    $niveauCible = Niveau::create([
+        'cycle_id' => $this->niveau->cycle_id,
+        'code' => 'NIV-CBL-PERM',
+        'nom' => 'Niveau Cible Perm',
+        'ordre' => 51,
+        'etablissement_id' => $this->etablissement->id,
+    ]);
+
+    $response = $this->actingAs($unauthorizedUser)->post(route('administration.matieres.coefficients.duplicate'), [
+        'source_niveau_id' => $niveauSource->id,
+        'target_niveau_id' => $niveauCible->id,
+    ]);
+
+    $response->assertStatus(403);
+});
+
+/**
+ * Teste la duplication de grille selon le Mode Option 1 (Compléter uniquement les matières manquantes sans écrasement).
+ */
+test('duplicateCoefficients copies only missing subjects preserving existing configuration (Option 1)', function () {
+    /** @var \Tests\TestCase $this */
+    $this->actingAs($this->adminUser);
+
+    $niveauSource = Niveau::create([
+        'cycle_id' => $this->niveau->cycle_id,
+        'code' => 'NIV-SRC-OPT1',
+        'nom' => 'Niveau Source Test',
+        'ordre' => 60,
+        'etablissement_id' => $this->etablissement->id,
+    ]);
+    $niveauCible = Niveau::create([
+        'cycle_id' => $this->niveau->cycle_id,
+        'code' => 'NIV-CBL-OPT1',
+        'nom' => 'Niveau Cible Test',
+        'ordre' => 61,
+        'etablissement_id' => $this->etablissement->id,
+    ]);
+
+    // Matière 1 : Maths
+    $matiere1 = Matiere::create([
+        'code' => 'MATH-DUP-1',
+        'nom' => 'Mathématiques Source',
+        'is_active' => true,
+    ]);
+    // Matière 2 : Français
+    $matiere2 = Matiere::create([
+        'code' => 'FRAN-DUP-2',
+        'nom' => 'Français Source',
+        'is_active' => true,
+    ]);
+
+    // Dans le niveau source : configurer Matière 1 (coeff 4.0) et Matière 2 (coeff 5.0)
+    MatiereNiveau::create([
+        'niveau_id' => $niveauSource->id,
+        'matiere_id' => $matiere1->id,
+        'groupe_matiere_id' => $this->groupe->id,
+        'serie' => 'Toutes',
+        'coefficient' => 4.0,
+        'note_max' => 20.0,
+        'is_facultative' => false,
+        'is_comptabilisee' => true,
+    ]);
+    MatiereNiveau::create([
+        'niveau_id' => $niveauSource->id,
+        'matiere_id' => $matiere2->id,
+        'groupe_matiere_id' => $this->groupe->id,
+        'serie' => 'Toutes',
+        'coefficient' => 5.0,
+        'note_max' => 20.0,
+        'is_facultative' => false,
+        'is_comptabilisee' => true,
+    ]);
+
+    // Dans le niveau cible : configurer déjà Matière 1 avec un coeff personnalisé (3.0)
+    MatiereNiveau::create([
+        'niveau_id' => $niveauCible->id,
+        'matiere_id' => $matiere1->id,
+        'groupe_matiere_id' => $this->groupe->id,
+        'serie' => 'Toutes',
+        'coefficient' => 3.0,
+        'note_max' => 20.0,
+        'is_facultative' => false,
+        'is_comptabilisee' => true,
+    ]);
+
+    // Exécution de la duplication depuis le niveau source vers le niveau cible
+    $response = $this->post(route('administration.matieres.coefficients.duplicate'), [
+        'source_niveau_id' => $niveauSource->id,
+        'target_niveau_id' => $niveauCible->id,
+        'target_serie' => 'Toutes',
+        'scope' => 'all_series',
+    ]);
+
+    $response->assertRedirect();
+    $response->assertSessionHas('success');
+
+    // Vérification Option 1 :
+    // 1. Matière 2 a été copiée avec succès vers le niveau cible
+    $this->assertDatabaseHas('matiere_niveaux', [
+        'niveau_id' => $niveauCible->id,
+        'matiere_id' => $matiere2->id,
+        'coefficient' => 5.0,
+    ]);
+
+    // 2. Matière 1 sur le niveau cible N'A PAS été écrasée : son coefficient 3.0 d'origine est préservé
+    $this->assertDatabaseHas('matiere_niveaux', [
+        'niveau_id' => $niveauCible->id,
+        'matiere_id' => $matiere1->id,
+        'coefficient' => 3.0,
+    ]);
+
+    // 3. Aucune ligne en double n'a été créée pour Matière 1 sur le niveau cible
+    expect(MatiereNiveau::where('niveau_id', $niveauCible->id)->where('matiere_id', $matiere1->id)->count())->toBe(1);
+});
+
+/**
+ * Teste le cloisonnement strict SaaS multi-établissements (Interdiction formelle de duplication inter-campus).
+ */
+test('duplicateCoefficients strictly prevents cross-establishment copying to maintain SaaS isolation', function () {
+    /** @var \Tests\TestCase $this */
+    $this->actingAs($this->adminUser);
+
+    // Établissement Campus A
+    $etabA = $this->etablissement;
+
+    // Établissement Campus B distinct
+    $etabB = \App\Models\Etablissement::firstOrCreate(
+        ['code' => 'CAMPUS-B-SAAS'],
+        [
+            'institution_id' => $this->institution->id,
+            'nom' => 'Lycée Bilingue Campus B',
+            'ordre_enseignement' => 'Secondaire_General',
+        ]
+    );
+
+    // Niveaux respectifs de chaque établissement
+    $niveauCampusA = Niveau::create([
+        'cycle_id' => $this->niveau->cycle_id,
+        'code' => '6EME-A',
+        'nom' => 'Sixième Campus A',
+        'ordre' => 10,
+        'etablissement_id' => $etabA->id,
+    ]);
+
+    $secB = \App\Models\Section::firstOrCreate(
+        ['etablissement_id' => $etabB->id, 'code' => 'SEC-B'],
+        ['nom' => 'Section B Campus B', 'langue' => 'fr']
+    );
+    $cycB = \App\Models\Cycle::firstOrCreate(
+        ['section_id' => $secB->id, 'code' => 'CYC-B'],
+        ['nom' => 'Premier Cycle Campus B', 'ordre' => 1, 'etablissement_id' => $etabB->id]
+    );
+    $niveauCampusB = Niveau::create([
+        'cycle_id' => $cycB->id,
+        'code' => '6EME-B',
+        'nom' => 'Sixième Campus B',
+        'ordre' => 10,
+        'etablissement_id' => $etabB->id,
+    ]);
+
+    // Tentative de duplication de Campus A vers Campus B
+    $response = $this->post(route('administration.matieres.coefficients.duplicate'), [
+        'source_niveau_id' => $niveauCampusA->id,
+        'target_niveau_id' => $niveauCampusB->id,
+    ]);
+
+    // Doit être strictement rejeté avec 403 Forbidden
+    $response->assertStatus(403);
+});
+
+/**
+ * Teste qu'une opération de duplication au sein du Campus A n'impacte pas le Campus B (données 100% neuves et isolées).
+ */
+test('duplicateCoefficients within establishment A does not leak or affect establishment B', function () {
+    /** @var \Tests\TestCase $this */
+    $this->actingAs($this->adminUser);
+
+    $etabA = $this->etablissement;
+    $etabB = \App\Models\Etablissement::firstOrCreate(
+        ['code' => 'CAMPUS-ISOLATED'],
+        [
+            'institution_id' => $this->institution->id,
+            'nom' => 'Collège Isolé Campus B',
+            'ordre_enseignement' => 'Secondaire_General',
+        ]
+    );
+
+    // Campus A : 2 niveaux
+    $niveauA1 = Niveau::create([
+        'cycle_id' => $this->niveau->cycle_id,
+        'code' => 'A1-ISO',
+        'nom' => 'Sixième Campus A',
+        'ordre' => 12,
+        'etablissement_id' => $etabA->id,
+    ]);
+    $niveauA2 = Niveau::create([
+        'cycle_id' => $this->niveau->cycle_id,
+        'code' => 'A2-ISO',
+        'nom' => 'Cinquième Campus A',
+        'ordre' => 13,
+        'etablissement_id' => $etabA->id,
+    ]);
+
+    // Campus B : 1 niveau tout neuf
+    $secB = \App\Models\Section::firstOrCreate(
+        ['etablissement_id' => $etabB->id, 'code' => 'SEC-ISO-B'],
+        ['nom' => 'Section Campus B', 'langue' => 'fr']
+    );
+    $cycB = \App\Models\Cycle::firstOrCreate(
+        ['section_id' => $secB->id, 'code' => 'CYC-ISO-B'],
+        ['nom' => 'Premier Cycle Campus B', 'ordre' => 1, 'etablissement_id' => $etabB->id]
+    );
+    $niveauB = Niveau::create([
+        'cycle_id' => $cycB->id,
+        'code' => 'B-NEUF',
+        'nom' => 'Sixième Tout Neuf Campus B',
+        'ordre' => 10,
+        'etablissement_id' => $etabB->id,
+    ]);
+
+    // Matière configurée sur Niveau A1
+    $matiere = Matiere::create([
+        'code' => 'MATH-ISO',
+        'nom' => 'Mathématiques Campus A',
+        'is_active' => true,
+    ]);
+    MatiereNiveau::create([
+        'niveau_id' => $niveauA1->id,
+        'matiere_id' => $matiere->id,
+        'groupe_matiere_id' => $this->groupe->id,
+        'serie' => 'Toutes',
+        'coefficient' => 4.0,
+        'note_max' => 20.0,
+        'is_facultative' => false,
+        'is_comptabilisee' => true,
+    ]);
+
+    // Duplication au sein de Campus A (A1 -> A2)
+    $response = $this->post(route('administration.matieres.coefficients.duplicate'), [
+        'source_niveau_id' => $niveauA1->id,
+        'target_niveau_id' => $niveauA2->id,
+        'target_serie' => 'Toutes',
+        'scope' => 'all_series',
+    ]);
+    $response->assertRedirect();
+
+    // Vérification : A2 a reçu la matière
+    $this->assertDatabaseHas('matiere_niveaux', [
+        'niveau_id' => $niveauA2->id,
+        'matiere_id' => $matiere->id,
+    ]);
+
+    // Vérification SaaS absolue : Le niveau du Campus B n'a reçu AUCUNE matière, sa grille est vierge (tout neuf)
+    expect(MatiereNiveau::where('niveau_id', $niveauB->id)->count())->toBe(0);
+});

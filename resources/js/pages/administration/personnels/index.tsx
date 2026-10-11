@@ -1,4 +1,4 @@
-import { Head, router } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { type ColumnDef } from '@tanstack/react-table';
 import {
     AlertTriangle,
@@ -17,6 +17,7 @@ import {
     MoreHorizontal,
     Phone,
     Plus,
+    Printer,
     RefreshCw,
     Search,
     Shield,
@@ -57,6 +58,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { useTranslation } from '@/contexts/language-context';
 import type {
     Departement,
@@ -64,7 +66,6 @@ import type {
     PersonnelFilters,
     PersonnelPageProps,
 } from '@/types/personnel';
-import { CreatePersonnelModal } from './modals/create-personnel-modal';
 import { DepartementModal } from './modals/departement-modal';
 import { EditPersonnelModal } from './modals/edit-personnel-modal';
 import { PersonnelDetailDrawer } from './modals/personnel-detail-drawer';
@@ -87,10 +88,13 @@ const FONCTIONS_LISTE = [
  * Types de contrats pour le filtre.
  */
 const CONTRATS_LISTE = [
+    'Permanent',
     'CDI (Contrat à Durée Indéterminée)',
     'CDD (Contrat à Durée Déterminée)',
     'Vacataire / Horaire',
-    'Fonctionnaire détaché',
+    'Fonctionnaire',
+    'Stagiaire',
+    'Prestataire externe',
 ];
 
 /**
@@ -128,7 +132,6 @@ export default function PersonnelsIndex({
     const [activeTab, setActiveTab] = useState<'personnel' | 'departements'>('personnel');
 
     // États d'ouverture des modales
-    const [isCreatePersonnelOpen, setIsCreatePersonnelOpen] = useState(false);
     const [isEditPersonnelOpen, setIsEditPersonnelOpen] = useState(false);
     const [selectedPersonnelForEdit, setSelectedPersonnelForEdit] = useState<Personnel | null>(null);
 
@@ -269,24 +272,26 @@ export default function PersonnelsIndex({
                 header: () => <span className="font-semibold text-xs">Nom & Prénoms</span>,
                 cell: ({ row }) => {
                     const p = row.original;
+                    const fullName = `${p.nom} ${p.prenom || ''}`.trim();
                     return (
-                        <div className="flex items-center gap-2.5">
-                            <div className="size-8 rounded-full bg-teal-100 dark:bg-teal-900/50 text-teal-700 dark:text-teal-300 font-bold text-xs flex items-center justify-center border border-teal-200 dark:border-teal-800">
+                        <div className="flex items-center gap-2.5 min-w-0 max-w-xs">
+                            <div className="size-8 rounded-full bg-teal-100 dark:bg-teal-900/50 text-teal-700 dark:text-teal-300 font-bold text-xs flex items-center justify-center border border-teal-200 dark:border-teal-800 shrink-0">
                                 {p.nom.slice(0, 1)}
                                 {p.prenom ? p.prenom.slice(0, 1) : ''}
                             </div>
-                            <div>
+                            <div className="min-w-0 flex-1">
                                 <button
                                     type="button"
                                     onClick={() => {
                                         setSelectedPersonnelForDetail(p);
                                         setIsDetailOpen(true);
                                     }}
-                                    className="font-medium text-foreground hover:text-teal-600 dark:hover:text-teal-400 hover:underline text-left cursor-pointer text-xs sm:text-sm block"
+                                    className="font-medium text-foreground hover:text-teal-600 dark:hover:text-teal-400 hover:underline text-left cursor-pointer text-xs sm:text-sm block truncate w-full"
+                                    title={fullName}
                                 >
-                                    {p.nom} {p.prenom}
+                                    {fullName}
                                 </button>
-                                <span className="text-[11px] text-muted-foreground">
+                                <span className="text-[11px] text-muted-foreground block truncate">
                                     {p.sexe === 'M' ? 'Homme' : 'Femme'}
                                 </span>
                             </div>
@@ -493,21 +498,11 @@ export default function PersonnelsIndex({
             {
                 accessorKey: 'nom',
                 header: () => <span className="font-semibold text-xs">Nom du Département</span>,
-                cell: ({ row }) => {
-                    const dep = row.original;
-                    return (
-                        <div>
-                            <span className="font-semibold text-sm text-foreground block">
-                                {dep.nom}
-                            </span>
-                            {dep.description && (
-                                <span className="text-xs text-muted-foreground line-clamp-1">
-                                    {dep.description}
-                                </span>
-                            )}
-                        </div>
-                    );
-                },
+                cell: ({ row }) => (
+                    <span className="font-semibold text-sm text-foreground block">
+                        {row.original.nom}
+                    </span>
+                ),
             },
             {
                 id: 'chef',
@@ -515,13 +510,14 @@ export default function PersonnelsIndex({
                 cell: ({ row }) => {
                     const dep = row.original;
                     if (dep.chef_departement) {
+                        const chefName = `${dep.chef_departement.nom} ${dep.chef_departement.prenom || ''}`.trim();
                         return (
-                            <div className="flex items-center gap-2 text-xs font-medium text-foreground">
-                                <div className="size-6 rounded-full bg-teal-100 dark:bg-teal-900/50 text-teal-700 dark:text-teal-300 font-bold text-[10px] flex items-center justify-center">
+                            <div className="flex items-center gap-2 text-xs font-medium text-foreground min-w-0 max-w-xs">
+                                <div className="size-6 rounded-full bg-teal-100 dark:bg-teal-900/50 text-teal-700 dark:text-teal-300 font-bold text-[10px] flex items-center justify-center shrink-0">
                                     {dep.chef_departement.nom.slice(0, 1)}
                                 </div>
-                                <span>
-                                    {dep.chef_departement.nom} {dep.chef_departement.prenom}
+                                <span className="truncate block" title={`${chefName} (${dep.chef_departement.matricule})`}>
+                                    {chefName}
                                 </span>
                             </div>
                         );
@@ -624,6 +620,23 @@ export default function PersonnelsIndex({
                     </div>
 
                     <div className="flex items-center gap-2.5 flex-wrap">
+                        {/* Impression officielle de la liste du personnel */}
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => {
+                                const url = filterEtablissement && filterEtablissement !== 'all'
+                                    ? `/administration/documents/liste-personnel?etablissement_id=${filterEtablissement}`
+                                    : '/administration/documents/liste-personnel';
+                                window.open(url, '_blank');
+                            }}
+                            className="cursor-pointer font-medium text-xs sm:text-sm border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800"
+                            title="Imprimer la liste officielle du personnel et corps enseignant (PDF)"
+                        >
+                            <Printer className="size-4 mr-1.5 text-teal-600" />
+                            <span>Liste du personnel (PDF)</span>
+                        </Button>
+
                         {can.departements && (
                             <Button
                                 type="button"
@@ -641,12 +654,13 @@ export default function PersonnelsIndex({
 
                         {can.manage && (
                             <Button
-                                type="button"
-                                onClick={() => setIsCreatePersonnelOpen(true)}
+                                asChild
                                 className="bg-teal-600 hover:bg-teal-700 text-white cursor-pointer font-semibold shadow-sm text-xs sm:text-sm"
                             >
-                                <UserPlus className="size-4 mr-1.5" />
-                                Nouveau personnel
+                                <Link href="/administration/personnels/create">
+                                    <UserPlus className="size-4 mr-1.5" />
+                                    Nouveau personnel
+                                </Link>
                             </Button>
                         )}
                     </div>
@@ -740,6 +754,24 @@ export default function PersonnelsIndex({
                         <DataTable
                             columns={personnelColumns}
                             data={filteredPersonnels}
+                            initialPageSize={20}
+                            initialColumnVisibility={{
+                                fonction_principale: false,
+                                compte_syges: false,
+                                statut: false,
+                            }}
+                            showColumnVisibilityToggle={true}
+                            columnLabels={{
+                                matricule: 'Matricule',
+                                nom_complet: 'Nom & Prénoms',
+                                fonction_principale: 'Fonction & Contrat',
+                                'etablissement.nom': 'Établissement & Dpt',
+                                charge_enseignement: 'Enseignement',
+                                telephone: 'Contact',
+                                compte_syges: 'Compte SYGES',
+                                statut: 'Statut',
+                                actions: 'Actions',
+                            }}
                             searchPlaceholder="Rechercher par nom, matricule, téléphone..."
                             filterSlot={
                                 <div className="flex flex-wrap items-center gap-2">
@@ -761,24 +793,25 @@ export default function PersonnelsIndex({
                                         </SelectContent>
                                     </Select>
 
-                                    {/* Filtre Département */}
-                                    <Select
-                                        value={filterDepartement}
-                                        onValueChange={setFilterDepartement}
-                                    >
-                                        <SelectTrigger className="h-9 w-37.5 text-xs bg-card">
-                                            <SelectValue placeholder="Département" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="all">Tous les départements</SelectItem>
-                                            <SelectItem value="none">Sans département</SelectItem>
-                                            {departements.map((d) => (
-                                                <SelectItem key={d.id} value={String(d.id)}>
-                                                    {d.code || d.nom}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                    {/* Filtre Département avec zone de recherche intégrée */}
+                                    <div className="w-52">
+                                        <SearchableSelect
+                                            options={[
+                                                { value: 'all', label: 'Tous les départements', group: 'Général' },
+                                                { value: 'none', label: 'Sans département', group: 'Général' },
+                                                ...departements.map((d) => ({
+                                                    value: String(d.id),
+                                                    label: d.nom + (d.code ? ` (${d.code})` : ''),
+                                                    group: 'Départements',
+                                                })),
+                                            ]}
+                                            value={filterDepartement}
+                                            onValueChange={setFilterDepartement}
+                                            placeholder="Tous les départements"
+                                            searchPlaceholder="Rechercher dpt..."
+                                            className="h-9 text-xs bg-card"
+                                        />
+                                    </div>
 
                                     {/* Filtre Fonction */}
                                     <Select
@@ -844,21 +877,12 @@ export default function PersonnelsIndex({
                         <DataTable
                             columns={departementColumns}
                             data={departements}
+                            initialPageSize={20}
                             searchPlaceholder="Rechercher un département..."
                         />
                     </div>
                 )}
             </div>
-
-            {/* MODALE DE CRÉATION DE PERSONNEL */}
-            <CreatePersonnelModal
-                isOpen={isCreatePersonnelOpen}
-                onClose={() => setIsCreatePersonnelOpen(false)}
-                etablissements={etablissements}
-                departements={departements}
-                availableUsers={availableUsers}
-                roles={roles}
-            />
 
             {/* MODALE DE MODIFICATION DE PERSONNEL */}
             <EditPersonnelModal

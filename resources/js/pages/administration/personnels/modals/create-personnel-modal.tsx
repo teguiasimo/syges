@@ -82,11 +82,12 @@ const FONCTIONS_PREDEFINIES = [
  * Types de contrats de travail usuels.
  */
 const TYPES_CONTRAT = [
+    'Permanent',
     'CDI (Contrat à Durée Indéterminée)',
     'CDD (Contrat à Durée Déterminée)',
     'Vacataire / Horaire',
-    'Fonctionnaire détaché',
-    'Stage / Période d\'essai',
+    'Fonctionnaire',
+    'Stagiaire',
     'Prestataire externe',
 ];
 
@@ -675,14 +676,13 @@ export function CreatePersonnelModal({
                                 <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
                                     <div>
                                         <Label htmlFor="user_login" className="text-xs font-semibold">
-                                            Identifiant de connexion (Login) <span className="text-rose-500">*</span>
+                                            Identifiant (Login)
                                         </Label>
                                         <Input
                                             id="user_login"
-                                            required={accountMode === 'create'}
                                             value={data.user_login}
                                             onChange={(e) => setData('user_login', e.target.value)}
-                                            placeholder="ex: jkouassi23"
+                                            placeholder="Défaut : matricule"
                                             className="mt-1 h-9 text-sm bg-background font-mono"
                                         />
                                         {errors.user_login && <p className="text-rose-500 text-xs mt-1">{errors.user_login}</p>}
@@ -705,14 +705,14 @@ export function CreatePersonnelModal({
 
                                     <div>
                                         <Label htmlFor="user_password" className="text-xs font-semibold">
-                                            Mot de passe provisoire
+                                            Mot de passe initial
                                         </Label>
                                         <Input
                                             id="user_password"
                                             type="text"
                                             value={data.user_password}
                                             onChange={(e) => setData('user_password', e.target.value)}
-                                            placeholder="Défaut : syges2026"
+                                            placeholder="Défaut : matricule"
                                             className="mt-1 h-9 text-sm bg-background font-mono"
                                         />
                                     </div>

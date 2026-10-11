@@ -78,11 +78,12 @@ const FONCTIONS_PREDEFINIES = [
  * Types de contrats de travail usuels.
  */
 const TYPES_CONTRAT = [
+    'Permanent',
     'CDI (Contrat à Durée Indéterminée)',
     'CDD (Contrat à Durée Déterminée)',
     'Vacataire / Horaire',
-    'Fonctionnaire détaché',
-    'Stage / Période d\'essai',
+    'Fonctionnaire',
+    'Stagiaire',
     'Prestataire externe',
 ];
 

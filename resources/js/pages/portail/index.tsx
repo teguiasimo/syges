@@ -378,7 +378,7 @@ export default function PortailParentIndex({
                             onValueChange={(val: string) => handleNavigation({ tab: val })}
                             className="w-full"
                         >
-                            <TabsList className="grid grid-cols-4 max-w-2xl mb-4">
+                            <TabsList className="grid grid-cols-2 sm:grid-cols-4 w-full max-w-2xl mb-4 h-auto p-1 gap-1">
                                 <TabsTrigger value="academique" className="text-xs gap-1.5">
                                     <BookOpen className="size-3.5" />
                                     Notes & Bulletins

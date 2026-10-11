@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Concerns\BelongsToEtablissement;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -26,7 +27,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class FraisScolaire extends Model
 {
-    use HasFactory;
+    use HasFactory, BelongsToEtablissement;
 
     /**
      * Nom de la table associée dans la base de données.
@@ -73,15 +74,6 @@ class FraisScolaire extends Model
         return $this->belongsTo(AnneeScolaire::class);
     }
 
-    /**
-     * Relation vers l'établissement scolaire.
-     *
-     * @return BelongsTo<Etablissement, FraisScolaire>
-     */
-    public function etablissement(): BelongsTo
-    {
-        return $this->belongsTo(Etablissement::class);
-    }
 
     /**
      * Relation vers le niveau académique.

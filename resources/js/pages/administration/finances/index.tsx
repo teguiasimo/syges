@@ -10,17 +10,22 @@ import {
     Unlock,
     Plus,
     Printer,
-    AlertTriangle,
     Search,
     ShieldCheck,
-    CheckCircle2,
     Calendar,
     Wallet,
     CreditCard,
     Smartphone,
     Award,
     Trash2,
-    School,
+    Edit,
+    Building2,
+    Tag,
+    Clock,
+    CalendarClock,
+    AlertCircle,
+    CheckCircle2,
+    Percent,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDate } from '@/lib/utils';
@@ -44,18 +49,34 @@ import {
     TypeFrais,
     VersementCaisse,
     ClotureCaisse,
+    Caisse,
+    ReglementDivers,
+    BourseRemise,
+    ModeleEcheance,
+    PenaliteConfiguration,
 } from '@/types/finance';
 import NouveauVersementModal from './modals/nouveau-versement-modal';
 import RemiseBourseModal from './modals/remise-bourse-modal';
 import AnnulerVersementModal from './modals/annuler-versement-modal';
 import ClotureCaisseModal from './modals/cloture-caisse-modal';
 import TarifModal from './modals/tarif-modal';
+import NouveauReglementDiversModal from './modals/nouveau-reglement-divers-modal';
+import NouvelleCaisseModal from './modals/nouvelle-caisse-modal';
+import ModeleBourseModal from './modals/modele-bourse-modal';
+import AttribuerBourseModal from './modals/attribuer-bourse-modal';
+import ModeleEcheanceModal from './modals/modele-echeance-modal';
+import ConfigurationPenaliteModal from './modals/configuration-penalite-modal';
 
 interface FinancesIndexProps {
     versements: VersementCaisse[];
     comptes: CompteFinancierEleve[];
     typesFrais: TypeFrais[];
     tarifs: FraisScolaire[];
+    caisses: Caisse[];
+    reglementsDivers: ReglementDivers[];
+    boursesRemises: BourseRemise[];
+    modelesEcheances: ModeleEcheance[];
+    penalitesConfigurations: PenaliteConfiguration[];
     journalDuJour: JournalDuJour;
     historiqueClotures: ClotureCaisse[];
     classes: { id: number; nom: string }[];
@@ -69,9 +90,9 @@ interface FinancesIndexProps {
 }
 
 /**
- * Vue principale du Module 11 : Gestion de la Caisse & Paiements (Gesco V1.1).
- * Conforme aux règles SYGES : TanStack Table intégrée, toasts verts en haut à droite,
- * journal comptable infalsifiable, reçus sécurisés et verrou de solvabilité.
+ * Vue principale du Module 11 : Gestion de la Caisse & Paiements (Gesco V1.1 & Aurore).
+ * Conforme aux règles SYGES : TanStack Table intégrée, toasts en haut à droite,
+ * dates jj-mm-aaaa, journal comptable infalsifiable, reçus sécurisés et verrou de solvabilité.
  *
  * @param {FinancesIndexProps} props
  * @returns {JSX.Element}
@@ -81,37 +102,53 @@ export default function FinancesIndex({
     comptes,
     typesFrais,
     tarifs,
+    caisses,
+    reglementsDivers,
+    boursesRemises,
+    modelesEcheances,
+    penalitesConfigurations,
     journalDuJour,
     historiqueClotures,
     classes,
     niveaux,
+    caissiers,
     etablissements,
     currentEtablissement,
     currentAnnee,
     filters,
 }: FinancesIndexProps) {
-    const [activeTab, setActiveTab] = useState<'versements' | 'comptes' | 'journal' | 'tarifs'>(
-        (filters.tab as any) || 'versements'
-    );
+    const [activeTab, setActiveTab] = useState<
+        'versements' | 'comptes' | 'reglements_divers' | 'caisses' | 'bourses_remises' | 'echeances_penalites' | 'tarifs' | 'journal'
+    >((filters.tab as any) || 'versements');
 
     // Boîte de dialogue unifiée de confirmation de suppression
     const { confirmDelete, ConfirmDialog } = useConfirmDelete();
 
-    // États des modales
+    // États des modales existantes
     const [isVersementModalOpen, setIsVersementModalOpen] = useState(false);
     const [selectedCompteForPayment, setSelectedCompteForPayment] = useState<number | null>(null);
-    const [compteForBourse, setCompteForBourse] = useState<CompteFinancierEleve | null>(null);
+    const [compteForAjustement, setCompteForAjustement] = useState<CompteFinancierEleve | null>(null);
     const [versementToCancel, setVersementToCancel] = useState<VersementCaisse | null>(null);
     const [isClotureModalOpen, setIsClotureModalOpen] = useState(false);
     const [isTarifModalOpen, setIsTarifModalOpen] = useState(false);
 
+    // États des nouvelles modales Aurore
+    const [isReglementDiversModalOpen, setIsReglementDiversModalOpen] = useState(false);
+    const [isCaisseModalOpen, setIsCaisseModalOpen] = useState(false);
+    const [caisseToEdit, setCaisseToEdit] = useState<Caisse | null>(null);
+    const [isModeleBourseModalOpen, setIsModeleBourseModalOpen] = useState(false);
+    const [bourseToEdit, setBourseToEdit] = useState<BourseRemise | null>(null);
+    const [isAttribuerBourseModalOpen, setIsAttribuerBourseModalOpen] = useState(false);
+    const [compteForBourseAttribution, setCompteForBourseAttribution] = useState<CompteFinancierEleve | null>(null);
+    const [isModeleEcheanceModalOpen, setIsModeleEcheanceModalOpen] = useState(false);
+    const [isConfigPenaliteModalOpen, setIsConfigPenaliteModalOpen] = useState(false);
+
     // Filtres locaux
-    const [searchVersement, setSearchVersement] = useState(filters.search || '');
     const [searchCompte, setSearchCompte] = useState(filters.search_compte || '');
     const [selectedClasse, setSelectedClasse] = useState(filters.classe_id ? String(filters.classe_id) : 'all');
     const [selectedStatutFinancier, setSelectedStatutFinancier] = useState(filters.statut_financier || 'all');
 
-    // 1. Définition des colonnes TanStack Table pour les Versements
+    // 1. Colonnes TanStack Table pour les Versements
     const versementsColumns = useMemo<ColumnDef<VersementCaisse>[]>(() => [
         {
             accessorKey: 'reference_recu',
@@ -124,34 +161,22 @@ export default function FinancesIndex({
         },
         {
             accessorKey: 'date_versement',
-            header: 'Date & Heure',
-            cell: ({ row }) => {
-                const d = new Date(row.original.date_versement);
-                return (
-                    <div className="text-xs">
-                        <span className="font-medium text-slate-700 dark:text-slate-300">
-                            {d.toLocaleDateString('fr-FR')}
-                        </span>
-                        <span className="text-slate-400 block text-[11px]">
-                            {d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                    </div>
-                );
-            },
+            header: 'Date',
+            cell: ({ row }) => <span className="text-xs">{formatDate(row.original.date_versement)}</span>,
         },
         {
             id: 'eleve',
-            header: 'Élève & Classe',
+            header: 'Élève / Classe',
             cell: ({ row }) => {
                 const eleve = row.original.compte_financier?.eleve;
-                const classe = row.original.inscription?.classe;
+                const classe = row.original.inscription?.classe?.nom ?? 'N/A';
                 return (
                     <div>
-                        <div className="font-semibold text-xs text-slate-800 dark:text-slate-200">
+                        <div className="font-medium text-xs text-slate-800 dark:text-slate-200">
                             {eleve?.nom} {eleve?.prenom}
                         </div>
-                        <div className="text-[11px] text-slate-500">
-                            Mat: {eleve?.matricule} • Classe: <span className="font-medium">{classe?.nom ?? 'N/A'}</span>
+                        <div className="text-[10px] text-slate-500">
+                            Mat: {eleve?.matricule} | {classe}
                         </div>
                     </div>
                 );
@@ -159,51 +184,30 @@ export default function FinancesIndex({
         },
         {
             accessorKey: 'montant_total',
-            header: () => <div className="text-right">Montant (FCFA)</div>,
+            header: () => <div className="text-right">Montant</div>,
             cell: ({ row }) => (
-                <div className="text-right font-bold text-xs text-emerald-600 dark:text-emerald-400">
+                <div className="text-right font-bold text-xs text-emerald-600">
                     {Number(row.original.montant_total).toLocaleString('fr-FR')} FCFA
                 </div>
             ),
         },
         {
             accessorKey: 'mode_paiement',
-            header: 'Mode Règlement',
-            cell: ({ row }) => {
-                const mode = row.original.mode_paiement;
-                switch (mode) {
-                    case 'especes':
-                        return <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px]">Espèces</Badge>;
-                    case 'mobile_money_manuel':
-                        return <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-[10px]">Mobile Money</Badge>;
-                    case 'virement':
-                        return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-[10px]">Virement</Badge>;
-                    case 'cheque':
-                        return <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 text-[10px]">Chèque</Badge>;
-                    default:
-                        return <Badge variant="outline">{mode}</Badge>;
-                }
-            },
-        },
-        {
-            accessorKey: 'recu_par',
-            header: 'Encaissé par',
+            header: 'Mode',
             cell: ({ row }) => (
-                <span className="text-xs text-slate-600 dark:text-slate-400">
-                    {row.original.recu_par || 'Service Intendance'}
-                </span>
+                <Badge variant="outline" className="text-[10px] uppercase">
+                    {row.original.mode_paiement.replace('_', ' ')}
+                </Badge>
             ),
         },
         {
             accessorKey: 'statut',
             header: 'Statut',
             cell: ({ row }) => {
-                const isAnnule = row.original.statut === 'annule';
-                return isAnnule ? (
-                    <Badge variant="destructive" className="text-[10px]">Annulé</Badge>
-                ) : (
-                    <Badge variant="secondary" className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 text-[10px]">
-                        Validé
+                const s = row.original.statut;
+                return (
+                    <Badge variant={s === 'valide' ? 'default' : 'destructive'} className="text-[10px]">
+                        {s === 'valide' ? 'Validé' : 'Annulé'}
                     </Badge>
                 );
             },
@@ -216,19 +220,18 @@ export default function FinancesIndex({
                 return (
                     <div className="flex items-center justify-end gap-1.5">
                         <Button
-                            variant="outline"
+                            variant="ghost"
                             size="sm"
-                            className="h-7 text-xs flex items-center gap-1 text-slate-700 hover:text-slate-900"
+                            className="h-7 text-xs flex items-center gap-1 text-slate-600 hover:text-emerald-700"
                             onClick={() => window.open(`/administration/finances/versements/${v.id}/recu`, '_blank')}
                         >
-                            <Printer className="w-3.5 h-3.5 text-blue-600" />
-                            Reçu PDF
+                            <Printer className="w-3.5 h-3.5" /> Reçu
                         </Button>
                         {v.statut === 'valide' && (
                             <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-7 text-xs text-red-500 hover:text-red-700 hover:bg-red-50"
+                                className="h-7 text-xs text-red-500 hover:text-red-700"
                                 onClick={() => setVersementToCancel(v)}
                             >
                                 Annuler
@@ -240,7 +243,7 @@ export default function FinancesIndex({
         },
     ], []);
 
-    // 2. Définition des colonnes TanStack Table pour les Comptes Élèves
+    // 2. Colonnes TanStack Table pour les Comptes Élèves
     const comptesColumns = useMemo<ColumnDef<CompteFinancierEleve>[]>(() => [
         {
             accessorKey: 'eleve.matricule',
@@ -338,21 +341,32 @@ export default function FinancesIndex({
                         <Button
                             variant="outline"
                             size="sm"
-                            className="h-7 text-xs text-emerald-700 hover:text-emerald-900 border-emerald-300 hover:bg-emerald-50"
+                            className="h-7 text-xs flex items-center gap-1 text-emerald-700 hover:bg-emerald-50"
                             onClick={() => {
                                 setSelectedCompteForPayment(c.id);
                                 setIsVersementModalOpen(true);
                             }}
                         >
-                            <DollarSign className="w-3.5 h-3.5 mr-0.5" /> Encaisser
+                            <DollarSign className="w-3.5 h-3.5" /> Encaisser
                         </Button>
                         <Button
                             variant="ghost"
                             size="sm"
-                            className="h-7 text-xs text-indigo-600 hover:text-indigo-800"
-                            onClick={() => setCompteForBourse(c)}
+                            className="h-7 text-xs flex items-center gap-1 text-indigo-700 hover:bg-indigo-50"
+                            onClick={() => {
+                                setCompteForBourseAttribution(c);
+                                setIsAttribuerBourseModalOpen(true);
+                            }}
                         >
-                            <Award className="w-3.5 h-3.5 mr-0.5" /> Bourse
+                            <Award className="w-3.5 h-3.5" /> Bourse
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-xs text-slate-500 hover:text-slate-800"
+                            onClick={() => setCompteForAjustement(c)}
+                        >
+                            Ajuster
                         </Button>
                     </div>
                 );
@@ -360,56 +374,389 @@ export default function FinancesIndex({
         },
     ], []);
 
-    // 3. Définition des colonnes TanStack Table pour la Matrice Tarifaire
-    const tarifsColumns = useMemo<ColumnDef<FraisScolaire>[]>(() => [
+    // 3. Colonnes TanStack Table pour les Règlements Divers (Aurore §4.2)
+    const reglementsDiversColumns = useMemo<ColumnDef<ReglementDivers>[]>(() => [
         {
-            id: 'niveau',
-            header: 'Niveau',
+            accessorKey: 'reference_recu',
+            header: 'N° Reçu',
             cell: ({ row }) => (
-                <span className="font-semibold text-xs">{row.original.niveau?.nom ?? 'N/A'}</span>
+                <span className="font-mono font-bold text-xs text-slate-800 dark:text-slate-200">
+                    {row.original.reference_recu}
+                </span>
             ),
         },
         {
-            accessorKey: 'serie',
-            header: 'Série / Filière',
+            accessorKey: 'date_reglement',
+            header: 'Date',
+            cell: ({ row }) => <span className="text-xs">{formatDate(row.original.date_reglement)}</span>,
+        },
+        {
+            accessorKey: 'payeur_nom',
+            header: 'Payeur / Bénéficiaire',
             cell: ({ row }) => (
-                <span className="text-xs text-slate-600">{row.original.serie || 'Toutes séries (Défaut)'}</span>
+                <div>
+                    <div className="font-semibold text-xs text-slate-800 dark:text-slate-200">
+                        {row.original.payeur_nom}
+                    </div>
+                    {row.original.payeur_telephone && (
+                        <div className="text-[10px] text-slate-500">{row.original.payeur_telephone}</div>
+                    )}
+                </div>
             ),
         },
         {
-            id: 'type_frais',
-            header: 'Type de Frais',
+            accessorKey: 'categorie',
+            header: 'Catégorie',
             cell: ({ row }) => (
-                <span className="text-xs font-medium">{row.original.type_frais?.libelle ?? 'Frais'}</span>
-            ),
-        },
-        {
-            accessorKey: 'tranche_numero',
-            header: 'Tranche',
-            cell: ({ row }) => (
-                <Badge variant="outline" className="text-[10px]">
-                    {row.original.libelle_tranche || `Tranche ${row.original.tranche_numero}`}
+                <Badge variant="secondary" className="text-[10px] uppercase">
+                    {row.original.categorie}
                 </Badge>
             ),
         },
         {
+            accessorKey: 'libelle',
+            header: 'Désignation',
+            cell: ({ row }) => <span className="text-xs font-medium">{row.original.libelle}</span>,
+        },
+        {
             accessorKey: 'montant',
-            header: () => <div className="text-right">Montant (FCFA)</div>,
+            header: () => <div className="text-right">Montant</div>,
             cell: ({ row }) => (
-                <div className="text-right font-bold text-xs">
+                <div className="text-right font-bold text-xs text-emerald-600">
                     {Number(row.original.montant).toLocaleString('fr-FR')} FCFA
                 </div>
             ),
         },
         {
-            accessorKey: 'date_limite',
-            header: 'Échéance',
+            id: 'caisse',
+            header: 'Caisse',
+            cell: ({ row }) => (
+                <span className="text-xs text-slate-600">{row.original.caisse?.nom ?? 'Caisse Principale'}</span>
+            ),
+        },
+        {
+            accessorKey: 'statut',
+            header: 'Statut',
             cell: ({ row }) => {
-                const dl = row.original.date_limite;
+                const s = row.original.statut;
                 return (
-                    <span className="text-xs text-slate-500">
-                        {dl ? formatDate(dl) : 'Sans date limite'}
+                    <Badge variant={s === 'valide' ? 'default' : 'destructive'} className="text-[10px]">
+                        {s === 'valide' ? 'Validé' : 'Annulé'}
+                    </Badge>
+                );
+            },
+        },
+        {
+            id: 'actions',
+            header: () => <div className="text-right">Actions</div>,
+            cell: ({ row }) => {
+                const r = row.original;
+                return (
+                    <div className="flex items-center justify-end gap-1.5">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-xs flex items-center gap-1 text-slate-600 hover:text-emerald-700"
+                            onClick={() => window.open(`/administration/finances/reglements-divers/${r.id}/recu`, '_blank')}
+                        >
+                            <Printer className="w-3.5 h-3.5" /> Reçu
+                        </Button>
+                        {r.statut === 'valide' && (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 text-xs text-red-500 hover:text-red-700"
+                                onClick={() => {
+                                    confirmDelete({
+                                        title: 'Annuler ce règlement divers',
+                                        itemType: 'le règlement',
+                                        itemName: r.reference_recu,
+                                        description: 'Êtes-vous sûr de vouloir annuler cette écriture de recette ? Cette opération est irréversible.',
+                                        onConfirm: () => {
+                                            router.post(`/administration/finances/reglements-divers/${r.id}/annuler`, {
+                                                motif_annulation: 'Annulation administrative à la demande du responsable',
+                                            }, {
+                                                onSuccess: () => toast.success('Règlement divers annulé.'),
+                                            });
+                                        },
+                                    });
+                                }}
+                            >
+                                Annuler
+                            </Button>
+                        )}
+                    </div>
+                );
+            },
+        },
+    ], []);
+
+    // 4. Colonnes TanStack Table pour les Caisses Multiples (Aurore §3.20)
+    const caissesColumns = useMemo<ColumnDef<Caisse>[]>(() => [
+        {
+            accessorKey: 'code',
+            header: 'Code',
+            cell: ({ row }) => <span className="font-mono font-bold text-xs">{row.original.code}</span>,
+        },
+        {
+            accessorKey: 'nom',
+            header: 'Nom de la Caisse',
+            cell: ({ row }) => (
+                <div>
+                    <div className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                        {row.original.nom}
+                    </div>
+                    {row.original.description && (
+                        <div className="text-[10px] text-slate-500">{row.original.description}</div>
+                    )}
+                </div>
+            ),
+        },
+        {
+            accessorKey: 'is_principale',
+            header: 'Rôle',
+            cell: ({ row }) => (
+                row.original.is_principale ? (
+                    <Badge className="bg-blue-600 text-white text-[10px]">Caisse Principale</Badge>
+                ) : (
+                    <Badge variant="outline" className="text-[10px]">Caisse Annexe</Badge>
+                )
+            ),
+        },
+        {
+            id: 'responsable',
+            header: 'Responsable',
+            cell: ({ row }) => {
+                const resp = row.original.responsable;
+                return (
+                    <span className="text-xs text-slate-600">
+                        {resp ? `${resp.nom} ${resp.prenom}` : 'Non assigné'}
                     </span>
+                );
+            },
+        },
+        {
+            accessorKey: 'solde_initial',
+            header: () => <div className="text-right">Solde Ouverture</div>,
+            cell: ({ row }) => (
+                <div className="text-right text-xs font-medium">
+                    {Number(row.original.solde_initial).toLocaleString('fr-FR')} FCFA
+                </div>
+            ),
+        },
+        {
+            accessorKey: 'is_active',
+            header: 'Statut',
+            cell: ({ row }) => (
+                <Badge variant={row.original.is_active ? 'default' : 'secondary'} className="text-[10px]">
+                    {row.original.is_active ? 'Active' : 'Inactive'}
+                </Badge>
+            ),
+        },
+        {
+            id: 'actions',
+            header: () => <div className="text-right">Actions</div>,
+            cell: ({ row }) => {
+                const c = row.original;
+                return (
+                    <div className="flex items-center justify-end gap-1.5">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-xs text-slate-600 hover:text-blue-600"
+                            onClick={() => {
+                                setCaisseToEdit(c);
+                                setIsCaisseModalOpen(true);
+                            }}
+                        >
+                            <Edit className="w-3.5 h-3.5" />
+                        </Button>
+                        {!c.is_principale && (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 text-xs text-red-500 hover:text-red-700"
+                                onClick={() => {
+                                    confirmDelete({
+                                        title: 'Supprimer la caisse',
+                                        itemType: 'la caisse',
+                                        itemName: c.nom,
+                                        description: 'Êtes-vous sûr de vouloir supprimer cette caisse ?',
+                                        onConfirm: () => {
+                                            router.delete(`/administration/finances/caisses/${c.id}`, {
+                                                onSuccess: () => toast.success('Caisse supprimée avec succès.'),
+                                            });
+                                        },
+                                    });
+                                }}
+                            >
+                                <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                        )}
+                    </div>
+                );
+            },
+        },
+    ], []);
+
+    // 5. Colonnes TanStack Table pour les Modèles de Bourses & Remises (Aurore §3.19, §3.21, §3.25)
+    const boursesRemisesColumns = useMemo<ColumnDef<BourseRemise>[]>(() => [
+        {
+            accessorKey: 'code',
+            header: 'Code',
+            cell: ({ row }) => <span className="font-mono font-bold text-xs">{row.original.code}</span>,
+        },
+        {
+            accessorKey: 'nom',
+            header: 'Libellé du modèle',
+            cell: ({ row }) => (
+                <div>
+                    <div className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                        {row.original.nom}
+                    </div>
+                    {row.original.description && (
+                        <div className="text-[10px] text-slate-500">{row.original.description}</div>
+                    )}
+                </div>
+            ),
+        },
+        {
+            accessorKey: 'type',
+            header: 'Type',
+            cell: ({ row }) => (
+                <Badge className={row.original.type === 'bourse' ? 'bg-purple-600 text-white text-[10px]' : 'bg-indigo-600 text-white text-[10px]'}>
+                    {row.original.type === 'bourse' ? 'Bourse d\'études' : 'Remise'}
+                </Badge>
+            ),
+        },
+        {
+            accessorKey: 'categorie',
+            header: 'Catégorie',
+            cell: ({ row }) => (
+                <Badge variant="outline" className="text-[10px] uppercase">
+                    {row.original.categorie}
+                </Badge>
+            ),
+        },
+        {
+            accessorKey: 'valeur',
+            header: () => <div className="text-right">Taux / Montant</div>,
+            cell: ({ row }) => {
+                const b = row.original;
+                return (
+                    <div className="text-right text-xs font-bold text-slate-800 dark:text-slate-200">
+                        {b.mode_calcul === 'pourcentage'
+                            ? `${b.valeur} %`
+                            : `${Number(b.valeur).toLocaleString('fr-FR')} FCFA`}
+                    </div>
+                );
+            },
+        },
+        {
+            id: 'cible',
+            header: 'Application',
+            cell: ({ row }) => {
+                const b = row.original;
+                return (
+                    <span className="text-xs text-slate-600">
+                        {b.niveau?.nom ?? 'Tous niveaux'} {b.type_frais ? `(${b.type_frais.libelle})` : ''}
+                    </span>
+                );
+            },
+        },
+        {
+            accessorKey: 'is_active',
+            header: 'Statut',
+            cell: ({ row }) => (
+                <Badge variant={row.original.is_active ? 'default' : 'secondary'} className="text-[10px]">
+                    {row.original.is_active ? 'Actif' : 'Inactif'}
+                </Badge>
+            ),
+        },
+        {
+            id: 'actions',
+            header: () => <div className="text-right">Actions</div>,
+            cell: ({ row }) => {
+                const b = row.original;
+                return (
+                    <div className="flex items-center justify-end gap-1.5">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-xs text-slate-600 hover:text-blue-600"
+                            onClick={() => {
+                                setBourseToEdit(b);
+                                setIsModeleBourseModalOpen(true);
+                            }}
+                        >
+                            <Edit className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-xs text-red-500 hover:text-red-700"
+                            onClick={() => {
+                                confirmDelete({
+                                    title: 'Supprimer ce modèle',
+                                    itemType: 'le modèle',
+                                    itemName: b.nom,
+                                    description: 'Êtes-vous sûr de vouloir supprimer ce modèle de bourse/remise ?',
+                                    onConfirm: () => {
+                                        router.delete(`/administration/finances/bourses-remises/${b.id}`, {
+                                            onSuccess: () => toast.success('Modèle supprimé.'),
+                                        });
+                                    },
+                                });
+                            }}
+                        >
+                            <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                    </div>
+                );
+            },
+        },
+    ], []);
+
+    // 6. Colonnes TanStack Table pour les Échéanciers Calendaires (Aurore §3.24)
+    const modelesEcheancesColumns = useMemo<ColumnDef<ModeleEcheance>[]>(() => [
+        {
+            accessorKey: 'nom',
+            header: 'Nom de l\'Échéancier',
+            cell: ({ row }) => (
+                <div>
+                    <div className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                        {row.original.nom}
+                    </div>
+                    {row.original.description && (
+                        <div className="text-[10px] text-slate-500">{row.original.description}</div>
+                    )}
+                </div>
+            ),
+        },
+        {
+            accessorKey: 'is_default',
+            header: 'Défaut',
+            cell: ({ row }) => (
+                row.original.is_default ? (
+                    <Badge className="bg-emerald-600 text-white text-[10px]">Actif par défaut</Badge>
+                ) : (
+                    <span className="text-xs text-slate-400">-</span>
+                )
+            ),
+        },
+        {
+            id: 'tranches',
+            header: 'Tranches & Dates Limites',
+            cell: ({ row }) => {
+                const tranches = row.original.tranches || [];
+                return (
+                    <div className="flex flex-wrap gap-1.5">
+                        {tranches.map((t) => (
+                            <Badge key={t.id} variant="outline" className="text-[10px] bg-slate-50">
+                                {t.libelle}: {formatDate(t.date_limite)} ({t.pourcentage_exigible}%)
+                            </Badge>
+                        ))}
+                    </div>
                 );
             },
         },
@@ -421,25 +768,16 @@ export default function FinancesIndex({
                     <Button
                         variant="ghost"
                         size="sm"
-                        className="h-7 text-xs text-red-500 hover:text-red-700 cursor-pointer"
+                        className="h-7 text-xs text-red-500 hover:text-red-700"
                         onClick={() => {
-                            const tarifNom = `${row.original.type_frais?.libelle ?? 'Frais'} - ${row.original.niveau?.nom ?? 'Tous niveaux'}`;
                             confirmDelete({
-                                title: 'Supprimer la ligne tarifaire',
-                                itemType: 'le tarif',
-                                itemName: tarifNom,
-                                description: 'Cette ligne de tarification sera supprimée. Les comptes élèves existants conserveront leur historique comptable.',
+                                title: "Supprimer l'échéancier",
+                                itemType: "l'échéancier",
+                                itemName: row.original.nom,
+                                description: 'Êtes-vous sûr de vouloir supprimer cet échéancier calendaire ?',
                                 onConfirm: () => {
-                                    router.delete(`/administration/finances/tarifs/${row.original.id}`, {
-                                        onSuccess: () =>
-                                            toast.success('Ligne tarifaire supprimée avec succès.', {
-                                                position: 'top-right',
-                                                style: {
-                                                    backgroundColor: '#10b981',
-                                                    color: '#ffffff',
-                                                    border: '1px solid #059669',
-                                                },
-                                            }),
+                                    router.delete(`/administration/finances/modeles-echeances/${row.original.id}`, {
+                                        onSuccess: () => toast.success('Échéancier supprimé.'),
                                     });
                                 },
                             });
@@ -452,14 +790,81 @@ export default function FinancesIndex({
         },
     ], []);
 
-    // 4. Définition des colonnes TanStack Table pour l'Historique des Clôtures
+    // 7. Colonnes TanStack Table pour la Matrice Tarifaire
+    const tarifsColumns = useMemo<ColumnDef<FraisScolaire>[]>(() => [
+        {
+            accessorKey: 'type_frais.libelle',
+            header: 'Nature du Frais',
+            cell: ({ row }) => (
+                <div className="font-semibold text-xs text-slate-800 dark:text-slate-200">
+                    {row.original.type_frais?.libelle}
+                </div>
+            ),
+        },
+        {
+            accessorKey: 'niveau.nom',
+            header: 'Niveau',
+            cell: ({ row }) => (
+                <span className="text-xs text-slate-600 dark:text-slate-400">
+                    {row.original.niveau?.nom ?? 'Tous niveaux'}
+                </span>
+            ),
+        },
+        {
+            accessorKey: 'tranche_numero',
+            header: 'Tranche',
+            cell: ({ row }) => (
+                <Badge variant="outline" className="text-[10px]">
+                    Tranche {row.original.tranche_numero}
+                </Badge>
+            ),
+        },
+        {
+            accessorKey: 'montant',
+            header: () => <div className="text-right">Montant Exigible</div>,
+            cell: ({ row }) => (
+                <div className="text-right text-xs font-bold text-slate-900 dark:text-slate-100">
+                    {Number(row.original.montant).toLocaleString('fr-FR')} FCFA
+                </div>
+            ),
+        },
+        {
+            id: 'actions',
+            header: () => <div className="text-right">Actions</div>,
+            cell: ({ row }) => (
+                <div className="text-right">
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs text-red-500 hover:text-red-700"
+                        onClick={() => {
+                            const tarifNom = `${row.original.type_frais?.libelle ?? 'Frais'} - ${row.original.niveau?.nom ?? 'Tous niveaux'}`;
+                            confirmDelete({
+                                title: 'Supprimer la ligne tarifaire',
+                                itemType: 'le tarif',
+                                itemName: tarifNom,
+                                description: 'Cette ligne de tarification sera supprimée.',
+                                onConfirm: () => {
+                                    router.delete(`/administration/finances/tarifs/${row.original.id}`, {
+                                        onSuccess: () => toast.success('Ligne tarifaire supprimée avec succès.'),
+                                    });
+                                },
+                            });
+                        }}
+                    >
+                        <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                </div>
+            ),
+        },
+    ], []);
+
+    // 8. Colonnes TanStack Table pour l'Historique des Clôtures
     const cloturesColumns = useMemo<ColumnDef<ClotureCaisse>[]>(() => [
         {
             accessorKey: 'date_cloture',
             header: 'Date Clôture',
-            cell: ({ row }) => {
-                return <span className="font-semibold text-xs">{formatDate(row.original.date_cloture)}</span>;
-            },
+            cell: ({ row }) => <span className="font-semibold text-xs">{formatDate(row.original.date_cloture)}</span>,
         },
         {
             accessorKey: 'nombre_transactions',
@@ -507,11 +912,18 @@ export default function FinancesIndex({
             verrou_solvabilite_actif: nouvelEtat,
         }, {
             onSuccess: () => {
-                toast.success(`Le verrou de solvabilité est désormais ${nouvelEtat ? 'ACTIVÉ' : 'DÉSACTIVÉ'}.`, {
-                    position: 'top-right',
-                    className: 'bg-emerald-600 text-white border-none',
-                });
+                toast.success(`Le verrou de solvabilité est désormais ${nouvelEtat ? 'ACTIVÉ' : 'DÉSACTIVÉ'}.`);
             },
+        });
+    };
+
+    // Déclenchement du calcul et application des pénalités de retard
+    const handleAppliquerPenalites = () => {
+        if (!currentEtablissement || !currentAnnee) return;
+
+        router.post('/administration/finances/penalites/appliquer-echeances', {
+            etablissement_id: currentEtablissement.id,
+            annee_scolaire_id: currentAnnee.id,
         });
     };
 
@@ -535,12 +947,14 @@ export default function FinancesIndex({
         });
     }, [comptes, selectedClasse, selectedStatutFinancier, searchCompte]);
 
+    const activePenaliteConfig = penalitesConfigurations[0];
+
     return (
         <>
-            <Head title="Gestion de la Caisse & Paiements - SYGES" />
+            <Head title="Gestion Financière & Caisse Avancée - SYGES" />
 
             <div className="space-y-6">
-                {/* En-tête de la page avec résumé financier */}
+                {/* En-tête de la page */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
                     <div>
                         <div className="flex items-center gap-2">
@@ -548,12 +962,12 @@ export default function FinancesIndex({
                                 <Wallet className="w-5 h-5" />
                             </div>
                             <div>
-                                <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">
-                                    Caisse & Paiements Scolaires
+                                <h1 className="text-xl font-black tracking-tight text-slate-900 dark:text-slate-100">
+                                    Finances & Comptabilité Scolaire
                                 </h1>
                                 <p className="text-xs text-slate-500">
-                                    Établissement : <strong>{currentEtablissement?.nom}</strong> | Année :{' '}
-                                    <strong>{currentAnnee?.code ?? '2026-2027'}</strong>
+                                    Établissement : <strong className="text-slate-800 dark:text-slate-200">{currentEtablissement?.nom}</strong>
+                                    {currentAnnee && <> | Année Scolaire : <span className="font-semibold text-emerald-600">{currentAnnee.code}</span></>}
                                 </p>
                             </div>
                         </div>
@@ -565,62 +979,39 @@ export default function FinancesIndex({
                                 setSelectedCompteForPayment(null);
                                 setIsVersementModalOpen(true);
                             }}
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5 shadow-sm text-xs h-9"
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-9 font-semibold flex items-center gap-1.5 shadow-sm"
                         >
-                            <Plus className="w-4 h-4" />
-                            Nouveau Versement (Guichet)
+                            <Plus className="w-4 h-4" /> Encaisser Scolarité
+                        </Button>
+                        <Button
+                            onClick={() => setIsReglementDiversModalOpen(true)}
+                            variant="outline"
+                            className="text-xs h-9 font-semibold flex items-center gap-1.5 border-emerald-300 text-emerald-800 hover:bg-emerald-50"
+                        >
+                            <Receipt className="w-4 h-4" /> Recette Diverse
                         </Button>
                     </div>
                 </div>
-
-                {/* Sélecteur Maître de Campus (Multi-Établissements) */}
-                {etablissements && etablissements.length > 1 && (
-                    <div className="flex items-center gap-2 overflow-x-auto pb-1">
-                        <span className="text-xs font-semibold text-muted-foreground shrink-0 flex items-center gap-1.5 mr-1">
-                            <School className="size-4 text-emerald-600" />
-                            Campus Actif :
-                        </span>
-                        {etablissements.map((etab) => (
-                            <Button
-                                key={etab.id}
-                                type="button"
-                                variant={currentEtablissement?.id === etab.id ? 'default' : 'outline'}
-                                size="sm"
-                                onClick={() => {
-                                    router.get('/administration/finances', {
-                                        etablissement_id: etab.id,
-                                        annee_scolaire_id: currentAnnee?.id,
-                                    }, { preserveState: true });
-                                }}
-                                className={`h-8 text-xs font-medium rounded-full cursor-pointer ${
-                                    currentEtablissement?.id === etab.id ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : ''
-                                }`}
-                            >
-                                {etab.nom}
-                            </Button>
-                        ))}
-                    </div>
-                )}
 
                 {/* Cartes KPIs du Jour (Encaissements Journaliers) */}
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                     <Card className="border-slate-200 dark:border-slate-800 bg-emerald-50/40 dark:bg-emerald-950/20">
                         <CardContent className="p-3">
                             <div className="flex items-center justify-between">
-                                <span className="text-xs font-semibold text-slate-500">Total Général (Jour)</span>
+                                <span className="text-xs font-semibold text-slate-500">Total Recettes (Jour)</span>
                                 <DollarSign className="w-4 h-4 text-emerald-600" />
                             </div>
                             <div className="text-lg font-extrabold text-emerald-700 dark:text-emerald-400 mt-1">
                                 {Number(journalDuJour.total_general).toLocaleString('fr-FR')} FCFA
                             </div>
-                            <span className="text-[10px] text-slate-500">{journalDuJour.nombre_transactions} encaissements</span>
+                            <span className="text-[10px] text-slate-500">{journalDuJour.nombre_transactions} opérations aujourd'hui</span>
                         </CardContent>
                     </Card>
 
                     <Card className="border-slate-200 dark:border-slate-800">
                         <CardContent className="p-3">
                             <div className="flex items-center justify-between">
-                                <span className="text-xs font-semibold text-slate-500">Espèces Physiques</span>
+                                <span className="text-xs font-semibold text-slate-500">Espèces Caisse</span>
                                 <Receipt className="w-4 h-4 text-slate-500" />
                             </div>
                             <div className="text-base font-bold text-slate-800 dark:text-slate-200 mt-1">
@@ -632,7 +1023,7 @@ export default function FinancesIndex({
                     <Card className="border-slate-200 dark:border-slate-800">
                         <CardContent className="p-3">
                             <div className="flex items-center justify-between">
-                                <span className="text-xs font-semibold text-slate-500">Mobile Money (Manuel)</span>
+                                <span className="text-xs font-semibold text-slate-500">Mobile Money</span>
                                 <Smartphone className="w-4 h-4 text-amber-600" />
                             </div>
                             <div className="text-base font-bold text-slate-800 dark:text-slate-200 mt-1">
@@ -656,7 +1047,7 @@ export default function FinancesIndex({
                     <Card className={`border-slate-200 dark:border-slate-800 ${journalDuJour.est_cloture ? 'bg-slate-100 dark:bg-slate-900' : 'bg-amber-50/50 dark:bg-amber-950/20'}`}>
                         <CardContent className="p-3 flex flex-col justify-between h-full">
                             <div className="flex items-center justify-between">
-                                <span className="text-xs font-semibold text-slate-500">État de la Caisse</span>
+                                <span className="text-xs font-semibold text-slate-500">État Caisse Journalière</span>
                                 {journalDuJour.est_cloture ? <Lock className="w-4 h-4 text-slate-700" /> : <Unlock className="w-4 h-4 text-amber-600" />}
                             </div>
                             <div className="mt-1 flex items-center justify-between">
@@ -678,33 +1069,88 @@ export default function FinancesIndex({
                     </Card>
                 </div>
 
-                {/* Onglets de navigation */}
-                <div className="flex border-b border-slate-200 dark:border-slate-800 gap-4 text-sm font-medium">
+                {/* Onglets de navigation complets (8 onglets) */}
+                <div className="flex flex-wrap border-b border-slate-200 dark:border-slate-800 gap-2 text-sm font-medium">
                     <button
                         onClick={() => setActiveTab('versements')}
-                        className={`pb-2.5 flex items-center gap-1.5 border-b-2 transition-colors ${
+                        className={`pb-2.5 px-2 flex items-center gap-1.5 border-b-2 transition-colors ${
                             activeTab === 'versements'
                                 ? 'border-emerald-600 text-emerald-600 font-bold'
                                 : 'border-transparent text-slate-500 hover:text-slate-800'
                         }`}
                     >
                         <Receipt className="w-4 h-4" />
-                        Guichet & Versements ({versements.length})
+                        Versements Scolarité ({versements.length})
                     </button>
                     <button
                         onClick={() => setActiveTab('comptes')}
-                        className={`pb-2.5 flex items-center gap-1.5 border-b-2 transition-colors ${
+                        className={`pb-2.5 px-2 flex items-center gap-1.5 border-b-2 transition-colors ${
                             activeTab === 'comptes'
                                 ? 'border-emerald-600 text-emerald-600 font-bold'
                                 : 'border-transparent text-slate-500 hover:text-slate-800'
                         }`}
                     >
                         <Users className="w-4 h-4" />
-                        Comptes Financiers Élèves ({comptes.length})
+                        Comptes Élèves ({comptes.length})
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('reglements_divers')}
+                        className={`pb-2.5 px-2 flex items-center gap-1.5 border-b-2 transition-colors ${
+                            activeTab === 'reglements_divers'
+                                ? 'border-emerald-600 text-emerald-600 font-bold'
+                                : 'border-transparent text-slate-500 hover:text-slate-800'
+                        }`}
+                    >
+                        <Tag className="w-4 h-4" />
+                        Règlements Divers ({reglementsDivers.length})
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('caisses')}
+                        className={`pb-2.5 px-2 flex items-center gap-1.5 border-b-2 transition-colors ${
+                            activeTab === 'caisses'
+                                ? 'border-emerald-600 text-emerald-600 font-bold'
+                                : 'border-transparent text-slate-500 hover:text-slate-800'
+                        }`}
+                    >
+                        <Building2 className="w-4 h-4" />
+                        Caisses Multiples ({caisses.length})
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('bourses_remises')}
+                        className={`pb-2.5 px-2 flex items-center gap-1.5 border-b-2 transition-colors ${
+                            activeTab === 'bourses_remises'
+                                ? 'border-emerald-600 text-emerald-600 font-bold'
+                                : 'border-transparent text-slate-500 hover:text-slate-800'
+                        }`}
+                    >
+                        <Award className="w-4 h-4" />
+                        Bourses & Remises ({boursesRemises.length})
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('echeances_penalites')}
+                        className={`pb-2.5 px-2 flex items-center gap-1.5 border-b-2 transition-colors ${
+                            activeTab === 'echeances_penalites'
+                                ? 'border-emerald-600 text-emerald-600 font-bold'
+                                : 'border-transparent text-slate-500 hover:text-slate-800'
+                        }`}
+                    >
+                        <CalendarClock className="w-4 h-4" />
+                        Échéanciers & Pénalités
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('tarifs')}
+                        className={`pb-2.5 px-2 flex items-center gap-1.5 border-b-2 transition-colors ${
+                            activeTab === 'tarifs'
+                                ? 'border-emerald-600 text-emerald-600 font-bold'
+                                : 'border-transparent text-slate-500 hover:text-slate-800'
+                        }`}
+                    >
+                        <Layers className="w-4 h-4" />
+                        Grille Tarifaire & Verrou
                     </button>
                     <button
                         onClick={() => setActiveTab('journal')}
-                        className={`pb-2.5 flex items-center gap-1.5 border-b-2 transition-colors ${
+                        className={`pb-2.5 px-2 flex items-center gap-1.5 border-b-2 transition-colors ${
                             activeTab === 'journal'
                                 ? 'border-emerald-600 text-emerald-600 font-bold'
                                 : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -712,17 +1158,6 @@ export default function FinancesIndex({
                     >
                         <Calendar className="w-4 h-4" />
                         Journal & Clôtures ({historiqueClotures.length})
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('tarifs')}
-                        className={`pb-2.5 flex items-center gap-1.5 border-b-2 transition-colors ${
-                            activeTab === 'tarifs'
-                                ? 'border-emerald-600 text-emerald-600 font-bold'
-                                : 'border-transparent text-slate-500 hover:text-slate-800'
-                        }`}
-                    >
-                        <Layers className="w-4 h-4" />
-                        Matrice Tarifaire & Verrou
                     </button>
                 </div>
 
@@ -784,7 +1219,222 @@ export default function FinancesIndex({
                     </div>
                 )}
 
-                {/* CONTENU ONGLET 3 : JOURNAL & CLÔTURES */}
+                {/* CONTENU ONGLET 3 : RÈGLEMENTS DIVERS (Aurore §4.2) */}
+                {activeTab === 'reglements_divers' && (
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                                    Règlements Divers & Encaissements Libres (Aurore §4.2)
+                                </h3>
+                                <p className="text-xs text-slate-500">
+                                    Enregistrement des recettes exceptionnelles et annexes non rattachées à la scolarité des élèves (uniformes, repas visiteurs, dons, locations).
+                                </p>
+                            </div>
+                            <Button
+                                onClick={() => setIsReglementDiversModalOpen(true)}
+                                size="sm"
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-8 flex items-center gap-1"
+                            >
+                                <Plus className="w-3.5 h-3.5" /> Nouvelle Recette Diverse
+                            </Button>
+                        </div>
+
+                        <DataTable
+                            columns={reglementsDiversColumns}
+                            data={reglementsDivers}
+                            searchPlaceholder="Rechercher par référence, payeur, libellé..."
+                        />
+                    </div>
+                )}
+
+                {/* CONTENU ONGLET 4 : CAISSES MULTIPLES (Aurore §3.20) */}
+                {activeTab === 'caisses' && (
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                                    Gestion des Caisses de l'Établissement (Aurore §3.20)
+                                </h3>
+                                <p className="text-xs text-slate-500">
+                                    Configurez les caisses principales et annexes (cantine, activités, guichets secondaires).
+                                </p>
+                            </div>
+                            <Button
+                                onClick={() => {
+                                    setCaisseToEdit(null);
+                                    setIsCaisseModalOpen(true);
+                                }}
+                                size="sm"
+                                className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-8 flex items-center gap-1"
+                            >
+                                <Plus className="w-3.5 h-3.5" /> Ajouter une Caisse
+                            </Button>
+                        </div>
+
+                        <DataTable
+                            columns={caissesColumns}
+                            data={caisses}
+                        />
+                    </div>
+                )}
+
+                {/* CONTENU ONGLET 5 : BOURSES & REMISES (Aurore §3.19, §3.21, §3.25) */}
+                {activeTab === 'bourses_remises' && (
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                                    Catalogue des Bourses d'Études & Modèles de Remises (Aurore §3.19, §3.21, §3.25)
+                                </h3>
+                                <p className="text-xs text-slate-500">
+                                    Paramétrez les réductions tarifaires par profil familial (fratrie), mérite scolaire (excellence) ou critères sociaux.
+                                </p>
+                            </div>
+                            <Button
+                                onClick={() => {
+                                    setBourseToEdit(null);
+                                    setIsModeleBourseModalOpen(true);
+                                }}
+                                size="sm"
+                                className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs h-8 flex items-center gap-1"
+                            >
+                                <Plus className="w-3.5 h-3.5" /> Nouveau Modèle
+                            </Button>
+                        </div>
+
+                        <DataTable
+                            columns={boursesRemisesColumns}
+                            data={boursesRemises}
+                        />
+                    </div>
+                )}
+
+                {/* CONTENU ONGLET 6 : ÉCHÉANCIERS & PÉNALITÉS (Aurore §3.17, §3.24) */}
+                {activeTab === 'echeances_penalites' && (
+                    <div className="space-y-6">
+                        {/* Carte de paramétrage de la pénalité de retard */}
+                        <Card className="border-slate-200 dark:border-slate-800 bg-amber-50/40 dark:bg-amber-950/20">
+                            <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                <div className="space-y-1">
+                                    <div className="flex items-center gap-2">
+                                        <Clock className="w-5 h-5 text-amber-600" />
+                                        <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                                            Règle de Pénalité Financière de Retard (Aurore §3.17)
+                                        </h4>
+                                    </div>
+                                    <p className="text-xs text-slate-600 max-w-2xl">
+                                        Règle active : <strong>{activePenaliteConfig ? activePenaliteConfig.nom : 'Aucune règle configurée'}</strong>
+                                        {activePenaliteConfig && (
+                                            <> — {activePenaliteConfig.mode_calcul === 'pourcentage' ? `${activePenaliteConfig.valeur}%` : `${Number(activePenaliteConfig.valeur).toLocaleString('fr-FR')} FCFA`} de majoration après {activePenaliteConfig.jours_grace} jours de grâce.</>
+                                        )}
+                                    </p>
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0">
+                                    <Button
+                                        onClick={() => setIsConfigPenaliteModalOpen(true)}
+                                        variant="outline"
+                                        size="sm"
+                                        className="text-xs h-8"
+                                    >
+                                        Configurer la Règle
+                                    </Button>
+                                    <Button
+                                        onClick={handleAppliquerPenalites}
+                                        size="sm"
+                                        className="bg-amber-600 hover:bg-amber-700 text-white text-xs h-8 flex items-center gap-1"
+                                    >
+                                        <AlertCircle className="w-3.5 h-3.5" /> Calculer les Retards
+                                    </Button>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Modèles d'échéances calendaires */}
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                                        Modèles d'Échéanciers de Paiement (Aurore §3.24)
+                                    </h3>
+                                    <p className="text-xs text-slate-500">
+                                        Calendrier des tranches avec dates limites et pourcentages exigibles.
+                                    </p>
+                                </div>
+                                <Button
+                                    onClick={() => setIsModeleEcheanceModalOpen(true)}
+                                    size="sm"
+                                    className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-8 flex items-center gap-1"
+                                >
+                                    <Plus className="w-3.5 h-3.5" /> Créer un Échéancier
+                                </Button>
+                            </div>
+
+                            <DataTable
+                                columns={modelesEcheancesColumns}
+                                data={modelesEcheances}
+                            />
+                        </div>
+                    </div>
+                )}
+
+                {/* CONTENU ONGLET 7 : MATRICE TARIFAIRE & VERROU */}
+                {activeTab === 'tarifs' && (
+                    <div className="space-y-6">
+                        <Card className="border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
+                            <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                <div className="space-y-1">
+                                    <div className="flex items-center gap-2">
+                                        <ShieldCheck className="w-5 h-5 text-indigo-600" />
+                                        <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                                            Verrou de Solvabilité des Bulletins Scolaires (Module 11.5)
+                                        </h4>
+                                    </div>
+                                    <p className="text-xs text-slate-500 max-w-2xl">
+                                        Lorsque ce verrou est activé, le téléchargement des bulletins scolaires sur les portails parents/élèves
+                                        est automatiquement bloqué tant qu'un solde financier reste exigible à la date limite.
+                                    </p>
+                                </div>
+                                <Button
+                                    onClick={handleToggleVerrouSolvabilite}
+                                    variant={currentEtablissement?.verrou_solvabilite_actif ? 'destructive' : 'default'}
+                                    className="text-xs h-9 font-semibold shrink-0"
+                                >
+                                    {currentEtablissement?.verrou_solvabilite_actif
+                                        ? 'Désactiver le Verrou'
+                                        : 'Activer le Verrou de Solvabilité'}
+                                </Button>
+                            </CardContent>
+                        </Card>
+
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                                        Grille Tarifaire (Niveau / Série / Tranches)
+                                    </h3>
+                                    <p className="text-xs text-slate-500">
+                                        Définit les frais exigibles appliqués automatiquement aux nouveaux élèves inscrits.
+                                    </p>
+                                </div>
+                                <Button
+                                    onClick={() => setIsTarifModalOpen(true)}
+                                    size="sm"
+                                    className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs h-8 flex items-center gap-1"
+                                >
+                                    <Plus className="w-3.5 h-3.5" /> Ajouter un Tarif
+                                </Button>
+                            </div>
+
+                            <DataTable
+                                columns={tarifsColumns}
+                                data={tarifs}
+                            />
+                        </div>
+                    </div>
+                )}
+
+                {/* CONTENU ONGLET 8 : JOURNAL & CLÔTURES */}
                 {activeTab === 'journal' && (
                     <div className="space-y-4">
                         <div className="flex items-center justify-between">
@@ -812,67 +1462,9 @@ export default function FinancesIndex({
                         />
                     </div>
                 )}
-
-                {/* CONTENU ONGLET 4 : MATRICE TARIFAIRE & VERROU DE SOLVABILITÉ */}
-                {activeTab === 'tarifs' && (
-                    <div className="space-y-6">
-                        {/* Paramètre du Verrou de Solvabilité (Gesco V1.1 - Module 11.5) */}
-                        <Card className="border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
-                            <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                                <div className="space-y-1">
-                                    <div className="flex items-center gap-2">
-                                        <ShieldCheck className="w-5 h-5 text-indigo-600" />
-                                        <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                                            Verrou de Solvabilité des Bulletins Scolaires (Module 11.5)
-                                        </h4>
-                                    </div>
-                                    <p className="text-xs text-slate-500 max-w-2xl">
-                                        Lorsque ce verrou est activé, le téléchargement des bulletins scolaires sur les portails parents/élèves
-                                        est automatiquement bloqué tant qu'un solde financier reste exigible à la date limite.
-                                    </p>
-                                </div>
-                                <Button
-                                    onClick={handleToggleVerrouSolvabilite}
-                                    variant={currentEtablissement?.verrou_solvabilite_actif ? 'destructive' : 'default'}
-                                    className="text-xs h-9 font-semibold shrink-0"
-                                >
-                                    {currentEtablissement?.verrou_solvabilite_actif
-                                        ? 'Désactiver le Verrou'
-                                        : 'Activer le Verrou de Solvabilité'}
-                                </Button>
-                            </CardContent>
-                        </Card>
-
-                        {/* Grille tarifaire */}
-                        <div className="space-y-3">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">
-                                        Grille Tarifaire (Niveau / Série / Tranches)
-                                    </h3>
-                                    <p className="text-xs text-slate-500">
-                                        Définit les frais exigibles appliqués automatiquement aux nouveaux élèves inscrits.
-                                    </p>
-                                </div>
-                                <Button
-                                    onClick={() => setIsTarifModalOpen(true)}
-                                    size="sm"
-                                    className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs h-8 flex items-center gap-1"
-                                >
-                                    <Plus className="w-3.5 h-3.5" /> Ajouter un Tarif
-                                </Button>
-                            </div>
-
-                            <DataTable
-                                columns={tarifsColumns}
-                                data={tarifs}
-                            />
-                        </div>
-                    </div>
-                )}
             </div>
 
-            {/* Modales */}
+            {/* Modales de gestion */}
             <NouveauVersementModal
                 open={isVersementModalOpen}
                 onOpenChange={setIsVersementModalOpen}
@@ -883,9 +1475,9 @@ export default function FinancesIndex({
             />
 
             <RemiseBourseModal
-                open={Boolean(compteForBourse)}
-                onOpenChange={(open) => !open && setCompteForBourse(null)}
-                compte={compteForBourse}
+                open={Boolean(compteForAjustement)}
+                onOpenChange={(open) => !open && setCompteForAjustement(null)}
+                compte={compteForAjustement}
             />
 
             <AnnulerVersementModal
@@ -908,6 +1500,62 @@ export default function FinancesIndex({
                 typesFrais={typesFrais}
                 anneeId={currentAnnee?.id ?? 0}
                 etablissementId={currentEtablissement?.id ?? 0}
+            />
+
+            {/* Nouvelles modales Aurore */}
+            <NouveauReglementDiversModal
+                isOpen={isReglementDiversModalOpen}
+                onClose={() => setIsReglementDiversModalOpen(false)}
+                caisses={caisses}
+                caissiers={caissiers}
+            />
+
+            <NouvelleCaisseModal
+                isOpen={isCaisseModalOpen}
+                onClose={() => {
+                    setIsCaisseModalOpen(false);
+                    setCaisseToEdit(null);
+                }}
+                etablissementId={currentEtablissement?.id ?? 0}
+                caissiers={caissiers}
+                caisseToEdit={caisseToEdit}
+            />
+
+            <ModeleBourseModal
+                isOpen={isModeleBourseModalOpen}
+                onClose={() => {
+                    setIsModeleBourseModalOpen(false);
+                    setBourseToEdit(null);
+                }}
+                etablissementId={currentEtablissement?.id ?? 0}
+                anneeId={currentAnnee?.id}
+                niveaux={niveaux}
+                typesFrais={typesFrais}
+                modelToEdit={bourseToEdit}
+            />
+
+            <AttribuerBourseModal
+                isOpen={isAttribuerBourseModalOpen}
+                onClose={() => {
+                    setIsAttribuerBourseModalOpen(false);
+                    setCompteForBourseAttribution(null);
+                }}
+                compte={compteForBourseAttribution}
+                boursesRemises={boursesRemises}
+            />
+
+            <ModeleEcheanceModal
+                isOpen={isModeleEcheanceModalOpen}
+                onClose={() => setIsModeleEcheanceModalOpen(false)}
+                etablissementId={currentEtablissement?.id ?? 0}
+                anneeId={currentAnnee?.id ?? 0}
+            />
+
+            <ConfigurationPenaliteModal
+                isOpen={isConfigPenaliteModalOpen}
+                onClose={() => setIsConfigPenaliteModalOpen(false)}
+                etablissementId={currentEtablissement?.id ?? 0}
+                config={activePenaliteConfig}
             />
 
             {/* Dialogue de confirmation de suppression unifié */}

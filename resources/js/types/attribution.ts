@@ -49,6 +49,7 @@ export interface Attribution {
  */
 export interface ClasseWithAttributions {
     id: number;
+    etablissement_id?: number;
     niveau_id: number;
     code: string;
     nom: string;
@@ -73,8 +74,12 @@ export interface ClasseWithAttributions {
         nom: string;
         cycle?: {
             id: number;
+            code?: string;
+            nom?: string;
             section?: {
                 id: number;
+                code?: string;
+                nom?: string;
                 etablissement?: {
                     id: number;
                     nom: string;
@@ -137,6 +142,7 @@ export interface MatiereNiveauRef {
         id: number;
         code: string;
         nom: string;
+        couleur?: string | null;
         ordre: number;
     };
 }

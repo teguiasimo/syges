@@ -120,12 +120,30 @@ class SmsService
 
     /**
      * Récupère ou initialise la configuration de la passerelle SMS de l'établissement.
+     * En l'absence d'établissement valide en base (ex: premier démarrage système ou aucun campus sélectionné),
+     * retourne un modèle vierge en mémoire afin d'éviter toute violation de contrainte d'intégrité de clé étrangère.
      *
-     * @param int $etablissementId
-     * @return SmsConfiguration
+     * @param int $etablissementId Identifiant de l'établissement scolaire.
+     * @return SmsConfiguration Configuration active ou instance par défaut en mémoire.
      */
     public function getConfiguration(int $etablissementId): SmsConfiguration
     {
+        // Si aucun établissement n'est sélectionné ou que l'identifiant n'existe pas en base
+        if ($etablissementId <= 0 || ! Etablissement::where('id', $etablissementId)->exists()) {
+            $defaultConfig = new SmsConfiguration([
+                'etablissement_id' => $etablissementId > 0 ? $etablissementId : null,
+                'fournisseur' => 'africas_talking',
+                'sender_id' => 'SYGES',
+                'solde_credits' => 0,
+                'seuil_alerte_solde' => 20,
+                'is_active' => false,
+            ]);
+            // Identifiant fictif pour compatibilité UI
+            $defaultConfig->id = 0;
+
+            return $defaultConfig;
+        }
+
         return SmsConfiguration::firstOrCreate(
             ['etablissement_id' => $etablissementId],
             [

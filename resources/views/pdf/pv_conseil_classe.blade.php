@@ -220,7 +220,11 @@
                 <div>(Nom & Signature)</div>
             </td>
             <td>
-                <div class="bold uppercase">Le Chef d'Établissement</div>
+                @php
+                    $etab = $classe->niveau?->cycle?->section?->etablissement ?? $classe->etablissement;
+                    $titreChef = $etab?->titre_chef ?? "Le Chef d'Établissement";
+                @endphp
+                <div class="bold uppercase">{{ $titreChef }}</div>
                 <div class="signature-box"></div>
                 <div>(Signature & Sceau de l'Établissement)</div>
             </td>

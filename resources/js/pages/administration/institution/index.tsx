@@ -17,6 +17,7 @@ import {
     Phone,
     Globe,
     FileText,
+    Printer,
     CheckCircle2,
     XCircle,
     ArrowUpDown,
@@ -27,6 +28,8 @@ import {
     Lock,
     Calendar,
     Tag,
+    UploadCloud,
+    Image as ImageIcon,
 } from 'lucide-react';
 import React, { useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -99,6 +102,9 @@ interface EtablissementItem {
     telephone_1?: string | null;
     telephone_2?: string | null;
     adresse?: string | null;
+    logo?: string | null;
+    effective_logo?: string | null;
+    logo_url?: string | null;
     sections_count?: number;
 }
 
@@ -261,6 +267,7 @@ export default function InstitutionIndex({
 
     // Interface et valeurs initiales vierges du formulaire établissement
     interface EtablissementFormData {
+        [key: string]: any;
         code: string;
         nom: string;
         nom_en: string;
@@ -272,6 +279,8 @@ export default function InstitutionIndex({
         telephone_1: string;
         telephone_2: string;
         adresse: string;
+        logo: string;
+        logo_file: File | null;
     }
 
     const initialEtablissementFormValues: EtablissementFormData = {
@@ -286,15 +295,55 @@ export default function InstitutionIndex({
         telephone_1: '',
         telephone_2: '',
         adresse: '',
+        logo: '',
+        logo_file: null,
     };
 
     const etablissementForm = useForm<EtablissementFormData>(initialEtablissementFormValues);
+
+    // Prévisualisation du logo du campus et référence vers l'input fichier
+    const [etablissementLogoPreview, setEtablissementLogoPreview] = useState<string | null>(null);
+    const etablissementFileInputRef = React.useRef<HTMLInputElement | null>(null);
+
+    /**
+     * Gestion du téléversement du logo propre à l'établissement avec contrôle de taille et prévisualisation.
+     *
+     * @param {React.ChangeEvent<HTMLInputElement>} e Événement de sélection de fichier.
+     */
+    const handleEtablissementLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            if (file.size > 2 * 1024 * 1024) {
+                toast.error('Le fichier est trop volumineux. Taille maximale : 2 Mo.');
+                return;
+            }
+            etablissementForm.setData('logo_file', file);
+            const previewUrl = URL.createObjectURL(file);
+            setEtablissementLogoPreview(previewUrl);
+        }
+    };
+
+    /**
+     * Suppression du logo propre à l'établissement (l'établissement reprendra automatiquement le logo de l'institution).
+     */
+    const handleRemoveEtablissementLogo = () => {
+        etablissementForm.setData('logo', '');
+        etablissementForm.setData('logo_file', null);
+        setEtablissementLogoPreview(null);
+        if (etablissementFileInputRef.current) {
+            etablissementFileInputRef.current.value = '';
+        }
+    };
 
     /**
      * Réinitialise complètement les champs du formulaire d'établissement et efface les erreurs.
      */
     const resetEtablissementForm = () => {
         setEditingEtablissement(null);
+        setEtablissementLogoPreview(null);
+        if (etablissementFileInputRef.current) {
+            etablissementFileInputRef.current.value = '';
+        }
         etablissementForm.clearErrors();
         etablissementForm.setData(initialEtablissementFormValues);
     };
@@ -314,6 +363,7 @@ export default function InstitutionIndex({
      */
     const handleOpenEditEtablissement = (item: EtablissementItem) => {
         setEditingEtablissement(item);
+        setEtablissementLogoPreview(item.logo || null);
         etablissementForm.clearErrors();
         etablissementForm.setData({
             code: item.code,
@@ -327,6 +377,8 @@ export default function InstitutionIndex({
             telephone_1: item.telephone_1 || '',
             telephone_2: item.telephone_2 || '',
             adresse: item.adresse || '',
+            logo: item.logo || '',
+            logo_file: null,
         });
         setIsEtablissementModalOpen(true);
     };
@@ -362,6 +414,7 @@ export default function InstitutionIndex({
         nom: '',
         serie: 'GENERAL',
         capacite_max: 50,
+        is_active: true,
     });
 
     // Gestion autonome des Séries d'orientation de l'établissement
@@ -404,14 +457,53 @@ export default function InstitutionIndex({
         {
             accessorKey: 'nom',
             header: 'Nom de l\'Établissement',
-            cell: ({ row }) => (
-                <div>
-                    <div className="font-semibold text-sm text-foreground">{row.original.nom}</div>
-                    {row.original.nom_en && (
-                        <div className="text-xs text-muted-foreground italic">{row.original.nom_en}</div>
-                    )}
-                </div>
-            ),
+            cell: ({ row }) => {
+                const item = row.original;
+                const displayLogo = item.logo || item.effective_logo || institution.logo;
+                const hasOwnLogo = Boolean(item.logo);
+
+                return (
+                    <div className="flex items-center gap-3">
+                        <div
+                            className="size-10 shrink-0 rounded-xl border border-border/80 bg-slate-50 dark:bg-slate-900 p-1 flex items-center justify-center overflow-hidden shadow-xs relative"
+                            title={hasOwnLogo ? "Logo propre à cet établissement" : "Logo hérité de l'institution faîtière (repli automatique)"}
+                        >
+                            {displayLogo ? (
+                                <img
+                                    src={displayLogo}
+                                    alt={`Logo ${item.nom}`}
+                                    className="max-h-full max-w-full object-contain"
+                                />
+                            ) : (
+                                <Building2 className="size-5 text-emerald-600 dark:text-emerald-400" />
+                            )}
+                            {hasOwnLogo && (
+                                <span
+                                    title="Logo propre à l'établissement"
+                                    className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-emerald-500 ring-2 ring-background"
+                                />
+                            )}
+                        </div>
+                        <div>
+                            <div className="font-semibold text-sm text-foreground flex flex-wrap items-center gap-1.5">
+                                <span>{item.nom}</span>
+                                {hasOwnLogo ? (
+                                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-medium text-emerald-700 bg-emerald-50 border-emerald-200 dark:text-emerald-300 dark:bg-emerald-950/40">
+                                        Logo propre
+                                    </Badge>
+                                ) : institution.logo ? (
+                                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-normal text-muted-foreground bg-muted/40 border-border/60">
+                                        Logo faîtier
+                                    </Badge>
+                                ) : null}
+                            </div>
+                            {item.nom_en && (
+                                <div className="text-xs text-muted-foreground italic">{item.nom_en}</div>
+                            )}
+                        </div>
+                    </div>
+                );
+            },
         },
         {
             accessorKey: 'statut_juridique',
@@ -518,7 +610,7 @@ export default function InstitutionIndex({
                 );
             },
         },
-    ], [can.etablissements_manage]);
+    ], [can.etablissements_manage, institution.logo]);
 
     // 2. Tableau Sections
     const sectionColumns: ColumnDef<SectionItem>[] = useMemo(() => [
@@ -971,15 +1063,28 @@ export default function InstitutionIndex({
                                 router.patch(`/administration/classes/${item.id}/toggle-active`, {}, { preserveScroll: true });
                             }
                         }}
-                        title={can.classes_manage ? 'Cliquer pour basculer le statut' : undefined}
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-all ${can.classes_manage ? 'cursor-pointer' : 'cursor-default'
-                            } ${item.is_active
+                        title={can.classes_manage ? `Cliquer pour ${item.is_active ? 'désactiver' : 'activer'} cette classe` : undefined}
+                        className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-semibold border transition-all ${
+                            can.classes_manage ? 'cursor-pointer hover:shadow-xs' : 'cursor-default'
+                        } ${
+                            item.is_active
                                 ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300'
                                 : 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300'
-                            }`}
+                        }`}
                     >
-                        <span className={`size-1.5 rounded-full ${item.is_active ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-                        {item.is_active ? 'Active' : 'Inactive'}
+                        {/* Commutateur visuel miniature */}
+                        <span
+                            className={`relative inline-flex h-3.5 w-6 shrink-0 rounded-full transition-colors duration-200 ease-in-out ${
+                                item.is_active ? 'bg-emerald-600' : 'bg-rose-400'
+                            }`}
+                        >
+                            <span
+                                className={`inline-block size-2.5 transform rounded-full bg-white shadow-xs transition duration-200 ease-in-out mt-0.5 ${
+                                    item.is_active ? 'translate-x-3' : 'translate-x-0.5'
+                                }`}
+                            />
+                        </span>
+                        <span>{item.is_active ? 'Active' : 'Inactive'}</span>
                     </button>
                 );
             },
@@ -1001,6 +1106,30 @@ export default function InstitutionIndex({
                             type="button"
                             variant="ghost"
                             size="icon"
+                            title="Imprimer la fiche d'appel de cette classe (PDF)"
+                            onClick={() => window.open(`/administration/documents/fiche-appel/${item.id}`, '_blank')}
+                            className="size-8 rounded-lg bg-sky-50 text-sky-600 border border-sky-200 hover:bg-sky-100 hover:text-sky-700 dark:bg-sky-950/50 dark:text-sky-400 cursor-pointer shadow-xs"
+                        >
+                            <Printer className="size-4" />
+                            <span className="sr-only">Fiche d'appel</span>
+                        </Button>
+
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            title="Imprimer la liste officielle des élèves de cette classe (PDF)"
+                            onClick={() => window.open(`/administration/documents/liste-eleves/${item.id}?type=definitive`, '_blank')}
+                            className="size-8 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100 hover:text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400 cursor-pointer shadow-xs"
+                        >
+                            <FileText className="size-4" />
+                            <span className="sr-only">Liste des élèves</span>
+                        </Button>
+
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
                             title="Modifier la classe"
                             onClick={() => {
                                 setEditingClasse(item);
@@ -1010,6 +1139,7 @@ export default function InstitutionIndex({
                                     nom: item.nom,
                                     serie: item.serie || '',
                                     capacite_max: item.capacite_max,
+                                    is_active: item.is_active,
                                 });
                                 setIsClasseModalOpen(true);
                             }}
@@ -1106,19 +1236,32 @@ export default function InstitutionIndex({
      * SOUMISSION DES FORMULAIRES
      * ========================================================================= */
 
+    /**
+     * Soumet le formulaire d'établissement (création ou mise à jour) avec support multipart pour le logo.
+     *
+     * @param {React.FormEvent} e Événement de soumission.
+     */
     const submitEtablissement = (e: React.FormEvent) => {
         e.preventDefault();
         if (editingEtablissement) {
-            etablissementForm.put(`/administration/etablissements/${editingEtablissement.id}`, {
+            router.post(`/administration/etablissements/${editingEtablissement.id}`, {
+                _method: 'put',
+                ...etablissementForm.data,
+            } as Record<string, any>, {
                 preserveScroll: true,
+                forceFormData: true,
                 onSuccess: () => {
                     setIsEtablissementModalOpen(false);
                     resetEtablissementForm();
+                },
+                onError: (errs) => {
+                    etablissementForm.setError(errs);
                 },
             });
         } else {
             etablissementForm.post('/administration/etablissements', {
                 preserveScroll: true,
+                forceFormData: true,
                 onSuccess: () => {
                     setIsEtablissementModalOpen(false);
                     resetEtablissementForm();
@@ -1288,30 +1431,32 @@ export default function InstitutionIndex({
                         </div>
                     </div>
 
-                    {/* Fil d'Ariane interactif (Approche A) harmonisé avec style contrasté */}
-                    <nav className="flex items-center flex-wrap gap-2 text-xs text-slate-700 dark:text-slate-300 p-3.5 rounded-2xl bg-gradient-to-r from-slate-200/90 via-slate-100/95 to-slate-200/80 dark:from-slate-850 dark:via-slate-800 dark:to-slate-850 border-2 border-slate-300/90 dark:border-slate-700 shadow-xs">
+                    {/* Fil d'Ariane interactif (Approche A) harmonisé avec style contrasté et troncature anti-débordement */}
+                    <nav className="flex items-center flex-wrap gap-2 text-xs text-slate-700 dark:text-slate-300 p-3.5 rounded-2xl bg-linear-to-r from-slate-200/90 via-slate-100/95 to-slate-200/80 dark:from-slate-850 dark:via-slate-800 dark:to-slate-850 border-2 border-slate-300/90 dark:border-slate-700 shadow-xs">
                         <button
                             type="button"
                             onClick={() => handleNavigateBreadcrumb({})}
-                            className="flex items-center gap-1.5 font-semibold text-slate-800 dark:text-slate-200 hover:text-primary transition-colors cursor-pointer"
+                            title={`Institution faîtière : ${institution.nom}`}
+                            className="flex items-center gap-1.5 font-semibold text-slate-800 dark:text-slate-200 hover:text-primary transition-colors cursor-pointer max-w-45 sm:max-w-60 md:max-w-75"
                         >
-                            <Home className="size-3.5 text-indigo-600 dark:text-indigo-400" />
-                            <span>{institution.nom}</span>
+                            <Home className="size-3.5 shrink-0 text-indigo-600 dark:text-indigo-400" />
+                            <span className="truncate">{institution.nom}</span>
                         </button>
 
                         {breadcrumbs.slice(1).map((step, idx) => (
                             <React.Fragment key={idx}>
-                                <ChevronRight className="size-3 text-slate-400 dark:text-slate-500" />
+                                <ChevronRight className="size-3 shrink-0 text-slate-400 dark:text-slate-500" />
                                 <button
                                     type="button"
                                     onClick={() => handleNavigateBreadcrumb(step.params)}
-                                    className={`transition-colors cursor-pointer ${
+                                    title={step.label}
+                                    className={`transition-colors cursor-pointer max-w-35 sm:max-w-50 md:max-w-65 ${
                                         idx === breadcrumbs.length - 2
                                             ? 'text-slate-900 dark:text-white font-bold bg-white dark:bg-slate-900 px-2.5 py-0.5 rounded-lg border border-slate-300 dark:border-slate-700 shadow-xs'
                                             : 'font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                                     }`}
                                 >
-                                    {step.label}
+                                    <span className="truncate block">{step.label}</span>
                                 </button>
                             </React.Fragment>
                         ))}
@@ -1324,9 +1469,9 @@ export default function InstitutionIndex({
                         {/* Fiche d'identité de l'institution avec en-tête contrasté */}
                         <div className="rounded-2xl border-2 border-slate-300/90 dark:border-slate-700 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400 dark:hover:border-slate-600">
                             {/* Bandeau d'en-tête contrasté */}
-                            <div className="bg-gradient-to-r from-slate-200/95 via-indigo-100/70 to-slate-200/80 dark:from-slate-800 dark:via-indigo-950/40 dark:to-slate-800/90 px-6 py-4 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
+                            <div className="bg-linear-to-r from-slate-200/95 via-indigo-100/70 to-slate-200/80 dark:from-slate-800 dark:via-indigo-950/40 dark:to-slate-800/90 px-6 py-4 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-violet-700 text-white font-bold shadow-xs shrink-0">
+                                    <div className="flex size-9 items-center justify-center rounded-xl bg-linear-to-br from-indigo-600 to-violet-700 text-white font-bold shadow-xs shrink-0">
                                         <School className="size-4" />
                                     </div>
                                     <div>
@@ -1419,9 +1564,9 @@ export default function InstitutionIndex({
 
                         {/* Liste des campus et établissements encadrée dans une carte avec bandeau d'en-tête contrasté */}
                         <div className="rounded-2xl border-2 border-slate-300/90 dark:border-slate-700 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400 dark:hover:border-slate-600">
-                            <div className="bg-gradient-to-r from-slate-200/95 via-emerald-100/70 to-slate-200/80 dark:from-slate-800 dark:via-emerald-950/40 dark:to-slate-800/90 px-6 py-4 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
+                            <div className="bg-linear-to-r from-slate-200/95 via-emerald-100/70 to-slate-200/80 dark:from-slate-800 dark:via-emerald-950/40 dark:to-slate-800/90 px-6 py-4 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white font-bold shadow-xs shrink-0">
+                                    <div className="flex size-9 items-center justify-center rounded-xl bg-linear-to-br from-emerald-600 to-teal-700 text-white font-bold shadow-xs shrink-0">
                                         <Building2 className="size-4" />
                                     </div>
                                     <div>
@@ -1463,10 +1608,27 @@ export default function InstitutionIndex({
                     <div className="space-y-6">
                         {/* En-tête de l'établissement actif */}
                         <div className="rounded-2xl border-2 border-slate-300/90 dark:border-slate-700 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400 dark:hover:border-slate-600">
-                            <div className="bg-gradient-to-r from-slate-200/95 via-emerald-100/70 to-slate-200/80 dark:from-slate-800 dark:via-emerald-950/40 dark:to-slate-800/90 px-6 py-4.5 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
+                            <div className="bg-linear-to-r from-slate-200/95 via-emerald-100/70 to-slate-200/80 dark:from-slate-800 dark:via-emerald-950/40 dark:to-slate-800/90 px-6 py-4.5 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
                                 <div className="flex items-center gap-3.5">
-                                    <div className="size-10 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white font-bold text-sm flex items-center justify-center shadow-xs shrink-0">
-                                        <Building2 className="size-5" />
+                                    <div
+                                        className="size-12 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 p-1 flex items-center justify-center shadow-xs shrink-0 overflow-hidden relative"
+                                        title={selectedEtablissement.logo ? "Logo propre à l'établissement" : "Logo hérité de l'institution (repli automatique)"}
+                                    >
+                                        {(selectedEtablissement.logo || selectedEtablissement.effective_logo || institution.logo) ? (
+                                            <img
+                                                src={selectedEtablissement.logo || selectedEtablissement.effective_logo || institution.logo || ''}
+                                                alt={`Logo ${selectedEtablissement.nom}`}
+                                                className="max-h-full max-w-full object-contain"
+                                            />
+                                        ) : (
+                                            <Building2 className="size-6 text-emerald-600 dark:text-emerald-400" />
+                                        )}
+                                        {selectedEtablissement.logo && (
+                                            <span
+                                                title="Logo propre à l'établissement"
+                                                className="absolute -top-0.5 -right-0.5 size-2.5 rounded-full bg-emerald-500 ring-2 ring-background"
+                                            />
+                                        )}
                                     </div>
 
                                     <div className="space-y-1">
@@ -1480,6 +1642,15 @@ export default function InstitutionIndex({
                                             <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
                                                 Établissement Actif
                                             </span>
+                                            {selectedEtablissement.logo ? (
+                                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-medium text-emerald-700 bg-emerald-50 border-emerald-200 dark:text-emerald-300 dark:bg-emerald-950/40">
+                                                    Logo propre
+                                                </Badge>
+                                            ) : institution.logo ? (
+                                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-normal text-muted-foreground bg-muted/40 border-border/60" title="En l'absence de logo propre, le logo de l'institution faîtière s'applique automatiquement">
+                                                    Logo faîtier (repli)
+                                                </Badge>
+                                            ) : null}
                                         </div>
                                         <p className="text-xs text-slate-600 dark:text-slate-400">
                                             Chef d'établissement : <span className="font-medium text-slate-900 dark:text-white">{selectedEtablissement.nom_chef_etablissement || 'Non désigné'}</span> • Statut : <span className="font-medium text-slate-900 dark:text-white">{selectedEtablissement.statut_juridique.replace('_', ' ')}</span>
@@ -1489,38 +1660,25 @@ export default function InstitutionIndex({
 
                                 <div className="flex items-center gap-2">
                                     {can.structures_manage && (
-                                        <>
-                                            <Button
-                                                type="button"
-                                                size="sm"
-                                                variant="outline"
-                                                onClick={handleOpenCreateSerie}
-                                                className="gap-2 cursor-pointer border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs h-9"
-                                            >
-                                                <Tag className="size-3.5 text-primary" />
-                                                <span>Gérer les Séries ({series.length})</span>
-                                            </Button>
-
-                                            <Button
-                                                type="button"
-                                                size="sm"
-                                                onClick={() => {
-                                                    setEditingSection(null);
-                                                    sectionForm.setData({
-                                                        etablissement_id: selectedEtablissement.id,
-                                                        code: '',
-                                                        nom: '',
-                                                        nom_en: '',
-                                                        langue: 'fr',
-                                                    });
-                                                    setIsSectionModalOpen(true);
-                                                }}
-                                                className="gap-2 cursor-pointer bg-emerald-600 text-white hover:bg-emerald-700 text-xs h-9"
-                                            >
-                                                <Plus className="size-4" />
-                                                <span>Ajouter une Section</span>
-                                            </Button>
-                                        </>
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            onClick={() => {
+                                                setEditingSection(null);
+                                                sectionForm.setData({
+                                                    etablissement_id: selectedEtablissement.id,
+                                                    code: '',
+                                                    nom: '',
+                                                    nom_en: '',
+                                                    langue: 'fr',
+                                                });
+                                                setIsSectionModalOpen(true);
+                                            }}
+                                            className="gap-2 cursor-pointer bg-emerald-600 text-white hover:bg-emerald-700 text-xs h-9"
+                                        >
+                                            <Plus className="size-4" />
+                                            <span>Ajouter une Section</span>
+                                        </Button>
                                     )}
                                 </div>
                             </div>
@@ -1528,9 +1686,9 @@ export default function InstitutionIndex({
 
                         {/* Tableau des sections encadré dans une carte avec bandeau d'en-tête */}
                         <div className="rounded-2xl border-2 border-slate-300/90 dark:border-slate-700 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400 dark:hover:border-slate-600">
-                            <div className="bg-gradient-to-r from-slate-200/95 via-teal-100/70 to-slate-200/80 dark:from-slate-800 dark:via-teal-950/40 dark:to-slate-800/90 px-6 py-4 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
+                            <div className="bg-linear-to-r from-slate-200/95 via-teal-100/70 to-slate-200/80 dark:from-slate-800 dark:via-teal-950/40 dark:to-slate-800/90 px-6 py-4 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-teal-600 to-emerald-700 text-white font-bold shadow-xs shrink-0">
+                                    <div className="flex size-9 items-center justify-center rounded-xl bg-linear-to-br from-teal-600 to-emerald-700 text-white font-bold shadow-xs shrink-0">
                                         <Layers className="size-4" />
                                     </div>
                                     <div>
@@ -1560,9 +1718,9 @@ export default function InstitutionIndex({
                     <div className="space-y-6">
                         {/* En-tête de la section active */}
                         <div className="rounded-2xl border-2 border-slate-300/90 dark:border-slate-700 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400 dark:hover:border-slate-600">
-                            <div className="bg-gradient-to-r from-slate-200/95 via-teal-100/70 to-slate-200/80 dark:from-slate-800 dark:via-teal-950/40 dark:to-slate-800/90 px-6 py-4.5 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
+                            <div className="bg-linear-to-r from-slate-200/95 via-teal-100/70 to-slate-200/80 dark:from-slate-800 dark:via-teal-950/40 dark:to-slate-800/90 px-6 py-4.5 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
                                 <div className="flex items-center gap-3.5">
-                                    <div className="size-10 rounded-xl bg-gradient-to-br from-teal-600 to-emerald-700 text-white font-bold text-sm flex items-center justify-center shadow-xs shrink-0">
+                                    <div className="size-10 rounded-xl bg-linear-to-br from-teal-600 to-emerald-700 text-white font-bold text-sm flex items-center justify-center shadow-xs shrink-0">
                                         <Layers className="size-5" />
                                     </div>
 
@@ -1611,9 +1769,9 @@ export default function InstitutionIndex({
 
                         {/* Tableau des cycles encadré dans une carte avec bandeau d'en-tête */}
                         <div className="rounded-2xl border-2 border-slate-300/90 dark:border-slate-700 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400 dark:hover:border-slate-600">
-                            <div className="bg-gradient-to-r from-slate-200/95 via-indigo-100/70 to-slate-200/80 dark:from-slate-800 dark:via-indigo-950/40 dark:to-slate-800/90 px-6 py-4 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
+                            <div className="bg-linear-to-r from-slate-200/95 via-indigo-100/70 to-slate-200/80 dark:from-slate-800 dark:via-indigo-950/40 dark:to-slate-800/90 px-6 py-4 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-violet-700 text-white font-bold shadow-xs shrink-0">
+                                    <div className="flex size-9 items-center justify-center rounded-xl bg-linear-to-br from-indigo-600 to-violet-700 text-white font-bold shadow-xs shrink-0">
                                         <GraduationCap className="size-4" />
                                     </div>
                                     <div>
@@ -1643,9 +1801,9 @@ export default function InstitutionIndex({
                     <div className="space-y-6">
                         {/* En-tête du cycle actif */}
                         <div className="rounded-2xl border-2 border-slate-300/90 dark:border-slate-700 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400 dark:hover:border-slate-600">
-                            <div className="bg-gradient-to-r from-slate-200/95 via-indigo-100/70 to-slate-200/80 dark:from-slate-800 dark:via-indigo-950/40 dark:to-slate-800/90 px-6 py-4.5 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
+                            <div className="bg-linear-to-r from-slate-200/95 via-indigo-100/70 to-slate-200/80 dark:from-slate-800 dark:via-indigo-950/40 dark:to-slate-800/90 px-6 py-4.5 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
                                 <div className="flex items-center gap-3.5">
-                                    <div className="size-10 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-700 text-white font-bold text-sm flex items-center justify-center shadow-xs shrink-0">
+                                    <div className="size-10 rounded-xl bg-linear-to-br from-indigo-600 to-violet-700 text-white font-bold text-sm flex items-center justify-center shadow-xs shrink-0">
                                         <GraduationCap className="size-5" />
                                     </div>
 
@@ -1667,7 +1825,7 @@ export default function InstitutionIndex({
                                             </span>
                                         </div>
                                         <p className="text-xs text-slate-600 dark:text-slate-400">
-                                            Cycle d'enseignement au sein de la section <span className="font-medium text-slate-900 dark:text-white">{selectedSection?.nom}</span>
+                                            Cycle d'enseignement au sein de {selectedSection?.nom?.toLowerCase().startsWith('section') ? 'la ' : 'la section '}<span className="font-medium text-slate-900 dark:text-white">{selectedSection?.nom}</span>
                                         </p>
                                     </div>
                                 </div>
@@ -1698,9 +1856,9 @@ export default function InstitutionIndex({
 
                         {/* Tableau des niveaux encadré dans une carte avec bandeau d'en-tête */}
                         <div className="rounded-2xl border-2 border-slate-300/90 dark:border-slate-700 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400 dark:hover:border-slate-600">
-                            <div className="bg-gradient-to-r from-slate-200/95 via-violet-100/70 to-slate-200/80 dark:from-slate-800 dark:via-violet-950/40 dark:to-slate-800/90 px-6 py-4 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
+                            <div className="bg-linear-to-r from-slate-200/95 via-violet-100/70 to-slate-200/80 dark:from-slate-800 dark:via-violet-950/40 dark:to-slate-800/90 px-6 py-4 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-violet-600 to-purple-700 text-white font-bold shadow-xs shrink-0">
+                                    <div className="flex size-9 items-center justify-center rounded-xl bg-linear-to-br from-violet-600 to-purple-700 text-white font-bold shadow-xs shrink-0">
                                         <BookOpen className="size-4" />
                                     </div>
                                     <div>
@@ -1730,9 +1888,9 @@ export default function InstitutionIndex({
                     <div className="space-y-6">
                         {/* En-tête du niveau actif */}
                         <div className="rounded-2xl border-2 border-slate-300/90 dark:border-slate-700 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400 dark:hover:border-slate-600">
-                            <div className="bg-gradient-to-r from-slate-200/95 via-violet-100/70 to-slate-200/80 dark:from-slate-800 dark:via-violet-950/40 dark:to-slate-800/90 px-6 py-4.5 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
+                            <div className="bg-linear-to-r from-slate-200/95 via-violet-100/70 to-slate-200/80 dark:from-slate-800 dark:via-violet-950/40 dark:to-slate-800/90 px-6 py-4.5 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
                                 <div className="flex items-center gap-3.5">
-                                    <div className="size-10 rounded-xl bg-gradient-to-br from-violet-600 to-purple-700 text-white font-bold text-sm flex items-center justify-center shadow-xs shrink-0">
+                                    <div className="size-10 rounded-xl bg-linear-to-br from-violet-600 to-purple-700 text-white font-bold text-sm flex items-center justify-center shadow-xs shrink-0">
                                         <BookOpen className="size-5" />
                                     </div>
 
@@ -1742,14 +1900,14 @@ export default function InstitutionIndex({
                                                 #{selectedNiveau.ordre}
                                             </span>
                                             <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight">
-                                                Niveau {selectedNiveau.nom}
+                                                {selectedNiveau.nom.toLowerCase().startsWith('niveau') ? selectedNiveau.nom : `Niveau ${selectedNiveau.nom}`}
                                             </h2>
                                             <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-violet-100 dark:bg-violet-950/60 text-violet-800 dark:text-violet-300 border border-violet-300 dark:border-violet-700">
                                                 Niveau Actif
                                             </span>
                                         </div>
                                         <p className="text-xs text-slate-600 dark:text-slate-400">
-                                            Paliers d'enseignement au sein du cycle <span className="font-medium text-slate-900 dark:text-white">{selectedCycle?.nom}</span>
+                                            Paliers d'enseignement au sein du {selectedCycle?.nom?.toLowerCase().includes('cycle') ? '' : 'cycle '}<span className="font-medium text-slate-900 dark:text-white">{selectedCycle?.nom}</span>
                                         </p>
                                     </div>
                                 </div>
@@ -1780,6 +1938,7 @@ export default function InstitutionIndex({
                                                     nom: '',
                                                     serie: 'GENERAL',
                                                     capacite_max: 50,
+                                                    is_active: true,
                                                 });
                                                 setIsClasseModalOpen(true);
                                             }}
@@ -1795,9 +1954,9 @@ export default function InstitutionIndex({
 
                         {/* Tableau des classes encadré dans une carte avec bandeau d'en-tête */}
                         <div className="rounded-2xl border-2 border-slate-300/90 dark:border-slate-700 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400 dark:hover:border-slate-600">
-                            <div className="bg-gradient-to-r from-slate-200/95 via-sky-100/70 to-slate-200/80 dark:from-slate-800 dark:via-sky-950/40 dark:to-slate-800/90 px-6 py-4 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
+                            <div className="bg-linear-to-r from-slate-200/95 via-sky-100/70 to-slate-200/80 dark:from-slate-800 dark:via-sky-950/40 dark:to-slate-800/90 px-6 py-4 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-sky-600 to-indigo-600 text-white font-bold shadow-xs shrink-0">
+                                    <div className="flex size-9 items-center justify-center rounded-xl bg-linear-to-br from-sky-600 to-indigo-600 text-white font-bold shadow-xs shrink-0">
                                         <Users className="size-4" />
                                     </div>
                                     <div>
@@ -1808,6 +1967,23 @@ export default function InstitutionIndex({
                                             Divisions pédagogiques, effectifs maximaux et cours dispensés.
                                         </p>
                                     </div>
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => {
+                                            const etabParam = selectedEtablissement ? `?etablissement_id=${selectedEtablissement.id}` : '';
+                                            window.open(`/administration/documents/liste-classes${etabParam}`, '_blank');
+                                        }}
+                                        className="gap-2 cursor-pointer border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs h-9 shadow-xs"
+                                        title="Imprimer le tableau récapitulatif officiel des classes (PDF)"
+                                    >
+                                        <Printer className="size-3.5 text-indigo-600 dark:text-indigo-400" />
+                                        <span>Liste des Classes (PDF)</span>
+                                    </Button>
                                 </div>
                             </div>
 
@@ -1947,6 +2123,110 @@ export default function InstitutionIndex({
                                     onChange={(e) => etablissementForm.setData('email', e.target.value)}
                                 />
                             </div>
+                        </div>
+
+                        {/* Champ Logo propre au campus avec fallback institution */}
+                        <div className="space-y-1.5 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800">
+                            <Label className="text-xs font-semibold text-foreground flex items-center justify-between">
+                                <span>Logo / Blason du Campus</span>
+                                {etablissementLogoPreview ? (
+                                    <Badge variant="outline" className="text-[10px] text-emerald-700 bg-emerald-50 border-emerald-200 dark:text-emerald-300 dark:bg-emerald-950/40">
+                                        Logo propre au campus
+                                    </Badge>
+                                ) : institution.logo ? (
+                                    <Badge variant="outline" className="text-[10px] text-muted-foreground bg-muted/40 border-border/60">
+                                        Repli sur le logo faîtier
+                                    </Badge>
+                                ) : null}
+                            </Label>
+
+                            <input
+                                type="file"
+                                ref={etablissementFileInputRef}
+                                onChange={handleEtablissementLogoChange}
+                                accept="image/png,image/jpeg,image/jpg,image/webp,image/svg+xml"
+                                className="hidden"
+                            />
+
+                            <div className="flex items-center gap-3 pt-1">
+                                {etablissementLogoPreview ? (
+                                    <div className="relative group size-14 shrink-0 rounded-xl border border-border bg-white dark:bg-slate-900 p-1 flex items-center justify-center overflow-hidden shadow-xs">
+                                        <img
+                                            src={etablissementLogoPreview}
+                                            alt="Logo établissement"
+                                            className="max-h-full max-w-full object-contain"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={handleRemoveEtablissementLogo}
+                                            className="absolute inset-0 bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-xl cursor-pointer"
+                                            title="Supprimer le logo (revenir au logo de l'institution)"
+                                        >
+                                            <Trash2 className="size-4" />
+                                        </button>
+                                    </div>
+                                ) : institution.logo ? (
+                                    <div
+                                        onClick={() => etablissementFileInputRef.current?.click()}
+                                        className="relative group size-14 shrink-0 rounded-xl border-2 border-dashed border-border/80 hover:border-primary/60 bg-muted/20 p-1 flex items-center justify-center cursor-pointer transition-colors"
+                                        title="Logo actuel de l'institution (cliquer pour téléverser un logo spécifique)"
+                                    >
+                                        <img
+                                            src={institution.logo}
+                                            alt="Logo institution (repli)"
+                                            className="max-h-full max-w-full object-contain opacity-60 group-hover:opacity-40 transition-opacity"
+                                        />
+                                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/30 rounded-xl text-white">
+                                            <UploadCloud className="size-4" />
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div
+                                        onClick={() => etablissementFileInputRef.current?.click()}
+                                        className="size-14 shrink-0 rounded-xl border-2 border-dashed border-border hover:border-primary/60 bg-muted/20 flex flex-col items-center justify-center cursor-pointer transition-colors"
+                                        title="Cliquer pour importer un logo"
+                                    >
+                                        <UploadCloud className="size-5 text-muted-foreground" />
+                                    </div>
+                                )}
+
+                                <div className="flex flex-col gap-1 min-w-0">
+                                    <div className="flex items-center gap-2">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => etablissementFileInputRef.current?.click()}
+                                            className="cursor-pointer text-xs h-8 gap-1.5 justify-start w-fit"
+                                        >
+                                            <UploadCloud className="size-3.5" />
+                                            <span>{etablissementLogoPreview ? 'Changer le logo' : 'Téléverser un logo propre'}</span>
+                                        </Button>
+                                        {etablissementLogoPreview && (
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={handleRemoveEtablissementLogo}
+                                                className="cursor-pointer text-xs h-8 gap-1 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                                            >
+                                                <Trash2 className="size-3.5" />
+                                                <span>Supprimer</span>
+                                            </Button>
+                                        )}
+                                    </div>
+                                    <p className="text-[11px] text-muted-foreground">
+                                        {etablissementLogoPreview
+                                            ? 'Logo propre au campus enregistré (remplace le logo institutionnel pour tous les états de ce campus).'
+                                            : institution.logo
+                                            ? 'Optionnel. En l’absence de logo propre, le logo de l’institution s’applique automatiquement.'
+                                            : 'PNG, JPG, SVG ou WEBP (max 2 Mo).'}
+                                    </p>
+                                </div>
+                            </div>
+                            {etablissementForm.errors.logo && (
+                                <p className="text-[11px] text-rose-500 font-medium">{etablissementForm.errors.logo}</p>
+                            )}
                         </div>
 
                         <DialogFooter>
@@ -2278,6 +2558,48 @@ export default function InstitutionIndex({
                                 required
                             />
                         </div>
+
+                        {/* Commutateur Statut Actif / Inactif (notamment lors de l'édition) */}
+                        {editingClasse && (
+                            <div className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/50">
+                                <div className="space-y-0.5 pr-2">
+                                    <Label className="text-xs font-semibold flex items-center gap-1.5 cursor-pointer" htmlFor="classe-status-switch">
+                                        <span>Statut d'activité de la classe</span>
+                                        <Badge
+                                            variant="outline"
+                                            className={`text-[10px] px-1.5 py-0 font-medium ${
+                                                classeForm.data.is_active
+                                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300'
+                                                    : 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300'
+                                            }`}
+                                        >
+                                            {classeForm.data.is_active ? 'Active' : 'Inactive'}
+                                        </Badge>
+                                    </Label>
+                                    <p className="text-[11px] text-muted-foreground">
+                                        {classeForm.data.is_active
+                                            ? 'Classe ouverte aux inscriptions et emplois du temps de l’année courante.'
+                                            : 'Classe archivée et masquée des opérations courantes sans suppression des données historiques.'}
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    id="classe-status-switch"
+                                    role="switch"
+                                    aria-checked={classeForm.data.is_active}
+                                    onClick={() => classeForm.setData('is_active', !classeForm.data.is_active)}
+                                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                                        classeForm.data.is_active ? 'bg-emerald-600' : 'bg-slate-300 dark:bg-slate-700'
+                                    }`}
+                                >
+                                    <span
+                                        className={`pointer-events-none inline-block size-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                                            classeForm.data.is_active ? 'translate-x-5' : 'translate-x-0'
+                                        }`}
+                                    />
+                                </button>
+                            </div>
+                        )}
 
                         <DialogFooter className="pt-2">
                             <Button type="button" variant="outline" onClick={() => setIsClasseModalOpen(false)}>

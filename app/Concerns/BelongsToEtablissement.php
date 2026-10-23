@@ -17,6 +17,11 @@ use Illuminate\Support\Facades\Auth;
  * 2. L'auto-assignation transparente de `etablissement_id` lors de la création d'un enregistrement (INSERT).
  * 3. La relation Eloquent `etablissement(): BelongsTo`.
  * 4. Des scopes utilitaires pour forcer un campus spécifique (`pourEtablissement`) ou désactiver le filtre (`tousEtablissements`).
+ *
+ * @mixin \Illuminate\Database\Eloquent\Model
+ *
+ * @method static void addGlobalScope(\Illuminate\Database\Eloquent\Scope|\Closure|string $scope, \Illuminate\Database\Eloquent\Scope|\Closure|null $implementation = null)
+ * @method static void creating(\Closure|string|array $callback)
  */
 trait BelongsToEtablissement
 {

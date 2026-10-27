@@ -32,6 +32,10 @@ use Spatie\Permission\Traits\HasRoles;
  * @property Carbon|null $updated_at
  *
  * @property-read Etablissement|null $etablissement
+ * @property-read Personnel|null $personnel
+ * @mixin \Spatie\Permission\Traits\HasRoles
+ * @method bool hasRole(string|int|array|\Spatie\Permission\Contracts\Role|\Illuminate\Support\Collection $roles, ?string $guard = null)
+ * @method bool can(string $ability, array|mixed $arguments = [])
  */
 #[Fillable(['name', 'email', 'password', 'login', 'is_active', 'etablissement_id'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]

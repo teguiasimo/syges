@@ -172,14 +172,26 @@
         <tr>
             <td class="header-left">
                 <strong>RÉPUBLIQUE DU CAMEROUN</strong> &bull; <em>Paix – Travail – Patrie</em><br>
-                MINISTÈRE DES ENSEIGNEMENTS SECONDAIRES
+                {{ $etablissement->ministere_tutelle ?? 'MINISTÈRE DES ENSEIGNEMENTS SECONDAIRES' }}<br>
+                @if($etablissement->delegation_regionale)
+                    {{ mb_strtoupper($etablissement->delegation_regionale, 'UTF-8') }}
+                @endif
+                @if($etablissement->delegation_departementale)
+                    &bull; {{ mb_strtoupper($etablissement->delegation_departementale, 'UTF-8') }}
+                @endif
             </td>
             <td class="header-center">
                 <div class="school-name">{{ $etablissement->nom ?? 'ÉTABLISSEMENT SCOLAIRE' }}</div>
             </td>
             <td class="header-right">
                 <strong>REPUBLIC OF CAMEROON</strong> &bull; <em>Peace – Work – Fatherland</em><br>
-                MINISTRY OF SECONDARY EDUCATION
+                {{ $etablissement->ministere_tutelle_en ?? 'MINISTRY OF SECONDARY EDUCATION' }}<br>
+                @if($etablissement->delegation_regionale_en || $etablissement->delegation_regionale)
+                    {{ mb_strtoupper($etablissement->delegation_regionale_en ?? $etablissement->delegation_regionale, 'UTF-8') }}
+                @endif
+                @if($etablissement->delegation_departementale_en || $etablissement->delegation_departementale)
+                    &bull; {{ mb_strtoupper($etablissement->delegation_departementale_en ?? $etablissement->delegation_departementale, 'UTF-8') }}
+                @endif
             </td>
         </tr>
     </table>

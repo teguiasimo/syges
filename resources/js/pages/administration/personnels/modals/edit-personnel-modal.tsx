@@ -216,7 +216,7 @@ export function EditPersonnelModal({
                     <DialogDescription className="text-xs sm:text-sm text-muted-foreground mt-1 flex items-center gap-3">
                         <span>Matricule officiel : <strong className="text-foreground font-mono">{personnel.matricule}</strong></span>
                         {personnel.user && (
-                            <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                            <span className="inline-flex items-center gap-1 text-purple-600 dark:text-purple-400 font-medium">
                                 <KeyRound className="size-3.5" /> Compte utilisateur SYGES actif
                             </span>
                         )}
@@ -595,7 +595,7 @@ export function EditPersonnelModal({
                     {/* SECTION 4 : COMPTE UTILISATEUR RATTACHÉ */}
                     <div className="space-y-4 pt-2 border-t">
                         <div className="flex items-center gap-2">
-                            <KeyRound className="size-4 text-emerald-600" />
+                            <KeyRound className="size-4 text-purple-600 dark:text-purple-400" />
                             <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">
                                 4. Liaison Compte Utilisateur SYGES
                             </h3>

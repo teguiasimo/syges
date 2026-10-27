@@ -115,7 +115,7 @@
             <td style="width: 30%;" class="text-center">
                 <div class="bold uppercase" style="font-size: 8.5pt;">PROCES-VERBAL DE DELIBERATION</div>
                 <div style="font-size: 7.5pt;">Session : <strong>{{ $periode ? $periode->nom : 'Bilan Annuel Définitif' }}</strong></div>
-                <div style="font-size: 7pt;">Année Scolaire : <strong>{{ $annee->nom }}</strong></div>
+                <div style="font-size: 7pt;">Année Scolaire : <strong>{{ $annee->session ?? ($annee->code ?? $annee->nom) }}</strong></div>
             </td>
             <td style="width: 35%;" class="text-right">
                 <div class="bold uppercase" style="font-size: 7pt;">REPUBLIC OF CAMEROON</div>

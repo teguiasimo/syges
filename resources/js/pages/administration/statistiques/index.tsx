@@ -258,7 +258,12 @@ export default function StatistiquesIndex({
                             <Card className="p-4">
                                 <div className="text-xs font-medium text-muted-foreground">Effectif Total Enregistré</div>
                                 <div className="text-2xl font-bold text-foreground mt-1">{demographie.effectif_total} élèves</div>
-                                <div className="text-xs text-muted-foreground mt-1">Année {demographie.annee_scolaire}</div>
+                                {/* Affichage épuré de l'année scolaire sans préfixe redondant */}
+                                <div className="text-xs text-muted-foreground mt-1">
+                                    {demographie.annee_scolaire.toLowerCase().startsWith('année')
+                                        ? demographie.annee_scolaire
+                                        : `Année ${demographie.annee_scolaire}`}
+                                </div>
                             </Card>
 
                             <Card className="p-4">

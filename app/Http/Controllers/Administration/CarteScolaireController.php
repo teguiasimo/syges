@@ -8,6 +8,7 @@ use App\Models\Classe;
 use App\Models\Eleve;
 use App\Models\Etablissement;
 use App\Models\Inscription;
+use App\Models\User;
 use App\Services\QrCodeService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
@@ -49,8 +50,9 @@ class CarteScolaireController extends Controller implements HasMiddleware
      */
     public function index(Request $request): InertiaResponse
     {
+        /** @var User|null $user */
         $user = Auth::user();
-        $isSuperAdmin = $user ? ($user->hasRole('super-admin') || $user->email === 'admin@gmail.com') : false;
+        $isSuperAdmin = $user ? $user->isSuperAdmin() : false;
 
         // Année scolaire active ou sélectionnée
         $anneeActive = AnneeScolaire::where('is_current', true)->first() ?? AnneeScolaire::latest()->first();
@@ -170,48 +172,11 @@ class CarteScolaireController extends Controller implements HasMiddleware
             abort(404, 'Aucune inscription sélectionnée pour la génération des cartes.');
         }
 
-        // Préparation des données de chaque carte avec QR Code dynamique
-        $cartes = $inscriptions->map(function ($insc) use ($qrCodeService) {
-            $eleve = $insc->eleve;
-            $etab = $insc->etablissement;
-            $inst = $etab?->institution;
+        // Préparation unifiée des données de chaque carte avec QR Code et images Base64
+        $cartes = $inscriptions->map(fn ($insc) => $this->preparerDonneesCarte($insc, $qrCodeService));
 
-            // URL publique absolue pour le contrôle d'accès au portail
-            $verificationUrl = route('cartes-scolaires.verifier', ['matricule' => $eleve->matricule]);
-
-            // Génération du QR Code vectoriel en Data URI Base64
-            $qrCodeBase64 = $qrCodeService->generateBase64Svg($verificationUrl, 100);
-
-            return [
-                'inscription_id' => $insc->id,
-                'matricule' => $eleve->matricule,
-                'nom_complet' => $eleve->nom . ' ' . ($eleve->prenom ?? ''),
-                'date_naissance' => $eleve->date_naissance ? $eleve->date_naissance->format('d/m/Y') : '---',
-                'lieu_naissance' => $eleve->lieu_naissance ?: '---',
-                'sexe' => $eleve->sexe ?: 'M',
-                'classe_nom' => $insc->classe->nom,
-                'photo_url' => $eleve->photo_url,
-                'annee_nom' => $insc->anneeScolaire->nom,
-                'telephone_direction' => $etab->telephone_1 ?: ($inst?->telephone_1 ?: '---'),
-                'etablissement_nom' => $etab->nom,
-                'etablissement_nom_en' => $etab->nom_en ?: $etab->nom,
-                'adresse' => $etab->adresse ?: ($inst?->ville ?: 'Cameroun'),
-                'boite_postale' => $inst?->boite_postale ?: '---',
-                'devise' => $inst?->devise ?: 'Respect - Travail - Réussite',
-                'delegation_regionale' => $inst?->delegation_regionale ?: 'DÉLÉGATION RÉGIONALE DU CENTRE',
-                'delegation_regionale_en' => $inst?->delegation_regionale_en ?: 'REGIONAL DELEGATION FOR THE CENTRE',
-                'delegation_departementale' => $inst?->delegation_departementale ?: 'DÉLÉGATION DÉPARTEMENTALE DU MFOUNDI',
-                'delegation_departementale_en' => $inst?->delegation_departementale_en ?: 'DIVISIONAL DELEGATION FOR MFOUNDI',
-                'nom_chef' => $etab->nom_chef_etablissement ?: 'Le Chef d’Établissement',
-                'logo_url' => $etab->logo ?: $inst?->logo,
-                'qr_code' => $qrCodeBase64,
-                'groupe_sanguin' => 'N/A',
-                'contact_urgence' => $eleve->telephone_parent ?: '---',
-            ];
-        });
-
-        // Découpage en planches de 8 cartes par feuille A4 portrait
-        $planches = $cartes->chunk(8);
+        // Découpage en planches de 10 cartes par feuille A4 portrait (2 colonnes x 5 lignes)
+        $planches = $cartes->chunk(10);
 
         $face = $validated['face'];
         $vue = match ($face) {
@@ -249,40 +214,9 @@ class CarteScolaireController extends Controller implements HasMiddleware
             'anneeScolaire',
         ]);
 
-        $eleve = $inscription->eleve;
-        $etab = $inscription->etablissement;
-        $inst = $etab?->institution;
+        $carte = $this->preparerDonneesCarte($inscription, $qrCodeService);
 
-        $verificationUrl = route('cartes-scolaires.verifier', ['matricule' => $eleve->matricule]);
-        $qrCodeBase64 = $qrCodeService->generateBase64Svg($verificationUrl, 100);
-
-        $carte = [
-            'matricule' => $eleve->matricule,
-            'nom_complet' => $eleve->nom . ' ' . ($eleve->prenom ?? ''),
-            'date_naissance' => $eleve->date_naissance ? $eleve->date_naissance->format('d/m/Y') : '---',
-            'lieu_naissance' => $eleve->lieu_naissance ?: '---',
-            'sexe' => $eleve->sexe ?: 'M',
-            'classe_nom' => $inscription->classe->nom,
-            'photo_url' => $eleve->photo_url,
-            'annee_nom' => $inscription->anneeScolaire->nom,
-            'telephone_direction' => $etab->telephone_1 ?: ($inst?->telephone_1 ?: '---'),
-            'etablissement_nom' => $etab->nom,
-            'etablissement_nom_en' => $etab->nom_en ?: $etab->nom,
-            'adresse' => $etab->adresse ?: ($inst?->ville ?: 'Cameroun'),
-            'boite_postale' => $inst?->boite_postale ?: '---',
-            'devise' => $inst?->devise ?: 'Respect - Travail - Réussite',
-            'delegation_regionale' => $inst?->delegation_regionale ?: 'DÉLÉGATION RÉGIONALE DU CENTRE',
-            'delegation_regionale_en' => $inst?->delegation_regionale_en ?: 'REGIONAL DELEGATION FOR THE CENTRE',
-            'delegation_departementale' => $inst?->delegation_departementale ?: 'DÉLÉGATION DÉPARTEMENTALE DU MFOUNDI',
-            'delegation_departementale_en' => $inst?->delegation_departementale_en ?: 'DIVISIONAL DELEGATION FOR MFOUNDI',
-            'nom_chef' => $etab->nom_chef_etablissement ?: 'Le Chef d’Établissement',
-            'logo_url' => $etab->logo ?: $inst?->logo,
-            'qr_code' => $qrCodeBase64,
-            'groupe_sanguin' => 'N/A',
-            'contact_urgence' => $eleve->telephone_parent ?: '---',
-        ];
-
-        // Format CR-80 en points (85.6mm = 242.6pt, 53.98mm = 153pt)
+        // Format CR-80 en points (85.6mm = 243pt, 53.98mm = 153pt)
         $customPaper = [0, 0, 243, 153];
 
         $pdf = Pdf::loadView('cartes.badge_unitaire', compact('carte'))
@@ -290,7 +224,91 @@ class CarteScolaireController extends Controller implements HasMiddleware
             ->setOption('isHtml5ParserEnabled', true)
             ->setOption('isRemoteEnabled', true);
 
-        return $pdf->stream("Badge_{$eleve->matricule}.pdf");
+        return $pdf->stream("Badge_{$carte['matricule']}.pdf");
+    }
+
+    /**
+     * Prépare et normalise l'ensemble des données d'une carte scolaire avec conversions Base64 fiables.
+     *
+     * @param Inscription $inscription
+     * @param QrCodeService $qrCodeService
+     * @return array<string, mixed>
+     */
+    protected function preparerDonneesCarte(Inscription $inscription, QrCodeService $qrCodeService): array
+    {
+        $eleve = $inscription->eleve;
+        $etab = $inscription->etablissement;
+        $inst = $etab?->institution;
+
+        // URL publique absolue pour le contrôle d'accès au portail
+        $verificationUrl = route('cartes-scolaires.verifier', ['matricule' => $eleve->matricule]);
+
+        // Génération du QR Code vectoriel en Data URI Base64
+        $qrCodeBase64 = $qrCodeService->generateBase64Svg($verificationUrl, 120);
+
+        // Nettoyage de l'année scolaire pour éviter le doublon d'intitulé "Année Scolaire Année Scolaire"
+        $anneeNomBrut = $inscription->anneeScolaire?->nom ?? ($inscription->anneeScolaire?->code ?? '');
+        $anneeNom = trim(preg_replace('/^Ann[eé]e\s+Scolaire\s*/iu', '', $anneeNomBrut));
+
+        // Résolution du logo établissement en Data URI Base64 pour éliminer les échecs de rendu DomPDF
+        $logoUrl = $etab->logo_url ?: ($etab->effective_logo ?: ($etab->logo ?: $inst?->logo));
+        $logoBase64 = null;
+        if (!empty($logoUrl)) {
+            $rawLogo = ltrim($logoUrl, '/');
+            $logoPath = file_exists(public_path($rawLogo))
+                ? public_path($rawLogo)
+                : (file_exists(storage_path('app/public/' . $rawLogo)) ? storage_path('app/public/' . $rawLogo) : null);
+
+            if ($logoPath && is_file($logoPath)) {
+                $mime = mime_content_type($logoPath) ?: 'image/png';
+                $logoBase64 = 'data:' . $mime . ';base64,' . base64_encode(file_get_contents($logoPath));
+            }
+        }
+
+        // Résolution de la photo d'identité en Data URI Base64
+        $photoBase64 = null;
+        if (!empty($eleve->photo_url)) {
+            $rawPhoto = ltrim($eleve->photo_url, '/');
+            $photoPath = file_exists(public_path($rawPhoto))
+                ? public_path($rawPhoto)
+                : (file_exists(storage_path('app/public/' . $rawPhoto)) ? storage_path('app/public/' . $rawPhoto) : null);
+
+            if ($photoPath && is_file($photoPath)) {
+                $mime = mime_content_type($photoPath) ?: 'image/jpeg';
+                $photoBase64 = 'data:' . $mime . ';base64,' . base64_encode(file_get_contents($photoPath));
+            }
+        }
+
+        return [
+            'inscription_id' => $inscription->id,
+            'matricule' => $eleve->matricule,
+            'matricule_national' => $eleve->matricule_national,
+            'nom_complet' => mb_strtoupper($eleve->nom) . ' ' . ($eleve->prenom ?? ''),
+            'date_naissance' => $eleve->date_naissance ? $eleve->date_naissance->format('d-m-Y') : '---',
+            'lieu_naissance' => $eleve->lieu_naissance ?: '---',
+            'sexe' => $eleve->sexe ?: 'M',
+            'classe_nom' => $inscription->classe?->nom ?? '---',
+            'photo_url' => $eleve->photo_url,
+            'photo_base64' => $photoBase64,
+            'annee_nom' => $anneeNom,
+            'telephone_direction' => $etab->telephone_1 ?: ($inst?->telephone_1 ?: '---'),
+            'etablissement_nom' => $etab->nom,
+            'etablissement_nom_en' => $etab->nom_en ?: $etab->nom,
+            'adresse' => $etab->adresse ?: ($inst?->ville ?: 'Cameroun'),
+            'boite_postale' => $inst?->boite_postale ?: '---',
+            'devise' => $etab->devise ?: ($inst?->devise ?: 'Discipline - Travail - Succès'),
+            'delegation_regionale' => $etab->delegation_regionale ?: ($inst?->delegation_regionale ?: 'DÉLÉGATION RÉGIONALE DU CENTRE'),
+            'delegation_regionale_en' => $etab->delegation_regionale_en ?: ($inst?->delegation_regionale_en ?: 'REGIONAL DELEGATION FOR THE CENTRE'),
+            'delegation_departementale' => $etab->delegation_departementale ?: ($inst?->delegation_departementale ?: 'DÉLÉGATION DÉPARTEMENTALE DU MFOUNDI'),
+            'delegation_departementale_en' => $etab->delegation_departementale_en ?: ($inst?->delegation_departementale_en ?: 'DIVISIONAL DELEGATION FOR MFOUNDI'),
+            'nom_chef' => $etab->nom_chef_etablissement ?: $etab->titre_chef,
+            'titre_chef' => $etab->titre_chef ?: "Le Chef d'Établissement",
+            'logo_url' => $logoUrl,
+            'logo_base64' => $logoBase64,
+            'qr_code' => $qrCodeBase64,
+            'groupe_sanguin' => 'N/A',
+            'contact_urgence' => $eleve->telephone_parent ?: '---',
+        ];
     }
 
     /**

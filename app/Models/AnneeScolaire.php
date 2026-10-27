@@ -64,6 +64,33 @@ class AnneeScolaire extends Model
     ];
 
     /**
+     * Les attributs personnalisés automatiquement inclus dans la sérialisation (JSON / Inertia).
+     *
+     * @var list<string>
+     */
+    protected $appends = [
+        'session',
+    ];
+
+    /**
+     * Accesseur pour le millésime / session épurée de l'année scolaire (ex: '2026/2027').
+     *
+     * Permet d'éviter le doublon disgracieux « Année Scolaire : Année Scolaire 2026/2027 »
+     * dans les documents officiels imprimables et les listes déroulantes de l'application.
+     *
+     * @return string
+     */
+    public function getSessionAttribute(): string
+    {
+        if (!empty($this->attributes['code'])) {
+            return $this->attributes['code'];
+        }
+
+        $nom = $this->attributes['nom'] ?? '';
+        return trim(preg_replace('/^année\s*scolaire\s*/ui', '', $nom));
+    }
+
+    /**
      * Relation un-à-plusieurs vers les périodes (Trimestres / Semestres).
      *
      * @return HasMany

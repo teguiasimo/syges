@@ -25,6 +25,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import { formatDate, getAvatarStyle } from '@/lib/utils';
 import type { Personnel } from '@/types/personnel';
 
 /**
@@ -72,7 +73,7 @@ export function PersonnelDetailDrawer({
                 <DialogHeader className="border-b pb-4">
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                         <div className="flex items-center gap-3">
-                            <div className="size-12 rounded-xl bg-teal-100 dark:bg-teal-900/50 text-teal-700 dark:text-teal-300 flex items-center justify-center font-bold text-lg border border-teal-200 dark:border-teal-800">
+                            <div className={`size-12 rounded-xl font-bold text-lg flex items-center justify-center border shrink-0 ${getAvatarStyle(personnel.nom + ' ' + (personnel.prenom || ''))}`}>
                                 {personnel.nom.slice(0, 1)}
                                 {personnel.prenom ? personnel.prenom.slice(0, 1) : ''}
                             </div>
@@ -92,8 +93,8 @@ export function PersonnelDetailDrawer({
                         </div>
 
                         {personnel.user && (
-                            <div className="flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                                <KeyRound className="size-4 text-emerald-600" />
+                            <div className="flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded-lg bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                                <KeyRound className="size-4 text-purple-600 dark:text-purple-400" />
                                 <span>Compte SYGES lié ({personnel.user.login})</span>
                             </div>
                         )}
@@ -104,7 +105,7 @@ export function PersonnelDetailDrawer({
                     {/* CARTE 1 : AFFECTATION & CONTRAT */}
                     <div className="p-4 rounded-xl bg-card border shadow-xs space-y-3">
                         <div className="flex items-center gap-2 text-sm font-semibold text-foreground border-b pb-2">
-                            <Building2 className="size-4 text-teal-600" />
+                            <Building2 className="size-4 text-blue-600 dark:text-blue-400" />
                             <span>Affectation Administrative & Contrat</span>
                         </div>
 
@@ -133,7 +134,7 @@ export function PersonnelDetailDrawer({
                             <div>
                                 <span className="text-muted-foreground block">Date d'Embauche</span>
                                 <strong className="text-foreground font-medium">
-                                    {personnel.date_embauche ? new Date(personnel.date_embauche).toLocaleDateString('fr-FR') : '-'}
+                                    {personnel.date_embauche ? formatDate(personnel.date_embauche) : '-'}
                                 </strong>
                             </div>
 
@@ -155,9 +156,9 @@ export function PersonnelDetailDrawer({
 
                     {/* CARTE 2 : VOLET PÉDAGOGIQUE (ENSEIGNANT) */}
                     {personnel.is_enseignant && (
-                        <div className="p-4 rounded-xl bg-teal-50/40 dark:bg-teal-950/20 border border-teal-100 dark:border-teal-900/40 space-y-3">
+                        <div className="p-4 rounded-xl bg-indigo-50/40 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/40 space-y-3">
                             <div className="flex items-center gap-2 text-sm font-semibold text-foreground border-b pb-2">
-                                <GraduationCap className="size-4 text-teal-600" />
+                                <GraduationCap className="size-4 text-indigo-600 dark:text-indigo-400" />
                                 <span>Profil Pédagogique & Charge d'Enseignement</span>
                             </div>
 
@@ -178,7 +179,7 @@ export function PersonnelDetailDrawer({
 
                                 <div>
                                     <span className="text-muted-foreground block">Quota Hebdomadaire</span>
-                                    <strong className="text-teal-700 dark:text-teal-400 text-sm font-semibold">
+                                    <strong className="text-indigo-700 dark:text-indigo-300 text-sm font-semibold">
                                         {personnel.volume_horaire_hebdo} heures / sem.
                                     </strong>
                                 </div>
@@ -196,14 +197,14 @@ export function PersonnelDetailDrawer({
                     {/* CARTE 3 : COORDONNÉES ET CONTACTS */}
                     <div className="p-4 rounded-xl bg-card border shadow-xs space-y-3">
                         <div className="flex items-center gap-2 text-sm font-semibold text-foreground border-b pb-2">
-                            <Phone className="size-4 text-teal-600" />
+                            <Phone className="size-4 text-amber-600 dark:text-amber-400" />
                             <span>Coordonnées & Informations Personnelles</span>
                         </div>
 
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
                             <div>
                                 <span className="text-muted-foreground block">Téléphone Principal</span>
-                                <a href={`tel:${personnel.telephone}`} className="text-teal-600 hover:underline font-medium text-sm">
+                                <a href={`tel:${personnel.telephone}`} className="text-indigo-600 dark:text-indigo-400 hover:underline font-medium text-sm">
                                     {personnel.telephone}
                                 </a>
                             </div>
@@ -218,7 +219,7 @@ export function PersonnelDetailDrawer({
                             <div>
                                 <span className="text-muted-foreground block">Email</span>
                                 {personnel.email ? (
-                                    <a href={`mailto:${personnel.email}`} className="text-teal-600 hover:underline font-medium">
+                                    <a href={`mailto:${personnel.email}`} className="text-indigo-600 dark:text-indigo-400 hover:underline font-medium">
                                         {personnel.email}
                                     </a>
                                 ) : (
@@ -236,7 +237,7 @@ export function PersonnelDetailDrawer({
                             <div>
                                 <span className="text-muted-foreground block">Date & Lieu de Naissance</span>
                                 <span className="text-foreground font-medium">
-                                    {personnel.date_naissance ? new Date(personnel.date_naissance).toLocaleDateString('fr-FR') : '-'}
+                                    {personnel.date_naissance ? formatDate(personnel.date_naissance) : '-'}
                                     {personnel.lieu_naissance ? ` à ${personnel.lieu_naissance}` : ''}
                                 </span>
                             </div>
@@ -253,7 +254,7 @@ export function PersonnelDetailDrawer({
                     {/* CARTE 4 : COMPTE UTILISATEUR APPLICATIF */}
                     <div className="p-4 rounded-xl bg-card border shadow-xs space-y-3">
                         <div className="flex items-center gap-2 text-sm font-semibold text-foreground border-b pb-2">
-                            <KeyRound className="size-4 text-emerald-600" />
+                            <KeyRound className="size-4 text-purple-600 dark:text-purple-400" />
                             <span>Accès Applicatif SYGES</span>
                         </div>
 
@@ -321,7 +322,7 @@ export function PersonnelDetailDrawer({
                                 onClose();
                                 onEdit(personnel);
                             }}
-                            className="bg-teal-600 hover:bg-teal-700 text-white cursor-pointer font-semibold"
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer font-semibold"
                         >
                             Modifier la fiche
                         </Button>

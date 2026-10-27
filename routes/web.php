@@ -171,7 +171,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         // Cartes Scolaires & Badges d'Identité (Phase 2)
         Route::get('eleves/cartes-scolaires', [CarteScolaireController::class, 'index'])->name('eleves.cartes-scolaires');
-        Route::post('eleves/cartes-scolaires/imprimer-planche', [CarteScolaireController::class, 'imprimerPlanche'])->name('eleves.cartes-scolaires.imprimer-planche');
+        Route::match(['get', 'post'], 'eleves/cartes-scolaires/imprimer-planche', [CarteScolaireController::class, 'imprimerPlanche'])->name('eleves.cartes-scolaires.imprimer-planche');
         Route::get('eleves/{inscription}/carte-scolaire-pdf', [CarteScolaireController::class, 'imprimerUnitaire'])->name('eleves.carte-scolaire-pdf');
 
         // Rôles & Permissions

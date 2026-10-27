@@ -130,7 +130,7 @@ export function DepartementModal({
             <DialogContent className="max-w-lg p-6">
                 <DialogHeader className="border-b pb-4">
                     <DialogTitle className="text-lg font-bold flex items-center gap-2 text-foreground">
-                        <div className="p-2 rounded-lg bg-teal-50 dark:bg-teal-950/50 text-teal-600 border border-teal-200 dark:border-teal-900/50">
+                        <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-900/50">
                             <BookOpen className="size-4" />
                         </div>
                         {isEditing ? `Modifier : ${departement.nom}` : 'Nouveau Département Pédagogique'}
@@ -229,9 +229,9 @@ export function DepartementModal({
                                 variant="outline"
                                 disabled={processing}
                                 onClick={() => handleSave(true)}
-                                className="cursor-pointer text-xs border-teal-600/40 text-teal-700 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-950/50 font-medium"
+                                className="cursor-pointer text-xs border-blue-600/40 text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/50 font-medium"
                             >
-                                <PlusCircle className="size-4 mr-1.5 text-teal-600" />
+                                <PlusCircle className="size-4 mr-1.5 text-blue-600 dark:text-blue-400" />
                                 + Nouveau
                             </Button>
                         )}
@@ -239,7 +239,7 @@ export function DepartementModal({
                         <Button
                             type="submit"
                             disabled={processing}
-                            className="bg-teal-600 hover:bg-teal-700 text-white cursor-pointer font-semibold text-xs"
+                            className="bg-blue-600 hover:bg-blue-700 text-white cursor-pointer font-semibold text-xs"
                         >
                             {isEditing ? <Check className="size-4 mr-1.5" /> : <Plus className="size-4 mr-1.5" />}
                             {processing ? 'Enregistrement...' : isEditing ? 'Mettre à jour' : 'Créer le département'}

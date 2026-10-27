@@ -209,7 +209,7 @@
     <table class="signatures-table">
         <tr>
             <td>
-                Fait à {{ $etablissement->institution->ville ?? 'Yaoundé' }}, le {{ $date_emission }}<br>
+                Fait à {{ $etablissement->ville ?? ($etablissement->institution?->ville ?? 'Fongo-Tongo') }}, le {{ $date_emission }}<br>
                 <strong>Le Censeur / Surveillant Général</strong><br><br><br>
                 [ Visa & Signature ]
             </td>

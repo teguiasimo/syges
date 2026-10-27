@@ -287,3 +287,18 @@ test('un enseignant ne peut pas exporter le relevé de notes d\'un autre enseign
     // Doit être interdit (403)
     $response->assertForbidden();
 });
+
+test('un enseignant peut exporter une fiche de notation vierge polyvalente pour une classe où il enseigne sans sélectionner de matière', function () {
+    $this->actingAs($this->teacherUser);
+
+    // Export PDF pour la classe sans attribution (fiche polyvalente à photocopier)
+    $response = $this->get(route('administration.notes.releves.pdf', [
+        'classe_id' => $this->classe->id,
+        'annee_id' => $this->annee->id,
+        'mode' => 'vierge',
+    ]));
+
+    $response->assertOk();
+    expect($response->headers->get('content-type'))->toBe('application/pdf');
+});
+

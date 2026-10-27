@@ -673,7 +673,7 @@
                     Sceau officiel & signature
                 </div>
                 <div style="font-size: 5.6pt; color: #1e293b; margin-top: 14px;">
-                    Fait à {{ $classe['etablissement']['ville'] ?? 'Yaoundé' }}, le {{ date('d-m-Y') }}
+                    Fait à {{ $classe['etablissement']['ville'] ?? ($classe['etablissement']['institution']['ville'] ?? 'Fongo-Tongo') }}, le {{ date('d-m-Y') }}
                 </div>
             </td>
         </tr>

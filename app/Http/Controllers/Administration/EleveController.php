@@ -633,7 +633,8 @@ class EleveController extends Controller implements HasMiddleware
         }
 
         $file = $request->file('fichier');
-        $content = $file->getContent();
+        // Nettoyage de l'éventuel BOM UTF-8 (courant dans les fichiers générés par Excel)
+        $content = preg_replace('/^\xEF\xBB\xBF/', '', $file->getContent());
         $lines = explode("\n", str_replace("\r", "", $content));
 
         $imported = 0;

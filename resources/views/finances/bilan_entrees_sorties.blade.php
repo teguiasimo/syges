@@ -165,7 +165,7 @@
     <div class="banner">
         <div class="banner-title">COMPTE D'EXPLOITATION & BILAN FINANCIER SYNTHÉTIQUE</div>
         <div class="banner-sub">
-            ANNÉE SCOLAIRE : {{ $annee->nom ?? $annee->code }} | ÉDITÉ LE : {{ $date_generation }}
+            ANNÉE SCOLAIRE : {{ $annee->session ?? ($annee->code ?? $annee->nom) }} | ÉDITÉ LE : {{ $date_generation }}
         </div>
     </div>
 

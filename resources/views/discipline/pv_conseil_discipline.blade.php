@@ -172,7 +172,7 @@
     <div class="banner">
         <div class="banner-title">PROCÈS-VERBAL OFFICIEL DU CONSEIL DE DISCIPLINE</div>
         <div class="banner-sub">
-            SESSION N° : {{ $conseil->numero_session }} | ANNÉE SCOLAIRE : {{ $conseil->anneeScolaire->nom ?? $conseil->anneeScolaire->code }}
+            SESSION N° : {{ $conseil->numero_session }} | ANNÉE SCOLAIRE : {{ $conseil->anneeScolaire->session ?? ($conseil->anneeScolaire->code ?? $conseil->anneeScolaire->nom) }}
         </div>
     </div>
 

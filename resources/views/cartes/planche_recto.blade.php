@@ -1,3 +1,9 @@
+{{--
+    Vue Blade : Planche A4 de Cartes Scolaires - RECTO
+    Rôle : Génère une planche industrielle A4 de 10 cartes par page (2 colonnes x 5 lignes)
+    Dimensions : Format A4 portrait (210mm x 297mm), chaque carte au format ISO CR-80 (86mm x 54mm)
+    Conforme aux normes camerounaises et calibré sans saut de page parasite DomPDF.
+--}}
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -5,8 +11,8 @@
     <title>Planche Cartes Scolaires - Recto</title>
     <style>
         @page {
-            size: A4 portrait;
-            margin: 10mm 12mm 10mm 12mm;
+            size: 210mm 297mm portrait;
+            margin: 8mm 12mm 8mm 12mm;
         }
         * {
             box-sizing: border-box;
@@ -15,306 +21,256 @@
         }
         body {
             font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-            color: #1a1a1a;
+            color: #0f172a;
             background: #ffffff;
+            font-size: 5pt;
+            line-height: 1.15;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
         }
         .page-sheet {
-            width: 186mm;
-            height: 277mm;
+            width: 100%;
             page-break-after: always;
-            position: relative;
         }
         .page-sheet:last-child {
             page-break-after: avoid;
         }
-        .cards-grid {
-            display: table;
+
+        /* Grille principale de la feuille : 5 lignes x 2 colonnes */
+        .tbl-sheet-grid {
             width: 100%;
-            border-collapse: separate;
-            border-spacing: 5mm 5mm;
+            border-collapse: collapse;
         }
-        .cards-row {
-            display: table-row;
-        }
-        .card-cell {
-            display: table-cell;
-            width: 86mm;
-            height: 54mm;
+        .cell-left {
+            width: 50%;
+            padding: 0 3mm 1.5mm 0;
             vertical-align: top;
-            position: relative;
         }
+        .cell-right {
+            width: 50%;
+            padding: 0 0 1.5mm 3mm;
+            vertical-align: top;
+        }
+
+        /* Boîtier individuel de la carte scolaire (Format CR-80 : 86mm x 53.5mm) */
         .card-box {
             width: 86mm;
-            height: 54mm;
-            border: 0.8px solid #94a3b8;
-            border-radius: 4px;
-            padding: 2.5mm 3mm;
-            position: relative;
-            background-color: #ffffff;
+            height: 53.5mm;
+            border: 0.8px solid #0284c7;
+            border-radius: 3px;
+            padding: 2mm 2.5mm 0 2.5mm;
+            background: #ffffff;
             overflow: hidden;
+            position: relative;
         }
 
-        /* Repères de coupe (Crop Marks) */
-        .crop-mark {
-            position: absolute;
-            background: #cbd5e1;
-        }
-        .crop-tl-h { top: -2.5mm; left: -2.5mm; width: 2mm; height: 0.4px; }
-        .crop-tl-v { top: -2.5mm; left: -2.5mm; width: 0.4px; height: 2mm; }
-        .crop-tr-h { top: -2.5mm; right: -2.5mm; width: 2mm; height: 0.4px; }
-        .crop-tr-v { top: -2.5mm; right: -2.5mm; width: 0.4px; height: 2mm; }
-        .crop-bl-h { bottom: -2.5mm; left: -2.5mm; width: 2mm; height: 0.4px; }
-        .crop-bl-v { bottom: -2.5mm; left: -2.5mm; width: 0.4px; height: 2mm; }
-        .crop-br-h { bottom: -2.5mm; right: -2.5mm; width: 2mm; height: 0.4px; }
-        .crop-br-v { bottom: -2.5mm; right: -2.5mm; width: 0.4px; height: 2mm; }
-
-        /* En-tête Bilingue Officiel */
-        .header-table {
+        /* En-tête bilingue officiel République du Cameroun */
+        .tbl-hdr {
             width: 100%;
             border-collapse: collapse;
-            font-size: 3.8pt;
-            line-height: 1.1;
-            text-align: center;
-            margin-bottom: 1.5mm;
         }
-        .header-table td {
-            vertical-align: middle;
+        .tbl-hdr td {
             padding: 0;
+            vertical-align: middle;
         }
-        .txt-officiel {
+        .hdr-rep {
+            font-size: 3.2pt;
             font-weight: bold;
-            color: #0f172a;
             text-transform: uppercase;
+            color: #0f172a;
+            line-height: 1.05;
         }
-        .motto {
+        .hdr-sub {
+            font-size: 2.5pt;
             font-style: italic;
-            font-size: 3.4pt;
             color: #475569;
         }
-        .logo-img {
-            max-width: 10mm;
-            max-height: 10mm;
-            object-fit: contain;
-        }
-        .school-name {
-            font-size: 6.5pt;
-            font-weight: 800;
-            color: #0284c7;
-            text-align: center;
-            text-transform: uppercase;
-            letter-spacing: 0.3px;
-            margin-bottom: 1.2mm;
+        .hdr-del {
+            font-size: 2.7pt;
+            font-weight: bold;
+            color: #334155;
             white-space: nowrap;
             overflow: hidden;
-            text-overflow: ellipsis;
+        }
+        .hdr-logo {
+            text-align: center;
+            vertical-align: middle;
+        }
+        .logo-img {
+            width: 20pt;
+            height: 20pt;
         }
 
-        /* Bandeau Titre Tricolore */
-        .title-banner {
-            width: 100%;
-            height: 4.8mm;
-            border-radius: 2px;
-            overflow: hidden;
-            margin-bottom: 1.2mm;
-            border: 0.5px solid #0284c7;
-            background: #e0f2fe;
-            display: table;
-        }
-        .banner-flag {
-            display: table-cell;
-            width: 7mm;
-            height: 4.8mm;
-            vertical-align: middle;
-        }
-        .flag-table {
-            width: 100%;
-            height: 100%;
-            border-collapse: collapse;
-        }
-        .flag-table td {
-            height: 100%;
-            padding: 0;
-        }
-        .flag-green { width: 33.3%; background: #15803d; }
-        .flag-red {
-            width: 33.4%;
-            background: #dc2626;
-            color: #facc15;
-            font-size: 3.5pt;
-            text-align: center;
-            line-height: 4.8mm;
-        }
-        .flag-yellow { width: 33.3%; background: #eab308; }
-        .banner-text {
-            display: table-cell;
-            vertical-align: middle;
-            text-align: center;
+        /* Nom officiel de l'établissement */
+        .school-name {
             font-size: 6.2pt;
+            font-weight: 900;
+            color: #0284c7;
+            text-transform: uppercase;
+            text-align: center;
+            margin-top: 1pt;
+            margin-bottom: 1.2pt;
+            white-space: nowrap;
+            overflow: hidden;
+            letter-spacing: 0.2px;
+        }
+
+        /* Bandeau titre tricolore officiel avec étoile dorée */
+        .tbl-banner {
+            width: 100%;
+            border-collapse: collapse;
+            background: #e0f2fe;
+            border: 0.5px solid #0284c7;
+            margin-bottom: 1.5pt;
+            border-radius: 1.5px;
+        }
+        .tbl-banner td {
+            padding: 0;
+            vertical-align: middle;
+        }
+        .flag-g { width: 5pt; height: 9pt; background: #15803d; }
+        .flag-r { width: 7pt; height: 9pt; background: #dc2626; color: #facc15; text-align: center; font-size: 4pt; font-family: 'DejaVu Sans', sans-serif; line-height: 9pt; }
+        .flag-y { width: 5pt; height: 9pt; background: #eab308; }
+        .banner-title {
+            text-align: center;
+            font-size: 5.8pt;
             font-weight: 900;
             color: #0369a1;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        /* Année Scolaire */
-        .year-label {
-            font-size: 5.5pt;
-            font-weight: bold;
-            color: #b91c1c;
-            text-align: center;
-            margin-bottom: 1.5mm;
             letter-spacing: 0.3px;
         }
+        .banner-year {
+            text-align: right;
+            padding-right: 3.5pt !important;
+            font-size: 4.5pt;
+            font-weight: bold;
+            color: #dc2626;
+            white-space: nowrap;
+        }
 
-        /* Corps de la Carte : Photo + Données + Cachet */
-        .body-table {
+        /* Corps de la carte : Photo + Infos Élève + Cachet */
+        .tbl-body {
             width: 100%;
             border-collapse: collapse;
+            margin-top: 1.5pt;
         }
-        .body-table td {
-            vertical-align: top;
+        .tbl-body td {
             padding: 0;
+            vertical-align: top;
         }
-
-        /* Cadre Photo */
-        .photo-cell {
-            width: 19mm;
-            padding-right: 2.5mm;
-        }
-        .photo-frame {
-            width: 18mm;
-            height: 22mm;
-            border: 0.8px solid #94a3b8;
-            border-radius: 3px;
-            overflow: hidden;
-            background: #f1f5f9;
+        .photo-box {
+            width: 46pt;
+            height: 52pt;
+            border: 0.7px solid #94a3b8;
+            border-radius: 2px;
+            background: #f8fafc;
             text-align: center;
+            overflow: hidden;
         }
-        .student-photo {
-            width: 100%;
-            height: 100%;
+        .photo-img {
+            width: 46pt;
+            height: 52pt;
             object-fit: cover;
         }
         .photo-placeholder {
-            line-height: 22mm;
-            font-size: 5pt;
-            color: #94a3b8;
+            line-height: 52pt;
+            font-size: 5.5pt;
             font-weight: bold;
+            color: #94a3b8;
         }
 
-        /* Informations Élève */
-        .info-cell {
-            width: 42mm;
-            padding-right: 1.5mm;
-        }
+        /* Renseignements civils de l'élève */
         .info-row {
             font-size: 4.6pt;
-            line-height: 1.4;
-            color: #1e293b;
-            margin-bottom: 0.6mm;
+            line-height: 1.32;
+            margin-bottom: 1pt;
             white-space: nowrap;
         }
-        .info-label {
+        .info-lbl {
             font-weight: bold;
-            color: #334155;
+            color: #475569;
             display: inline-block;
-            width: 14mm;
+            width: 32pt;
         }
         .info-val {
-            font-weight: 700;
+            font-weight: bold;
             color: #0f172a;
         }
-        .val-matricule {
+        .val-mat {
             color: #dc2626;
+            font-family: monospace;
             font-size: 5.2pt;
         }
         .val-nom {
             color: #1e3a8a;
-            font-size: 5pt;
+            font-size: 5.2pt;
         }
-        .val-classe {
-            color: #b91c1c;
+        .val-cls {
+            color: #dc2626;
             font-size: 5pt;
         }
 
-        /* Cachet & Signature */
-        .stamp-cell {
-            width: 19mm;
-            text-align: center;
-            position: relative;
-        }
-        .stamp-circle {
-            width: 16mm;
-            height: 16mm;
-            border: 0.8px dashed #818cf8;
+        /* Cachet officiel et visa */
+        .stamp-box {
+            width: 32pt;
+            height: 32pt;
+            border: 0.7px dashed #6366f1;
             border-radius: 50%;
-            margin: 0 auto 0.8mm auto;
-            position: relative;
-            background: rgba(238, 242, 255, 0.4);
+            margin: 1pt auto 0 auto;
+            text-align: center;
+            background: rgba(238, 242, 255, 0.45);
         }
-        .stamp-text {
-            font-size: 2.8pt;
+        .stamp-txt {
+            font-size: 2.7pt;
+            font-weight: bold;
             color: #4338ca;
             text-transform: uppercase;
-            font-weight: bold;
-            position: absolute;
-            top: 25%;
-            left: 5%;
-            right: 5%;
-            text-align: center;
-            line-height: 1.1;
+            padding-top: 7.5pt;
+            line-height: 1.05;
         }
-        .signature-name {
-            font-size: 3.8pt;
+        .stamp-sign {
+            font-size: 3pt;
             font-weight: bold;
             color: #1e3a8a;
+            text-align: center;
+            margin-top: 1.5pt;
             white-space: nowrap;
             overflow: hidden;
-            text-overflow: ellipsis;
         }
     </style>
 </head>
 <body>
     @foreach($planches as $planche)
         <div class="page-sheet">
-            <div class="cards-grid">
+            <table class="tbl-sheet-grid">
                 @foreach($planche->chunk(2) as $pair)
-                    <div class="cards-row">
-                        @foreach($pair as $c)
-                            <div class="card-cell">
-                                <div class="crop-mark crop-tl-h"></div>
-                                <div class="crop-mark crop-tl-v"></div>
-                                <div class="crop-mark crop-tr-h"></div>
-                                <div class="crop-mark crop-tr-v"></div>
-                                <div class="crop-mark crop-bl-h"></div>
-                                <div class="crop-mark crop-bl-v"></div>
-                                <div class="crop-mark crop-br-h"></div>
-                                <div class="crop-mark crop-br-v"></div>
-
+                    <tr>
+                        @foreach($pair as $index => $c)
+                            <td class="{{ $index === 0 ? 'cell-left' : 'cell-right' }}">
                                 <div class="card-box">
                                     {{-- En-tête Bilingue Officiel --}}
-                                    <table class="header-table">
+                                    <table class="tbl-hdr">
                                         <tr>
                                             <td style="width: 38%; text-align: left;">
-                                                <div class="txt-officiel">RÉPUBLIQUE DU CAMEROUN</div>
-                                                <div class="motto">Paix – Travail – Patrie</div>
-                                                <div class="txt-officiel">{{ $c['delegation_regionale'] }}</div>
-                                                <div class="txt-officiel">{{ $c['delegation_departementale'] }}</div>
+                                                <div class="hdr-rep">RÉPUBLIQUE DU CAMEROUN</div>
+                                                <div class="hdr-sub">Paix – Travail – Patrie</div>
+                                                <div class="hdr-del">{{ $c['delegation_regionale'] }}</div>
+                                                <div class="hdr-del">{{ $c['delegation_departementale'] }}</div>
                                             </td>
-                                            <td style="width: 24%; text-align: center;">
-                                                @if(!empty($c['logo_url']) && file_exists(public_path($c['logo_url'])))
-                                                    <img src="{{ public_path($c['logo_url']) }}" class="logo-img" alt="Logo">
+                                            <td style="width: 24%;" class="hdr-logo">
+                                                @if(!empty($c['logo_base64']))
+                                                    <img src="{{ $c['logo_base64'] }}" class="logo-img" width="20" height="20" alt="Logo">
+                                                @elseif(!empty($c['logo_url']) && file_exists(public_path($c['logo_url'])))
+                                                    <img src="{{ public_path($c['logo_url']) }}" class="logo-img" width="20" height="20" alt="Logo">
                                                 @else
-                                                    <div style="font-size: 10pt; color: #0284c7; font-weight: bold;">★</div>
+                                                    <div style="font-size: 9pt; color: #0284c7; font-weight: bold;">SYGES</div>
                                                 @endif
                                             </td>
                                             <td style="width: 38%; text-align: right;">
-                                                <div class="txt-officiel">REPUBLIC OF CAMEROON</div>
-                                                <div class="motto">Peace – Work – Fatherland</div>
-                                                <div class="txt-officiel">{{ $c['delegation_regionale_en'] }}</div>
-                                                <div class="txt-officiel">{{ $c['delegation_departementale_en'] }}</div>
+                                                <div class="hdr-rep">REPUBLIC OF CAMEROON</div>
+                                                <div class="hdr-sub">Peace – Work – Fatherland</div>
+                                                <div class="hdr-del">{{ $c['delegation_regionale_en'] }}</div>
+                                                <div class="hdr-del">{{ $c['delegation_departementale_en'] }}</div>
                                             </td>
                                         </tr>
                                     </table>
@@ -323,81 +279,76 @@
                                     <div class="school-name">{{ $c['etablissement_nom'] }}</div>
 
                                     {{-- Bandeau Titre Tricolore --}}
-                                    <div class="title-banner">
-                                        <div class="banner-flag">
-                                            <table class="flag-table">
-                                                <tr>
-                                                    <td class="flag-green"></td>
-                                                    <td class="flag-red">★</td>
-                                                    <td class="flag-yellow"></td>
-                                                </tr>
-                                            </table>
-                                        </div>
-                                        <div class="banner-text">CARTE D'IDENTITE SCOLAIRE</div>
-                                    </div>
-
-                                    {{-- Année Scolaire --}}
-                                    <div class="year-label">Année Scolaire {{ $c['annee_nom'] }}</div>
-
-                                    {{-- Corps de la Carte --}}
-                                    <table class="body-table">
+                                    <table class="tbl-banner">
                                         <tr>
-                                            {{-- Photo d'identité --}}
-                                            <td class="photo-cell">
-                                                <div class="photo-frame">
-                                                    @if(!empty($c['photo_url']) && file_exists(public_path($c['photo_url'])))
-                                                        <img src="{{ public_path($c['photo_url']) }}" class="student-photo" alt="Photo">
+                                            <td class="flag-g"></td>
+                                            <td class="flag-r">&#9733;</td>
+                                            <td class="flag-y"></td>
+                                            <td class="banner-title">CARTE D'IDENTITÉ SCOLAIRE</td>
+                                            <td class="banner-year">Année {{ $c['annee_nom'] }}</td>
+                                        </tr>
+                                    </table>
+
+                                    {{-- Corps de la Carte : Photo + Données Civiles + Cachet --}}
+                                    <table class="tbl-body">
+                                        <tr>
+                                            <td style="width: 46pt;">
+                                                <div class="photo-box">
+                                                    @if(!empty($c['photo_base64']))
+                                                        <img src="{{ $c['photo_base64'] }}" class="photo-img" width="46" height="52" alt="Photo">
+                                                    @elseif(!empty($c['photo_url']) && file_exists(public_path($c['photo_url'])))
+                                                        <img src="{{ public_path($c['photo_url']) }}" class="photo-img" width="46" height="52" alt="Photo">
                                                     @else
                                                         <div class="photo-placeholder">PHOTO</div>
                                                     @endif
                                                 </div>
                                             </td>
 
-                                            {{-- Données Civiles de l'Élève --}}
-                                            <td class="info-cell">
+                                            <td style="padding-left: 4pt; width: 130pt;">
                                                 <div class="info-row">
-                                                    <span class="info-label">Matricule :</span>
-                                                    <span class="info-val val-matricule">{{ $c['matricule'] }}</span>
+                                                    <span class="info-lbl">Matricule :</span>
+                                                    <span class="info-val val-mat">{{ $c['matricule'] }}</span>
+                                                    @if(!empty($c['matricule_national']))
+                                                        <span style="font-size: 3.8pt; color: #64748b;"> &bull; Nat: {{ $c['matricule_national'] }}</span>
+                                                    @endif
                                                 </div>
                                                 <div class="info-row">
-                                                    <span class="info-label">Nom :</span>
+                                                    <span class="info-lbl">Nom :</span>
                                                     <span class="info-val val-nom">{{ $c['nom_complet'] }}</span>
                                                 </div>
                                                 <div class="info-row">
-                                                    <span class="info-label">Né(e) le :</span>
-                                                    <span class="info-val">{{ $c['date_naissance'] }} A {{ $c['lieu_naissance'] }}</span>
+                                                    <span class="info-lbl">Né(e) le :</span>
+                                                    <span class="info-val">{{ $c['date_naissance'] }} à {{ $c['lieu_naissance'] }}</span>
                                                 </div>
                                                 <div class="info-row">
-                                                    <span class="info-label">Classe :</span>
-                                                    <span class="info-val val-classe">{{ $c['classe_nom'] }}</span>
+                                                    <span class="info-lbl">Classe :</span>
+                                                    <span class="info-val val-cls">{{ $c['classe_nom'] }}</span>
+                                                    &nbsp;<span class="info-lbl" style="width: auto;">Sexe :</span>
+                                                    <span class="info-val" style="color: #dc2626;">{{ $c['sexe'] }}</span>
                                                 </div>
                                                 <div class="info-row">
-                                                    <span class="info-label">Direction :</span>
+                                                    <span class="info-lbl">Direction :</span>
                                                     <span class="info-val" style="color: #047857;">{{ $c['telephone_direction'] }}</span>
-                                                </div>
-                                                <div class="info-row">
-                                                    <span class="info-label">Sexe :</span>
-                                                    <span class="info-val" style="color: #b91c1c;">{{ $c['sexe'] }}</span>
                                                 </div>
                                             </td>
 
-                                            {{-- Cachet & Visa du Principal --}}
-                                            <td class="stamp-cell">
-                                                <div class="stamp-circle">
-                                                    <div class="stamp-text">
-                                                        CACHET OFFICIEL<br>DIRECTION
-                                                    </div>
+                                            <td style="width: 46pt; text-align: center; vertical-align: top;">
+                                                <div class="stamp-box">
+                                                    <div class="stamp-txt">CACHET<br>DIRECTION</div>
                                                 </div>
-                                                <div class="signature-name">{{ $c['nom_chef'] }}</div>
+                                                <div class="stamp-sign">{{ $c['nom_chef'] }}</div>
                                             </td>
                                         </tr>
                                     </table>
                                 </div>
-                            </div>
+                            </td>
                         @endforeach
-                    </div>
+                        @if(count($pair) === 1)
+                            <td class="cell-right"></td>
+                        @endif
+                    </tr>
                 @endforeach
-            </div>
+            </table>
         </div>
     @endforeach
 </body>

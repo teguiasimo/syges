@@ -25,14 +25,16 @@
             vertical-align: top;
         }
         .header-left, .header-right {
-            width: 36%;
-            font-size: 7pt;
+            width: 41%;
+            font-size: 6.8pt;
             text-align: center;
-            line-height: 1.2;
+            line-height: 1.22;
+            white-space: nowrap;
         }
         .header-center {
-            width: 28%;
+            width: 18%;
             text-align: center;
+            vertical-align: middle;
         }
         .school-name {
             font-size: 11pt;
@@ -40,6 +42,7 @@
             color: #1e3a8a;
             text-transform: uppercase;
             margin-top: 2px;
+            white-space: nowrap;
         }
         .school-sub {
             font-size: 7pt;
@@ -176,28 +179,49 @@
             <td class="header-left">
                 <strong>RÉPUBLIQUE DU CAMEROUN</strong><br>
                 <em>Paix – Travail – Patrie</em><br>
-                MINISTÈRE DES ENSEIGNEMENTS SECONDAIRES<br>
-                {{ $etablissement->delegation_regionale ?? 'DÉLÉGATION RÉGIONALE DU CENTRE' }}<br>
-                {{ $etablissement->delegation_departementale ?? 'DÉLÉGATION DÉPARTEMENTALE DU MFOUNDI' }}
+                {{ $etablissement->ministere_tutelle ?? 'MINISTÈRE DES ENSEIGNEMENTS SECONDAIRES' }}<br>
+                @if($etablissement->delegation_regionale)
+                    {{ mb_strtoupper($etablissement->delegation_regionale, 'UTF-8') }}<br>
+                @endif
+                @if($etablissement->delegation_departementale)
+                    {{ mb_strtoupper($etablissement->delegation_departementale, 'UTF-8') }}<br>
+                @endif
+                @if($etablissement->arrondissement)
+                    {{ \Illuminate\Support\Str::startsWith(mb_strtoupper($etablissement->arrondissement, 'UTF-8'), 'ARRONDISSEMENT') ? mb_strtoupper($etablissement->arrondissement, 'UTF-8') : 'ARRONDISSEMENT DE ' . mb_strtoupper($etablissement->arrondissement, 'UTF-8') }}
+                @endif
             </td>
             <td class="header-center">
                 @if($etablissement && $etablissement->logo_url)
-                    <img src="{{ public_path($etablissement->logo_url) }}" alt="Logo" style="max-height: 40px; max-width: 55px;">
+                    <img src="{{ public_path($etablissement->logo_url) }}" alt="Logo" style="max-height: 55px; max-width: 70px; object-fit: contain;">
                 @else
-                    <div style="font-size: 16pt; font-weight: bold; color: #1e3a8a;">SYGES</div>
+                    <div style="font-size: 18pt; font-weight: bold; color: #1e3a8a;">SYGES</div>
                 @endif
-                <div class="school-name">{{ $etablissement->nom ?? 'ÉTABLISSEMENT SCOLAIRE' }}</div>
-                <div class="school-sub">Devise : {{ $etablissement->devise ?? 'Discipline - Travail - Succès' }}</div>
             </td>
             <td class="header-right">
                 <strong>REPUBLIC OF CAMEROON</strong><br>
                 <em>Peace – Work – Fatherland</em><br>
-                MINISTRY OF SECONDARY EDUCATION<br>
-                REGIONAL DELEGATION OF CENTRE<br>
-                DIVISIONAL DELEGATION OF MFOUNDI
+                {{ $etablissement->ministere_tutelle_en ?? 'MINISTRY OF SECONDARY EDUCATION' }}<br>
+                @if($etablissement->delegation_regionale_en || $etablissement->delegation_regionale)
+                    {{ mb_strtoupper($etablissement->delegation_regionale_en ?? $etablissement->delegation_regionale, 'UTF-8') }}<br>
+                @endif
+                @if($etablissement->delegation_departementale_en || $etablissement->delegation_departementale)
+                    {{ mb_strtoupper($etablissement->delegation_departementale_en ?? $etablissement->delegation_departementale, 'UTF-8') }}<br>
+                @endif
+                @if($etablissement->arrondissement_en || $etablissement->arrondissement)
+                    @php
+                        $arrEn = $etablissement->arrondissement_en ?? $etablissement->arrondissement;
+                        $arrEnUpper = mb_strtoupper($arrEn, 'UTF-8');
+                    @endphp
+                    {{ \Illuminate\Support\Str::contains($arrEnUpper, 'SUB-DIVISION') ? $arrEnUpper : $arrEnUpper . ' SUB-DIVISION' }}
+                @endif
             </td>
         </tr>
     </table>
+
+    <div style="text-align: center; margin-top: 1px; margin-bottom: 6px;">
+        <div class="school-name">{{ $etablissement->nom ?? 'ÉTABLISSEMENT SCOLAIRE' }}</div>
+        <div class="school-sub">Devise : {{ $etablissement->devise ?? 'Discipline - Travail - Succès' }}</div>
+    </div>
 
     <!-- Bannière Officielle -->
     <div class="banner-box">
@@ -205,7 +229,7 @@
             Répertoire Officiel des Classes & Divisions Pédagogiques
         </div>
         <div class="banner-meta">
-            Année Scolaire : <strong>{{ $annee->nom ?? $annee->code }}</strong> &bull; Total : <strong>{{ count($classes) }} classe(s)</strong>
+            Année Scolaire : <strong>{{ $annee->session ?? ($annee->code ?? $annee->nom) }}</strong> &bull; Total : <strong>{{ count($classes) }} classe(s)</strong>
         </div>
     </div>
 
@@ -296,8 +320,8 @@
                 Moyenne d'élèves par salle : <strong>{{ count($classes) > 0 ? round($totEleves / count($classes), 1) : 0 }}</strong> élèves
             </td>
             <td class="sign-right">
-                <div style="font-size: 8pt; margin-bottom: 4px;">Fait à {{ $etablissement->ville ?? 'Yaoundé' }}, le {{ $dateGeneration }}</div>
-                <div class="sign-role">Le Chef d'Établissement</div>
+                <div style="font-size: 8pt; margin-bottom: 4px;">Fait à {{ $etablissement->ville ?? ($etablissement->institution?->ville ?? 'Fongo-Tongo') }}, le {{ $dateGeneration }}</div>
+                <div class="sign-role">{{ $etablissement->titre_chef ?? "Le Chef d'Établissement" }}</div>
                 <div style="font-size: 7pt; color: #94a3b8; font-style: italic;">(Signature et Cachet Officiel)</div>
             </td>
         </tr>

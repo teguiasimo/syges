@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Relevé de Notes - {{ $attribution->classe?->nom }} - {{ $attribution->matiere?->nom }}</title>
+    <title>Relevé de Notes - {{ $classe?->nom ?? $attribution?->classe?->nom }} - {{ $attribution?->matiere?->nom ?? 'Fiche Polyvalente' }}</title>
     <style>
         @page {
             size: A4 landscape;
@@ -116,25 +116,49 @@
             <td style="width: 35%;" class="text-center">
                 <span class="bold uppercase" style="font-size: 7pt;">RÉPUBLIQUE DU CAMEROUN</span><br>
                 <span style="font-size: 6pt;">Paix – Travail – Patrie</span><br>
-                <span class="bold uppercase" style="font-size: 6.5pt;">MINISTÈRE DES ENSEIGNEMENTS SECONDAIRES</span><br>
+                <span class="bold uppercase" style="font-size: 6.5pt;">{{ $etablissement->ministere_tutelle ?? 'MINISTÈRE DES ENSEIGNEMENTS SECONDAIRES' }}</span><br>
+                @if(!empty($etablissement->delegation_regionale))
+                    <span class="uppercase" style="font-size: 6pt;">{{ $etablissement->delegation_regionale }}</span><br>
+                @endif
                 <span class="bold uppercase" style="font-size: 7pt; color: #1e3a8a;">{{ $etablissement->nom ?? 'SYGES ÉTABLISSEMENT' }}</span>
-                @if($etablissement && $etablissement->telephone)
-                    <br><span style="font-size: 6pt;">Tél : {{ $etablissement->telephone }}</span>
+                @if($etablissement && ($etablissement->telephone_1 || $etablissement->telephone))
+                    <br><span style="font-size: 6pt;">Tél : {{ $etablissement->telephone_1 ?? $etablissement->telephone }}</span>
                 @endif
             </td>
-            <td style="width: 30%;" class="text-center">
-                @if($etablissement && $etablissement->logo_path)
-                    <img src="{{ public_path('storage/' . $etablissement->logo_path) }}" alt="Logo" style="max-height: 45px; max-width: 90px;">
+            <td style="width: 30%; vertical-align: middle;" class="text-center">
+                @php
+                    // Résolution robuste du logo de l'établissement avec fallback sur l'institution et encodage base64 pour DomPDF
+                    $logoPath = !empty($etablissement->logo_url) ? public_path(ltrim($etablissement->logo_url, '/\\')) : null;
+                    if (!$logoPath || !file_exists($logoPath)) {
+                        $logoPath = !empty($etablissement->logo) ? public_path(ltrim($etablissement->logo, '/\\')) : null;
+                    }
+                    $logoSrc = null;
+                    if ($logoPath && file_exists($logoPath)) {
+                        $logoExt = pathinfo($logoPath, PATHINFO_EXTENSION) ?: 'png';
+                        $logoSrc = 'data:image/' . $logoExt . ';base64,' . base64_encode(file_get_contents($logoPath));
+                    }
+                    // Nettoyage de l'année scolaire pour éviter la répétition "Année Scolaire Année Scolaire 2026-2027"
+                    $sessionAnnee = $anneeScolaire->session ?? $anneeScolaire->code ?? trim(preg_replace('/^année\s*scolaire\s*/ui', '', $anneeScolaire->nom ?? ''));
+                @endphp
+                @if($logoSrc)
+                    <img src="{{ $logoSrc }}" alt="Logo" style="max-height: 48px; max-width: 90px; object-fit: contain; border: 0; outline: none; background: transparent; vertical-align: middle;">
                 @else
-                    <div style="font-size: 14pt; font-weight: bold; color: #1e3a8a; letter-spacing: 2px;">SYGES</div>
+                    <div style="font-size: 14pt; font-weight: bold; color: #1e3a8a; letter-spacing: 2px;">{{ $etablissement->sigle ?? 'SYGES' }}</div>
                 @endif
-                <div style="font-size: 7pt; font-weight: bold; margin-top: 2px;">Année Scolaire {{ $anneeScolaire->nom ?? $anneeScolaire->code }}</div>
+                @if(!empty($etablissement->devise))
+                    <div style="font-size: 5.8pt; font-style: italic; margin-top: 1px; color: #4b5563;">
+                        {{ $etablissement->devise }}
+                    </div>
+                @endif
+                <div style="font-size: 7.5pt; font-weight: bold; margin-top: 2px;">Année Scolaire {{ $sessionAnnee }}</div>
             </td>
             <td style="width: 35%;" class="text-center">
                 <span class="bold uppercase" style="font-size: 7pt;">REPUBLIC OF CAMEROON</span><br>
                 <span style="font-size: 6pt;">Peace – Work – Fatherland</span><br>
-                <span class="bold uppercase" style="font-size: 6.5pt;">MINISTRY OF SECONDARY EDUCATION</span><br>
-                <span class="bold uppercase" style="font-size: 6.5pt;">Délégation Régionale des Enseignements</span><br>
+                <span class="bold uppercase" style="font-size: 6.5pt;">{{ $etablissement->ministere_tutelle_en ?? 'MINISTRY OF SECONDARY EDUCATION' }}</span><br>
+                @if(!empty($etablissement->delegation_regionale_en))
+                    <span class="uppercase" style="font-size: 6pt;">{{ $etablissement->delegation_regionale_en }}</span><br>
+                @endif
                 <span style="font-size: 6pt;">Code Établissement : {{ $etablissement->code ?? 'ETAB' }}</span>
             </td>
         </tr>
@@ -144,7 +168,11 @@
     <div class="main-title">
         RELEVÉ DE NOTES & FICHE OFFICIELLE DE NOTATION
         @if($mode === 'vierge')
-            <span style="color: #b45309;">(FICHE DE SAISIE MANUSCRITE VIERGE)</span>
+            @if(!$attribution)
+                <span style="color: #b45309;">(FICHE DE SAISIE MANUSCRITE POLYVALENTE — MULTI-MATIÈRES)</span>
+            @else
+                <span style="color: #b45309;">(FICHE DE SAISIE MANUSCRITE VIERGE)</span>
+            @endif
         @else
             <span style="color: #047857;">(RÉSULTATS ENREGISTRÉS)</span>
         @endif
@@ -154,14 +182,23 @@
     <table class="meta-table">
         <tr>
             <td style="width: 25%;">
-                <span class="bold">Classe :</span> {{ $attribution->classe?->nom }}
+                <span class="bold">Classe :</span> {{ $classe->nom ?? $attribution?->classe?->nom }}
             </td>
             <td style="width: 35%;">
-                <span class="bold">Discipline / Matière :</span> {{ $attribution->matiere?->nom }} ({{ $attribution->matiere?->code }})
+                <span class="bold">Discipline / Matière :</span>
+                @if($attribution && $attribution->matiere)
+                    {{ $attribution->matiere->nom }} ({{ $attribution->matiere->code }})
+                @else
+                    <span style="font-style: italic; color: #4b5563;">........................................................................</span>
+                @endif
             </td>
             <td style="width: 40%;">
                 <span class="bold">Enseignant :</span>
-                {{ $attribution->personnel ? ($attribution->personnel->nom . ' ' . $attribution->personnel->prenom) : 'Non assigné' }}
+                @if($attribution && $attribution->personnel)
+                    {{ $attribution->personnel->nom }} {{ $attribution->personnel->prenom }}
+                @else
+                    <span style="font-style: italic; color: #4b5563;">........................................................................</span>
+                @endif
             </td>
         </tr>
         <tr>
@@ -173,7 +210,12 @@
                 (Filles : {{ $stats['filles'] }} | Garçons : {{ $stats['garcons'] }})
             </td>
             <td>
-                <span class="bold">Volume Horaire Hebdo :</span> {{ $attribution->volume_horaire_reel ?? 0 }} h/semaine
+                <span class="bold">Volume Horaire Hebdo :</span>
+                @if($attribution && $attribution->volume_horaire_reel)
+                    {{ $attribution->volume_horaire_reel }} h/semaine
+                @else
+                    .......... h/semaine
+                @endif
             </td>
         </tr>
     </table>
@@ -248,7 +290,11 @@
                 <span style="font-size: 6.5pt;">Date et Signature</span>
                 <div class="signature-box"></div>
                 <span style="font-size: 7pt; font-style: italic;">
-                    {{ $attribution->personnel ? ($attribution->personnel->nom . ' ' . $attribution->personnel->prenom) : '' }}
+                    @if($attribution && $attribution->personnel)
+                        {{ $attribution->personnel->nom }} {{ $attribution->personnel->prenom }}
+                    @else
+                        Nom : ....................................................
+                    @endif
                 </span>
             </td>
             <td>

@@ -169,6 +169,7 @@ export interface AttributionsPageProps {
         id: number;
         code: string;
         nom: string;
+        session?: string;
         is_current: boolean;
     }[];
     selectedAnneeId: number;

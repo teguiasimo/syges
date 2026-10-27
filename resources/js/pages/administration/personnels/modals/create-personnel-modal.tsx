@@ -206,7 +206,7 @@ export function CreatePersonnelModal({
             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-6 sm:p-8">
                 <DialogHeader className="border-b pb-4">
                     <DialogTitle className="text-xl font-bold flex items-center gap-2 text-foreground">
-                        <div className="p-2 rounded-lg bg-teal-50 dark:bg-teal-950/50 text-teal-600 border border-teal-200 dark:border-teal-900/50">
+                        <div className="p-2 rounded-lg bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-900/50">
                             <Briefcase className="size-5" />
                         </div>
                         Enregistrer un nouveau membre du personnel
@@ -220,7 +220,7 @@ export function CreatePersonnelModal({
                     {/* SECTION 1 : ÉTAT CIVIL & COORDONNÉES */}
                     <div className="space-y-4">
                         <div className="flex items-center gap-2 border-b pb-2">
-                            <User className="size-4 text-teal-600" />
+                            <User className="size-4 text-indigo-600 dark:text-indigo-400" />
                             <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">
                                 1. État Civil & Contact
                             </h3>
@@ -371,7 +371,7 @@ export function CreatePersonnelModal({
                     {/* SECTION 2 : AFFECTATION & CONTRAT */}
                     <div className="space-y-4 pt-2">
                         <div className="flex items-center gap-2 border-b pb-2">
-                            <Building2 className="size-4 text-teal-600" />
+                            <Building2 className="size-4 text-blue-600 dark:text-blue-400" />
                             <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">
                                 2. Affectation & Données RH
                             </h3>
@@ -516,7 +516,7 @@ export function CreatePersonnelModal({
                     <div className="space-y-4 pt-2 border-t">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                                <GraduationCap className="size-4 text-teal-600" />
+                                <GraduationCap className="size-4 text-indigo-600 dark:text-indigo-400" />
                                 <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">
                                     3. Profil Pédagogique (Enseignant)
                                 </h3>
@@ -534,7 +534,7 @@ export function CreatePersonnelModal({
                         </div>
 
                         {data.is_enseignant && (
-                            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 p-4 rounded-xl bg-teal-50/50 dark:bg-teal-950/20 border border-teal-100 dark:border-teal-900/40 animate-in fade-in-50">
+                            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 p-4 rounded-xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/40 animate-in fade-in-50">
                                 <div>
                                     <Label htmlFor="departement_id" className="text-xs font-semibold">
                                         Département pédagogique
@@ -609,7 +609,7 @@ export function CreatePersonnelModal({
                     <div className="space-y-4 pt-2 border-t">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                                <KeyRound className="size-4 text-emerald-600" />
+                                <KeyRound className="size-4 text-purple-600 dark:text-purple-400" />
                                 <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">
                                     4. Compte d'Accès SYGES (Optionnel)
                                 </h3>
@@ -627,7 +627,7 @@ export function CreatePersonnelModal({
                                             setData('create_user_account', true);
                                             setData('user_id', '');
                                         }}
-                                        className="text-emerald-600 focus:ring-emerald-500"
+                                        className="text-purple-600 focus:ring-purple-500"
                                     />
                                     <span>Créer un compte</span>
                                 </label>
@@ -642,7 +642,7 @@ export function CreatePersonnelModal({
                                                 setAccountMode('link');
                                                 setData('create_user_account', false);
                                             }}
-                                            className="text-emerald-600 focus:ring-emerald-500"
+                                            className="text-purple-600 focus:ring-purple-500"
                                         />
                                         <span>Lier un compte existant</span>
                                     </label>
@@ -658,7 +658,7 @@ export function CreatePersonnelModal({
                                             setData('create_user_account', false);
                                             setData('user_id', '');
                                         }}
-                                        className="text-emerald-600 focus:ring-emerald-500"
+                                        className="text-purple-600 focus:ring-purple-500"
                                     />
                                     <span>Pas de compte</span>
                                 </label>
@@ -667,9 +667,9 @@ export function CreatePersonnelModal({
 
                         {/* Formulaire de création de compte utilisateur */}
                         {accountMode === 'create' && (
-                            <div className="p-4 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/40 space-y-4 animate-in fade-in-50">
-                                <div className="flex items-center gap-2 text-xs text-emerald-800 dark:text-emerald-300 font-medium">
-                                    <Sparkles className="size-4 text-emerald-600" />
+                            <div className="p-4 rounded-xl bg-purple-50/60 dark:bg-purple-950/20 border border-purple-100 dark:border-purple-900/40 space-y-4 animate-in fade-in-50">
+                                <div className="flex items-center gap-2 text-xs text-purple-800 dark:text-purple-300 font-medium">
+                                    <Sparkles className="size-4 text-purple-600 dark:text-purple-400" />
                                     <span>Un compte utilisateur actif sera immédiatement créé et relié à cette fiche de personnel.</span>
                                 </div>
 
@@ -778,7 +778,7 @@ export function CreatePersonnelModal({
                         <Button
                             type="submit"
                             disabled={processing}
-                            className="bg-teal-600 hover:bg-teal-700 text-white cursor-pointer font-semibold"
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer font-semibold"
                         >
                             <Plus className="size-4 mr-1.5" />
                             {processing ? 'Enregistrement...' : 'Enregistrer le personnel'}

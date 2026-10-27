@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AnneeScolaire;
 use App\Models\Classe;
 use App\Models\ConfigurationNumerotation;
+use App\Models\Etablissement;
 use App\Models\Evaluation;
 use App\Models\Inscription;
 use App\Models\Note;
@@ -50,6 +51,7 @@ class DocumentOfficielController extends Controller
         ]);
 
         $etablissement = $inscription->etablissement ?? Auth::user()->etablissement;
+        $etablissement?->loadMissing('institution');
         $eleve = $inscription->eleve;
 
         // Génération du numéro de certificat selon le masque configuré
@@ -79,7 +81,8 @@ class DocumentOfficielController extends Controller
             'etablissement' => $etablissement,
             'numeroCertificat' => $numeroCertificat,
             'qrCodeBase64' => $qrCodeBase64,
-            'dateDelivrance' => now()->format('d/m/Y'),
+            // Formatage de la date de délivrance au standard jj-mm-aaaa
+            'dateDelivrance' => now()->format('d-m-Y'),
         ])->setPaper('a4', 'portrait');
 
         $fileName = sprintf(
@@ -113,6 +116,7 @@ class DocumentOfficielController extends Controller
         ]);
 
         $etablissement = $inscription->etablissement ?? Auth::user()->etablissement;
+        $etablissement?->loadMissing('institution');
         $eleve = $inscription->eleve;
 
         // Numéro de certificat de radiation
@@ -175,7 +179,8 @@ class DocumentOfficielController extends Controller
         ?Periode $periode = null,
         ?BulletinCalculationService $calculationService = null
     ): Response {
-        $etablissement = Auth::user()->etablissement;
+        $etablissement = Auth::user()?->etablissement ?? Etablissement::first();
+        $etablissement?->loadMissing('institution');
         $classe->load('niveau');
 
         // Récupération des inscriptions actives de la classe
@@ -280,8 +285,21 @@ class DocumentOfficielController extends Controller
         ]);
 
         $compte = $inscription->compteFinancier;
+        if (!$compte) {
+            /** @var \App\Services\FinanceService $financeService */
+            $financeService = app(\App\Services\FinanceService::class);
+            $compte = $financeService->initialiserCompteEleve($inscription);
+            $compte->load([
+                'versements.caisse',
+                'versements.modePaiement',
+                'boursesRemises.bourseRemise',
+                'penalites.penaliteConfiguration',
+            ]);
+        }
+
         $eleve = $inscription->eleve;
         $etablissement = $inscription->etablissement ?? Auth::user()->etablissement;
+        $etablissement?->loadMissing('institution');
 
         // Actualisation du solde net
         $compte?->actualiserSolde();
@@ -293,7 +311,7 @@ class DocumentOfficielController extends Controller
             'classe' => $inscription->classe,
             'annee' => $inscription->anneeScolaire,
             'etablissement' => $etablissement,
-            'dateEdition' => now()->format('d/m/Y H:i'),
+            'dateEdition' => now()->format('d-m-Y H:i'),
         ])->setPaper('a4', 'portrait');
 
         $fileName = sprintf(
@@ -341,6 +359,7 @@ class DocumentOfficielController extends Controller
         ]);
 
         $etablissement = $classe->etablissement ?? Auth::user()->etablissement;
+        $etablissement?->loadMissing('institution');
         $anneeId = $request->input('annee_id');
 
         $inscriptionsQuery = Inscription::with('eleve')
@@ -391,6 +410,7 @@ class DocumentOfficielController extends Controller
         ]);
 
         $etablissement = $classe->etablissement ?? Auth::user()->etablissement;
+        $etablissement?->loadMissing('institution');
         $type = $request->input('type', 'definitive');
         $anneeId = $request->input('annee_id');
 
@@ -454,6 +474,7 @@ class DocumentOfficielController extends Controller
     {
         $etabId = $request->input('etablissement_id');
         $etablissement = $etabId ? Etablissement::find($etabId) : (Auth::user()?->etablissement ?? Etablissement::first());
+        $etablissement?->loadMissing('institution');
         $anneeId = $request->input('annee_id');
         $annee = $anneeId ? AnneeScolaire::find($anneeId) : AnneeScolaire::where('is_current', true)->first();
 
@@ -504,6 +525,7 @@ class DocumentOfficielController extends Controller
     {
         $etabId = $request->input('etablissement_id');
         $etablissement = $etabId ? Etablissement::find($etabId) : (Auth::user()?->etablissement ?? Etablissement::first());
+        $etablissement?->loadMissing('institution');
         $annee = AnneeScolaire::where('is_current', true)->first();
 
         $personnelsQuery = Personnel::query();

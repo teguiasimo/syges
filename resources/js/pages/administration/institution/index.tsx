@@ -98,6 +98,8 @@ interface EtablissementItem {
     ordre_enseignement: string;
     decret_creation?: string | null;
     nom_chef_etablissement?: string | null;
+    titre_chef?: string | null;
+    titre_chef_en?: string | null;
     email?: string | null;
     telephone_1?: string | null;
     telephone_2?: string | null;
@@ -275,6 +277,8 @@ export default function InstitutionIndex({
         ordre_enseignement: string;
         decret_creation: string;
         nom_chef_etablissement: string;
+        titre_chef: string;
+        titre_chef_en: string;
         email: string;
         telephone_1: string;
         telephone_2: string;
@@ -291,6 +295,8 @@ export default function InstitutionIndex({
         ordre_enseignement: 'Secondaire_General',
         decret_creation: '',
         nom_chef_etablissement: '',
+        titre_chef: '',
+        titre_chef_en: '',
         email: '',
         telephone_1: '',
         telephone_2: '',
@@ -373,6 +379,8 @@ export default function InstitutionIndex({
             ordre_enseignement: item.ordre_enseignement,
             decret_creation: item.decret_creation || '',
             nom_chef_etablissement: item.nom_chef_etablissement || '',
+            titre_chef: item.titre_chef || '',
+            titre_chef_en: item.titre_chef_en || '',
             email: item.email || '',
             telephone_1: item.telephone_1 || '',
             telephone_2: item.telephone_2 || '',
@@ -2091,10 +2099,11 @@ export default function InstitutionIndex({
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div className="space-y-1">
-                                <Label className="text-xs font-semibold">Chef d'Établissement</Label>
+                                <Label className="text-xs font-semibold">Nom du Chef d'Établissement</Label>
                                 <Input
                                     value={etablissementForm.data.nom_chef_etablissement}
                                     onChange={(e) => etablissementForm.setData('nom_chef_etablissement', e.target.value)}
+                                    placeholder="Ex: M. Paul Atangana"
                                 />
                             </div>
                             <div className="space-y-1">
@@ -2103,6 +2112,25 @@ export default function InstitutionIndex({
                                     value={etablissementForm.data.decret_creation}
                                     onChange={(e) => etablissementForm.setData('decret_creation', e.target.value)}
                                     placeholder="Arrêté N°..."
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                                <Label className="text-xs font-semibold">Titre officiel du Chef (FR)</Label>
+                                <Input
+                                    value={etablissementForm.data.titre_chef}
+                                    onChange={(e) => etablissementForm.setData('titre_chef', e.target.value)}
+                                    placeholder="Ex: Le Directeur, Le Proviseur, Le Principal"
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <Label className="text-xs font-semibold">Titre en anglais (EN)</Label>
+                                <Input
+                                    value={etablissementForm.data.titre_chef_en}
+                                    onChange={(e) => etablissementForm.setData('titre_chef_en', e.target.value)}
+                                    placeholder="Ex: The Director, The Principal"
                                 />
                             </div>
                         </div>

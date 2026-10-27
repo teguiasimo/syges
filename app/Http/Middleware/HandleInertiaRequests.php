@@ -68,6 +68,7 @@ class HandleInertiaRequests extends Middleware
         return [
             ...parent::share($request),
             'name' => config('app.name'),
+            'csrf_token' => csrf_token(),
             'locale' => app()->getLocale(),
             'currentEtablissement' => $currentEtablissement ? [
                 'id' => $currentEtablissement->id,

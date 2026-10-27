@@ -96,7 +96,8 @@ class StatistiqueConseilService
 
         $classesDetails = $classes->map(function ($classe) {
             $effectif = $classe->inscriptions_count;
-            $capacite = $classe->capacite ?: 50;
+            // Récupère la capacité maximale réelle définie sur la classe (colonne `capacite_max`), avec repli par défaut à 50
+            $capacite = (int) ($classe->capacite_max ?: ($classe->capacite ?: 50));
             $isSurchargee = $effectif > $capacite;
             $tauxOccupation = $capacite > 0 ? round(($effectif / $capacite) * 100, 1) : 0.0;
 

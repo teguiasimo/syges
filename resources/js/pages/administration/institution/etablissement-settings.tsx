@@ -39,6 +39,8 @@ interface EtablissementData {
     ordre_enseignement: 'Maternelle' | 'Primaire' | 'Secondaire_General' | 'Secondaire_Technique' | 'Polyvalent';
     decret_creation?: string | null;
     nom_chef_etablissement?: string | null;
+    titre_chef?: string | null;
+    titre_chef_en?: string | null;
     email?: string | null;
     telephone_1?: string | null;
     telephone_2?: string | null;
@@ -124,6 +126,8 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
         ordre_enseignement: string;
         decret_creation: string;
         nom_chef_etablissement: string;
+        titre_chef: string;
+        titre_chef_en: string;
         email: string;
         telephone_1: string;
         telephone_2: string;
@@ -150,6 +154,8 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
         ordre_enseignement: etablissement.ordre_enseignement || 'Secondaire_General',
         decret_creation: etablissement.decret_creation || '',
         nom_chef_etablissement: etablissement.nom_chef_etablissement || '',
+        titre_chef: etablissement.titre_chef || '',
+        titre_chef_en: etablissement.titre_chef_en || '',
         email: etablissement.email || '',
         telephone_1: etablissement.telephone_1 || '',
         telephone_2: etablissement.telephone_2 || '',
@@ -956,6 +962,46 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
                                             />
                                             {errors.nom_chef_etablissement && (
                                                 <p className="text-xs text-rose-500 font-medium">{errors.nom_chef_etablissement}</p>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="titre_chef" className="text-xs font-semibold text-foreground">
+                                                Titre officiel du Chef d'Établissement (Français)
+                                            </Label>
+                                            <Input
+                                                id="titre_chef"
+                                                value={data.titre_chef}
+                                                onChange={(e) => setData('titre_chef', e.target.value)}
+                                                placeholder="Ex: Le Directeur, Le Proviseur, Le Principal"
+                                                className="text-sm"
+                                            />
+                                            <p className="text-[11px] text-muted-foreground">
+                                                Titre imprimé sur les bulletins et états officiels (ex: « Le Directeur », « Le Proviseur »).
+                                            </p>
+                                            {errors.titre_chef && (
+                                                <p className="text-xs text-rose-500 font-medium">{errors.titre_chef}</p>
+                                            )}
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <Label htmlFor="titre_chef_en" className="text-xs font-semibold text-foreground">
+                                                Titre officiel en anglais (English Title)
+                                            </Label>
+                                            <Input
+                                                id="titre_chef_en"
+                                                value={data.titre_chef_en}
+                                                onChange={(e) => setData('titre_chef_en', e.target.value)}
+                                                placeholder="Ex: The Director, The Principal, The Headmaster"
+                                                className="text-sm"
+                                            />
+                                            <p className="text-[11px] text-muted-foreground">
+                                                Titre pour les sous-systèmes ou mentions anglophones (ex: « The Director »).
+                                            </p>
+                                            {errors.titre_chef_en && (
+                                                <p className="text-xs text-rose-500 font-medium">{errors.titre_chef_en}</p>
                                             )}
                                         </div>
                                     </div>

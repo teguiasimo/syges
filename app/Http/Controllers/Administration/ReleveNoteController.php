@@ -12,6 +12,7 @@ use App\Models\Inscription;
 use App\Models\Note;
 use App\Models\Periode;
 use App\Models\Personnel;
+use App\Models\User;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -55,10 +56,10 @@ class ReleveNoteController extends Controller implements HasMiddleware
      */
     public function index(Request $request): InertiaResponse
     {
+        /** @var User|null $user */
         $user = Auth::user();
-        $isSuperAdmin = $user ? ($user->hasRole('super-admin') || $user->email === 'admin@gmail.com') : false;
-        $isGestionnaire = $isSuperAdmin || $user->hasRole(['admin', 'directeur-etudes', 'censeur', 'surveillant-general'])
-            || $user->can('notes.manage');
+        $isSuperAdmin = $user ? $user->isSuperAdmin() : false;
+        $isGestionnaire = $isSuperAdmin || ($user && ($user->hasRole(['admin', 'directeur-etudes', 'censeur', 'surveillant-general']) || $user->can('notes.manage')));
 
         // Récupération du contexte établissement (SaaS Multi-Tenant)
         $context = $this->resolveEtablissementContext($request, ['institution']);
@@ -81,14 +82,49 @@ class ReleveNoteController extends Controller implements HasMiddleware
             ->orderBy('date_debut')
             ->get();
 
-        // Requête des attributions disponibles
-        $attributionsQuery = Attribution::with(['classe.niveau', 'matiere', 'personnel'])
-            ->where('annee_scolaire_id', $anneeId)
+        // Récupération de l'ensemble des classes disponibles pour cet établissement et cette année
+        $classesQuery = Classe::with('niveau')
             ->where('is_active', true);
 
         if ($etablissementId) {
-            $attributionsQuery->whereHas('classe', fn ($q) => $q->where('etablissement_id', $etablissementId));
+            $classesQuery->where('etablissement_id', $etablissementId);
         }
+
+        // Si l'utilisateur est un simple enseignant, restreindre aux classes où il a des attributions actives
+        if (! $isGestionnaire && $personnel) {
+            $classesQuery->whereHas('attributions', function ($q) use ($personnel, $anneeId) {
+                $q->where('personnel_id', $personnel->id)
+                    ->where('annee_scolaire_id', $anneeId)
+                    ->where('is_active', true);
+            });
+        }
+
+        $classes = $classesQuery->orderBy('nom')->get();
+
+        // Détermination de la classe et de l'attribution sélectionnées
+        $classeId = $request->integer('classe_id', 0);
+        $attributionId = $request->integer('attribution_id', 0);
+
+        // Si une attribution est spécifiée sans classe_id explicite, retrouver la classe associée
+        if ($classeId === 0 && $attributionId > 0) {
+            $attrTemp = Attribution::find($attributionId);
+            if ($attrTemp) {
+                $classeId = $attrTemp->classe_id;
+            }
+        }
+
+        // Si aucune classe n'est sélectionnée, prendre la première classe disponible
+        if ($classeId === 0 && $classes->isNotEmpty()) {
+            $classeId = $classes->first()->id;
+        }
+
+        $selectedClasse = $classes->firstWhere('id', $classeId);
+
+        // Requête des attributions disponibles pour la classe sélectionnée
+        $attributionsQuery = Attribution::with(['classe.niveau', 'matiere', 'personnel'])
+            ->where('annee_scolaire_id', $anneeId)
+            ->where('classe_id', $classeId)
+            ->where('is_active', true);
 
         // Si l'utilisateur est un simple enseignant, restreindre exclusivement à ses attributions
         if (! $isGestionnaire && $personnel) {
@@ -97,19 +133,20 @@ class ReleveNoteController extends Controller implements HasMiddleware
 
         $attributions = $attributionsQuery->get();
 
-        // Attribution sélectionnée
-        $attributionId = $request->integer('attribution_id', $attributions->first()?->id ?? 0);
-        $selectedAttribution = $attributions->firstWhere('id', $attributionId);
+        // Attribution sélectionnée (0 signifie "Fiche vierge polyvalente multi-matières")
+        $selectedAttribution = $attributionId > 0 ? $attributions->firstWhere('id', $attributionId) : null;
 
         // Évaluation ou Période sélectionnée
         $periodeId = $request->integer('periode_id', $periodes->first()?->id ?? 0);
         $evaluationId = $request->integer('evaluation_id', 0);
-        $mode = $request->input('mode', 'rempli'); // 'rempli' ou 'vierge'
+
+        // Si aucune attribution spécifique n'est choisie, le mode est obligatoirement vierge
+        $mode = $selectedAttribution ? $request->input('mode', 'rempli') : 'vierge';
 
         $elevesData = [];
         $selectedEvaluations = collect([]);
 
-        if ($selectedAttribution) {
+        if ($selectedClasse) {
             // Déterminer les évaluations concernées
             if ($evaluationId > 0) {
                 $selectedEvaluations = Evaluation::where('id', $evaluationId)->get();
@@ -122,7 +159,7 @@ class ReleveNoteController extends Controller implements HasMiddleware
 
             // Récupération des inscriptions actives de la classe
             $inscriptions = Inscription::with(['eleve'])
-                ->where('classe_id', $selectedAttribution->classe_id)
+                ->where('classe_id', $selectedClasse->id)
                 ->where('annee_scolaire_id', $anneeId)
                 ->where('statut', 'validee')
                 ->when($etablissementId, fn ($q) => $q->where('etablissement_id', $etablissementId))
@@ -130,9 +167,9 @@ class ReleveNoteController extends Controller implements HasMiddleware
                 ->sortBy(fn ($ins) => ($ins->eleve?->nom ?? '') . ' ' . ($ins->eleve?->prenom ?? ''))
                 ->values();
 
-            // Notes existantes si mode rempli
+            // Notes existantes si mode rempli ET qu'une matière/attribution est sélectionnée
             $notesMap = collect([]);
-            if ($mode === 'rempli' && $inscriptions->isNotEmpty()) {
+            if ($mode === 'rempli' && $selectedAttribution && $inscriptions->isNotEmpty()) {
                 $notes = Note::where('attribution_id', $selectedAttribution->id)
                     ->whereIn('inscription_id', $inscriptions->pluck('id'))
                     ->when($selectedEvaluations->isNotEmpty(), fn ($q) => $q->whereIn('evaluation_id', $selectedEvaluations->pluck('id')))
@@ -151,18 +188,22 @@ class ReleveNoteController extends Controller implements HasMiddleware
             }
 
             // Construction de la liste formatée des élèves pour TanStack Table
-            $elevesData = $inscriptions->map(function ($ins, $index) use ($notesMap, $selectedEvaluations) {
+            $elevesData = $inscriptions->map(function ($ins, $index) use ($notesMap, $selectedEvaluations, $mode) {
                 $notesParEval = [];
                 $somme = 0;
                 $compteur = 0;
 
                 foreach ($selectedEvaluations as $eval) {
-                    $noteData = $notesMap->get($ins->id . '_' . $eval->id);
-                    $notesParEval[$eval->id] = $noteData;
+                    if ($mode === 'rempli') {
+                        $noteData = $notesMap->get($ins->id . '_' . $eval->id);
+                        $notesParEval[$eval->id] = $noteData;
 
-                    if ($noteData && $noteData['valeur_note'] !== null && $noteData['statut_presence'] === 'P') {
-                        $somme += (float) $noteData['valeur_note'];
-                        $compteur++;
+                        if ($noteData && $noteData['valeur_note'] !== null && $noteData['statut_presence'] === 'P') {
+                            $somme += (float) $noteData['valeur_note'];
+                            $compteur++;
+                        }
+                    } else {
+                        $notesParEval[$eval->id] = null;
                     }
                 }
 
@@ -190,6 +231,8 @@ class ReleveNoteController extends Controller implements HasMiddleware
             'annees' => $annees,
             'anneeActiveId' => (int) $anneeId,
             'periodes' => $periodes,
+            'classes' => $classes,
+            'selectedClasse' => $selectedClasse,
             'attributions' => $attributions,
             'selectedAttribution' => $selectedAttribution,
             'selectedEvaluations' => $selectedEvaluations,
@@ -197,6 +240,7 @@ class ReleveNoteController extends Controller implements HasMiddleware
             'isGestionnaire' => $isGestionnaire,
             'filters' => [
                 'annee_id' => $anneeId,
+                'classe_id' => $classeId,
                 'attribution_id' => $attributionId,
                 'periode_id' => $periodeId,
                 'evaluation_id' => $evaluationId,
@@ -208,43 +252,78 @@ class ReleveNoteController extends Controller implements HasMiddleware
     /**
      * Génère et télécharge le document PDF officiel du Relevé de Notes / Fiche de Notation.
      *
+     * Permet l'export soit pour une attribution précise (cours d'un enseignant),
+     * soit pour une classe entière sans matière prédéfinie (fiche vierge polyvalente
+     * à photocopier pour tous les professeurs de la classe).
+     *
      * @param Request $request La requête HTTP contenant les filtres de génération.
      * @return Response Document PDF prêt à l'impression.
      */
     public function exportPdf(Request $request): Response
     {
+        /** @var User|null $user */
         $user = Auth::user();
-        $isSuperAdmin = $user ? ($user->hasRole('super-admin') || $user->email === 'admin@gmail.com') : false;
-        $isGestionnaire = $isSuperAdmin || $user->hasRole(['admin', 'directeur-etudes', 'censeur', 'surveillant-general'])
-            || $user->can('notes.manage');
+        $isSuperAdmin = $user ? $user->isSuperAdmin() : false;
+        $isGestionnaire = $isSuperAdmin || ($user && ($user->hasRole(['admin', 'directeur-etudes', 'censeur', 'surveillant-general']) || $user->can('notes.manage')));
 
         $request->validate([
-            'attribution_id' => ['required', 'exists:attributions,id'],
+            'attribution_id' => ['nullable', 'integer'],
+            'classe_id' => ['nullable', 'integer'],
             'annee_id' => ['required', 'exists:annees_scolaires,id'],
             'mode' => ['nullable', 'in:rempli,vierge'],
         ]);
 
-        $attributionId = (int) $request->input('attribution_id');
+        $attributionId = (int) $request->input('attribution_id', 0);
+        $classeId = (int) $request->input('classe_id', 0);
         $anneeId = (int) $request->input('annee_id');
         $periodeId = (int) $request->input('periode_id', 0);
         $evaluationId = (int) $request->input('evaluation_id', 0);
         $mode = $request->input('mode', 'rempli');
 
-        // Récupération de l'attribution avec vérification des droits
-        $attribution = Attribution::with(['classe.niveau', 'matiere', 'personnel'])
-            ->findOrFail($attributionId);
+        $attribution = null;
+        $classe = null;
 
-        // Cloisonnement Enseignant : vérifier que l'enseignant est bien le titulaire du cours
+        // Résolution de l'attribution et de la classe
+        if ($attributionId > 0) {
+            $attribution = Attribution::with(['classe.niveau', 'classe.etablissement', 'matiere', 'personnel'])
+                ->findOrFail($attributionId);
+            $classe = $attribution->classe;
+        } elseif ($classeId > 0) {
+            $classe = Classe::with(['niveau', 'etablissement'])->findOrFail($classeId);
+            // S'il n'y a pas d'attribution sélectionnée, c'est obligatoirement une fiche de saisie manuscrite vierge
+            $mode = 'vierge';
+        } else {
+            abort(400, 'Veuillez spécifier une classe ou une attribution pour générer le relevé.');
+        }
+
+        // Cloisonnement Enseignant : vérifier que l'enseignant a le droit d'accéder à ce cours ou à cette classe
         if (! $isGestionnaire) {
             $personnel = $user->personnel ?? ($user->email ? Personnel::where('email', $user->email)->first() : null);
-            if (! $personnel || (int) $attribution->personnel_id !== (int) $personnel->id) {
-                abort(403, 'Accès interdit : vous ne pouvez exporter que les relevés de notes de vos propres cours.');
+            if (! $personnel) {
+                abort(403, 'Accès interdit : profil enseignant introuvable.');
+            }
+
+            if ($attribution) {
+                if ((int) $attribution->personnel_id !== (int) $personnel->id) {
+                    abort(403, 'Accès interdit : vous ne pouvez exporter que les relevés de notes de vos propres cours.');
+                }
+            } else {
+                // Vérifier que l'enseignant intervient bien dans cette classe cette année
+                $enseigneDansClasse = Attribution::where('classe_id', $classe->id)
+                    ->where('personnel_id', $personnel->id)
+                    ->where('annee_scolaire_id', $anneeId)
+                    ->where('is_active', true)
+                    ->exists();
+
+                if (! $enseigneDansClasse) {
+                    abort(403, 'Accès interdit : vous n\'enseignez pas dans cette classe.');
+                }
             }
         }
 
         // Contexte établissement
         $context = $this->resolveEtablissementContext($request, ['institution']);
-        $etablissement = $attribution->classe?->etablissement ?? $context['selectedEtablissement'];
+        $etablissement = $classe?->etablissement ?? $context['selectedEtablissement'];
         $etablissementId = $etablissement?->id;
 
         // Année scolaire
@@ -265,9 +344,9 @@ class ReleveNoteController extends Controller implements HasMiddleware
             $titrePeriode = 'Année Complète';
         }
 
-        // Inscriptions actives
+        // Inscriptions actives de la classe
         $inscriptions = Inscription::with(['eleve'])
-            ->where('classe_id', $attribution->classe_id)
+            ->where('classe_id', $classe->id)
             ->where('annee_scolaire_id', $anneeId)
             ->where('statut', 'validee')
             ->when($etablissementId, fn ($q) => $q->where('etablissement_id', $etablissementId))
@@ -275,9 +354,9 @@ class ReleveNoteController extends Controller implements HasMiddleware
             ->sortBy(fn ($ins) => ($ins->eleve?->nom ?? '') . ' ' . ($ins->eleve?->prenom ?? ''))
             ->values();
 
-        // Récupération des notes si mode rempli
+        // Récupération des notes si mode rempli et attribution présente
         $notesMap = collect([]);
-        if ($mode === 'rempli' && $inscriptions->isNotEmpty() && $evaluations->isNotEmpty()) {
+        if ($mode === 'rempli' && $attribution && $inscriptions->isNotEmpty() && $evaluations->isNotEmpty()) {
             $notes = Note::where('attribution_id', $attribution->id)
                 ->whereIn('inscription_id', $inscriptions->pluck('id'))
                 ->whereIn('evaluation_id', $evaluations->pluck('id'))
@@ -334,6 +413,7 @@ class ReleveNoteController extends Controller implements HasMiddleware
         $pdfData = [
             'etablissement' => $etablissement,
             'anneeScolaire' => $anneeScolaire,
+            'classe' => $classe,
             'attribution' => $attribution,
             'evaluations' => $evaluations,
             'titrePeriode' => $titrePeriode,
@@ -351,9 +431,9 @@ class ReleveNoteController extends Controller implements HasMiddleware
             ->setPaper('a4', 'landscape');
 
         $filename = sprintf(
-            'Releve_Notes_%s_%s_%s.pdf',
-            str_replace(' ', '_', $attribution->classe?->nom ?? 'Classe'),
-            str_replace(' ', '_', $attribution->matiere?->nom ?? 'Matiere'),
+            'Releve_%s_%s_%s.pdf',
+            str_replace(' ', '_', $classe->nom ?? 'Classe'),
+            $attribution ? str_replace(' ', '_', $attribution->matiere?->nom ?? 'Matiere') : 'Fiche_Vierge_Polyvalente',
             $mode
         );
 

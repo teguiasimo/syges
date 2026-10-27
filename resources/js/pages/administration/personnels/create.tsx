@@ -248,7 +248,7 @@ export default function CreatePersonnel({
                             </Link>
                         </div>
                         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground flex items-center gap-2.5">
-                            <div className="p-2 rounded-xl bg-teal-50 dark:bg-teal-950/50 text-teal-600 border border-teal-200 dark:border-teal-900/50">
+                            <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-900/50">
                                 <Briefcase className="size-6" />
                             </div>
                             Nouveau Membre du Personnel
@@ -277,9 +277,9 @@ export default function CreatePersonnel({
                             variant="outline"
                             disabled={processing}
                             onClick={() => submitForm(true)}
-                            className="cursor-pointer text-xs h-9 border-teal-600/40 text-teal-700 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-950/50 font-medium"
+                            className="cursor-pointer text-xs h-9 border-indigo-600/40 text-indigo-700 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 font-medium"
                         >
-                            <PlusCircle className="size-4 mr-1.5 text-teal-600" />
+                            <PlusCircle className="size-4 mr-1.5 text-indigo-600 dark:text-indigo-400" />
                             Enregistrer & Nouveau
                         </Button>
 
@@ -287,7 +287,7 @@ export default function CreatePersonnel({
                             type="button"
                             disabled={processing}
                             onClick={() => submitForm(false)}
-                            className="bg-teal-600 hover:bg-teal-700 text-white cursor-pointer font-semibold shadow-sm text-xs h-9"
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer font-semibold shadow-sm text-xs h-9"
                         >
                             <Check className="size-4 mr-1.5" />
                             {processing ? 'Enregistrement...' : 'Enregistrer & Retourner'}
@@ -306,8 +306,8 @@ export default function CreatePersonnel({
                     {/* SECTION 1 : ÉTAT CIVIL & COORDONNÉES */}
                     <div className="rounded-2xl border-2 border-slate-300/90 dark:border-slate-700 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400 dark:hover:border-slate-600">
                         {/* En-tête de bloc avec bannière dégradée et badge thématique */}
-                        <div className="bg-linear-to-r from-slate-200/95 via-teal-100/70 to-slate-200/80 dark:from-slate-800 dark:via-teal-950/40 dark:to-slate-800/90 px-6 py-4 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center gap-3">
-                            <div className="flex size-9 items-center justify-center rounded-xl bg-linear-to-br from-teal-600 to-emerald-700 text-white font-bold shadow-xs shrink-0">
+                        <div className="bg-linear-to-r from-slate-200/95 via-sky-100/70 to-slate-200/80 dark:from-slate-800 dark:via-sky-950/40 dark:to-slate-800/90 px-6 py-4 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center gap-3">
+                            <div className="flex size-9 items-center justify-center rounded-xl bg-linear-to-br from-sky-600 to-blue-700 text-white font-bold shadow-xs shrink-0">
                                 <User className="size-4" />
                             </div>
                             <div>
@@ -685,7 +685,7 @@ export default function CreatePersonnel({
                         </div>
 
                         {/* Option Enseignant */}
-                        <div className="p-4 rounded-xl bg-teal-50/60 dark:bg-teal-950/20 border border-teal-200/70 dark:border-teal-900/40 space-y-4">
+                        <div className="p-4 rounded-xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-200/60 dark:border-indigo-900/40 space-y-4">
                             <div className="flex items-center gap-2.5">
                                 <Checkbox
                                     id="is_enseignant"
@@ -698,7 +698,7 @@ export default function CreatePersonnel({
                             </div>
 
                             {data.is_enseignant && (
-                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t border-teal-200/50 dark:border-teal-900/30">
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t border-indigo-200/50 dark:border-indigo-900/30">
                                     <div>
                                         <Label htmlFor="specialite" className="text-xs font-semibold">
                                             Discipline / Spécialité principale
@@ -798,12 +798,12 @@ export default function CreatePersonnel({
                                 }}
                                 className={`p-4 rounded-xl border text-left cursor-pointer transition-all ${
                                     accountMode === 'create'
-                                        ? 'border-teal-600 bg-teal-50/50 dark:bg-teal-950/30 ring-1 ring-teal-600'
+                                        ? 'border-purple-600 bg-purple-50/50 dark:bg-purple-950/30 ring-1 ring-purple-600'
                                         : 'border-border hover:bg-muted/40'
                                 }`}
                             >
                                 <div className="flex items-center gap-2 font-semibold text-xs text-foreground">
-                                    <Sparkles className="size-4 text-teal-600" />
+                                    <Sparkles className="size-4 text-purple-600 dark:text-purple-400" />
                                     Créer un nouveau compte
                                 </div>
                                 <p className="text-[11px] text-muted-foreground mt-1">
@@ -819,12 +819,12 @@ export default function CreatePersonnel({
                                 }}
                                 className={`p-4 rounded-xl border text-left cursor-pointer transition-all ${
                                     accountMode === 'link'
-                                        ? 'border-teal-600 bg-teal-50/50 dark:bg-teal-950/30 ring-1 ring-teal-600'
+                                        ? 'border-purple-600 bg-purple-50/50 dark:bg-purple-950/30 ring-1 ring-purple-600'
                                         : 'border-border hover:bg-muted/40'
                                 }`}
                             >
                                 <div className="flex items-center gap-2 font-semibold text-xs text-foreground">
-                                    <UserCheck className="size-4 text-teal-600" />
+                                    <UserCheck className="size-4 text-purple-600 dark:text-purple-400" />
                                     Lier un compte existant
                                 </div>
                                 <p className="text-[11px] text-muted-foreground mt-1">
@@ -841,7 +841,7 @@ export default function CreatePersonnel({
                                 }}
                                 className={`p-4 rounded-xl border text-left cursor-pointer transition-all ${
                                     accountMode === 'none'
-                                        ? 'border-teal-600 bg-teal-50/50 dark:bg-teal-950/30 ring-1 ring-teal-600'
+                                        ? 'border-slate-500 bg-slate-50/50 dark:bg-slate-900/50 ring-1 ring-slate-500'
                                         : 'border-border hover:bg-muted/40'
                                 }`}
                             >
@@ -992,16 +992,16 @@ export default function CreatePersonnel({
                                 variant="outline"
                                 disabled={processing}
                                 onClick={() => submitForm(true)}
-                                className="cursor-pointer text-xs h-9 flex-1 sm:flex-initial border-teal-600/40 text-teal-700 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-950/50 font-medium"
+                                className="cursor-pointer text-xs h-9 flex-1 sm:flex-initial border-indigo-600/40 text-indigo-700 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 font-medium"
                             >
-                                <PlusCircle className="size-4 mr-1.5 text-teal-600" />
+                                <PlusCircle className="size-4 mr-1.5 text-indigo-600 dark:text-indigo-400" />
                                 Enregistrer & Nouveau
                             </Button>
 
                             <Button
                                 type="submit"
                                 disabled={processing}
-                                className="bg-teal-600 hover:bg-teal-700 text-white cursor-pointer font-semibold shadow-sm text-xs h-9 flex-1 sm:flex-initial"
+                                className="bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer font-semibold shadow-sm text-xs h-9 flex-1 sm:flex-initial"
                             >
                                 <Check className="size-4 mr-1.5" />
                                 {processing ? 'Enregistrement...' : 'Enregistrer & Retourner'}

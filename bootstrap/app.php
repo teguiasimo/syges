@@ -17,6 +17,10 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state', 'locale']);
 
+        $middleware->validateCsrfTokens(except: [
+            'administration/eleves/cartes-scolaires/imprimer-planche',
+        ]);
+
         $middleware->web(append: [
             HandleAppearance::class,
             \App\Http\Middleware\SetLocale::class,

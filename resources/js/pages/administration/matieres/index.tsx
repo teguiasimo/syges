@@ -1677,7 +1677,7 @@ export default function MatiereIndex({
             {/* MODALE 1 : CONFIGURATION COEFFICIENT / ASSOCIATION NIVEAU         */}
             {/* ================================================================= */}
             <Dialog open={isCoefficientModalOpen} onOpenChange={setIsCoefficientModalOpen}>
-                <DialogContent className="max-w-lg w-full p-5 max-h-[92vh] overflow-y-auto overflow-x-hidden">
+                <DialogContent className="sm:max-w-xl w-full p-6 max-h-[92vh] overflow-y-auto">
                     <DialogHeader className="pb-1">
                         <DialogTitle className="text-base sm:text-lg">
                             {editingCoefficient ? 'Modifier le Coefficient' : 'Ajouter une Matière à la Grille'}
@@ -1885,17 +1885,17 @@ export default function MatiereIndex({
                         </div>
 
                         {/* Footer avec Annuler, Enregistrer & Nouveau, et Enregistrer */}
-                        <DialogFooter className="pt-3 flex flex-row items-center justify-between sm:justify-between w-full">
+                        <DialogFooter className="pt-4 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 w-full border-t border-border/40 mt-3">
                             <Button
                                 type="button"
                                 variant="outline"
                                 size="sm"
                                 onClick={() => setIsCoefficientModalOpen(false)}
-                                className="cursor-pointer"
+                                className="cursor-pointer shrink-0"
                             >
                                 Annuler
                             </Button>
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center justify-end gap-2">
                                 {!editingCoefficient && (
                                     <Button
                                         type="button"
@@ -1903,7 +1903,7 @@ export default function MatiereIndex({
                                         size="sm"
                                         disabled={coefficientForm.processing}
                                         onClick={(e) => submitCoefficient(e, true)}
-                                        className="gap-1.5 cursor-pointer bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-100 border border-slate-300 dark:border-slate-700"
+                                        className="gap-1.5 cursor-pointer shrink-0 bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-100 border border-slate-300 dark:border-slate-700"
                                     >
                                         <Plus className="size-3.5" />
                                         <span>Enregistrer & Nouveau</span>
@@ -1913,7 +1913,7 @@ export default function MatiereIndex({
                                     type="submit"
                                     size="sm"
                                     disabled={coefficientForm.processing}
-                                    className="bg-violet-600 hover:bg-violet-700 text-white cursor-pointer"
+                                    className="bg-violet-600 hover:bg-violet-700 text-white cursor-pointer shrink-0 font-medium px-4"
                                 >
                                     {coefficientForm.processing ? 'Enregistrement...' : 'Enregistrer'}
                                 </Button>
@@ -1927,7 +1927,7 @@ export default function MatiereIndex({
             {/* MODALE 2 : CATALOGUE DES MATIÈRES (CRÉATION / MODIFICATION)       */}
             {/* ================================================================= */}
             <Dialog open={isMatiereModalOpen} onOpenChange={setIsMatiereModalOpen}>
-                <DialogContent className="max-w-lg w-full p-5 max-h-[92vh] overflow-y-auto overflow-x-hidden">
+                <DialogContent className="sm:max-w-[480px] w-full p-5 max-h-[92vh] overflow-y-auto overflow-x-hidden">
                     <DialogHeader className="pb-1">
                         <DialogTitle className="text-base sm:text-lg">
                             {editingMatiere ? 'Modifier la Matière' : 'Ajouter une Discipline au Catalogue'}
@@ -1935,7 +1935,7 @@ export default function MatiereIndex({
                     </DialogHeader>
 
                     <form onSubmit={(e) => submitMatiere(e, false)} className="space-y-3 pt-1">
-                        {/* Portée / Rattachement Campus */}
+                        {/* Portée / Rattachement Campus avec affichage du sigle uniquement */}
                         <div>
                             <Label htmlFor="mat_etablissement_id" className="text-xs font-semibold">
                                 Portée & Rattachement Campus
@@ -1951,20 +1951,20 @@ export default function MatiereIndex({
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="common" className="cursor-pointer text-xs">
-                                        🌐 Tronc Commun Institutionnel (Tous les campus)
+                                        🌐 Tronc Commun (Tous les campus)
                                     </SelectItem>
                                     {etablissements.map((etab) => (
                                         <SelectItem key={etab.id} value={String(etab.id)} className="cursor-pointer text-xs">
-                                            🏫 Campus spécifique : {etab.nom} ({etab.code})
+                                            🏫 Campus : {etab.code}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
                         </div>
 
-                        {/* Ligne 1 : Code officiel & Intitulé */}
-                        <div className="grid grid-cols-2 gap-3">
-                            <div>
+                        {/* Ligne 1 : Code officiel & Intitulé (largeur optimisée et mieux proportionnée) */}
+                        <div className="grid grid-cols-12 gap-3">
+                            <div className="col-span-5">
                                 <Label htmlFor="mat_code" className="text-xs font-semibold">
                                     Code Officiel <span className="text-rose-500">*</span>
                                 </Label>
@@ -1981,7 +1981,7 @@ export default function MatiereIndex({
                                 )}
                             </div>
 
-                            <div>
+                            <div className="col-span-7">
                                 <Label htmlFor="mat_nom" className="text-xs font-semibold">
                                     Intitulé <span className="text-rose-500">*</span>
                                 </Label>
@@ -1999,42 +1999,42 @@ export default function MatiereIndex({
                             </div>
                         </div>
 
-                        {/* Ligne 2 : Libellé Relevé & Statut actif */}
-                        <div className="grid grid-cols-2 gap-3 items-center">
-                            <div>
-                                <Label htmlFor="mat_lib_fr" className="text-xs font-semibold">Libellé Relevé</Label>
-                                <Input
-                                    id="mat_lib_fr"
-                                    value={matiereForm.data.libelle_bulletin}
-                                    onChange={(e) => matiereForm.setData('libelle_bulletin', e.target.value)}
-                                    placeholder="Optionnel (défaut: même que l'intitulé)"
-                                    className="mt-1 h-9 text-xs"
-                                />
-                            </div>
-
-                            <div className="flex items-center space-x-2 pt-5">
-                                <Checkbox
-                                    id="mat_active"
-                                    checked={matiereForm.data.is_active}
-                                    onCheckedChange={(checked) => matiereForm.setData('is_active', Boolean(checked))}
-                                />
-                                <Label htmlFor="mat_active" className="text-xs cursor-pointer font-medium">
-                                    Discipline active dans les établissements
-                                </Label>
-                            </div>
+                        {/* Ligne 2 : Libellé Relevé */}
+                        <div>
+                            <Label htmlFor="mat_lib_fr" className="text-xs font-semibold">Libellé Relevé</Label>
+                            <Input
+                                id="mat_lib_fr"
+                                value={matiereForm.data.libelle_bulletin}
+                                onChange={(e) => matiereForm.setData('libelle_bulletin', e.target.value)}
+                                placeholder="Optionnel (défaut: même que l'intitulé)"
+                                className="mt-1 h-9 text-xs"
+                            />
                         </div>
 
-                        <DialogFooter className="pt-3 flex flex-row items-center justify-between sm:justify-between w-full">
+                        {/* Ligne 3 : Statut actif repositionné sur sa propre ligne pour éliminer tout débordement */}
+                        <div className="flex items-center space-x-2 pt-1 pb-1">
+                            <Checkbox
+                                id="mat_active"
+                                checked={matiereForm.data.is_active}
+                                onCheckedChange={(checked) => matiereForm.setData('is_active', Boolean(checked))}
+                            />
+                            <Label htmlFor="mat_active" className="text-xs cursor-pointer font-medium select-none text-slate-700 dark:text-slate-300">
+                                Discipline active dans les établissements
+                            </Label>
+                        </div>
+
+                        {/* Footer : espacement compact et proportionné sans barre de défilement horizontal */}
+                        <DialogFooter className="pt-3 flex flex-row items-center justify-between w-full border-t border-border/40 mt-2">
                             <Button
                                 type="button"
                                 variant="outline"
                                 size="sm"
                                 onClick={() => setIsMatiereModalOpen(false)}
-                                className="cursor-pointer"
+                                className="cursor-pointer shrink-0 text-xs h-8 px-3"
                             >
                                 Annuler
                             </Button>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 shrink-0">
                                 {!editingMatiere && (
                                     <Button
                                         type="button"
@@ -2042,9 +2042,9 @@ export default function MatiereIndex({
                                         size="sm"
                                         disabled={matiereForm.processing}
                                         onClick={(e) => submitMatiere(e, true)}
-                                        className="gap-1.5 cursor-pointer bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-100 border border-slate-300 dark:border-slate-700"
+                                        className="gap-1 cursor-pointer shrink-0 text-xs h-8 px-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-100 border border-slate-300 dark:border-slate-700"
                                     >
-                                        <Plus className="size-3.5" />
+                                        <Plus className="size-3" />
                                         <span>Enregistrer & Nouveau</span>
                                     </Button>
                                 )}
@@ -2052,7 +2052,7 @@ export default function MatiereIndex({
                                     type="submit"
                                     size="sm"
                                     disabled={matiereForm.processing}
-                                    className="bg-violet-600 hover:bg-violet-700 text-white cursor-pointer"
+                                    className="bg-violet-600 hover:bg-violet-700 text-white cursor-pointer shrink-0 text-xs h-8 px-3 font-medium"
                                 >
                                     {matiereForm.processing ? 'Enregistrement...' : 'Enregistrer'}
                                 </Button>
@@ -2066,7 +2066,7 @@ export default function MatiereIndex({
             {/* MODALE 3 : BLOC PÉDAGOGIQUE (CRÉATION / MODIFICATION)              */}
             {/* ================================================================= */}
             <Dialog open={isGroupeModalOpen} onOpenChange={setIsGroupeModalOpen}>
-                <DialogContent className="max-w-lg w-full p-5 max-h-[92vh] overflow-y-auto">
+                <DialogContent className="sm:max-w-xl w-full p-6 max-h-[92vh] overflow-y-auto">
                     <DialogHeader className="pb-1">
                         <DialogTitle className="text-base sm:text-lg">
                             {editingGroupe ? 'Modifier le Bloc Pédagogique' : 'Nouveau Bloc Pédagogique'}
@@ -2164,17 +2164,17 @@ export default function MatiereIndex({
                             </div>
                         </div>
 
-                        <DialogFooter className="pt-3 flex flex-row items-center justify-between sm:justify-between w-full">
+                        <DialogFooter className="pt-4 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 w-full border-t border-border/40 mt-3">
                             <Button
                                 type="button"
                                 variant="outline"
                                 size="sm"
                                 onClick={() => setIsGroupeModalOpen(false)}
-                                className="cursor-pointer"
+                                className="cursor-pointer shrink-0"
                             >
                                 Annuler
                             </Button>
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center justify-end gap-2">
                                 {!editingGroupe && (
                                     <Button
                                         type="button"
@@ -2182,7 +2182,7 @@ export default function MatiereIndex({
                                         size="sm"
                                         disabled={groupeForm.processing}
                                         onClick={(e) => submitGroupe(e, true)}
-                                        className="gap-1.5 cursor-pointer bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-100 border border-slate-300 dark:border-slate-700"
+                                        className="gap-1.5 cursor-pointer shrink-0 bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-100 border border-slate-300 dark:border-slate-700"
                                     >
                                         <Plus className="size-3.5" />
                                         <span>Enregistrer & Nouveau</span>
@@ -2192,7 +2192,7 @@ export default function MatiereIndex({
                                     type="submit"
                                     size="sm"
                                     disabled={groupeForm.processing}
-                                    className="bg-violet-600 hover:bg-violet-700 text-white cursor-pointer"
+                                    className="bg-violet-600 hover:bg-violet-700 text-white cursor-pointer shrink-0 font-medium px-4"
                                 >
                                     {groupeForm.processing ? 'Enregistrement...' : 'Enregistrer'}
                                 </Button>

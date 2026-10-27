@@ -163,7 +163,7 @@
     <div class="pv-banner">
         <div class="pv-title">PROCÈS-VERBAL OFFICIEL DES DISPENSES & DÉROGATIONS</div>
         <div class="pv-sub">
-            Année Scolaire : {{ $annee->nom ?? $annee->code }} 
+            Année Scolaire : {{ $annee->session ?? ($annee->code ?? $annee->nom) }} 
             @if(isset($classe)) | Classe : {{ $classe->nom }} @endif
             | Date d'édition : {{ $date_generation }}
         </div>

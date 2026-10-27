@@ -541,11 +541,19 @@ export default function AttributionsIndex({
                             onChange={(e) => handleAnneeChange(e.target.value)}
                             className="h-9 rounded-md border border-input bg-background px-3 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer"
                         >
-                            {anneesScolaires.map((a) => (
-                                <option key={a.id} value={a.id}>
-                                    Année {a.nom} {a.is_current ? '★' : ''}
-                                </option>
-                            ))}
+                            {anneesScolaires.map((a) => {
+                                // Extraction du millésime ou session épurée pour éviter tout dédoublement tel que « Année Année Scolaire »
+                                const cleanSession = (a.session || a.code || a.nom)
+                                    .replace(/^année\s*scolaire\s*/ui, '')
+                                    .trim();
+                                const displayLabel = cleanSession ? `Année Scolaire ${cleanSession}` : a.nom;
+
+                                return (
+                                    <option key={a.id} value={a.id}>
+                                        {displayLabel} {a.is_current ? '★' : ''}
+                                    </option>
+                                );
+                            })}
                         </select>
 
                         {/* Bouton vers la page dédiée de la grille de classe */}

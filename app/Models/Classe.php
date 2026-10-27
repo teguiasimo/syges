@@ -80,6 +80,17 @@ class Classe extends Model
     ];
 
     /**
+     * Accesseur / alias rétrocompatible pour la capacité maximale de la classe.
+     * Renvoie la valeur de la colonne `capacite_max` (ou 50 par défaut).
+     *
+     * @return int
+     */
+    public function getCapaciteAttribute(): int
+    {
+        return (int) ($this->attributes['capacite_max'] ?? 50);
+    }
+
+    /**
      * Relation vers l'Établissement scolaire de rattachement.
      *
      * @return BelongsTo

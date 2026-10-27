@@ -60,6 +60,7 @@ import {
 } from '@/components/ui/select';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { useTranslation } from '@/contexts/language-context';
+import { getAvatarStyle } from '@/lib/utils';
 import type {
     Departement,
     Personnel,
@@ -108,6 +109,7 @@ const STATUTS_LISTE = [
     'Retraité',
     'Licencié',
 ];
+
 
 /**
  * Page principale du Module 8 : Personnel & Ressources Humaines (RH).
@@ -275,7 +277,7 @@ export default function PersonnelsIndex({
                     const fullName = `${p.nom} ${p.prenom || ''}`.trim();
                     return (
                         <div className="flex items-center gap-2.5 min-w-0 max-w-xs">
-                            <div className="size-8 rounded-full bg-teal-100 dark:bg-teal-900/50 text-teal-700 dark:text-teal-300 font-bold text-xs flex items-center justify-center border border-teal-200 dark:border-teal-800 shrink-0">
+                            <div className={`size-8 rounded-full font-bold text-xs flex items-center justify-center border shrink-0 ${getAvatarStyle(fullName)}`}>
                                 {p.nom.slice(0, 1)}
                                 {p.prenom ? p.prenom.slice(0, 1) : ''}
                             </div>
@@ -286,7 +288,7 @@ export default function PersonnelsIndex({
                                         setSelectedPersonnelForDetail(p);
                                         setIsDetailOpen(true);
                                     }}
-                                    className="font-medium text-foreground hover:text-teal-600 dark:hover:text-teal-400 hover:underline text-left cursor-pointer text-xs sm:text-sm block truncate w-full"
+                                    className="font-medium text-foreground hover:text-primary dark:hover:text-indigo-400 hover:underline text-left cursor-pointer text-xs sm:text-sm block truncate w-full transition-colors"
                                     title={fullName}
                                 >
                                     {fullName}
@@ -343,8 +345,8 @@ export default function PersonnelsIndex({
                     }
                     return (
                         <div className="space-y-0.5">
-                            <Badge variant="outline" className="bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/40 dark:text-teal-400 dark:border-teal-800 text-[11px] font-medium">
-                                <GraduationCap className="size-3 mr-1" />
+                            <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800 text-[11px] font-medium">
+                                <GraduationCap className="size-3 mr-1 text-indigo-600 dark:text-indigo-400" />
                                 {p.volume_horaire_hebdo}h / sem.
                             </Badge>
                             {p.specialite && (
@@ -363,7 +365,7 @@ export default function PersonnelsIndex({
                     const p = row.original;
                     return (
                         <div className="text-xs space-y-0.5">
-                            <a href={`tel:${p.telephone}`} className="text-foreground hover:text-teal-600 flex items-center gap-1 font-mono">
+                            <a href={`tel:${p.telephone}`} className="text-foreground hover:text-primary flex items-center gap-1 font-mono transition-colors">
                                 <Phone className="size-3 text-muted-foreground" />
                                 {p.telephone}
                             </a>
@@ -383,8 +385,8 @@ export default function PersonnelsIndex({
                     const p = row.original;
                     if (p.user) {
                         return (
-                            <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-400 dark:border-emerald-800 text-[11px] font-medium inline-flex items-center gap-1">
-                                <KeyRound className="size-3 text-emerald-600" />
+                            <Badge className="bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/50 dark:text-purple-300 dark:border-purple-800 text-[11px] font-medium inline-flex items-center gap-1">
+                                <KeyRound className="size-3 text-purple-600 dark:text-purple-400" />
                                 {p.user.login}
                             </Badge>
                         );
@@ -513,7 +515,7 @@ export default function PersonnelsIndex({
                         const chefName = `${dep.chef_departement.nom} ${dep.chef_departement.prenom || ''}`.trim();
                         return (
                             <div className="flex items-center gap-2 text-xs font-medium text-foreground min-w-0 max-w-xs">
-                                <div className="size-6 rounded-full bg-teal-100 dark:bg-teal-900/50 text-teal-700 dark:text-teal-300 font-bold text-[10px] flex items-center justify-center shrink-0">
+                                <div className={`size-6 rounded-full font-bold text-[10px] flex items-center justify-center border shrink-0 ${getAvatarStyle(chefName)}`}>
                                     {dep.chef_departement.nom.slice(0, 1)}
                                 </div>
                                 <span className="truncate block" title={`${chefName} (${dep.chef_departement.matricule})`}>
@@ -533,8 +535,8 @@ export default function PersonnelsIndex({
                 accessorKey: 'personnels_count',
                 header: () => <span className="font-semibold text-xs">Effectif Rattaché</span>,
                 cell: ({ row }) => (
-                    <Badge variant="outline" className="text-xs font-semibold">
-                        <Users className="size-3 mr-1 text-teal-600" />
+                    <Badge variant="outline" className="text-xs font-semibold bg-sky-50/50 dark:bg-sky-950/30 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-800">
+                        <Users className="size-3 mr-1 text-sky-600 dark:text-sky-400" />
                         {row.original.personnels_count ?? 0} enseignant(s)
                     </Badge>
                 ),
@@ -605,7 +607,7 @@ export default function PersonnelsIndex({
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div>
                         <div className="flex items-center gap-3">
-                            <div className="p-2.5 rounded-xl bg-teal-50 dark:bg-teal-950/50 text-teal-600 dark:text-teal-400 border border-teal-200 dark:border-teal-900/50">
+                            <div className="p-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-900/50">
                                 <Briefcase className="size-7" />
                             </div>
                             <div>
@@ -633,7 +635,7 @@ export default function PersonnelsIndex({
                             className="cursor-pointer font-medium text-xs sm:text-sm border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800"
                             title="Imprimer la liste officielle du personnel et corps enseignant (PDF)"
                         >
-                            <Printer className="size-4 mr-1.5 text-teal-600" />
+                            <Printer className="size-4 mr-1.5 text-slate-600 dark:text-slate-400" />
                             <span>Liste du personnel (PDF)</span>
                         </Button>
 
@@ -645,9 +647,9 @@ export default function PersonnelsIndex({
                                     setSelectedDepartementForEdit(null);
                                     setIsDepartementModalOpen(true);
                                 }}
-                                className="cursor-pointer font-medium text-xs sm:text-sm"
+                                className="cursor-pointer font-medium text-xs sm:text-sm border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800"
                             >
-                                <BookOpen className="size-4 mr-1.5 text-teal-600" />
+                                <BookOpen className="size-4 mr-1.5 text-blue-600 dark:text-blue-400" />
                                 Nouveau département
                             </Button>
                         )}
@@ -655,7 +657,7 @@ export default function PersonnelsIndex({
                         {can.manage && (
                             <Button
                                 asChild
-                                className="bg-teal-600 hover:bg-teal-700 text-white cursor-pointer font-semibold shadow-sm text-xs sm:text-sm"
+                                className="bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer font-semibold shadow-sm text-xs sm:text-sm"
                             >
                                 <Link href="/administration/personnels/create">
                                     <UserPlus className="size-4 mr-1.5" />
@@ -666,15 +668,15 @@ export default function PersonnelsIndex({
                     </div>
                 </div>
 
-                {/* KPI SYNTHÈSE STATISTIQUE */}
+                {/* KPI SYNTHÈSE STATISTIQUE - Palette équilibrée et diversifiée */}
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                     <div className="p-4 rounded-xl bg-card border shadow-xs space-y-1">
                         <span className="text-[11px] text-muted-foreground uppercase font-semibold tracking-wider">
                             Effectif Total
                         </span>
                         <div className="flex items-baseline justify-between">
-                            <span className="text-2xl font-bold text-foreground">{stats.total}</span>
-                            <Users className="size-4 text-muted-foreground" />
+                            <span className="text-2xl font-bold text-slate-800 dark:text-slate-100">{stats.total}</span>
+                            <Users className="size-4 text-slate-500" />
                         </div>
                     </div>
 
@@ -683,8 +685,8 @@ export default function PersonnelsIndex({
                             Personnel Actif
                         </span>
                         <div className="flex items-baseline justify-between">
-                            <span className="text-2xl font-bold text-emerald-600">{stats.actifs}</span>
-                            <UserCheck className="size-4 text-emerald-600" />
+                            <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{stats.actifs}</span>
+                            <UserCheck className="size-4 text-emerald-600 dark:text-emerald-400" />
                         </div>
                     </div>
 
@@ -693,8 +695,8 @@ export default function PersonnelsIndex({
                             Enseignants
                         </span>
                         <div className="flex items-baseline justify-between">
-                            <span className="text-2xl font-bold text-teal-600">{stats.enseignants}</span>
-                            <GraduationCap className="size-4 text-teal-600" />
+                            <span className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{stats.enseignants}</span>
+                            <GraduationCap className="size-4 text-indigo-600 dark:text-indigo-400" />
                         </div>
                     </div>
 
@@ -703,8 +705,8 @@ export default function PersonnelsIndex({
                             Départements
                         </span>
                         <div className="flex items-baseline justify-between">
-                            <span className="text-2xl font-bold text-blue-600">{stats.departementsCount}</span>
-                            <BookOpen className="size-4 text-blue-600" />
+                            <span className="text-2xl font-bold text-sky-600 dark:text-sky-400">{stats.departementsCount}</span>
+                            <BookOpen className="size-4 text-sky-600 dark:text-sky-400" />
                         </div>
                     </div>
 
@@ -713,8 +715,8 @@ export default function PersonnelsIndex({
                             Comptes SYGES
                         </span>
                         <div className="flex items-baseline justify-between">
-                            <span className="text-2xl font-bold text-purple-600">{stats.avecCompte}</span>
-                            <KeyRound className="size-4 text-purple-600" />
+                            <span className="text-2xl font-bold text-purple-600 dark:text-purple-400">{stats.avecCompte}</span>
+                            <KeyRound className="size-4 text-purple-600 dark:text-purple-400" />
                         </div>
                     </div>
                 </div>
@@ -726,7 +728,7 @@ export default function PersonnelsIndex({
                         onClick={() => setActiveTab('personnel')}
                         className={`pb-3 px-4 font-semibold text-sm transition-colors border-b-2 cursor-pointer flex items-center gap-2 ${
                             activeTab === 'personnel'
-                                ? 'border-teal-600 text-teal-600 dark:text-teal-400'
+                                ? 'border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400'
                                 : 'border-transparent text-muted-foreground hover:text-foreground'
                         }`}
                     >
@@ -739,7 +741,7 @@ export default function PersonnelsIndex({
                         onClick={() => setActiveTab('departements')}
                         className={`pb-3 px-4 font-semibold text-sm transition-colors border-b-2 cursor-pointer flex items-center gap-2 ${
                             activeTab === 'departements'
-                                ? 'border-teal-600 text-teal-600 dark:text-teal-400'
+                                ? 'border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400'
                                 : 'border-transparent text-muted-foreground hover:text-foreground'
                         }`}
                     >
@@ -971,7 +973,7 @@ export default function PersonnelsIndex({
                         <Button
                             type="button"
                             onClick={handleConfirmStatusChange}
-                            className="bg-teal-600 hover:bg-teal-700 text-white cursor-pointer font-semibold"
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer font-semibold"
                         >
                             Confirmer la modification
                         </Button>

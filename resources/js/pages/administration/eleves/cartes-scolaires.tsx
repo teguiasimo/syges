@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
     type ColumnDef,
     type SortingState,
@@ -79,6 +79,8 @@ export default function CartesScolairesIndex({
     stats,
     filters,
 }: CartesScolairesPageProps) {
+    const { props: pageProps } = usePage();
+
     // État du tri pour TanStack Table
     const [sorting, setSorting] = useState<SortingState>([]);
     // État de la sélection des lignes (clé: inscription_id)
@@ -163,8 +165,18 @@ export default function CartesScolairesIndex({
         form.action = '/administration/eleves/cartes-scolaires/imprimer-planche';
         form.target = '_blank';
 
-        // Token CSRF Laravel
-        const csrfToken = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content;
+        // Token CSRF Laravel résolu depuis plusieurs sources fiables (balise meta, cookie XSRF ou props Inertia)
+        let csrfToken = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content;
+        if (!csrfToken) {
+            const match = document.cookie.match(new RegExp('(^|;\\s*)XSRF-TOKEN=([^;]*)'));
+            if (match && match[2]) {
+                csrfToken = decodeURIComponent(match[2]);
+            }
+        }
+        if (!csrfToken && (pageProps as any)?.csrf_token) {
+            csrfToken = (pageProps as any).csrf_token;
+        }
+
         if (csrfToken) {
             const csrfInput = document.createElement('input');
             csrfInput.type = 'hidden';
@@ -812,7 +824,7 @@ export default function CartesScolairesIndex({
                                                         DIRECTION
                                                     </div>
                                                     <span className="text-[5px] font-bold text-blue-900 mt-0.5 truncate max-w-full">
-                                                        {activeEtablissement?.nom_chef_etablissement || 'Le Principal'}
+                                                        {activeEtablissement?.nom_chef_etablissement || (activeEtablissement as any)?.titre_chef || 'La Direction'}
                                                     </span>
                                                 </div>
                                             </div>

@@ -66,3 +66,34 @@ export function truncateText(text?: string | null, maxLength = 45): string {
     if (text.length <= maxLength) return text;
     return `${text.slice(0, maxLength).trimEnd()}...`;
 }
+
+/**
+ * Palette de couleurs harmonieuses et alternées pour les avatars d'utilisateurs et de personnels.
+ * Permet de diversifier visuellement l'affichage des listes et tableaux sans monotonie.
+ */
+export const AVATAR_PALETTES = [
+    'bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800',
+    'bg-sky-100 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-800',
+    'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800',
+    'bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800',
+    'bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800',
+    'bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800',
+    'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800',
+    'bg-orange-100 dark:bg-orange-950/60 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800',
+];
+
+/**
+ * Calcule de manière déterministe une classe de couleur d'avatar basée sur une chaîne de texte (ex: nom complet).
+ *
+ * @param {string} text Nom ou identifiant de référence.
+ * @returns {string} Classes CSS Tailwind correspondantes.
+ */
+export function getAvatarStyle(text: string): string {
+    let hash = 0;
+    for (let i = 0; i < text.length; i++) {
+        hash = text.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const index = Math.abs(hash) % AVATAR_PALETTES.length;
+    return AVATAR_PALETTES[index];
+}
+

@@ -111,7 +111,7 @@
                 <div style="font-size: 6.5pt; font-style: italic;">Peace – Work – Fatherland</div>
                 <div class="uppercase" style="font-size: 6.5pt;">MINISTRY OF SECONDARY EDUCATION</div>
                 <div class="uppercase" style="font-size: 6.5pt;">{{ $etablissement->institution?->delegation_regionale_en ?? 'REGIONAL DELEGATION OF SECONDARY EDUCATION' }}</div>
-                <div style="font-size: 7pt; margin-top: 4px;">Année Scolaire : <strong>{{ $annee ? $annee->nom : '2026-2027' }}</strong></div>
+                <div style="font-size: 7pt; margin-top: 4px;">Année Scolaire : <strong>{{ $annee ? ($annee->session ?? ($annee->code ?? $annee->nom)) : '2026-2027' }}</strong></div>
                 <div style="font-size: 6.5pt; color: #4b5563;">Date d'édition : {{ $dateGeneration }}</div>
             </td>
         </tr>

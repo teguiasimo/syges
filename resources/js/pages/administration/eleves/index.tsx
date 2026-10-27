@@ -307,8 +307,10 @@ export default function ElevesIndex({
                         <span className="font-bold text-foreground text-sm block">
                             {cls?.nom ?? 'Non assignée'}
                         </span>
+                        {/* Affichage compact : Niveau • Sigle de l'établissement (ex: 6ème • CES MEGUEU) */}
                         <span className="text-[11px] text-muted-foreground truncate block">
-                            {cls?.niveau?.nom ?? ''} • {insc.etablissement?.nom ?? cls?.niveau?.cycle?.section?.etablissement?.nom ?? ''}
+                            {cls?.niveau?.nom ? `${cls.niveau.nom} • ` : ''}
+                            {insc.etablissement?.sigle || insc.etablissement?.code || cls?.niveau?.cycle?.section?.etablissement?.code || insc.etablissement?.nom || 'CES MEGUEU'}
                         </span>
                     </div>
                 );

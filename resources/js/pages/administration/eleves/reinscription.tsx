@@ -656,7 +656,7 @@ export default function ReinscriptionPage({
                                 <div className="space-y-2">
                                     <Label className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                                         <School className="size-4 text-indigo-600" />
-                                        Classe d'Origine (Année {anneesScolaires.find((a) => String(a.id) === srcAnneeId)?.nom ?? 'Source'})
+                                        Classe d'Origine ({anneesScolaires.find((a) => String(a.id) === srcAnneeId)?.nom ?? 'Année Source'})
                                     </Label>
                                     <SearchableSelect
                                         options={classeOptions}
@@ -674,7 +674,7 @@ export default function ReinscriptionPage({
                                 <div className="space-y-2">
                                     <Label className="text-xs font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
                                         <School className="size-4 text-emerald-600" />
-                                        Classe d'Accueil Cible (Année {anneesScolaires.find((a) => String(a.id) === destAnneeId)?.nom ?? 'Cible'})
+                                        Classe d'Accueil Cible ({anneesScolaires.find((a) => String(a.id) === destAnneeId)?.nom ?? 'Année Cible'})
                                     </Label>
                                     <SearchableSelect
                                         options={classeOptions}
@@ -1329,7 +1329,7 @@ export default function ReinscriptionPage({
                                     <div className="rounded-2xl border-2 border-slate-300 dark:border-slate-700 bg-card p-6 shadow-xs space-y-6">
                                         <h4 className="text-sm font-bold text-foreground flex items-center gap-2 border-b border-border pb-3">
                                             <CheckCircle2 className="size-4 text-emerald-600" />
-                                            Affectation dans la nouvelle classe (Année {anneesScolaires.find((a) => String(a.id) === destAnneeId)?.nom})
+                                            Affectation dans la nouvelle classe ({anneesScolaires.find((a) => String(a.id) === destAnneeId)?.nom ?? 'Nouvelle Année'})
                                         </h4>
 
                                         <div className="space-y-4">

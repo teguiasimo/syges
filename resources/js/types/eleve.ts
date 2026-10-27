@@ -6,6 +6,7 @@
 export interface EtablissementRef {
     id: number;
     code: string;
+    sigle?: string | null;
     nom: string;
     nom_en?: string;
     logo?: string | null;
@@ -15,6 +16,8 @@ export interface EtablissementRef {
     telephone_2?: string | null;
     adresse?: string | null;
     nom_chef_etablissement?: string | null;
+    titre_chef?: string | null;
+    titre_chef_en?: string | null;
     sections?: SectionRef[];
 }
 

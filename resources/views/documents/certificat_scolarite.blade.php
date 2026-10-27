@@ -6,7 +6,7 @@
     <style>
         @page {
             size: A4 portrait;
-            margin: 15mm 18mm 18mm 18mm;
+            margin: 10mm 12mm 15mm 12mm;
         }
         body {
             font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
@@ -19,20 +19,22 @@
         .header-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 12px;
+            margin-bottom: 8px;
         }
         .header-table td {
-            vertical-align: top;
+            vertical-align: middle;
         }
         .header-left, .header-right {
-            width: 38%;
-            font-size: 8pt;
+            width: 41%;
+            font-size: 7.2pt;
             text-align: center;
             line-height: 1.25;
+            white-space: nowrap;
         }
         .header-center {
-            width: 24%;
+            width: 18%;
             text-align: center;
+            vertical-align: middle;
         }
         .school-name {
             font-size: 12pt;
@@ -40,6 +42,7 @@
             color: #1e3a8a;
             text-transform: uppercase;
             margin-top: 4px;
+            white-space: nowrap;
         }
         .school-sub {
             font-size: 7.5pt;
@@ -133,13 +136,20 @@
             <td class="header-left">
                 <strong>RÉPUBLIQUE DU CAMEROUN</strong><br>
                 <em>Paix – Travail – Patrie</em><br>
-                MINISTÈRE DES ENSEIGNEMENTS SECONDAIRES<br>
-                DÉLÉGATION RÉGIONALE DU CENTRE<br>
-                DÉLÉGATION DÉPARTEMENTALE DU MFOUNDI
+                {{ $etablissement->ministere_tutelle ?? 'MINISTÈRE DES ENSEIGNEMENTS SECONDAIRES' }}<br>
+                @if($etablissement->delegation_regionale)
+                    {{ mb_strtoupper($etablissement->delegation_regionale, 'UTF-8') }}<br>
+                @endif
+                @if($etablissement->delegation_departementale)
+                    {{ mb_strtoupper($etablissement->delegation_departementale, 'UTF-8') }}<br>
+                @endif
+                @if($etablissement->arrondissement)
+                    {{ \Illuminate\Support\Str::startsWith(mb_strtoupper($etablissement->arrondissement, 'UTF-8'), 'ARRONDISSEMENT') ? mb_strtoupper($etablissement->arrondissement, 'UTF-8') : 'ARRONDISSEMENT DE ' . mb_strtoupper($etablissement->arrondissement, 'UTF-8') }}
+                @endif
             </td>
             <td class="header-center">
                 @if($etablissement && $etablissement->logo_url)
-                    <img src="{{ public_path($etablissement->logo_url) }}" alt="Logo" style="max-height: 52px; max-width: 65px;">
+                    <img src="{{ public_path($etablissement->logo_url) }}" alt="Logo" style="max-height: 82px; max-width: 95px; object-fit: contain;">
                 @else
                     <div style="font-size: 24pt; font-weight: bold; color: #1e3a8a;">SYGES</div>
                 @endif
@@ -147,9 +157,20 @@
             <td class="header-right">
                 <strong>REPUBLIC OF CAMEROON</strong><br>
                 <em>Peace – Work – Fatherland</em><br>
-                MINISTRY OF SECONDARY EDUCATION<br>
-                REGIONAL DELEGATION OF CENTRE<br>
-                DIVISIONAL DELEGATION OF MFOUNDI
+                {{ $etablissement->ministere_tutelle_en ?? 'MINISTRY OF SECONDARY EDUCATION' }}<br>
+                @if($etablissement->delegation_regionale_en || $etablissement->delegation_regionale)
+                    {{ mb_strtoupper($etablissement->delegation_regionale_en ?? $etablissement->delegation_regionale, 'UTF-8') }}<br>
+                @endif
+                @if($etablissement->delegation_departementale_en || $etablissement->delegation_departementale)
+                    {{ mb_strtoupper($etablissement->delegation_departementale_en ?? $etablissement->delegation_departementale, 'UTF-8') }}<br>
+                @endif
+                @if($etablissement->arrondissement_en || $etablissement->arrondissement)
+                    @php
+                        $arrEn = $etablissement->arrondissement_en ?? $etablissement->arrondissement;
+                        $arrEnUpper = mb_strtoupper($arrEn, 'UTF-8');
+                    @endphp
+                    {{ \Illuminate\Support\Str::contains($arrEnUpper, 'SUB-DIVISION') ? $arrEnUpper : $arrEnUpper . ' SUB-DIVISION' }}
+                @endif
             </td>
         </tr>
     </table>
@@ -169,15 +190,31 @@
 
     <!-- Corps officiel de l'attestation -->
     <div class="cert-body">
-        Je soussigné, <strong>Le Chef d'Établissement</strong> de l'établissement <span class="highlight">{{ $etablissement->nom }}</span>, certifie par la présente que :
+        @php
+            $nomChef = $etablissement->nom_chef_etablissement;
+            $titreChef = $etablissement->titre_chef ?? "Chef d'Établissement";
+            $titreChefCourt = preg_replace('/^(Le|La|L\')\s+/iu', '', trim($titreChef));
+            $premiereLettre = mb_substr(ltrim($etablissement->nom ?? ''), 0, 1, 'UTF-8');
+            $prep = in_array(mb_strtoupper($premiereLettre, 'UTF-8'), ['A', 'E', 'I', 'O', 'U', 'Y', 'É', 'È', 'Ê', 'Ë', 'À', 'Â']) ? "de l'" : 'du ';
+        @endphp
+
+        @if(!empty($nomChef))
+            Je soussigné, <strong>{{ $nomChef }}</strong>, {{ $titreChefCourt }} {{ $prep }}<span class="highlight">{{ $etablissement->nom }}</span>, certifie par la présente que :
+        @else
+            Je soussigné, <strong>{{ $titreChef }}</strong> {{ $prep }}<span class="highlight">{{ $etablissement->nom }}</span>, certifie par la présente que :
+        @endif
         <br><br>
         L'élève : <span class="highlight" style="font-size: 12pt; text-transform: uppercase;">{{ $eleve->nom }} {{ $eleve->prenom }}</span><br>
-        Matricule interne : <span class="highlight">{{ $eleve->matricule }}</span><br>
+        Matricule : <span class="highlight">{{ $eleve->matricule }}</span>
+        @if(!empty($eleve->matricule_national))
+            &nbsp;&bull;&nbsp; Matricule national : <span class="highlight">{{ $eleve->matricule_national }}</span>
+        @endif
+        <br>
         Né(e) le : <span class="highlight">{{ $eleve->date_naissance ? \Carbon\Carbon::parse($eleve->date_naissance)->format('d-m-Y') : '---' }}</span> à <span class="highlight">{{ $eleve->lieu_naissance ?? '---' }}</span><br>
         Sexe : <span class="highlight">{{ $eleve->sexe === 'F' ? 'Féminin' : 'Masculin' }}</span> &bull; Nationalité : <span class="highlight">{{ $eleve->nationalite ?? 'CAMEROUNAISE' }}</span><br>
         Fils / Fille de : <span class="highlight">{{ $eleve->nom_pere ?: '---' }}</span> et de : <span class="highlight">{{ $eleve->nom_mere ?: '---' }}</span><br>
         <br>
-        Est régulièrement inscrit(e) et fréquente assidûment les cours au sein de notre établissement dans la classe de : <span class="highlight" style="font-size: 12pt; text-decoration: underline;">{{ $classe->nom }}</span> au titre de l'année scolaire <span class="highlight">{{ $annee->nom ?? $annee->code }}</span>.
+        Est régulièrement inscrit(e) et fréquente assidûment les cours au sein de notre établissement dans la classe de : <span class="highlight" style="font-size: 12pt; text-decoration: underline;">{{ $classe->nom }}</span> au titre de l'année scolaire <span class="highlight">{{ $annee->session ?? ($annee->code ?? $annee->nom) }}</span>.
         <br><br>
         En foi de quoi le présent certificat lui est délivré pour servir et valoir ce que de droit.
     </div>
@@ -192,8 +229,8 @@
                 @endif
             </td>
             <td class="sign-box">
-                <div class="sign-place">Fait à {{ $etablissement->ville ?? 'Yaoundé' }}, le {{ $dateDelivrance }}</div>
-                <div class="sign-role">Le Chef d'Établissement</div>
+                <div class="sign-place">Fait à {{ $etablissement->ville ?? ($etablissement->institution?->ville ?? 'Fongo-Tongo') }}, le {{ $dateDelivrance }}</div>
+                <div class="sign-role">{{ $etablissement->titre_chef ?? "Le Chef d'Établissement" }}</div>
                 <div class="sign-stamp">(Signature et Cachet Officiel)</div>
             </td>
         </tr>

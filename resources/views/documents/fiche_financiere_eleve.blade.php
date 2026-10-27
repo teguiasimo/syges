@@ -25,21 +25,23 @@
             vertical-align: top;
         }
         .header-left, .header-right {
-            width: 38%;
-            font-size: 7.5pt;
+            width: 41%;
+            font-size: 7pt;
             text-align: center;
-            line-height: 1.25;
+            line-height: 1.22;
+            white-space: nowrap;
         }
         .header-center {
-            width: 24%;
+            width: 18%;
             text-align: center;
+            vertical-align: middle;
         }
         .school-name {
             font-size: 11pt;
             font-weight: bold;
             color: #1e3a8a;
             text-transform: uppercase;
-            margin-top: 3px;
+            margin-top: 2px;
         }
         .title-banner {
             background-color: #047857;
@@ -184,43 +186,78 @@
 </head>
 <body>
 
-    <!-- En-tête officiel -->
+    <!-- En-tête officiel bilingue -->
     <table class="header-table">
         <tr>
             <td class="header-left">
                 <strong>RÉPUBLIQUE DU CAMEROUN</strong><br>
                 <em>Paix – Travail – Patrie</em><br>
-                MINISTÈRE DES ENSEIGNEMENTS SECONDAIRES
+                {{ $etablissement->ministere_tutelle ?? 'MINISTÈRE DES ENSEIGNEMENTS SECONDAIRES' }}<br>
+                @if($etablissement->delegation_regionale)
+                    {{ mb_strtoupper($etablissement->delegation_regionale, 'UTF-8') }}<br>
+                @endif
+                @if($etablissement->delegation_departementale)
+                    {{ mb_strtoupper($etablissement->delegation_departementale, 'UTF-8') }}<br>
+                @endif
+                @if($etablissement->arrondissement)
+                    {{ \Illuminate\Support\Str::startsWith(mb_strtoupper($etablissement->arrondissement, 'UTF-8'), 'ARRONDISSEMENT') ? mb_strtoupper($etablissement->arrondissement, 'UTF-8') : 'ARRONDISSEMENT DE ' . mb_strtoupper($etablissement->arrondissement, 'UTF-8') }}
+                @endif
             </td>
             <td class="header-center">
-                <div class="school-name">{{ $etablissement->nom ?? 'ÉTABLISSEMENT SCOLAIRE' }}</div>
-                <div style="font-size: 7pt; color: #64748b;">SERVICE DE L'INTENDANCE & DE LA COMPTABILITÉ</div>
+                @if($etablissement && $etablissement->logo_url)
+                    <img src="{{ public_path($etablissement->logo_url) }}" alt="Logo" style="max-height: 75px; max-width: 90px; object-fit: contain;">
+                @else
+                    <div style="font-size: 20pt; font-weight: bold; color: #1e3a8a;">SYGES</div>
+                @endif
             </td>
             <td class="header-right">
                 <strong>REPUBLIC OF CAMEROON</strong><br>
                 <em>Peace – Work – Fatherland</em><br>
-                MINISTRY OF SECONDARY EDUCATION
+                {{ $etablissement->ministere_tutelle_en ?? 'MINISTRY OF SECONDARY EDUCATION' }}<br>
+                @if($etablissement->delegation_regionale_en || $etablissement->delegation_regionale)
+                    {{ mb_strtoupper($etablissement->delegation_regionale_en ?? $etablissement->delegation_regionale, 'UTF-8') }}<br>
+                @endif
+                @if($etablissement->delegation_departementale_en || $etablissement->delegation_departementale)
+                    {{ mb_strtoupper($etablissement->delegation_departementale_en ?? $etablissement->delegation_departementale, 'UTF-8') }}<br>
+                @endif
+                @if($etablissement->arrondissement_en || $etablissement->arrondissement)
+                    @php
+                        $arrEn = $etablissement->arrondissement_en ?? $etablissement->arrondissement;
+                        $arrEnUpper = mb_strtoupper($arrEn, 'UTF-8');
+                    @endphp
+                    {{ \Illuminate\Support\Str::contains($arrEnUpper, 'SUB-DIVISION') ? $arrEnUpper : $arrEnUpper . ' SUB-DIVISION' }}
+                @endif
             </td>
         </tr>
     </table>
 
+    <div style="text-align: center; margin-top: 2px; margin-bottom: 6px;">
+        <div class="school-name">{{ $etablissement->nom ?? 'ÉTABLISSEMENT SCOLAIRE' }}</div>
+        <div style="font-size: 7.5pt; color: #475569; font-weight: bold; text-transform: uppercase;">Service de l'Intendance &bull; Gestion Financière des Élèves</div>
+    </div>
+
     <!-- Bannière Titre -->
     <div class="title-banner">
         <div class="title-text">Situation Financière Individuelle de l'Élève</div>
-        <div class="title-sub">Année Scolaire : {{ $annee->nom ?? $annee->code }} &bull; Édition : {{ $dateEdition }}</div>
+        <div class="title-sub">Année Scolaire : {{ $annee->session ?? ($annee->code ?? $annee->nom) }} &bull; Édition : {{ $dateEdition }}</div>
     </div>
 
     <!-- Identité Élève -->
     <table class="student-box">
         <tr>
             <td class="meta-label">Nom de l'Élève :</td>
-            <td class="meta-val"><strong>{{ $eleve->nom }} {{ $eleve->prenom }}</strong></td>
+            <td class="meta-val"><strong>{{ mb_strtoupper($eleve->nom) }} {{ $eleve->prenom }}</strong></td>
             <td class="meta-label">Classe :</td>
-            <td class="meta-val"><strong>{{ $classe->nom }}</strong> ({{ $classe->code }})</td>
+            <td class="meta-val"><strong>{{ $classe->nom }}</strong> ({{ $classe->code ?? $classe->nom }})</td>
         </tr>
         <tr>
-            <td class="meta-label">Matricule Interne :</td>
-            <td class="meta-val"><strong>{{ $eleve->matricule }}</strong></td>
+            <td class="meta-label">Matricule :</td>
+            <td class="meta-val">
+                <strong>{{ $eleve->matricule }}</strong>
+                @if(!empty($eleve->matricule_national))
+                    <span style="font-size: 7.5pt; color: #475569;"> &bull; Nat : {{ $eleve->matricule_national }}</span>
+                @endif
+            </td>
             <td class="meta-label">Parent / Tuteur :</td>
             <td class="meta-val">{{ $eleve->nom_tuteur ?: ($eleve->nom_pere ?: '---') }} ({{ $eleve->telephone_parent ?? '---' }})</td>
         </tr>
@@ -231,38 +268,38 @@
         <tr>
             <td>
                 <div class="kpi-title">Frais Exigibles Bruts</div>
-                <div class="kpi-val" style="color: #0f172a;">{{ number_format($compte->total_debit ?? 0, 0, ',', ' ') }} FCFA</div>
+                <div class="kpi-val" style="color: #0f172a;">{{ number_format($compte?->total_debit ?? 0, 0, ',', ' ') }} FCFA</div>
             </td>
             <td>
                 <div class="kpi-title">Bourses / Remises Déduites</div>
-                <div class="kpi-val" style="color: #047857;">- {{ number_format($compte->boursesRemises->sum('montant_deduit') ?? 0, 0, ',', ' ') }} FCFA</div>
+                <div class="kpi-val" style="color: #047857;">- {{ number_format(($compte?->boursesRemises ? $compte->boursesRemises->sum('montant_deduit') : 0), 0, ',', ' ') }} FCFA</div>
             </td>
             <td>
                 <div class="kpi-title">Total Encaissé</div>
-                <div class="kpi-val" style="color: #2563eb;">{{ number_format($compte->total_paye ?? 0, 0, ',', ' ') }} FCFA</div>
+                <div class="kpi-val" style="color: #2563eb;">{{ number_format($compte?->total_paye ?? 0, 0, ',', ' ') }} FCFA</div>
             </td>
             <td>
                 <div class="kpi-title">Solde Net Restant</div>
-                <div class="kpi-val" style="color: {{ ($compte->solde ?? 0) <= 0 ? '#15803d' : '#b91c1c' }};">
-                    {{ number_format($compte->solde ?? 0, 0, ',', ' ') }} FCFA
+                <div class="kpi-val" style="color: {{ ($compte?->solde ?? 0) <= 0 ? '#15803d' : '#b91c1c' }};">
+                    {{ number_format($compte?->solde ?? 0, 0, ',', ' ') }} FCFA
                 </div>
             </td>
         </tr>
     </table>
 
     <!-- Bannière de Solvabilité -->
-    @if(($compte->solde ?? 0) <= 0)
+    @if(($compte?->solde ?? 0) <= 0)
         <div class="solvency-box solvency-ok">
             &check; Situation Financière Régularisée &bull; Élève Solvable pour l'année scolaire en cours
         </div>
     @else
         <div class="solvency-box solvency-due">
-            &excl; Reste à payer : {{ number_format($compte->solde, 0, ',', ' ') }} FCFA &bull; Règlement attendu auprès de l'intendance
+            &excl; Reste à payer : {{ number_format($compte?->solde ?? 0, 0, ',', ' ') }} FCFA &bull; Règlement attendu auprès de l'intendance
         </div>
     @endif
 
     <!-- Tableau des Bourses & Réductions -->
-    @if($compte && $compte->boursesRemises && count($compte->boursesRemises) > 0)
+    @if($compte && $compte->boursesRemises && $compte->boursesRemises->isNotEmpty())
         <div class="section-title">Bourses & Remises Accordées</div>
         <table class="data-table">
             <thead>
@@ -279,9 +316,9 @@
                     <tr>
                         <td><strong>{{ $br->bourseRemise->nom ?? 'Remise' }}</strong></td>
                         <td style="text-align: center;">{{ ucfirst($br->bourseRemise->type ?? 'remise') }}</td>
-                        <td style="text-align: center;">{{ $br->bourseRemise->mode_calcul === 'pourcentage' ? 'Pourcentage (%)' : 'Montant Fixe' }}</td>
-                        <td style="text-align: right;">{{ $br->bourseRemise->mode_calcul === 'pourcentage' ? $br->bourseRemise->valeur . ' %' : number_format($br->bourseRemise->valeur, 0, ',', ' ') . ' FCFA' }}</td>
-                        <td style="text-align: right; font-weight: bold; color: #047857;">- {{ number_format($br->montant_deduit, 0, ',', ' ') }} FCFA</td>
+                        <td style="text-align: center;">{{ ($br->bourseRemise->mode_calcul ?? '') === 'pourcentage' ? 'Pourcentage (%)' : 'Montant Fixe' }}</td>
+                        <td style="text-align: right;">{{ ($br->bourseRemise->mode_calcul ?? '') === 'pourcentage' ? ($br->bourseRemise->valeur ?? 0) . ' %' : number_format($br->bourseRemise->valeur ?? 0, 0, ',', ' ') . ' FCFA' }}</td>
+                        <td style="text-align: right; font-weight: bold; color: #047857;">- {{ number_format($br->montant_deduit ?? 0, 0, ',', ' ') }} FCFA</td>
                     </tr>
                 @endforeach
             </tbody>

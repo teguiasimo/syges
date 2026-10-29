@@ -113,6 +113,15 @@
                 <div class="bold uppercase" style="font-size: 7.5pt; color: #1e3a8a;">{{ $classe->niveau->cycle->section->etablissement->nom }}</div>
             </td>
             <td style="width: 30%;" class="text-center">
+                @php
+                    $etab = $classe->niveau->cycle->section->etablissement ?? null;
+                    $logoSrc = ($etab && method_exists($etab, 'getEffectiveLogoBase64'))
+                        ? $etab->getEffectiveLogoBase64()
+                        : (file_exists(public_path('logo.png')) ? 'data:image/png;base64,' . base64_encode(file_get_contents(public_path('logo.png'))) : null);
+                @endphp
+                @if($logoSrc)
+                    <img src="{{ $logoSrc }}" alt="Logo" style="max-height: 42px; max-width: 65px; object-fit: contain; margin-bottom: 2px;"><br>
+                @endif
                 <div class="bold uppercase" style="font-size: 8.5pt;">PROCES-VERBAL DE DELIBERATION</div>
                 <div style="font-size: 7.5pt;">Session : <strong>{{ $periode ? $periode->nom : 'Bilan Annuel Définitif' }}</strong></div>
                 <div style="font-size: 7pt;">Année Scolaire : <strong>{{ $annee->session ?? ($annee->code ?? $annee->nom) }}</strong></div>

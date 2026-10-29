@@ -1,19 +1,34 @@
 <?php
 
+use App\Http\Controllers\Administration\ArchiveController;
 use App\Http\Controllers\Administration\AttributionController;
-use App\Http\Controllers\Administration\EleveController;
 use App\Http\Controllers\Administration\BulletinController;
+use App\Http\Controllers\Administration\CarteScolaireController;
+use App\Http\Controllers\Administration\CommunicationSmsController;
+use App\Http\Controllers\Administration\CompetencePeriodiqueController;
+use App\Http\Controllers\Administration\ConseilClasseController;
+use App\Http\Controllers\Administration\ConseilDisciplineController;
+use App\Http\Controllers\Administration\DepenseController;
+use App\Http\Controllers\Administration\DisciplineController;
+use App\Http\Controllers\Administration\DispenseEleveController;
+use App\Http\Controllers\Administration\DocumentOfficielController;
+use App\Http\Controllers\Administration\EleveController;
+use App\Http\Controllers\Administration\EmploiDuTempsController;
+use App\Http\Controllers\Administration\FinanceController;
 use App\Http\Controllers\Administration\InstitutionController;
 use App\Http\Controllers\Administration\MatiereController;
 use App\Http\Controllers\Administration\NoteController;
 use App\Http\Controllers\Administration\PeriodeEvaluationController;
 use App\Http\Controllers\Administration\PersonnelController;
-use App\Http\Controllers\Administration\RolePermissionController;
-use App\Http\Controllers\Administration\UserController;
-use App\Http\Controllers\Administration\CarteScolaireController;
-use App\Http\Controllers\Administration\CompetencePeriodiqueController;
-use App\Http\Controllers\Administration\DispenseEleveController;
+use App\Http\Controllers\Administration\ProgressionPedagogiqueController;
 use App\Http\Controllers\Administration\ReleveNoteController;
+use App\Http\Controllers\Administration\RolePermissionController;
+use App\Http\Controllers\Administration\SystemUpdateController;
+use App\Http\Controllers\Administration\TableauDeBordController;
+use App\Http\Controllers\Administration\UserController;
+use App\Http\Controllers\Portail\PortailParentController;
+use App\Models\Etablissement;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 // Redirection par défaut de la racine vers la page de connexion dès le lancement
@@ -31,7 +46,7 @@ Route::get('cartes-scolaires/verifier/{matricule}', [CarteScolaireController::cl
  * Accessible aux utilisateurs connectés comme aux visiteurs (sur la page de connexion).
  * Met à jour la session utilisateur et dépose un cookie longue durée.
  */
-Route::post('locale', function (\Illuminate\Http\Request $request) {
+Route::post('locale', function (Request $request) {
     $validated = $request->validate([
         'locale' => ['required', 'string', 'in:fr,en'],
     ]);
@@ -48,9 +63,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
      * Les Super Admins peuvent basculer librement vers n'importe quel campus de l'institution.
      * Le personnel scolaire local est restreint à son établissement de rattachement.
      */
-    Route::post('switch-etablissement', function (\Illuminate\Http\Request $request) {
+    Route::post('switch-etablissement', function (Request $request) {
         $user = $request->user();
-        $isSuperAdmin = $user ? ($user->hasRole('super-admin') || $user->email === 'admin@gmail.com') : false;
+        $isSuperAdmin = $user ? $user->isSuperAdmin() : false;
 
         $validated = $request->validate([
             'etablissement_id' => ['required', 'exists:etablissements,id'],
@@ -63,14 +78,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
             }
         }
 
-        $etab = \App\Models\Etablissement::findOrFail($validated['etablissement_id']);
+        $etab = Etablissement::findOrFail($validated['etablissement_id']);
         $request->session()->put('current_etablissement_id', $etab->id);
 
         return back()->with('success', "Campus actif basculé vers « {$etab->nom} » avec succès.");
     })->name('context.switch-etablissement');
 
     // Page du Tableau de bord exécutif (Module 15)
-    Route::get('dashboard', [\App\Http\Controllers\Administration\TableauDeBordController::class, 'index'])->name('dashboard');
+    Route::get('dashboard', [TableauDeBordController::class, 'index'])->name('dashboard');
 
     // Page d'accueil du module d'Administration
     Route::inertia('administration', 'administration')->name('administration');
@@ -195,13 +210,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::resource('attributions', AttributionController::class)->only(['index', 'store', 'update', 'destroy']);
 
         // Module Suivi Pédagogique : Cahier de Texte & Fiches de Progression (Aurore 5.1.8)
-        Route::get('progression-pedagogique', [\App\Http\Controllers\Administration\ProgressionPedagogiqueController::class, 'index'])->name('progression.index');
-        Route::post('progression-pedagogique', [\App\Http\Controllers\Administration\ProgressionPedagogiqueController::class, 'store'])->name('progression.store');
-        Route::put('progression-pedagogique/{progression}', [\App\Http\Controllers\Administration\ProgressionPedagogiqueController::class, 'update'])->name('progression.update');
-        Route::delete('progression-pedagogique/{progression}', [\App\Http\Controllers\Administration\ProgressionPedagogiqueController::class, 'destroy'])->name('progression.destroy');
-        Route::post('progression-pedagogique/{progression}/viser', [\App\Http\Controllers\Administration\ProgressionPedagogiqueController::class, 'viser'])->name('progression.viser');
-        Route::get('progression-pedagogique/imprimer/{attribution}', [\App\Http\Controllers\Administration\ProgressionPedagogiqueController::class, 'imprimerFiche'])->name('progression.imprimer');
-
+        Route::get('progression-pedagogique', [ProgressionPedagogiqueController::class, 'index'])->name('progression.index');
+        Route::post('progression-pedagogique', [ProgressionPedagogiqueController::class, 'store'])->name('progression.store');
+        Route::put('progression-pedagogique/{progression}', [ProgressionPedagogiqueController::class, 'update'])->name('progression.update');
+        Route::delete('progression-pedagogique/{progression}', [ProgressionPedagogiqueController::class, 'destroy'])->name('progression.destroy');
+        Route::post('progression-pedagogique/{progression}/viser', [ProgressionPedagogiqueController::class, 'viser'])->name('progression.viser');
+        Route::get('progression-pedagogique/imprimer/{attribution}', [ProgressionPedagogiqueController::class, 'imprimerFiche'])->name('progression.imprimer');
 
         // Module 10 : Saisie des Notes & Calcul des Bulletins (Gesco 10)
         Route::get('notes', [NoteController::class, 'index'])->name('notes.index');
@@ -213,6 +227,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // Relevés de Notes & Fiches Officielles de Notation
         Route::get('notes/releves', [ReleveNoteController::class, 'index'])->name('notes.releves.index');
         Route::get('notes/releves/pdf', [ReleveNoteController::class, 'exportPdf'])->name('notes.releves.pdf');
+        Route::get('notes/releves/etat-remplissage', [ReleveNoteController::class, 'exportEtatRemplissage'])->name('notes.releves.etat-remplissage');
 
         Route::get('bulletins', [BulletinController::class, 'index'])->name('bulletins.index');
         Route::get('bulletins/previsualiser/{inscription}/{periode?}', [BulletinController::class, 'previsualiser'])->name('bulletins.previsualiser');
@@ -238,130 +253,138 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('pedagogie/dispenses/pv-pdf', [DispenseEleveController::class, 'exporterPv'])->name('pedagogie.dispenses.pv-pdf');
 
         // Module 11 : Gestion de la Caisse & Paiements (Gesco 11 & Aurore)
-        Route::get('finances', [\App\Http\Controllers\Administration\FinanceController::class, 'index'])->name('finances.index');
-        Route::post('finances/versements', [\App\Http\Controllers\Administration\FinanceController::class, 'storeVersement'])->name('finances.versements.store');
-        Route::get('finances/versements/{versement}/recu', [\App\Http\Controllers\Administration\FinanceController::class, 'imprimerRecu'])->name('finances.versements.recu');
-        Route::post('finances/versements/{versement}/annuler', [\App\Http\Controllers\Administration\FinanceController::class, 'annulerVersement'])->name('finances.versements.annuler');
-        Route::post('finances/comptes/{compte}/ajuster', [\App\Http\Controllers\Administration\FinanceController::class, 'ajusterCompte'])->name('finances.comptes.ajuster');
-        Route::post('finances/cloturer-journee', [\App\Http\Controllers\Administration\FinanceController::class, 'cloturerJournee'])->name('finances.cloturer-journee');
-        Route::post('finances/types-frais', [\App\Http\Controllers\Administration\FinanceController::class, 'storeTypeFrais'])->name('finances.types-frais.store');
-        Route::delete('finances/types-frais/{typeFrais}', [\App\Http\Controllers\Administration\FinanceController::class, 'destroyTypeFrais'])->name('finances.types-frais.destroy');
-        Route::post('finances/tarifs', [\App\Http\Controllers\Administration\FinanceController::class, 'storeTarif'])->name('finances.tarifs.store');
-        Route::delete('finances/tarifs/{fraisScolaire}', [\App\Http\Controllers\Administration\FinanceController::class, 'destroyTarif'])->name('finances.tarifs.destroy');
-        Route::post('finances/etablissements/{etablissement}/verrou-solvabilite', [\App\Http\Controllers\Administration\FinanceController::class, 'toggleVerrouSolvabilite'])->name('finances.verrou-solvabilite');
+        Route::get('finances', [FinanceController::class, 'index'])->name('finances.index');
+        Route::post('finances/versements', [FinanceController::class, 'storeVersement'])->name('finances.versements.store');
+        Route::get('finances/versements/{versement}/recu', [FinanceController::class, 'imprimerRecu'])->name('finances.versements.recu');
+        Route::post('finances/versements/{versement}/annuler', [FinanceController::class, 'annulerVersement'])->name('finances.versements.annuler');
+        Route::post('finances/comptes/{compte}/ajuster', [FinanceController::class, 'ajusterCompte'])->name('finances.comptes.ajuster');
+        Route::post('finances/cloturer-journee', [FinanceController::class, 'cloturerJournee'])->name('finances.cloturer-journee');
+        Route::post('finances/types-frais', [FinanceController::class, 'storeTypeFrais'])->name('finances.types-frais.store');
+        Route::delete('finances/types-frais/{typeFrais}', [FinanceController::class, 'destroyTypeFrais'])->name('finances.types-frais.destroy');
+        Route::post('finances/tarifs', [FinanceController::class, 'storeTarif'])->name('finances.tarifs.store');
+        Route::delete('finances/tarifs/{fraisScolaire}', [FinanceController::class, 'destroyTarif'])->name('finances.tarifs.destroy');
+        Route::post('finances/etablissements/{etablissement}/verrou-solvabilite', [FinanceController::class, 'toggleVerrouSolvabilite'])->name('finances.verrou-solvabilite');
 
         // Caisses multiples (Aurore §3.20)
-        Route::post('finances/caisses', [\App\Http\Controllers\Administration\FinanceController::class, 'storeCaisse'])->name('finances.caisses.store');
-        Route::put('finances/caisses/{caisse}', [\App\Http\Controllers\Administration\FinanceController::class, 'updateCaisse'])->name('finances.caisses.update');
-        Route::delete('finances/caisses/{caisse}', [\App\Http\Controllers\Administration\FinanceController::class, 'destroyCaisse'])->name('finances.caisses.destroy');
+        Route::post('finances/caisses', [FinanceController::class, 'storeCaisse'])->name('finances.caisses.store');
+        Route::put('finances/caisses/{caisse}', [FinanceController::class, 'updateCaisse'])->name('finances.caisses.update');
+        Route::delete('finances/caisses/{caisse}', [FinanceController::class, 'destroyCaisse'])->name('finances.caisses.destroy');
 
         // Règlements divers hors scolarité (Aurore §4.2)
-        Route::post('finances/reglements-divers', [\App\Http\Controllers\Administration\FinanceController::class, 'storeReglementDivers'])->name('finances.reglements-divers.store');
-        Route::post('finances/reglements-divers/{reglement}/annuler', [\App\Http\Controllers\Administration\FinanceController::class, 'annulerReglementDivers'])->name('finances.reglements-divers.annuler');
-        Route::get('finances/reglements-divers/{reglement}/recu', [\App\Http\Controllers\Administration\FinanceController::class, 'imprimerRecuDivers'])->name('finances.reglements-divers.recu');
+        Route::post('finances/reglements-divers', [FinanceController::class, 'storeReglementDivers'])->name('finances.reglements-divers.store');
+        Route::post('finances/reglements-divers/{reglement}/annuler', [FinanceController::class, 'annulerReglementDivers'])->name('finances.reglements-divers.annuler');
+        Route::get('finances/reglements-divers/{reglement}/recu', [FinanceController::class, 'imprimerRecuDivers'])->name('finances.reglements-divers.recu');
 
         // Bourses & Remises (Aurore §3.19, §3.21, §3.25, §4.1.6)
-        Route::post('finances/bourses-remises', [\App\Http\Controllers\Administration\FinanceController::class, 'storeBourseRemise'])->name('finances.bourses-remises.store');
-        Route::put('finances/bourses-remises/{bourseRemise}', [\App\Http\Controllers\Administration\FinanceController::class, 'updateBourseRemise'])->name('finances.bourses-remises.update');
-        Route::delete('finances/bourses-remises/{bourseRemise}', [\App\Http\Controllers\Administration\FinanceController::class, 'destroyBourseRemise'])->name('finances.bourses-remises.destroy');
-        Route::post('finances/bourses-remises/attribuer', [\App\Http\Controllers\Administration\FinanceController::class, 'attribuerBourseRemise'])->name('finances.bourses-remises.attribuer');
-        Route::delete('finances/bourses-remises/attributions/{attribution}', [\App\Http\Controllers\Administration\FinanceController::class, 'retirerBourseRemise'])->name('finances.bourses-remises.retirer');
+        Route::post('finances/bourses-remises', [FinanceController::class, 'storeBourseRemise'])->name('finances.bourses-remises.store');
+        Route::put('finances/bourses-remises/{bourseRemise}', [FinanceController::class, 'updateBourseRemise'])->name('finances.bourses-remises.update');
+        Route::delete('finances/bourses-remises/{bourseRemise}', [FinanceController::class, 'destroyBourseRemise'])->name('finances.bourses-remises.destroy');
+        Route::post('finances/bourses-remises/attribuer', [FinanceController::class, 'attribuerBourseRemise'])->name('finances.bourses-remises.attribuer');
+        Route::delete('finances/bourses-remises/attributions/{attribution}', [FinanceController::class, 'retirerBourseRemise'])->name('finances.bourses-remises.retirer');
 
         // Modèles d'échéances calendaires (Aurore §3.24)
-        Route::post('finances/modeles-echeances', [\App\Http\Controllers\Administration\FinanceController::class, 'storeModeleEcheance'])->name('finances.modeles-echeances.store');
-        Route::delete('finances/modeles-echeances/{modeleEcheance}', [\App\Http\Controllers\Administration\FinanceController::class, 'destroyModeleEcheance'])->name('finances.modeles-echeances.destroy');
+        Route::post('finances/modeles-echeances', [FinanceController::class, 'storeModeleEcheance'])->name('finances.modeles-echeances.store');
+        Route::delete('finances/modeles-echeances/{modeleEcheance}', [FinanceController::class, 'destroyModeleEcheance'])->name('finances.modeles-echeances.destroy');
 
         // Pénalités financières de retard (Aurore §3.17)
-        Route::post('finances/penalites-configurations', [\App\Http\Controllers\Administration\FinanceController::class, 'storePenaliteConfiguration'])->name('finances.penalites-configurations.store');
-        Route::post('finances/penalites/appliquer-echeances', [\App\Http\Controllers\Administration\FinanceController::class, 'appliquerPenalitesRetard'])->name('finances.penalites.appliquer-echeances');
-        Route::post('finances/penalites/{penalite}/annuler', [\App\Http\Controllers\Administration\FinanceController::class, 'annulerPenaliteEleve'])->name('finances.penalites.annuler');
+        Route::post('finances/penalites-configurations', [FinanceController::class, 'storePenaliteConfiguration'])->name('finances.penalites-configurations.store');
+        Route::post('finances/penalites/appliquer-echeances', [FinanceController::class, 'appliquerPenalitesRetard'])->name('finances.penalites.appliquer-echeances');
+        Route::post('finances/penalites/{penalite}/annuler', [FinanceController::class, 'annulerPenaliteEleve'])->name('finances.penalites.annuler');
 
         // Module Dépenses, Fiches de Décharge & Bilan Financier (Phase 1)
-        Route::get('finances/depenses', [\App\Http\Controllers\Administration\DepenseController::class, 'index'])->name('finances.depenses.index');
-        Route::post('finances/depenses', [\App\Http\Controllers\Administration\DepenseController::class, 'store'])->name('finances.depenses.store');
-        Route::put('finances/depenses/{depense}', [\App\Http\Controllers\Administration\DepenseController::class, 'update'])->name('finances.depenses.update');
-        Route::delete('finances/depenses/{depense}', [\App\Http\Controllers\Administration\DepenseController::class, 'destroy'])->name('finances.depenses.destroy');
-        Route::post('finances/depenses/categories', [\App\Http\Controllers\Administration\DepenseController::class, 'storeCategorie'])->name('finances.depenses.categories.store');
-        Route::get('finances/depenses/{depense}/decharge-pdf', [\App\Http\Controllers\Administration\DepenseController::class, 'imprimerDecharge'])->name('finances.depenses.decharge-pdf');
-        Route::get('finances/bilan-pdf', [\App\Http\Controllers\Administration\DepenseController::class, 'imprimerBilan'])->name('finances.bilan-pdf');
+        Route::get('finances/depenses', [DepenseController::class, 'index'])->name('finances.depenses.index');
+        Route::post('finances/depenses', [DepenseController::class, 'store'])->name('finances.depenses.store');
+        Route::put('finances/depenses/{depense}', [DepenseController::class, 'update'])->name('finances.depenses.update');
+        Route::delete('finances/depenses/{depense}', [DepenseController::class, 'destroy'])->name('finances.depenses.destroy');
+        Route::post('finances/depenses/categories', [DepenseController::class, 'storeCategorie'])->name('finances.depenses.categories.store');
+        Route::get('finances/depenses/{depense}/decharge-pdf', [DepenseController::class, 'imprimerDecharge'])->name('finances.depenses.decharge-pdf');
+        Route::get('finances/bilan-pdf', [DepenseController::class, 'imprimerBilan'])->name('finances.bilan-pdf');
 
         // Module 12 : Absences, Retards & Discipline (Gesco 12)
-        Route::get('discipline', [\App\Http\Controllers\Administration\DisciplineController::class, 'index'])->name('discipline.index');
-        Route::post('discipline/assiduites', [\App\Http\Controllers\Administration\DisciplineController::class, 'storeAssiduite'])->name('discipline.assiduites.store');
-        Route::match(['post', 'patch'], 'discipline/assiduites/{assiduite}/justifier', [\App\Http\Controllers\Administration\DisciplineController::class, 'justifierAssiduite'])->name('discipline.assiduites.justifier');
-        Route::delete('discipline/assiduites/{assiduite}', [\App\Http\Controllers\Administration\DisciplineController::class, 'destroyAssiduite'])->name('discipline.assiduites.destroy');
-        Route::post('discipline/sanctions', [\App\Http\Controllers\Administration\DisciplineController::class, 'storeSanction'])->name('discipline.sanctions.store');
-        Route::delete('discipline/sanctions/{sanction}', [\App\Http\Controllers\Administration\DisciplineController::class, 'destroySanction'])->name('discipline.sanctions.destroy');
+        Route::get('discipline', [DisciplineController::class, 'index'])->name('discipline.index');
+        Route::post('discipline/assiduites', [DisciplineController::class, 'storeAssiduite'])->name('discipline.assiduites.store');
+        Route::match(['post', 'patch'], 'discipline/assiduites/{assiduite}/justifier', [DisciplineController::class, 'justifierAssiduite'])->name('discipline.assiduites.justifier');
+        Route::delete('discipline/assiduites/{assiduite}', [DisciplineController::class, 'destroyAssiduite'])->name('discipline.assiduites.destroy');
+        Route::post('discipline/sanctions', [DisciplineController::class, 'storeSanction'])->name('discipline.sanctions.store');
+        Route::delete('discipline/sanctions/{sanction}', [DisciplineController::class, 'destroySanction'])->name('discipline.sanctions.destroy');
 
         // Conseil de Discipline & Heures de Consigne (Phase 5)
-        Route::get('discipline/conseil', [\App\Http\Controllers\Administration\ConseilDisciplineController::class, 'index'])->name('discipline.conseil.index');
-        Route::post('discipline/conseil/sessions', [\App\Http\Controllers\Administration\ConseilDisciplineController::class, 'storeSession'])->name('discipline.conseil.sessions.store');
-        Route::put('discipline/conseil/sessions/{conseil}', [\App\Http\Controllers\Administration\ConseilDisciplineController::class, 'updateSession'])->name('discipline.conseil.sessions.update');
-        Route::delete('discipline/conseil/sessions/{conseil}', [\App\Http\Controllers\Administration\ConseilDisciplineController::class, 'destroySession'])->name('discipline.conseil.sessions.destroy');
-        Route::get('discipline/conseil/sessions/{conseil}/pv-pdf', [\App\Http\Controllers\Administration\ConseilDisciplineController::class, 'imprimerPv'])->name('discipline.conseil.sessions.pv-pdf');
+        Route::get('discipline/conseil', [ConseilDisciplineController::class, 'index'])->name('discipline.conseil.index');
+        Route::post('discipline/conseil/sessions', [ConseilDisciplineController::class, 'storeSession'])->name('discipline.conseil.sessions.store');
+        Route::put('discipline/conseil/sessions/{conseil}', [ConseilDisciplineController::class, 'updateSession'])->name('discipline.conseil.sessions.update');
+        Route::delete('discipline/conseil/sessions/{conseil}', [ConseilDisciplineController::class, 'destroySession'])->name('discipline.conseil.sessions.destroy');
+        Route::get('discipline/conseil/sessions/{conseil}/pv-pdf', [ConseilDisciplineController::class, 'imprimerPv'])->name('discipline.conseil.sessions.pv-pdf');
 
-        Route::post('discipline/conseil/sessions/{conseil}/dossiers', [\App\Http\Controllers\Administration\ConseilDisciplineController::class, 'storeDossier'])->name('discipline.conseil.dossiers.store');
-        Route::put('discipline/conseil/dossiers/{dossier}', [\App\Http\Controllers\Administration\ConseilDisciplineController::class, 'updateDossier'])->name('discipline.conseil.dossiers.update');
-        Route::delete('discipline/conseil/dossiers/{dossier}', [\App\Http\Controllers\Administration\ConseilDisciplineController::class, 'destroyDossier'])->name('discipline.conseil.dossiers.destroy');
-        Route::get('discipline/conseil/dossiers/{dossier}/convocation-pdf', [\App\Http\Controllers\Administration\ConseilDisciplineController::class, 'imprimerConvocation'])->name('discipline.conseil.dossiers.convocation-pdf');
+        Route::post('discipline/conseil/sessions/{conseil}/dossiers', [ConseilDisciplineController::class, 'storeDossier'])->name('discipline.conseil.dossiers.store');
+        Route::put('discipline/conseil/dossiers/{dossier}', [ConseilDisciplineController::class, 'updateDossier'])->name('discipline.conseil.dossiers.update');
+        Route::delete('discipline/conseil/dossiers/{dossier}', [ConseilDisciplineController::class, 'destroyDossier'])->name('discipline.conseil.dossiers.destroy');
+        Route::get('discipline/conseil/dossiers/{dossier}/convocation-pdf', [ConseilDisciplineController::class, 'imprimerConvocation'])->name('discipline.conseil.dossiers.convocation-pdf');
 
-        Route::post('discipline/heures-consigne', [\App\Http\Controllers\Administration\ConseilDisciplineController::class, 'storeHeureConsigne'])->name('discipline.heures-consigne.store');
-        Route::put('discipline/heures-consigne/{consigne}', [\App\Http\Controllers\Administration\ConseilDisciplineController::class, 'updateHeureConsigne'])->name('discipline.heures-consigne.update');
-        Route::delete('discipline/heures-consigne/{consigne}', [\App\Http\Controllers\Administration\ConseilDisciplineController::class, 'destroyHeureConsigne'])->name('discipline.heures-consigne.destroy');
+        Route::post('discipline/heures-consigne', [ConseilDisciplineController::class, 'storeHeureConsigne'])->name('discipline.heures-consigne.store');
+        Route::put('discipline/heures-consigne/{consigne}', [ConseilDisciplineController::class, 'updateHeureConsigne'])->name('discipline.heures-consigne.update');
+        Route::delete('discipline/heures-consigne/{consigne}', [ConseilDisciplineController::class, 'destroyHeureConsigne'])->name('discipline.heures-consigne.destroy');
 
         // Module 13 : Emplois du Temps & Gestion des Salles (Gesco 13)
-        Route::get('emplois-du-temps', [\App\Http\Controllers\Administration\EmploiDuTempsController::class, 'index'])->name('emplois-du-temps.index');
-        Route::post('emplois-du-temps/seances', [\App\Http\Controllers\Administration\EmploiDuTempsController::class, 'storeSeance'])->name('emplois-du-temps.seances.store');
-        Route::put('emplois-du-temps/seances/{seance}', [\App\Http\Controllers\Administration\EmploiDuTempsController::class, 'updateSeance'])->name('emplois-du-temps.seances.update');
-        Route::delete('emplois-du-temps/seances/{seance}', [\App\Http\Controllers\Administration\EmploiDuTempsController::class, 'destroySeance'])->name('emplois-du-temps.seances.destroy');
-        Route::post('emplois-du-temps/seances/{seance}/annuler', [\App\Http\Controllers\Administration\EmploiDuTempsController::class, 'annulerSeance'])->name('emplois-du-temps.seances.annuler');
-        Route::post('emplois-du-temps/seances/{seance}/remplacer', [\App\Http\Controllers\Administration\EmploiDuTempsController::class, 'remplacerSeance'])->name('emplois-du-temps.seances.remplacer');
-        Route::post('emplois-du-temps/seances/{seance}/retablir', [\App\Http\Controllers\Administration\EmploiDuTempsController::class, 'retablirSeance'])->name('emplois-du-temps.seances.retablir');
-        Route::post('emplois-du-temps/salles', [\App\Http\Controllers\Administration\EmploiDuTempsController::class, 'storeSalle'])->name('emplois-du-temps.salles.store');
-        Route::put('emplois-du-temps/salles/{salle}', [\App\Http\Controllers\Administration\EmploiDuTempsController::class, 'updateSalle'])->name('emplois-du-temps.salles.update');
-        Route::delete('emplois-du-temps/salles/{salle}', [\App\Http\Controllers\Administration\EmploiDuTempsController::class, 'destroySalle'])->name('emplois-du-temps.salles.destroy');
+        Route::get('emplois-du-temps', [EmploiDuTempsController::class, 'index'])->name('emplois-du-temps.index');
+        Route::post('emplois-du-temps/seances', [EmploiDuTempsController::class, 'storeSeance'])->name('emplois-du-temps.seances.store');
+        Route::put('emplois-du-temps/seances/{seance}', [EmploiDuTempsController::class, 'updateSeance'])->name('emplois-du-temps.seances.update');
+        Route::delete('emplois-du-temps/seances/{seance}', [EmploiDuTempsController::class, 'destroySeance'])->name('emplois-du-temps.seances.destroy');
+        Route::post('emplois-du-temps/seances/{seance}/annuler', [EmploiDuTempsController::class, 'annulerSeance'])->name('emplois-du-temps.seances.annuler');
+        Route::post('emplois-du-temps/seances/{seance}/remplacer', [EmploiDuTempsController::class, 'remplacerSeance'])->name('emplois-du-temps.seances.remplacer');
+        Route::post('emplois-du-temps/seances/{seance}/retablir', [EmploiDuTempsController::class, 'retablirSeance'])->name('emplois-du-temps.seances.retablir');
+        Route::post('emplois-du-temps/salles', [EmploiDuTempsController::class, 'storeSalle'])->name('emplois-du-temps.salles.store');
+        Route::put('emplois-du-temps/salles/{salle}', [EmploiDuTempsController::class, 'updateSalle'])->name('emplois-du-temps.salles.update');
+        Route::delete('emplois-du-temps/salles/{salle}', [EmploiDuTempsController::class, 'destroySalle'])->name('emplois-du-temps.salles.destroy');
 
         // Module 14 : Communication & Notifications SMS (Gesco 14)
-        Route::get('communication', [\App\Http\Controllers\Administration\CommunicationSmsController::class, 'index'])->name('communication.index');
-        Route::post('communication/campagnes', [\App\Http\Controllers\Administration\CommunicationSmsController::class, 'storeCampagne'])->name('communication.campagnes.store');
-        Route::post('communication/sms-direct', [\App\Http\Controllers\Administration\CommunicationSmsController::class, 'storeSmsDirect'])->name('communication.sms-direct.store');
-        Route::put('communication/config', [\App\Http\Controllers\Administration\CommunicationSmsController::class, 'updateConfig'])->name('communication.config.update');
-        Route::post('communication/recharger', [\App\Http\Controllers\Administration\CommunicationSmsController::class, 'rechargerCredits'])->name('communication.recharger');
+        Route::get('communication', [CommunicationSmsController::class, 'index'])->name('communication.index');
+        Route::post('communication/campagnes', [CommunicationSmsController::class, 'storeCampagne'])->name('communication.campagnes.store');
+        Route::post('communication/sms-direct', [CommunicationSmsController::class, 'storeSmsDirect'])->name('communication.sms-direct.store');
+        Route::put('communication/config', [CommunicationSmsController::class, 'updateConfig'])->name('communication.config.update');
+        Route::post('communication/recharger', [CommunicationSmsController::class, 'rechargerCredits'])->name('communication.recharger');
 
         // Module 15 : Tableau de Bord, Statistiques & Conseil de Classe (Gesco 15 & 2.6)
-        Route::get('statistiques', [\App\Http\Controllers\Administration\TableauDeBordController::class, 'statistiquesAvancees'])->name('statistiques.index');
-        Route::get('statistiques/bordereau', [\App\Http\Controllers\Administration\TableauDeBordController::class, 'exportBordereau'])->name('statistiques.bordereau');
-        Route::get('deliberations', [\App\Http\Controllers\Administration\ConseilClasseController::class, 'index'])->name('deliberations.index');
-        Route::post('deliberations/sauvegarder', [\App\Http\Controllers\Administration\ConseilClasseController::class, 'sauvegarder'])->name('deliberations.sauvegarder');
-        Route::post('deliberations/valider-promotion', [\App\Http\Controllers\Administration\ConseilClasseController::class, 'validerPromotion'])->name('deliberations.valider-promotion');
-        Route::get('deliberations/pv-pdf', [\App\Http\Controllers\Administration\ConseilClasseController::class, 'exportPv'])->name('deliberations.pv-pdf');
+        Route::get('statistiques', [TableauDeBordController::class, 'statistiquesAvancees'])->name('statistiques.index');
+        Route::get('statistiques/bordereau', [TableauDeBordController::class, 'exportBordereau'])->name('statistiques.bordereau');
+        Route::get('deliberations', [ConseilClasseController::class, 'index'])->name('deliberations.index');
+        Route::post('deliberations/sauvegarder', [ConseilClasseController::class, 'sauvegarder'])->name('deliberations.sauvegarder');
+        Route::post('deliberations/valider-promotion', [ConseilClasseController::class, 'validerPromotion'])->name('deliberations.valider-promotion');
+        Route::get('deliberations/pv-pdf', [ConseilClasseController::class, 'exportPv'])->name('deliberations.pv-pdf');
 
         // Module : Centre d'Archivage Administratif & Reconduction Annuelle (Aurore §3.15, §3.16, §3.27.8, §3.28.3)
-        Route::get('archivage', [\App\Http\Controllers\Administration\ArchiveController::class, 'index'])->name('archivage.index');
-        Route::post('archivage', [\App\Http\Controllers\Administration\ArchiveController::class, 'store'])->name('archivage.store');
-        Route::post('archivage/{archive}/restaurer', [\App\Http\Controllers\Administration\ArchiveController::class, 'restaurer'])->name('archivage.restaurer');
-        Route::put('archivage/numerotation/{configuration}', [\App\Http\Controllers\Administration\ArchiveController::class, 'updateNumerotation'])->name('archivage.numerotation.update');
-        Route::post('archivage/dupliquer-annee', [\App\Http\Controllers\Administration\ArchiveController::class, 'dupliquerAnnee'])->name('archivage.dupliquer-annee');
+        Route::get('archivage', [ArchiveController::class, 'index'])->name('archivage.index');
+        Route::post('archivage', [ArchiveController::class, 'store'])->name('archivage.store');
+        Route::post('archivage/{archive}/restaurer', [ArchiveController::class, 'restaurer'])->name('archivage.restaurer');
+        Route::put('archivage/numerotation/{configuration}', [ArchiveController::class, 'updateNumerotation'])->name('archivage.numerotation.update');
+        Route::post('archivage/dupliquer-annee', [ArchiveController::class, 'dupliquerAnnee'])->name('archivage.dupliquer-annee');
 
         // Module : Bibliothèque d'États Imprimables & Documents Officiels (Aurore §6.1)
-        Route::get('documents/certificat-scolarite/{inscription}', [\App\Http\Controllers\Administration\DocumentOfficielController::class, 'certificatScolarite'])->name('documents.certificat-scolarite');
-        Route::get('documents/certificat-radiation/{inscription}', [\App\Http\Controllers\Administration\DocumentOfficielController::class, 'certificatRadiation'])->name('documents.certificat-radiation');
-        Route::get('documents/babillard/{classe}/{periode?}', [\App\Http\Controllers\Administration\DocumentOfficielController::class, 'babillard'])->name('documents.babillard');
-        Route::get('documents/situation-financiere/{inscription}', [\App\Http\Controllers\Administration\DocumentOfficielController::class, 'situationFinanciereEleve'])->name('documents.situation-financiere');
-        Route::get('documents/fiche-appel/{classe}', [\App\Http\Controllers\Administration\DocumentOfficielController::class, 'ficheAppel'])->name('documents.fiche-appel');
-        Route::get('documents/liste-eleves/{classe}', [\App\Http\Controllers\Administration\DocumentOfficielController::class, 'listeEleves'])->name('documents.liste-eleves');
-        Route::get('documents/liste-classes', [\App\Http\Controllers\Administration\DocumentOfficielController::class, 'listeClasses'])->name('documents.liste-classes');
-        Route::get('documents/liste-personnel', [\App\Http\Controllers\Administration\DocumentOfficielController::class, 'listePersonnel'])->name('documents.liste-personnel');
+        Route::get('documents/certificat-scolarite/{inscription}', [DocumentOfficielController::class, 'certificatScolarite'])->name('documents.certificat-scolarite');
+        Route::get('documents/certificat-radiation/{inscription}', [DocumentOfficielController::class, 'certificatRadiation'])->name('documents.certificat-radiation');
+        Route::get('documents/babillard/{classe}/{periode?}', [DocumentOfficielController::class, 'babillard'])->name('documents.babillard');
+        Route::get('documents/situation-financiere/{inscription}', [DocumentOfficielController::class, 'situationFinanciereEleve'])->name('documents.situation-financiere');
+        Route::get('documents/fiche-appel/{classe}', [DocumentOfficielController::class, 'ficheAppel'])->name('documents.fiche-appel');
+        Route::get('documents/liste-eleves/{classe}', [DocumentOfficielController::class, 'listeEleves'])->name('documents.liste-eleves');
+        Route::get('documents/liste-eleves-niveau/{niveau}', [DocumentOfficielController::class, 'listeElevesNiveau'])->name('documents.liste-eleves-niveau');
+        Route::get('documents/liste-classes', [DocumentOfficielController::class, 'listeClasses'])->name('documents.liste-classes');
+        Route::get('documents/liste-personnel', [DocumentOfficielController::class, 'listePersonnel'])->name('documents.liste-personnel');
+
+        // Module : Gestionnaire de Versions SemVer & Mise à Jour Système (Super Admin uniquement)
+        Route::get('system-update', [SystemUpdateController::class, 'index'])->name('system-update.index');
+        Route::post('system-update/check', [SystemUpdateController::class, 'check'])->name('system-update.check');
+        Route::post('system-update/run', [SystemUpdateController::class, 'update'])->name('system-update.run');
+        Route::post('system-update/backup', [SystemUpdateController::class, 'backup'])->name('system-update.backup');
+        Route::get('system-update/backups/{filename}', [SystemUpdateController::class, 'downloadBackup'])
+            ->where('filename', '[A-Za-z0-9._\-]+')
+            ->name('system-update.backup.download');
     });
-
-
 
     // Module 16 : Portail Parents & Élèves (Gesco 16)
     Route::prefix('portail')->name('portail.')->group(function () {
-        Route::get('/', [\App\Http\Controllers\Portail\PortailParentController::class, 'index'])->name('index');
-        Route::get('enfant/{eleve}', [\App\Http\Controllers\Portail\PortailParentController::class, 'selectEnfant'])->name('select-enfant');
-        Route::get('bulletin/{inscription}', [\App\Http\Controllers\Portail\PortailParentController::class, 'telechargerBulletin'])->name('bulletin.download');
-        Route::get('recu/{versement}', [\App\Http\Controllers\Portail\PortailParentController::class, 'telechargerRecu'])->name('recu.download');
+        Route::get('/', [PortailParentController::class, 'index'])->name('index');
+        Route::get('enfant/{eleve}', [PortailParentController::class, 'selectEnfant'])->name('select-enfant');
+        Route::get('bulletin/{inscription}', [PortailParentController::class, 'telechargerBulletin'])->name('bulletin.download');
+        Route::get('recu/{versement}', [PortailParentController::class, 'telechargerRecu'])->name('recu.download');
     });
 });
 

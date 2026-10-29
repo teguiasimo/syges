@@ -180,10 +180,10 @@ export function DataTable<TData, TValue>({
     return (
         <div className="flex flex-col gap-4">
             {/* Barre d'outils supérieure : Recherche, Filtres & Actions */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div className="flex flex-1 flex-wrap items-center gap-2.5">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 min-w-0">
+                <div className="flex flex-1 flex-wrap items-center gap-2.5 min-w-0">
                     {/* Recherche globale */}
-                    <div className="relative w-full sm:w-72">
+                    <div className="relative w-full sm:w-72 max-w-full">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                         <Input
                             placeholder={searchPlaceholder}
@@ -208,7 +208,7 @@ export function DataTable<TData, TValue>({
                 </div>
 
                 {/* Actions et sélecteur de colonnes */}
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto sm:justify-end">
                     {isVisibilityToggleActive && (
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -369,8 +369,8 @@ export function DataTable<TData, TValue>({
                     </div>
 
                     {/* Navigation entre les pages */}
-                    <div className="flex items-center gap-1">
-                        <span className="mr-2 font-medium">
+                    <div className="flex items-center gap-1 flex-wrap">
+                        <span className="mr-1.5 sm:mr-2 font-medium whitespace-nowrap">
                             Page {table.getState().pagination.pageIndex + 1} sur{' '}
                             {Math.max(1, table.getPageCount())}
                         </span>

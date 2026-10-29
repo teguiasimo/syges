@@ -96,14 +96,19 @@ export default function AttribuerBourseModal({
                     <DialogTitle>Accorder une Bourse ou une Remise</DialogTitle>
                 </DialogHeader>
 
-                <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 text-sm space-y-1 my-1">
-                    <div>Élève : <strong className="text-slate-900">{compte.eleve?.nom} {compte.eleve?.prenom}</strong></div>
-                    <div>Matricule : <span className="font-mono">{compte.eleve?.matricule}</span> | Classe : <strong>{compte.inscription?.classe?.nom}</strong></div>
-                    <div>Frais initiaux bruts : <strong className="text-blue-700">{new Intl.NumberFormat('fr-FR').format(compte.debit_initial)} FCFA</strong></div>
+                {/* Résumé du compte financier avec retour à la ligne adaptatif sur mobile */}
+                <div className="bg-slate-50 dark:bg-slate-900/60 p-3 rounded-lg border border-slate-200 dark:border-slate-800 text-sm space-y-1 my-1 min-w-0">
+                    <div className="wrap-break-word">Élève : <strong className="text-slate-900 dark:text-slate-100">{compte.eleve?.nom} {compte.eleve?.prenom}</strong></div>
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs sm:text-sm">
+                        <span>Matricule : <span className="font-mono">{compte.eleve?.matricule}</span></span>
+                        <span className="hidden sm:inline text-slate-400">|</span>
+                        <span>Classe : <strong>{compte.inscription?.classe?.nom}</strong></span>
+                    </div>
+                    <div>Frais initiaux bruts : <strong className="text-blue-700 dark:text-blue-400 tabular-nums">{new Intl.NumberFormat('fr-FR').format(compte.debit_initial)} FCFA</strong></div>
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-4 py-2">
-                    <div className="space-y-1">
+                <form onSubmit={handleSubmit} className="space-y-4 py-2 min-w-0">
+                    <div className="space-y-1 min-w-0">
                         <Label htmlFor="bourseRemise">Sélectionner le modèle *</Label>
                         <Select value={bourseRemiseId} onValueChange={val => setBourseRemiseId(val)}>
                             <SelectTrigger>
@@ -122,14 +127,14 @@ export default function AttribuerBourseModal({
                     </div>
 
                     {selectedModel && (
-                        <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-sm text-emerald-900">
-                            <div className="font-semibold flex items-center justify-between">
+                        <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-lg text-sm text-emerald-900 dark:text-emerald-200">
+                            <div className="font-semibold flex flex-wrap items-center justify-between gap-2">
                                 <span>Déduction calculée :</span>
-                                <span className="text-base text-emerald-700 font-bold">
+                                <span className="text-base text-emerald-700 dark:text-emerald-400 font-bold tabular-nums">
                                     - {new Intl.NumberFormat('fr-FR').format(montantEstime)} FCFA
                                 </span>
                             </div>
-                            <div className="text-xs text-emerald-800 mt-1">
+                            <div className="text-xs text-emerald-800 dark:text-emerald-300 mt-1 tabular-nums">
                                 Nouveau net exigible : {new Intl.NumberFormat('fr-FR').format(Math.max(0, (compte.debit_initial || 0) + (compte.arrieres_anterieurs || 0) - montantEstime))} FCFA
                             </div>
                         </div>
@@ -145,11 +150,16 @@ export default function AttribuerBourseModal({
                         />
                     </div>
 
+                    {/* Boutons pleine largeur sur mobile avec retour à la ligne autorisé sur petits écrans (320px) */}
                     <DialogFooter className="pt-2">
-                        <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
+                        <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={onClose} disabled={isSubmitting}>
                             Annuler
                         </Button>
-                        <Button type="submit" disabled={isSubmitting || !bourseRemiseId} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                        <Button
+                            type="submit"
+                            disabled={isSubmitting || !bourseRemiseId}
+                            className="w-full sm:w-auto whitespace-normal h-auto py-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+                        >
                             {isSubmitting ? 'Validation...' : 'Valider & Recalculer le compte'}
                         </Button>
                     </DialogFooter>

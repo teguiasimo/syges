@@ -9,6 +9,7 @@ use App\Models\ConfigurationNumerotation;
 use App\Models\Etablissement;
 use App\Models\Evaluation;
 use App\Models\Inscription;
+use App\Models\Niveau;
 use App\Models\Note;
 use App\Models\Periode;
 use App\Models\Personnel;
@@ -458,6 +459,95 @@ class DocumentOfficielController extends Controller
             'Liste_Eleves_%s_%s_%s.pdf',
             ucfirst($type),
             $classe->code ?? $classe->nom,
+            now()->format('Ymd')
+        );
+
+        return $pdf->stream($fileName);
+    }
+
+    /**
+     * Génère et télécharge la Liste Officielle des Élèves pour l'ensemble d'un Niveau scolaire (A4 Portrait).
+     *
+     * @param Request $request Requête HTTP avec filtres type (definitive/provisoire) et annee_id.
+     * @param Niveau $niveau Niveau scolaire sélectionné (ex: 6e, 5e, 4e, 3e).
+     * @return Response Document PDF en flux de téléchargement.
+     */
+    public function listeElevesNiveau(Request $request, Niveau $niveau): Response
+    {
+        $niveau->load([
+            'cycle.section',
+            'classes' => fn ($q) => $q->orderBy('nom'),
+        ]);
+
+        $etabId = $request->input('etablissement_id');
+        $etablissement = $etabId
+            ? Etablissement::find($etabId)
+            : ($niveau->etablissement ?? (Auth::user()?->etablissement ?? Etablissement::first()));
+        $etablissement?->loadMissing('institution');
+
+        $type = $request->input('type', 'definitive');
+        $anneeId = $request->input('annee_id');
+
+        $classeIds = $niveau->classes->pluck('id');
+
+        $inscriptionsQuery = Inscription::with(['eleve', 'classe', 'anneeScolaire'])
+            ->whereIn('classe_id', $classeIds);
+
+        if ($type === 'definitive') {
+            $inscriptionsQuery->whereIn('statut', ['validee', 'confirmee', 'active']);
+        }
+
+        if ($anneeId) {
+            $inscriptionsQuery->where('annee_scolaire_id', $anneeId);
+        }
+
+        $inscriptions = $inscriptionsQuery->get()
+            ->sortBy(function ($i) {
+                return ($i->classe?->nom ?? '') . ' ' . mb_strtoupper(($i->eleve?->nom ?? '') . ' ' . ($i->eleve?->prenom ?? ''));
+            })
+            ->values();
+
+        $annee = $anneeId
+            ? AnneeScolaire::find($anneeId)
+            : AnneeScolaire::where('is_current', true)->first();
+
+        $total = $inscriptions->count();
+        $filles = $inscriptions->filter(fn ($i) => $i->eleve?->sexe === 'F')->count();
+        $garcons = $inscriptions->filter(fn ($i) => $i->eleve?->sexe === 'M')->count();
+        $nouveaux = $inscriptions->filter(fn ($i) => ! $i->is_redoublant)->count();
+        $redoublants = $inscriptions->filter(fn ($i) => (bool) $i->is_redoublant)->count();
+
+        // Répartition par classe du niveau
+        $classesStats = $niveau->classes->map(function ($cls) use ($inscriptions) {
+            $count = $inscriptions->where('classe_id', $cls->id)->count();
+            return [
+                'nom' => $cls->nom,
+                'total' => $count,
+            ];
+        });
+
+        $pdf = Pdf::loadView('documents.liste_eleves_niveau', [
+            'niveau' => $niveau,
+            'etablissement' => $etablissement,
+            'annee' => $annee,
+            'inscriptions' => $inscriptions,
+            'type' => $type,
+            'classesStats' => $classesStats,
+            'stats' => [
+                'total' => $total,
+                'filles' => $filles,
+                'garcons' => $garcons,
+                'nouveaux' => $nouveaux,
+                'redoublants' => $redoublants,
+                'taux_filles' => $total > 0 ? round(($filles / $total) * 100, 1) : 0,
+            ],
+            'dateGeneration' => now()->format('d-m-Y'),
+        ])->setPaper('a4', 'portrait');
+
+        $fileName = sprintf(
+            'Liste_Eleves_Niveau_%s_%s_%s.pdf',
+            ucfirst($type),
+            \Illuminate\Support\Str::slug($niveau->nom),
             now()->format('Ymd')
         );
 

@@ -44,7 +44,7 @@ export default function AnnulerSeanceModal({
             onSuccess: () => {
                 toast.success('Séance marquée comme annulée. Emplois du temps mis à jour.', {
                     position: 'top-right',
-                    className: 'bg-emerald-600 text-white border-none',
+                    className: 'bg-emerald-600 text-white border-emerald-700',
                 });
                 reset();
                 onOpenChange(false);
@@ -59,13 +59,13 @@ export default function AnnulerSeanceModal({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-md">
+            <DialogContent className="w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6">
                 <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2 text-lg font-bold text-slate-800 dark:text-slate-100">
-                        <CalendarX className="w-5 h-5 text-rose-600" />
-                        Annuler ce Cours
+                    <DialogTitle className="flex items-center gap-2 text-base sm:text-lg font-bold text-slate-800 dark:text-slate-100">
+                        <CalendarX className="w-5 h-5 text-rose-600 shrink-0" />
+                        <span>Annuler ce Cours</span>
                     </DialogTitle>
-                    <DialogDescription>
+                    <DialogDescription className="text-xs sm:text-sm">
                         {seance && (
                             <span>
                                 Cours de <strong>{seance.attribution?.matiere?.nom}</strong> ({seance.classe?.nom}) le{' '}
@@ -87,13 +87,14 @@ export default function AnnulerSeanceModal({
                             value={data.motif_annulation}
                             onChange={(e) => setData('motif_annulation', e.target.value)}
                             required
+                            className="text-xs sm:text-sm"
                         />
                         {errors.motif_annulation && (
                             <p className="text-xs text-rose-500">{errors.motif_annulation}</p>
                         )}
                     </div>
 
-                    <DialogFooter className="gap-2 pt-2">
+                    <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-3">
                         <Button
                             type="button"
                             variant="outline"
@@ -102,12 +103,13 @@ export default function AnnulerSeanceModal({
                                 onOpenChange(false);
                             }}
                             disabled={processing}
+                            className="w-full sm:w-auto"
                         >
                             Retour
                         </Button>
                         <Button
                             type="submit"
-                            className="bg-rose-600 hover:bg-rose-700 text-white font-semibold"
+                            className="w-full sm:w-auto bg-rose-600 hover:bg-rose-700 text-white font-semibold"
                             disabled={processing}
                         >
                             {processing ? 'Enregistrement...' : 'Confirmer l\'Annulation'}

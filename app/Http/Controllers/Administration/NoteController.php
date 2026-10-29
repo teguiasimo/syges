@@ -62,8 +62,12 @@ class NoteController extends Controller implements HasMiddleware
         // Récupération du personnel associé à l'utilisateur connecté s'il est enseignant
         $personnel = $user->personnel ?? ($user->email ? Personnel::where('email', $user->email)->first() : null);
 
-        // 1. Années scolaires et période active
-        $annees = AnneeScolaire::orderByDesc('date_debut')->get();
+        // 1. Années scolaires et période active (nettoyage de l'intitulé pour affichage concis '2026/2027')
+        $annees = AnneeScolaire::orderByDesc('date_debut')->get()->map(function ($annee) {
+            $nomEpure = $annee->session ?: (preg_match('/\b(\d{4}[\/\-]\d{4})\b/', $annee->nom, $m) ? $m[1] : trim(preg_replace('/^\s*Ann[ée]e\s+scolaire\s*[:\-]?\s*/ui', '', $annee->nom)));
+            $annee->nom = $nomEpure;
+            return $annee;
+        });
         $anneeActive = AnneeScolaire::current() ?? $annees->first();
         $anneeId = $request->query('annee_id', $anneeActive?->id);
 
@@ -219,6 +223,10 @@ class NoteController extends Controller implements HasMiddleware
 
     /**
      * Enregistre en masse les notes saisies pour une classe, matière et évaluation.
+     * Vérifie hermétiquement le verrouillage global de l'évaluation ainsi que le verrouillage individuel de la grille.
+     *
+     * @param Request $request Requête HTTP contenant les notes.
+     * @return RedirectResponse|JsonResponse Réponse de redirection ou JSON.
      */
     public function sauvegarder(Request $request): RedirectResponse|JsonResponse
     {
@@ -250,17 +258,40 @@ class NoteController extends Controller implements HasMiddleware
             }
         }
 
-        // Contrôle d'accès
+        // Contrôle d'accès et vérifications de verrouillage pour les non-gestionnaires
         if (! $isGestionnaire) {
             $personnel = $user->personnel ?? ($user->email ? Personnel::where('email', $user->email)->first() : null);
 
             if (! $personnel || $attribution->personnel_id !== $personnel->id) {
-                return redirect()->back()->with('error', 'Action non autorisée sur ce cours.');
+                if ($request->wantsJson()) {
+                    return response()->json(['message' => 'Action non autorisée sur ce cours.'], 403);
+                }
+                abort(403, 'Action non autorisée sur ce cours.');
             }
 
-            // Vérification de verrouillage temporel
+            // 1. Verrouillage au niveau de l'évaluation (manuel ou date limite dépassée)
             if ($evaluation->isLockedForGrading()) {
-                return redirect()->back()->with('error', 'La saisie pour cette session d\'évaluation est close.');
+                if ($request->wantsJson()) {
+                    return response()->json([
+                        'message' => 'La saisie des notes pour cette session d\'évaluation est verrouillée.',
+                    ], 403);
+                }
+                abort(403, 'La saisie des notes pour cette session d\'évaluation est close.');
+            }
+
+            // 2. Verrouillage au niveau de la grille spécifique du cours
+            $alreadyLocked = Note::where('attribution_id', $validated['attribution_id'])
+                ->where('evaluation_id', $validated['evaluation_id'])
+                ->where('is_verrouillee', true)
+                ->exists();
+
+            if ($alreadyLocked) {
+                if ($request->wantsJson()) {
+                    return response()->json([
+                        'message' => 'Cette grille de notes a été verrouillée et ne peut plus être modifiée.',
+                    ], 403);
+                }
+                abort(403, 'Cette grille de notes a été verrouillée et ne peut plus être modifiée.');
             }
         }
 
@@ -317,7 +348,11 @@ class NoteController extends Controller implements HasMiddleware
     }
 
     /**
-     * Verrouille définitivement la saisie des notes pour cette session.
+     * Verrouille définitivement la saisie des notes pour cette session (grille de cours).
+     * Accessible à l'enseignant titulaire du cours ainsi qu'aux gestionnaires pédagogiques.
+     *
+     * @param Request $request Requête HTTP.
+     * @return RedirectResponse|JsonResponse Redirection ou confirmation JSON.
      */
     public function verrouiller(Request $request): RedirectResponse|JsonResponse
     {
@@ -325,6 +360,10 @@ class NoteController extends Controller implements HasMiddleware
             'attribution_id' => 'required|exists:attributions,id',
             'evaluation_id' => 'required|exists:evaluations,id',
         ]);
+
+        $user = Auth::user();
+        $isGestionnaire = $user->hasRole(['super-admin', 'Directeur / Promoteur', 'Censeur'])
+            || $user->can('notes.lock');
 
         $attribution = Attribution::with('classe')->findOrFail($validated['attribution_id']);
 
@@ -334,6 +373,18 @@ class NoteController extends Controller implements HasMiddleware
             $classe = Classe::withoutGlobalScopes()->find($attribution->classe_id);
             if (! $classe || (int) $classe->etablissement_id !== (int) $context['etablissementId']) {
                 abort(403, 'Action non autorisée : ce cours n\'appartient pas à votre établissement.');
+            }
+        }
+
+        // Vérification des droits : seul l'enseignant du cours ou la direction peut verrouiller
+        if (! $isGestionnaire) {
+            $personnel = $user->personnel ?? ($user->email ? Personnel::where('email', $user->email)->first() : null);
+
+            if (! $personnel || $attribution->personnel_id !== $personnel->id) {
+                if ($request->wantsJson()) {
+                    return response()->json(['message' => 'Action non autorisée sur ce cours.'], 403);
+                }
+                abort(403, 'Action non autorisée sur ce cours.');
             }
         }
 

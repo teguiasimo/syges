@@ -126,7 +126,7 @@ export default function ArchivageIndex({
                 onSuccess: () => {
                     toast.success(`Dossier de « ${archive.nom_complet} » réintégré avec succès`, {
                         position: 'top-right',
-                        className: 'bg-emerald-600 text-white font-medium border-none shadow-lg',
+                        className: 'bg-emerald-600 text-white font-medium border-emerald-700 shadow-lg',
                     });
                 },
             });
@@ -141,7 +141,7 @@ export default function ArchivageIndex({
                 header: 'Date Archivage',
                 cell: ({ row }) => (
                     <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-800 dark:text-slate-200">
-                        <Calendar className="w-3.5 h-3.5 text-indigo-500" />
+                        <Calendar className="w-3.5 h-3.5 text-teal-600" />
                         {formatDate(row.original.date_archivage)}
                     </div>
                 ),
@@ -199,7 +199,7 @@ export default function ArchivageIndex({
                                 {row.original.motif_libelle || m}
                             </span>
                             {row.original.destination && (
-                                <span className="text-[11px] text-indigo-600 dark:text-indigo-400">
+                                <span className="text-[11px] text-teal-600 dark:text-teal-400">
                                     Vers : {row.original.destination}
                                 </span>
                             )}
@@ -282,42 +282,43 @@ export default function ArchivageIndex({
         <>
             <Head title="Centre d'Archivage & Reconduction Annuelle" />
 
-            <div className="container mx-auto p-4 sm:p-6 space-y-6 max-w-7xl">
+            {/* Conteneur principal plein écran fluide et responsive sans contrainte artificielle de largeur */}
+            <div className="p-4 sm:p-6 lg:p-8 space-y-6 w-full min-w-0">
                 {/* En-tête */}
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
-                        <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2.5">
-                            <Archive className="w-7 h-7 text-indigo-600 dark:text-indigo-400" />
-                            Centre d'Archivage Administratif & Rentrée
+                        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2.5">
+                            <Archive className="w-6 h-6 sm:w-7 sm:h-7 text-teal-600 dark:text-teal-400 shrink-0" />
+                            <span>Centre d'Archivage Administratif & Rentrée</span>
                         </h1>
-                        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                        <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
                             Traçabilité légale des départs d'élèves/personnel, masques de numérotation séquentiels et assistant de duplication annuelle (Aurore §3.15, §3.16).
                         </p>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto">
                         <Button
                             variant="outline"
-                            className="gap-1.5 border-indigo-200 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50"
+                            className="w-full sm:w-auto justify-center gap-1.5 border-teal-200 text-teal-700 dark:text-teal-300 hover:bg-teal-50"
                             onClick={() => setDupliquerModalOpen(true)}
                         >
-                            <Sparkles className="w-4 h-4 text-indigo-600" />
-                            Reconduction Annuelle 1-Clic
+                            <Sparkles className="w-4 h-4 text-teal-600" />
+                            <span>Reconduction Annuelle 1-Clic</span>
                         </Button>
 
                         <Button
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5 shadow"
+                            className="w-full sm:w-auto justify-center bg-teal-600 hover:bg-teal-700 text-white gap-1.5 shadow"
                             onClick={() => setArchiverModalOpen(true)}
                         >
                             <Plus className="w-4 h-4" />
-                            Archiver un Dossier
+                            <span>Archiver un Dossier</span>
                         </Button>
                     </div>
                 </div>
 
                 {/* KPI Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <Card className="border-l-4 border-l-indigo-500 shadow-sm">
+                <div className="grid grid-cols-1 min-[420px]:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <Card className="border-l-4 border-l-teal-500 shadow-sm">
                         <CardHeader className="pb-2">
                             <CardDescription className="text-xs uppercase font-bold tracking-wider">
                                 Total Dossiers Archivés
@@ -385,7 +386,7 @@ export default function ArchivageIndex({
 
                 {/* Onglets : Registre d'Archives vs Masques de numérotation */}
                 <Tabs defaultValue="registre" className="space-y-4">
-                    <TabsList className="bg-slate-100 dark:bg-slate-800/60 p-1">
+                    <TabsList className="flex flex-wrap h-auto gap-1 bg-slate-100 dark:bg-slate-800/60 p-1">
                         <TabsTrigger value="registre" className="gap-2 text-xs">
                             <Archive className="w-4 h-4" />
                             Registre des Archives Administratives
@@ -518,18 +519,18 @@ export default function ArchivageIndex({
 
                             {/* Pagination */}
                             {archives.last_page > 1 && (
-                                <div className="flex items-center justify-between px-4 py-3 border-t bg-slate-50 dark:bg-slate-800/40 text-xs">
-                                    <span className="text-slate-500">
+                                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t bg-slate-50 dark:bg-slate-800/40 text-xs">
+                                    <span className="text-slate-500 text-center sm:text-left">
                                         Affichage de {archives.data.length} sur {archives.total} dossiers
                                     </span>
-                                    <div className="flex items-center gap-1">
+                                    <div className="flex flex-wrap items-center justify-center gap-1">
                                         {archives.links.map((link, idx) => (
                                             <Button
                                                 key={idx}
                                                 variant={link.active ? 'default' : 'outline'}
                                                 size="sm"
                                                 disabled={!link.url}
-                                                className={`h-7 px-2.5 text-xs ${link.active ? 'bg-indigo-600 text-white' : ''}`}
+                                                className={`h-7 px-2.5 text-xs ${link.active ? 'bg-teal-600 text-white hover:bg-teal-700' : ''}`}
                                                 onClick={() => link.url && router.get(link.url, {}, { preserveScroll: true, preserveState: true })}
                                                 dangerouslySetInnerHTML={{ __html: link.label }}
                                             />
@@ -556,7 +557,7 @@ export default function ArchivageIndex({
                                 }
 
                                 return (
-                                    <Card key={config.id} className="shadow-sm border hover:border-indigo-300 transition-all">
+                                    <Card key={config.id} className="shadow-sm border hover:border-teal-300 transition-all">
                                         <CardHeader className="pb-3">
                                             <div className="flex items-start justify-between gap-2">
                                                 <div>
@@ -564,7 +565,7 @@ export default function ArchivageIndex({
                                                         {getDocumentTypeTitle(config.type_document)}
                                                     </CardTitle>
                                                     <CardDescription className="text-xs mt-0.5">
-                                                        Masque : <code className="text-indigo-600 font-mono">{config.format_masque}</code>
+                                                        Masque : <code className="text-teal-600 font-mono">{config.format_masque}</code>
                                                     </CardDescription>
                                                 </div>
                                                 <Button
@@ -585,7 +586,7 @@ export default function ArchivageIndex({
                                                 <div className="text-[10px] uppercase font-bold text-slate-500">
                                                     Prochain Numéro
                                                 </div>
-                                                <div className="text-base font-black font-mono tracking-wider text-indigo-700 dark:text-indigo-300 mt-0.5">
+                                                <div className="text-base font-black font-mono tracking-wider text-teal-700 dark:text-teal-300 mt-0.5">
                                                     {preview}
                                                 </div>
                                             </div>

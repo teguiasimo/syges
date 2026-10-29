@@ -206,29 +206,30 @@ export default function EditInstitution({ institution, flash }: EditInstitutionP
         <>
             <Head title="Configuration de l'Institution - Administration" />
 
-            <div className="flex h-full flex-1 flex-col gap-6 p-6 sm:p-8 max-w-6xl mx-auto w-full">
-                {/* En-tête avec bouton retour et actions rapides */}
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-border/70 pb-5">
-                    <div className="space-y-1">
+            {/* Conteneur principal plein écran fluide et responsive sans contrainte artificielle de largeur */}
+            <div className="flex h-full flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8 w-full min-w-0">
+                {/* En-tête avec bouton retour et actions rapides adaptées mobile */}
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-border/70 pb-5 min-w-0">
+                    <div className="space-y-1 min-w-0">
                         <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
                             <Link
                                 href="/administration/institution"
                                 className="inline-flex items-center gap-1 hover:text-foreground transition-colors font-medium cursor-pointer"
                             >
-                                <ArrowLeft className="size-3.5" />
+                                <ArrowLeft className="size-3.5 shrink-0" />
                                 <span>Retour à l'arborescence académique</span>
                             </Link>
                         </div>
-                        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground flex items-center gap-2.5">
-                            <School className="size-7 text-indigo-600 dark:text-indigo-400" />
-                            Configuration de l'Institution Faîtière
+                        <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight text-foreground flex items-center gap-2.5">
+                            <School className="size-6 sm:size-7 text-teal-600 dark:text-teal-400 shrink-0" />
+                            <span>Configuration de l'Institution Faîtière</span>
                         </h1>
                         <p className="text-xs sm:text-sm text-muted-foreground">
                             Définissez l'identité bilingue, les tutelles ministérielles et les coordonnées officielles de votre groupe scolaire.
                         </p>
                     </div>
 
-                    <div className="flex items-center gap-2.5 shrink-0">
+                    <div className="flex flex-wrap items-center gap-2.5 shrink-0">
                         <Button
                             type="button"
                             variant="outline"
@@ -245,7 +246,7 @@ export default function EditInstitution({ institution, flash }: EditInstitutionP
                             disabled={processing || !isDirty}
                             className="gap-2 cursor-pointer text-xs h-9 bg-primary text-primary-foreground hover:bg-primary/90"
                         >
-                            <Save className="size-4" />
+                            <Save className="size-4 shrink-0" />
                             <span>{processing ? 'Enregistrement...' : 'Enregistrer les modifications'}</span>
                         </Button>
                     </div>
@@ -534,7 +535,7 @@ export default function EditInstitution({ institution, flash }: EditInstitutionP
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-5">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
                             <div className="space-y-1.5">
                                 <Label htmlFor="departement" className="text-xs font-semibold text-foreground">
                                     Département (FR)
@@ -686,26 +687,26 @@ export default function EditInstitution({ institution, flash }: EditInstitutionP
                         </div>
                     </div>
 
-                    {/* BARRE D'ACTIONS INFÉRIEURE */}
-                    <div className="flex items-center justify-between pt-4 border-t border-border/60">
+                    {/* BARRE D'ACTIONS INFÉRIEURE EMPILABLE SUR MOBILE */}
+                    <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 pt-4 border-t border-border/60">
                         <Button
                             type="button"
                             variant="ghost"
                             size="sm"
                             onClick={() => reset()}
                             disabled={!isDirty || processing}
-                            className="text-xs gap-1.5 cursor-pointer text-muted-foreground hover:text-foreground"
+                            className="w-full sm:w-auto text-xs gap-1.5 cursor-pointer text-muted-foreground hover:text-foreground"
                         >
-                            <RotateCcw className="size-3.5" />
+                            <RotateCcw className="size-3.5 shrink-0" />
                             <span>Réinitialiser les modifications</span>
                         </Button>
 
-                        <div className="flex items-center gap-3">
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3">
                             <Button
                                 type="button"
                                 variant="outline"
                                 asChild
-                                className="cursor-pointer text-xs"
+                                className="w-full sm:w-auto cursor-pointer text-xs"
                             >
                                 <Link href="/administration/institution">
                                     Annuler
@@ -715,9 +716,9 @@ export default function EditInstitution({ institution, flash }: EditInstitutionP
                             <Button
                                 type="submit"
                                 disabled={processing || !isDirty}
-                                className="gap-2 cursor-pointer text-xs bg-primary text-primary-foreground hover:bg-primary/90"
+                                className="w-full sm:w-auto gap-2 cursor-pointer text-xs bg-primary text-primary-foreground hover:bg-primary/90"
                             >
-                                <Save className="size-4" />
+                                <Save className="size-4 shrink-0" />
                                 <span>{processing ? 'Enregistrement...' : 'Enregistrer les modifications'}</span>
                             </Button>
                         </div>

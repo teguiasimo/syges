@@ -47,6 +47,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { MultiSelect, type MultiSelectOption } from '@/components/ui/multi-select';
+import { truncateText } from '@/lib/utils';
 
 /**
  * Interface décrivant un compte utilisateur de la plateforme SYGES.
@@ -186,13 +187,18 @@ export default function UsersIndex({
         roles: [] as string[],
     });
 
-    // Écoute des messages flash du serveur pour afficher les notifications Toast
+    // Écoute des messages flash du serveur pour afficher les notifications Toast conformes aux règles SYGES (top-right + vert succès)
     useEffect(() => {
         if (flash?.success) {
-            toast.success(flash.success);
+            toast.success(flash.success, {
+                position: 'top-right',
+                className: 'bg-emerald-600 text-white border-none',
+            });
         }
         if (flash?.error) {
-            toast.error(flash.error);
+            toast.error(flash.error, {
+                position: 'top-right',
+            });
         }
     }, [flash]);
 
@@ -417,28 +423,46 @@ export default function UsersIndex({
             },
             {
                 accessorKey: 'etablissementNom',
-                header: 'Campus / Établissement',
+                header: ({ column }) => {
+                    return (
+                        <button
+                            type="button"
+                            onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+                            className="flex items-center gap-1 hover:text-foreground transition-colors cursor-pointer"
+                        >
+                            <span>Campus</span>
+                            <ArrowUpDown className="size-3.5" />
+                        </button>
+                    );
+                },
                 cell: ({ row }) => {
                     const user = row.original;
                     if (user.isSuperAdmin || !user.etablissementId) {
                         return (
                             <Badge
                                 variant="outline"
-                                className="text-[11px] font-medium py-0.5 px-2 bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800 flex items-center gap-1 w-fit"
+                                className="text-[11px] font-medium py-0.5 px-2 bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/40 dark:text-teal-300 dark:border-teal-800 flex items-center gap-1 w-fit"
+                                title="Accès transversal à l'ensemble des campus (Super-Admin)"
                             >
-                                <Globe className="size-3 text-purple-500" />
-                                Accès Global (Tous)
+                                <Globe className="size-3 text-teal-600 shrink-0" />
+                                <span>Accès Global</span>
                             </Badge>
                         );
                     }
+
+                    // Affiche le code court de l'établissement en priorité pour alléger le tableau
+                    const codeDisplay = user.etablissementCode || (user.etablissementNom ? truncateText(user.etablissementNom, 18) : 'Campus');
+
                     return (
-                        <Badge
-                            variant="outline"
-                            className="text-[11px] font-medium py-0.5 px-2 bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-800 flex items-center gap-1 w-fit"
-                        >
-                            <Building2 className="size-3 text-sky-500" />
-                            {user.etablissementNom || 'Campus assigné'}
-                        </Badge>
+                        <div className="flex items-center" title={user.etablissementNom || undefined}>
+                            <Badge
+                                variant="outline"
+                                className="text-[11px] font-semibold py-0.5 px-2 bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-800 flex items-center gap-1.5 w-fit max-w-[180px] hover:bg-sky-100 transition-colors cursor-help"
+                            >
+                                <Building2 className="size-3 text-sky-500 shrink-0" />
+                                <span className="truncate">{codeDisplay}</span>
+                            </Badge>
+                        </div>
                     );
                 },
             },
@@ -623,15 +647,16 @@ export default function UsersIndex({
         <>
             <Head title="Gestion des Utilisateurs - Administration" />
 
-            <div className="flex h-full flex-1 flex-col gap-6 p-6 sm:p-8 max-w-7xl mx-auto w-full">
-                {/* En-tête principal : Titre, sous-titre et bouton d'action */}
+            {/* Conteneur principal plein écran fluide et responsive sans contrainte artificielle de largeur */}
+            <div className="flex h-full flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8 w-full min-w-0">
+                {/* En-tête principal : Titre, sous-titre et bouton d'action responsive */}
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div>
-                        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground flex items-center gap-3">
-                            <Users className="size-8 text-emerald-600 dark:text-emerald-400" />
-                            Gestion des Utilisateurs
+                        <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight text-foreground flex items-center gap-2.5 sm:gap-3">
+                            <Users className="size-6 sm:size-8 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                            <span>Gestion des Utilisateurs</span>
                         </h1>
-                        <p className="text-muted-foreground text-sm mt-1">
+                        <p className="text-muted-foreground text-xs sm:text-sm mt-1">
                             Créez, administrez et contrôlez les comptes d'accès ainsi que leurs rôles de sécurité sur SYGES.
                         </p>
                     </div>
@@ -645,16 +670,16 @@ export default function UsersIndex({
                                 setShowPasswordConfirm(false);
                                 setIsCreateModalOpen(true);
                             }}
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-sm flex items-center gap-2 self-start sm:self-auto cursor-pointer"
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-sm flex items-center gap-2 w-full sm:w-auto cursor-pointer"
                         >
-                            <UserPlus className="size-4" />
-                            Nouvel utilisateur
+                            <UserPlus className="size-4 shrink-0" />
+                            <span>Nouvel utilisateur</span>
                         </Button>
                     )}
                 </div>
 
-                {/* Synthèse statistique KPI compacte et optimisée */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                {/* Synthèse statistique KPI compacte et optimisée avec grille responsive */}
+                <div className="grid grid-cols-1 min-[400px]:grid-cols-2 lg:grid-cols-4 gap-2.5">
                     <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg border border-border/80 bg-card">
                         <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400">
                             <Users className="size-3.5" />
@@ -663,7 +688,7 @@ export default function UsersIndex({
                             <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider truncate">
                                 Total Utilisateurs
                             </p>
-                            <p className="text-base font-bold text-foreground leading-tight mt-0.5">
+                            <p className="text-base font-bold text-foreground leading-tight mt-0.5 tabular-nums">
                                 {stats.total}
                             </p>
                         </div>
@@ -677,7 +702,7 @@ export default function UsersIndex({
                             <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider truncate">
                                 Comptes Actifs
                             </p>
-                            <p className="text-base font-bold text-foreground leading-tight mt-0.5">
+                            <p className="text-base font-bold text-foreground leading-tight mt-0.5 tabular-nums">
                                 {stats.active}
                             </p>
                         </div>
@@ -691,7 +716,7 @@ export default function UsersIndex({
                             <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider truncate">
                                 Comptes Bloqués
                             </p>
-                            <p className="text-base font-bold text-foreground leading-tight mt-0.5">
+                            <p className="text-base font-bold text-foreground leading-tight mt-0.5 tabular-nums">
                                 {stats.blocked}
                             </p>
                         </div>
@@ -705,7 +730,7 @@ export default function UsersIndex({
                             <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider truncate">
                                 Rôles Disponibles
                             </p>
-                            <p className="text-base font-bold text-foreground leading-tight mt-0.5">
+                            <p className="text-base font-bold text-foreground leading-tight mt-0.5 tabular-nums">
                                 {availableRoles.length}
                             </p>
                         </div>
@@ -718,13 +743,13 @@ export default function UsersIndex({
                     data={filteredData}
                     searchPlaceholder="Rechercher par nom, login, email..."
                     filterSlot={
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
                             {/* Filtre par statut */}
                             <Select
                                 value={selectedStatusFilter}
                                 onValueChange={(val) => setSelectedStatusFilter(val)}
                             >
-                                <SelectTrigger className="h-9 w-36 text-xs bg-card">
+                                <SelectTrigger className="h-9 w-full sm:w-36 text-xs bg-card">
                                     <SelectValue placeholder="Statut" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -908,13 +933,18 @@ export default function UsersIndex({
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="none">
-                                                <span className="font-semibold text-purple-600">
+                                                <span className="font-semibold text-teal-600 dark:text-teal-400">
                                                     Accès Global (Aucun campus spécifique / Super-Admin)
                                                 </span>
                                             </SelectItem>
                                             {etablissements.map((etab) => (
                                                 <SelectItem key={etab.id} value={String(etab.id)}>
-                                                    {etab.nom} {etab.code ? `(${etab.code})` : ''}
+                                                    <span className="font-semibold text-foreground">{etab.code || truncateText(etab.nom, 24)}</span>
+                                                    {etab.code && etab.nom && (
+                                                        <span className="text-muted-foreground text-xs ml-1.5 font-normal">
+                                                            ({truncateText(etab.nom, 28)})
+                                                        </span>
+                                                    )}
                                                 </SelectItem>
                                             ))}
                                         </SelectContent>
@@ -922,11 +952,22 @@ export default function UsersIndex({
                                 ) : (
                                     <div className="flex items-center gap-2 p-2.5 rounded-md border bg-muted/40 text-xs font-medium text-foreground">
                                         <Building2 className="size-4 text-sky-600 shrink-0" />
-                                        <span>
-                                            {etablissements.find((e) => e.id === currentEtablissementId)?.nom ||
-                                                'Campus de rattachement actuel'}{' '}
-                                            (Verrouillé)
-                                        </span>
+                                        {(() => {
+                                            const currentEtab = etablissements.find((e) => e.id === currentEtablissementId);
+                                            return (
+                                                <span title={currentEtab?.nom || undefined}>
+                                                    <strong className="font-semibold text-foreground">
+                                                        {currentEtab?.code || truncateText(currentEtab?.nom || 'Campus assigné', 24)}
+                                                    </strong>
+                                                    {currentEtab?.code && currentEtab?.nom && (
+                                                        <span className="text-muted-foreground ml-1.5 font-normal">
+                                                            ({truncateText(currentEtab.nom, 28)})
+                                                        </span>
+                                                    )}{' '}
+                                                    <span className="text-muted-foreground font-light text-[11px]">(Verrouillé)</span>
+                                                </span>
+                                            );
+                                        })()}
                                     </div>
                                 )}
                                 {createForm.errors.etablissement_id && (
@@ -956,19 +997,19 @@ export default function UsersIndex({
                             )}
                         </div>
 
-                        <DialogFooter className="pt-2">
+                        <DialogFooter className="flex-col sm:flex-row gap-2 pt-2">
                             <Button
                                 type="button"
                                 variant="outline"
                                 onClick={() => setIsCreateModalOpen(false)}
-                                className="cursor-pointer"
+                                className="w-full sm:w-auto cursor-pointer"
                             >
                                 Annuler
                             </Button>
                             <Button
                                 type="submit"
                                 disabled={createForm.processing}
-                                className="bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white w-full sm:w-auto cursor-pointer"
                             >
                                 {createForm.processing ? 'Création en cours...' : 'Créer l\'utilisateur'}
                             </Button>
@@ -1142,13 +1183,18 @@ export default function UsersIndex({
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="none">
-                                            <span className="font-semibold text-purple-600">
+                                            <span className="font-semibold text-teal-600 dark:text-teal-400">
                                                 Accès Global (Aucun campus spécifique)
                                             </span>
                                         </SelectItem>
                                         {etablissements.map((etab) => (
                                             <SelectItem key={etab.id} value={String(etab.id)}>
-                                                {etab.nom} {etab.code ? `(${etab.code})` : ''}
+                                                <span className="font-semibold text-foreground">{etab.code || truncateText(etab.nom, 24)}</span>
+                                                {etab.code && etab.nom && (
+                                                    <span className="text-muted-foreground text-xs ml-1.5 font-normal">
+                                                        ({truncateText(etab.nom, 28)})
+                                                    </span>
+                                                )}
                                             </SelectItem>
                                         ))}
                                     </SelectContent>
@@ -1180,19 +1226,19 @@ export default function UsersIndex({
                             )}
                         </div>
 
-                        <DialogFooter className="pt-2">
+                        <DialogFooter className="flex-col sm:flex-row gap-2 pt-2">
                             <Button
                                 type="button"
                                 variant="outline"
                                 onClick={() => setIsEditModalOpen(false)}
-                                className="cursor-pointer"
+                                className="w-full sm:w-auto cursor-pointer"
                             >
                                 Annuler
                             </Button>
                             <Button
                                 type="submit"
                                 disabled={editForm.processing}
-                                className="bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer"
+                                className="bg-primary hover:bg-primary/90 text-primary-foreground w-full sm:w-auto cursor-pointer"
                             >
                                 {editForm.processing ? 'Enregistrement...' : 'Mettre à jour'}
                             </Button>

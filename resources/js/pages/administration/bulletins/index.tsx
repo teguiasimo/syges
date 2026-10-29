@@ -45,6 +45,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useTranslation } from '@/contexts/language-context';
+import { formatAnneeLabel } from '@/lib/utils';
 import type {
     DonneesClasseBulletin,
     EleveBulletin,
@@ -56,7 +57,7 @@ import type { CoteAPC } from '@/types/note';
  * Propriétés reçues par la page Bulletins Scolaires via Inertia.
  */
 interface BulletinsPageProps {
-    annees: Array<{ id: number; nom: string; is_active: boolean }>;
+    annees: Array<{ id: number; nom: string; code?: string; session?: string; is_active?: boolean; is_current?: boolean }>;
     anneeActiveId: number;
     etablissements?: Array<{ id: number; nom: string; code: string; ordre_enseignement?: string }>;
     periodes: Array<{
@@ -113,6 +114,12 @@ export default function BulletinsIndex({
     const [selectedAnnee, setSelectedAnnee] = useState<string>(
         String(filters.annee_id || anneeActiveId || (annees[0]?.id ?? ''))
     );
+
+    // Année scolaire activement sélectionnée (pour affichage concis dans le déclencheur Select)
+    const selectedAnneeObj = useMemo(() => {
+        return annees.find((a) => String(a.id) === selectedAnnee);
+    }, [annees, selectedAnnee]);
+
     const [selectedClasse, setSelectedClasse] = useState<string>(
         String(filters.classe_id || '')
     );
@@ -519,11 +526,12 @@ export default function BulletinsIndex({
         <>
             <Head title={t('bulletins.title')} />
 
-            <div className="flex flex-1 flex-col gap-5 p-4 md:p-6">
+            {/* Conteneur principal responsive sans débordement horizontal */}
+            <div className="flex flex-1 flex-col gap-5 p-4 sm:p-6 lg:p-8 min-w-0 w-full">
                 {/* En-tête de page */}
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <div>
-                        <h1 className="text-2xl font-bold tracking-tight text-foreground">
+                    <div className="min-w-0">
+                        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
                             {t('bulletins.title')}
                         </h1>
                         <p className="text-sm text-muted-foreground mt-0.5">
@@ -535,11 +543,11 @@ export default function BulletinsIndex({
                     {urlBundlePdf && donneesClasse && (
                         <Button
                             asChild
-                            className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+                            className="w-full sm:w-auto gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm shrink-0"
                         >
                             <a href={urlBundlePdf} target="_blank" rel="noopener noreferrer">
-                                <Download className="h-4 w-4" />
-                                {t('bulletins.btn_download_class')}
+                                <Download className="h-4 w-4 shrink-0" />
+                                <span className="truncate">{t('bulletins.btn_download_class')}</span>
                             </a>
                         </Button>
                     )}
@@ -575,9 +583,9 @@ export default function BulletinsIndex({
                                             { preserveState: false }
                                         );
                                     }}
-                                    className="h-8 text-xs font-medium rounded-full cursor-pointer gap-1.5"
+                                    className="h-8 shrink-0 text-xs font-medium rounded-full cursor-pointer gap-1.5"
                                 >
-                                    <School className="size-3.5" />
+                                    <School className="size-3.5 shrink-0" />
                                     {etab.nom}
                                 </Button>
                             );
@@ -587,17 +595,17 @@ export default function BulletinsIndex({
 
                 {/* Filtres : Choix de la Vague (Séquentiel, Trimestriel, Annuel) & Paramètres */}
                 <Card className="border-border/60 shadow-sm">
-                    <CardContent className="p-4 flex flex-col gap-4">
-                        {/* 1. Commutateur de Vague de Bulletin (Exigence Utilisateur : 3 types de bulletins) */}
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-border/50 gap-2">
+                    <CardContent className="p-3.5 sm:p-4 flex flex-col gap-4">
+                        {/* 1. Commutateur de Vague de Bulletin (empilé sur mobile, 3 colonnes dès sm) */}
+                        <div className="flex flex-col lg:flex-row lg:items-center justify-between pb-3 border-b border-border/50 gap-2.5">
                             <div className="flex items-center gap-2">
-                                <FileText className="h-4 w-4 text-primary" />
+                                <FileText className="h-4 w-4 shrink-0 text-primary" />
                                 <span className="text-xs font-bold text-foreground uppercase tracking-wider">
                                     Vague de Bulletin :
                                 </span>
                             </div>
 
-                            <div className="inline-flex rounded-lg border border-border/80 p-0.5 bg-muted/40">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 w-full lg:w-auto rounded-lg border border-border/80 p-1 bg-muted/40 gap-1">
                                 <Button
                                     type="button"
                                     variant={typeBulletin === 'sequentiel' ? 'default' : 'ghost'}
@@ -608,14 +616,14 @@ export default function BulletinsIndex({
                                         if (!selectedEvaluation && targetEval) setSelectedEvaluation(targetEval);
                                         handleFilterChange('sequentiel', selectedClasse, selectedPeriode, targetEval);
                                     }}
-                                    className={`text-xs h-7 px-3 gap-1.5 ${
+                                    className={`text-xs h-8 px-3 gap-1.5 justify-center ${
                                         typeBulletin === 'sequentiel'
                                             ? 'bg-primary text-primary-foreground shadow-sm font-semibold'
                                             : 'text-muted-foreground hover:text-foreground'
                                     }`}
                                 >
-                                    <Clock className="h-3.5 w-3.5" />
-                                    1. Séquentiel (Évaluation)
+                                    <Clock className="h-3.5 w-3.5 shrink-0" />
+                                    <span className="truncate">1. Séquentiel (Évaluation)</span>
                                 </Button>
                                 <Button
                                     type="button"
@@ -627,14 +635,14 @@ export default function BulletinsIndex({
                                         if (!selectedPeriode && targetPer) setSelectedPeriode(targetPer);
                                         handleFilterChange('trimestriel', selectedClasse, targetPer, selectedEvaluation);
                                     }}
-                                    className={`text-xs h-7 px-3 gap-1.5 ${
+                                    className={`text-xs h-8 px-3 gap-1.5 justify-center ${
                                         typeBulletin === 'trimestriel'
                                             ? 'bg-primary text-primary-foreground shadow-sm font-semibold'
                                             : 'text-muted-foreground hover:text-foreground'
                                     }`}
                                 >
-                                    <Calendar className="h-3.5 w-3.5" />
-                                    2. Trimestriel (Bilan)
+                                    <Calendar className="h-3.5 w-3.5 shrink-0" />
+                                    <span className="truncate">2. Trimestriel (Bilan)</span>
                                 </Button>
                                 <Button
                                     type="button"
@@ -644,22 +652,22 @@ export default function BulletinsIndex({
                                         setTypeBulletin('annuel');
                                         handleFilterChange('annuel', selectedClasse, selectedPeriode, selectedEvaluation);
                                     }}
-                                    className={`text-xs h-7 px-3 gap-1.5 ${
+                                    className={`text-xs h-8 px-3 gap-1.5 justify-center ${
                                         typeBulletin === 'annuel'
                                             ? 'bg-primary text-primary-foreground shadow-sm font-semibold'
                                             : 'text-muted-foreground hover:text-foreground'
                                     }`}
                                 >
-                                    <Award className="h-3.5 w-3.5" />
-                                    3. Annuel (Fin d'Année)
+                                    <Award className="h-3.5 w-3.5 shrink-0" />
+                                    <span className="truncate">3. Annuel (Fin d'Année)</span>
                                 </Button>
                             </div>
                         </div>
 
                         {/* 2. Filtres Sélecteurs */}
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                             {/* Année Scolaire */}
-                            <div>
+                            <div className="min-w-0">
                                 <label className="text-xs font-semibold text-muted-foreground mb-1 block">
                                     Année Scolaire
                                 </label>
@@ -672,13 +680,33 @@ export default function BulletinsIndex({
                                         setSelectedEvaluation('');
                                     }}
                                 >
-                                    <SelectTrigger className="h-9">
-                                        <SelectValue placeholder="Année" />
+                                    <SelectTrigger className="h-9 w-full min-w-0">
+                                        <div className="flex items-center gap-2 truncate">
+                                            {(selectedAnneeObj?.is_active || selectedAnneeObj?.is_current) && (
+                                                <span className="relative flex h-2 w-2 shrink-0" title="Année scolaire active">
+                                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500 shadow-xs shadow-emerald-500/50"></span>
+                                                </span>
+                                            )}
+                                            <SelectValue placeholder="Année">
+                                                {selectedAnneeObj
+                                                    ? formatAnneeLabel(selectedAnneeObj.nom, selectedAnneeObj.code, selectedAnneeObj.session)
+                                                    : undefined}
+                                            </SelectValue>
+                                        </div>
                                     </SelectTrigger>
                                     <SelectContent>
                                         {annees.map((a) => (
-                                             <SelectItem key={a.id} value={String(a.id)}>
-                                                {a.nom}
+                                            <SelectItem key={a.id} value={String(a.id)}>
+                                                <div className="flex items-center gap-2">
+                                                    {(a.is_active || a.is_current) && (
+                                                        <span className="relative flex h-2 w-2 shrink-0">
+                                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                                                        </span>
+                                                    )}
+                                                    <span>{formatAnneeLabel(a.nom, a.code, a.session)}</span>
+                                                </div>
                                             </SelectItem>
                                         ))}
                                     </SelectContent>
@@ -686,7 +714,7 @@ export default function BulletinsIndex({
                             </div>
 
                             {/* Classe */}
-                            <div>
+                            <div className="min-w-0">
                                 <label className="text-xs font-semibold text-muted-foreground mb-1 block">
                                     {t('bulletins.select_classe')}
                                 </label>
@@ -705,7 +733,7 @@ export default function BulletinsIndex({
                                         handleFilterChange(typeBulletin, val, targetPer, targetEval);
                                     }}
                                 >
-                                    <SelectTrigger className="h-9">
+                                    <SelectTrigger className="h-9 w-full min-w-0">
                                         <SelectValue placeholder="Choisir une classe" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -720,7 +748,7 @@ export default function BulletinsIndex({
 
                             {/* Évaluation OU Trimestre OU Année selon la vague */}
                             {typeBulletin === 'sequentiel' ? (
-                                <div>
+                                <div className="min-w-0">
                                     <label className="text-xs font-semibold text-muted-foreground mb-1 block">
                                         Séquence / Évaluation
                                     </label>
@@ -731,7 +759,7 @@ export default function BulletinsIndex({
                                             handleFilterChange(typeBulletin, selectedClasse, selectedPeriode, val);
                                         }}
                                     >
-                                        <SelectTrigger className="h-9">
+                                        <SelectTrigger className="h-9 w-full min-w-0">
                                             <SelectValue placeholder="Choisir une séquence" />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -744,7 +772,7 @@ export default function BulletinsIndex({
                                     </Select>
                                 </div>
                             ) : typeBulletin === 'trimestriel' ? (
-                                <div>
+                                <div className="min-w-0">
                                     <label className="text-xs font-semibold text-muted-foreground mb-1 block">
                                         {t('bulletins.select_periode')}
                                     </label>
@@ -755,7 +783,7 @@ export default function BulletinsIndex({
                                             handleFilterChange(typeBulletin, selectedClasse, val, selectedEvaluation);
                                         }}
                                     >
-                                        <SelectTrigger className="h-9">
+                                        <SelectTrigger className="h-9 w-full min-w-0">
                                             <SelectValue placeholder="Choisir un trimestre" />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -768,11 +796,11 @@ export default function BulletinsIndex({
                                     </Select>
                                 </div>
                             ) : (
-                                <div className="flex flex-col justify-end">
+                                <div className="flex flex-col justify-end min-w-0">
                                     <label className="text-xs font-semibold text-muted-foreground mb-1 block">
                                         Portée du bilan
                                     </label>
-                                    <div className="h-9 px-3 rounded-md border border-border/80 bg-muted/20 flex items-center text-xs text-muted-foreground font-medium">
+                                    <div className="h-9 px-3 rounded-md border border-border/80 bg-muted/20 flex items-center text-xs text-muted-foreground font-medium truncate">
                                         Synthèse globale des 3 trimestres de l'année
                                     </div>
                                 </div>
@@ -781,8 +809,8 @@ export default function BulletinsIndex({
 
                         {/* 3. Format Officiel Appliqué (Strictement déterminé par l'établissement) */}
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pt-3 border-t border-border/50 gap-2 text-xs">
-                            <div className="flex items-center gap-2">
-                                <FileText className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                            <div className="flex flex-wrap items-center gap-2">
+                                <FileText className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
                                 <span className="font-semibold text-foreground">
                                     Format officiel de l'établissement :
                                 </span>
@@ -801,15 +829,15 @@ export default function BulletinsIndex({
 
                 {/* Synthèse du Profil de la classe si chargée */}
                 {donneesClasse && (
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="grid grid-cols-1 min-[420px]:grid-cols-2 lg:grid-cols-4 gap-3">
                         <Card className="border-border/60">
                             <CardContent className="p-3 flex items-center gap-3">
-                                <div className="p-2 rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-950/50">
+                                <div className="p-2 shrink-0 rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-950/50">
                                     <Users className="h-5 w-5" />
                                 </div>
-                                <div>
-                                    <div className="text-xs text-muted-foreground font-medium">Effectif total</div>
-                                    <div className="text-lg font-bold text-foreground">
+                                <div className="min-w-0">
+                                    <div className="text-xs text-muted-foreground font-medium truncate">Effectif total</div>
+                                    <div className="text-lg font-bold text-foreground tabular-nums">
                                         {donneesClasse.stats_classe.effectif ?? donneesClasse.stats_classe.effectif_total ?? 0}
                                     </div>
                                 </div>
@@ -818,14 +846,14 @@ export default function BulletinsIndex({
 
                         <Card className="border-border/60">
                             <CardContent className="p-3 flex items-center gap-3">
-                                <div className="p-2 rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-950/50">
+                                <div className="p-2 shrink-0 rounded-lg bg-teal-50 text-teal-600 dark:bg-teal-950/50">
                                     <FileSpreadsheet className="h-5 w-5" />
                                 </div>
-                                <div>
-                                    <div className="text-xs text-muted-foreground font-medium">
+                                <div className="min-w-0">
+                                    <div className="text-xs text-muted-foreground font-medium truncate">
                                         {typeBulletin === 'annuel' ? 'M.G.A. Classe' : t('bulletins.class_average')}
                                     </div>
-                                    <div className="text-lg font-bold text-foreground">
+                                    <div className="text-lg font-bold text-foreground tabular-nums">
                                         {(donneesClasse.stats_classe.moyenne_classe ?? donneesClasse.stats_classe.moyenne_generale ?? 0).toFixed(2)} / 20
                                     </div>
                                 </div>
@@ -834,12 +862,12 @@ export default function BulletinsIndex({
 
                         <Card className="border-border/60">
                             <CardContent className="p-3 flex items-center gap-3">
-                                <div className="p-2 rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50">
+                                <div className="p-2 shrink-0 rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50">
                                     <CheckCircle2 className="h-5 w-5" />
                                 </div>
-                                <div>
-                                    <div className="text-xs text-muted-foreground font-medium">{t('bulletins.pass_rate')}</div>
-                                    <div className="text-lg font-bold text-emerald-600">
+                                <div className="min-w-0">
+                                    <div className="text-xs text-muted-foreground font-medium truncate">{t('bulletins.pass_rate')}</div>
+                                    <div className="text-lg font-bold text-emerald-600 tabular-nums">
                                         {(donneesClasse.stats_classe.taux_reussite ?? 0).toFixed(1)} %
                                     </div>
                                 </div>
@@ -848,12 +876,12 @@ export default function BulletinsIndex({
 
                         <Card className="border-border/60">
                             <CardContent className="p-3 flex items-center gap-3">
-                                <div className="p-2 rounded-lg bg-amber-50 text-amber-600 dark:bg-amber-950/50">
+                                <div className="p-2 shrink-0 rounded-lg bg-amber-50 text-amber-600 dark:bg-amber-950/50">
                                     <TrendingUp className="h-5 w-5" />
                                 </div>
-                                <div>
-                                    <div className="text-xs text-muted-foreground font-medium">Extrêmes [Min - Max]</div>
-                                    <div className="text-sm font-bold text-foreground">
+                                <div className="min-w-0">
+                                    <div className="text-xs text-muted-foreground font-medium truncate">Extrêmes [Min - Max]</div>
+                                    <div className="text-sm font-bold text-foreground tabular-nums">
                                         {(donneesClasse.stats_classe.moyenne_min ?? donneesClasse.stats_classe.min_generale ?? 0).toFixed(2)} &mdash; {(donneesClasse.stats_classe.moyenne_max ?? donneesClasse.stats_classe.max_generale ?? 0).toFixed(2)}
                                     </div>
                                 </div>
@@ -864,7 +892,7 @@ export default function BulletinsIndex({
 
                 {/* Tableau TanStack Table des Bulletins */}
                 {donneesClasse ? (
-                    <Card className="border-border/60 shadow-sm overflow-hidden">
+                    <Card className="border-border/60 shadow-sm overflow-hidden min-w-0">
                         <div className="flex items-center justify-between px-4 py-2.5 border-b bg-muted/20 flex-wrap gap-2">
                             <span className="text-xs font-semibold text-muted-foreground">
                                 {donneesClasse.eleves.length} élèves classés
@@ -873,14 +901,14 @@ export default function BulletinsIndex({
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    className="h-8 gap-1.5 text-xs font-semibold text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 cursor-pointer shadow-xs"
+                                    className="h-8 gap-1.5 text-xs font-semibold text-teal-600 dark:text-teal-400 border-teal-200 dark:border-teal-800 hover:bg-teal-50 dark:hover:bg-teal-950/40 cursor-pointer shadow-xs"
                                     onClick={() => {
                                         const perId = selectedPeriode ? `/${selectedPeriode}` : '';
                                         window.open(`/administration/documents/babillard/${selectedClasse}${perId}`, '_blank');
                                     }}
                                     title="Afficher et imprimer le babillard officiel d'affichage de la classe"
                                 >
-                                    <Printer className="size-3.5 text-indigo-600 dark:text-indigo-400" />
+                                    <Printer className="size-3.5 shrink-0 text-teal-600 dark:text-teal-400" />
                                     <span>Babillard (PDF)</span>
                                 </Button>
                                 <Button
@@ -892,7 +920,7 @@ export default function BulletinsIndex({
                                     }}
                                     title="Télécharger la liste nominative définitive des élèves de la classe"
                                 >
-                                    <FileText className="size-3.5 text-emerald-600 dark:text-emerald-400" />
+                                    <FileText className="size-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
                                     <span>Liste Élèves (PDF)</span>
                                 </Button>
                                 <Button
@@ -904,7 +932,7 @@ export default function BulletinsIndex({
                                     }}
                                     title="Télécharger la fiche d'émargement et d'appel mensuelle de cette classe"
                                 >
-                                    <Printer className="size-3.5 text-blue-600 dark:text-blue-400" />
+                                    <Printer className="size-3.5 shrink-0 text-blue-600 dark:text-blue-400" />
                                     <span>Fiche d'Appel (PDF)</span>
                                 </Button>
                             </div>
@@ -919,7 +947,7 @@ export default function BulletinsIndex({
                         </CardContent>
                     </Card>
                 ) : (
-                    <div className="flex flex-col items-center justify-center p-12 bg-muted/20 rounded-lg border border-dashed border-border/80 text-center">
+                    <div className="flex flex-col items-center justify-center p-6 sm:p-12 bg-muted/20 rounded-lg border border-dashed border-border/80 text-center">
                         <FileText className="h-10 w-10 text-muted-foreground/60 mb-2" />
                         <h3 className="text-base font-semibold text-foreground">
                             {t('bulletins.title')}
@@ -939,7 +967,7 @@ export default function BulletinsIndex({
 
             {/* Modale de Saisie Disciplinaire */}
             <Dialog open={!!disciplineStudent} onOpenChange={(open) => !open && setDisciplineStudent(null)}>
-                <DialogContent className="max-w-lg">
+                <DialogContent className="sm:max-w-lg">
                     <DialogHeader>
                         <DialogTitle className="text-base">
                             {t('bulletins.discipline_title')} : {disciplineStudent?.nom_complet}
@@ -949,7 +977,7 @@ export default function BulletinsIndex({
                         </DialogDescription>
                     </DialogHeader>
 
-                    <div className="grid grid-cols-2 gap-3 py-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 py-2">
                         <div>
                             <Label className="text-xs">{t('bulletins.abs_non_justifiees')}</Label>
                             <Input
@@ -1046,7 +1074,7 @@ export default function BulletinsIndex({
                             />
                         </div>
 
-                        <div className="col-span-2">
+                        <div className="sm:col-span-2">
                             <Label className="text-xs">{t('bulletins.exclusions')}</Label>
                             <Input
                                 type="number"

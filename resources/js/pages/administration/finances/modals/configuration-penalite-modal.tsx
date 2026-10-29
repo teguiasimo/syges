@@ -114,10 +114,11 @@ export default function ConfigurationPenaliteModal({
                         />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1">
+                    {/* Grille responsive : 1 colonne sur mobile, 2 colonnes dès sm */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1 min-w-0">
                             <Label htmlFor="modeCalcul">Mode d'application *</Label>
-                            <Select value={modeCalcul} onValueChange={(val: any) => setModeCalcul(val)}>
+                            <Select value={modeCalcul} onValueChange={(val: 'montant_fixe' | 'pourcentage') => setModeCalcul(val)}>
                                 <SelectTrigger>
                                     <SelectValue />
                                 </SelectTrigger>
@@ -128,7 +129,7 @@ export default function ConfigurationPenaliteModal({
                             </Select>
                         </div>
 
-                        <div className="space-y-1">
+                        <div className="space-y-1 min-w-0">
                             <Label htmlFor="valeur">
                                 Valeur {modeCalcul === 'pourcentage' ? '(%)' : '(FCFA)'} *
                             </Label>
@@ -154,26 +155,26 @@ export default function ConfigurationPenaliteModal({
                             onChange={e => setJoursGrace(e.target.value)}
                             required
                         />
-                        <p className="text-xs text-slate-500">
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
                             Nombre de jours après l'échéance calendaire avant que la pénalité ne devienne exigible.
                         </p>
                     </div>
 
-                    <label className="flex items-center space-x-2 text-sm cursor-pointer pt-1">
+                    <label className="flex items-start gap-2.5 text-sm cursor-pointer pt-1">
                         <input
                             type="checkbox"
                             checked={isActive}
                             onChange={e => setIsActive(e.target.checked)}
-                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            className="mt-0.5 shrink-0 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                         />
-                        <span className="font-medium">Activer le calcul automatique des pénalités de retard</span>
+                        <span className="font-medium leading-snug">Activer le calcul automatique des pénalités de retard</span>
                     </label>
 
                     <DialogFooter className="pt-2">
-                        <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
+                        <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={onClose} disabled={isSubmitting}>
                             Annuler
                         </Button>
-                        <Button type="submit" disabled={isSubmitting} className="bg-amber-600 hover:bg-amber-700 text-white">
+                        <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto bg-amber-600 hover:bg-amber-700 text-white">
                             {isSubmitting ? 'Enregistrement...' : 'Enregistrer la configuration'}
                         </Button>
                     </DialogFooter>

@@ -162,10 +162,10 @@ test('un administrateur peut enregistrer un personnel avec matricule séquentiel
 
     $personnel = Personnel::where('nom', 'Yao')->first();
     expect($personnel)->not->toBeNull();
-    // Le matricule doit suivre le format officiel multi-tenant PERS-CODE-YYYY-XXXX
-    $currentYear = date('Y');
+    // Le matricule doit suivre le format officiel multi-tenant {ANNEE_2_CHIFFRES}P{SIGLE_ETABLISSEMENT}{NUMERO_4_CHIFFRES}
+    $yearShort = substr((string) date('Y'), -2);
     $cleanCode = \Illuminate\Support\Str::upper(preg_replace('/[^A-Za-z0-9]/', '', $this->etablissement->code));
-    expect($personnel->matricule)->toStartWith("PERS-{$cleanCode}-{$currentYear}-");
+    expect($personnel->matricule)->toStartWith("{$yearShort}P{$cleanCode}");
 });
 
 test('enregistrement simultané d un personnel et de son compte utilisateur SYGES', function () {
@@ -194,19 +194,22 @@ test('enregistrement simultané d un personnel et de son compte utilisateur SYGE
 
     $response->assertSessionHasNoErrors();
 
-    // Vérifie que l'utilisateur a été créé
+    // Vérifie que l'utilisateur a été créé avec le bon établissement
     $this->assertDatabaseHas('users', [
         'login' => 'sbamba',
         'email' => 'sbamba@syges.ci',
+        'etablissement_id' => $this->etablissement->id,
     ]);
 
     $user = User::where('login', 'sbamba')->first();
     expect($user)->not->toBeNull();
     expect($user->hasRole('enseignant'))->toBeTrue();
+    expect($user->etablissement_id)->toBe($this->etablissement->id);
 
-    // Vérifie que la fiche personnel est liée au compte utilisateur
+    // Vérifie que la fiche personnel est liée au compte utilisateur et au même établissement
     $personnel = Personnel::where('nom', 'Bamba')->first();
     expect($personnel->user_id)->toBe($user->id);
+    expect($personnel->etablissement_id)->toBe($this->etablissement->id);
     expect($personnel->nom_complet)->toBe('Bamba Souleymane');
 });
 

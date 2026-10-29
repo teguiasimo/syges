@@ -192,6 +192,12 @@ class RolePermissionController extends Controller implements HasMiddleware
             'description' => 'Matrice des privilèges de sécurité et profils d\'accès applicatifs.',
             'icon' => 'ShieldCheck',
         ],
+        'system' => [
+            'id' => 'system',
+            'name' => 'Maintenance & Mise à Jour Système',
+            'description' => 'Gestionnaire de versions Git (SemVer), sauvegardes SQL et déploiement à distance (réservé Super Admin).',
+            'icon' => 'RefreshCw',
+        ],
     ];
 
     /**
@@ -246,6 +252,11 @@ class RolePermissionController extends Controller implements HasMiddleware
             'module' => 'roles',
             'label' => 'Supprimer des rôles',
             'description' => 'Supprimer un profil personnalisé inutilisé (les rôles système restent protégés).',
+        ],
+        'system.update' => [
+            'module' => 'system',
+            'label' => 'Mettre à jour le système & sauvegarder la BDD',
+            'description' => 'Vérifier les versions taguées GitHub, sauvegarder la base SQL et exécuter le pipeline de mise à jour (exclusif Super Admin).',
         ],
 
         // ==========================================
@@ -1162,7 +1173,7 @@ class RolePermissionController extends Controller implements HasMiddleware
     /**
      * Affiche la liste des rôles avec leurs statistiques et l'ensemble des permissions structurées par module.
      *
-     * @param Request $request La requête HTTP entrante.
+     * @param  Request  $request  La requête HTTP entrante.
      * @return Response La vue Inertia avec la liste des rôles, la structure des modules et les droits d'action.
      */
     public function index(Request $request): Response
@@ -1246,7 +1257,7 @@ class RolePermissionController extends Controller implements HasMiddleware
     /**
      * Enregistre un nouveau rôle personnalisé et lui associe ses permissions.
      *
-     * @param Request $request La requête HTTP contenant le nom et les permissions sélectionnées.
+     * @param  Request  $request  La requête HTTP contenant le nom et les permissions sélectionnées.
      * @return RedirectResponse Redirection vers la liste des rôles avec un message flash.
      */
     public function store(Request $request): RedirectResponse
@@ -1285,9 +1296,10 @@ class RolePermissionController extends Controller implements HasMiddleware
             'guard_name' => 'web',
         ]);
 
-        // Synchronisation des permissions accordées
+        // Synchronisation des permissions accordées (la mise à jour système reste exclusive au super-admin)
         if (! empty($validated['permissions'])) {
-            $role->syncPermissions($validated['permissions']);
+            $safePermissions = array_values(array_diff($validated['permissions'], ['system.update']));
+            $role->syncPermissions($safePermissions);
         }
 
         return redirect()->route('administration.roles.index')
@@ -1298,8 +1310,8 @@ class RolePermissionController extends Controller implements HasMiddleware
      * Met à jour le nom et les permissions d'un rôle existant.
      * Protège le rôle Super Administrateur contre les modifications critiques.
      *
-     * @param Request $request La requête HTTP de mise à jour.
-     * @param Role $role Le rôle à mettre à jour.
+     * @param  Request  $request  La requête HTTP de mise à jour.
+     * @param  Role  $role  Le rôle à mettre à jour.
      * @return RedirectResponse Redirection vers la liste des rôles avec message de confirmation.
      */
     public function update(Request $request, Role $role): RedirectResponse
@@ -1340,11 +1352,12 @@ class RolePermissionController extends Controller implements HasMiddleware
             }
         }
 
-        // Synchronisation des permissions (le super-admin conserve toujours toutes les permissions)
+        // Synchronisation des permissions (le super-admin conserve toujours toutes les permissions ; system.update lui est exclusif)
         if ($isSuperAdmin) {
             $role->syncPermissions(Permission::all());
         } else {
-            $role->syncPermissions($validated['permissions'] ?? []);
+            $safePermissions = array_values(array_diff($validated['permissions'] ?? [], ['system.update']));
+            $role->syncPermissions($safePermissions);
         }
 
         $displayName = $this->roleLabels[$role->name] ?? $role->name;
@@ -1357,8 +1370,8 @@ class RolePermissionController extends Controller implements HasMiddleware
      * Supprime un rôle personnalisé.
      * Empêche la suppression des rôles système et des rôles actuellement assignés à des utilisateurs.
      *
-     * @param Request $request La requête HTTP entrante.
-     * @param Role $role Le rôle à supprimer.
+     * @param  Request  $request  La requête HTTP entrante.
+     * @param  Role  $role  Le rôle à supprimer.
      * @return RedirectResponse Redirection avec message de succès ou d'erreur.
      */
     public function destroy(Request $request, Role $role): RedirectResponse

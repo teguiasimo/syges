@@ -76,7 +76,7 @@ export function ArchiverModal({
             onSuccess: () => {
                 toast.success('Dossier archivé avec succès dans le Centre d\'Archivage', {
                     position: 'top-right',
-                    className: 'bg-emerald-600 text-white font-medium border-none shadow-lg',
+                    className: 'bg-emerald-600 text-white font-medium border-emerald-700 shadow-lg',
                 });
                 reset();
                 onOpenChange(false);
@@ -91,43 +91,43 @@ export function ArchiverModal({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-xl">
+            <DialogContent className="w-[95vw] sm:max-w-xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
                 <DialogHeader>
-                    <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
-                        <Archive className="w-5 h-5" />
-                        <DialogTitle>Archiver un dossier administratif</DialogTitle>
+                    <div className="flex items-center gap-2 text-teal-600 dark:text-teal-400">
+                        <Archive className="w-5 h-5 shrink-0" />
+                        <DialogTitle className="text-base sm:text-lg">Archiver un dossier administratif</DialogTitle>
                     </div>
-                    <DialogDescription>
+                    <DialogDescription className="text-xs sm:text-sm">
                         Consignez le départ officiel d'un élève ou personnel avec motif légal. Le dossier reste consultable dans les archives historiques.
                     </DialogDescription>
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     {/* Choix Élève ou Personnel */}
-                    <div className="flex rounded-lg border p-1 bg-slate-50 dark:bg-slate-900">
+                    <div className="flex flex-col min-[420px]:flex-row rounded-lg border p-1 bg-slate-50 dark:bg-slate-900 gap-1">
                         <button
                             type="button"
                             className={`flex-1 flex items-center justify-center gap-2 py-2 text-xs font-semibold rounded-md transition-all ${
                                 typeEntite === 'eleve'
-                                    ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                                    ? 'bg-white dark:bg-slate-800 text-teal-600 dark:text-teal-400 shadow-sm'
                                     : 'text-slate-500 hover:text-slate-900'
                             }`}
                             onClick={() => handleTypeChange('eleve')}
                         >
-                            <GraduationCap className="w-4 h-4" />
-                            Archiver un Élève
+                            <GraduationCap className="w-4 h-4 shrink-0" />
+                            <span>Archiver un Élève</span>
                         </button>
                         <button
                             type="button"
                             className={`flex-1 flex items-center justify-center gap-2 py-2 text-xs font-semibold rounded-md transition-all ${
                                 typeEntite === 'personnel'
-                                    ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                                    ? 'bg-white dark:bg-slate-800 text-teal-600 dark:text-teal-400 shadow-sm'
                                     : 'text-slate-500 hover:text-slate-900'
                             }`}
                             onClick={() => handleTypeChange('personnel')}
                         >
-                            <Users className="w-4 h-4" />
-                            Archiver un Membre du Personnel
+                            <Users className="w-4 h-4 shrink-0" />
+                            <span>Archiver un Membre du Personnel</span>
                         </button>
                     </div>
 
@@ -270,18 +270,19 @@ export function ArchiverModal({
                         />
                     </div>
 
-                    <DialogFooter className="pt-2">
+                    <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-3">
                         <Button
                             type="button"
                             variant="outline"
                             onClick={() => onOpenChange(false)}
                             disabled={processing}
+                            className="w-full sm:w-auto"
                         >
                             Annuler
                         </Button>
                         <Button
                             type="submit"
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5"
+                            className="w-full sm:w-auto bg-teal-600 hover:bg-teal-700 text-white gap-1.5"
                             disabled={processing}
                         >
                             {processing ? (

@@ -124,6 +124,12 @@
                 MINISTÈRE DES ENSEIGNEMENTS SECONDAIRES
             </td>
             <td class="header-center">
+                @php
+                    $logoSrc = $etablissement->getEffectiveLogoBase64();
+                @endphp
+                @if($logoSrc)
+                    <img src="{{ $logoSrc }}" alt="Logo" style="max-height: 48px; max-width: 80px; object-fit: contain; margin-bottom: 2px;"><br>
+                @endif
                 <div class="school-name">{{ $etablissement->nom }}</div>
                 <div class="school-sub">{{ $etablissement->telephone_1 ?? '' }}</div>
             </td>

@@ -155,6 +155,14 @@
                 MINISTÈRE DES ENSEIGNEMENTS SECONDAIRES
             </td>
             <td class="header-center">
+                @php
+                    $logoSrc = ($etablissement && method_exists($etablissement, 'getEffectiveLogoBase64'))
+                        ? $etablissement->getEffectiveLogoBase64()
+                        : (file_exists(public_path('logo.png')) ? 'data:image/png;base64,' . base64_encode(file_get_contents(public_path('logo.png'))) : null);
+                @endphp
+                @if($logoSrc)
+                    <img src="{{ $logoSrc }}" style="max-height: 48px; max-width: 80px; object-fit: contain; margin-bottom: 2px;" alt="Logo"><br>
+                @endif
                 <div class="school-name">{{ $etablissement->nom ?? 'ÉTABLISSEMENT SCOLAIRE' }}</div>
                 <div class="school-contacts">
                     {{ $etablissement->adresse ?? '' }}<br>

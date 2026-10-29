@@ -1,6 +1,12 @@
 import { router } from '@inertiajs/react';
-import { BookOpen, Check, Clock, Layers, Save, School, UserCheck, Users, X } from 'lucide-react';
-import React, { useEffect, useMemo, useState } from 'react';
+import {
+    flexRender,
+    getCoreRowModel,
+    useReactTable,
+    type ColumnDef,
+} from '@tanstack/react-table';
+import { Layers, Save } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -13,7 +19,6 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
     Select,
     SelectContent,
@@ -21,6 +26,14 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { truncateText } from '@/lib/utils';
 import type {
     ClasseWithAttributions,
@@ -112,10 +125,10 @@ export function ClasseMatrixModal({
     /**
      * Modification d'un enseignant ou volume horaire dans une ligne.
      */
-    const handleRowChange = (
+    const handleRowChange = useCallback((
         matiereId: number,
         field: 'personnel_id' | 'volume_horaire_reel',
-        value: any
+        value: number | null
     ) => {
         setRows((prev) =>
             prev.map((r) => {
@@ -125,7 +138,130 @@ export function ClasseMatrixModal({
                 return r;
             })
         );
-    };
+    }, []);
+
+    /**
+     * Colonnes TanStack Table pour la matrice des matières de la classe.
+     */
+    const matrixColumns = useMemo<ColumnDef<MatrixRowState>[]>(
+        () => [
+            {
+                id: 'matiere',
+                header: 'Matière au programme',
+                cell: ({ row }) => {
+                    const r = row.original;
+                    return (
+                        <div className="py-0.5">
+                            <div className="font-semibold text-foreground text-xs truncate max-w-[220px]" title={r.nom}>
+                                {truncateText(r.nom, 40)}
+                            </div>
+                            <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-muted-foreground">
+                                <span className="font-mono bg-muted px-1 rounded border">
+                                    {r.code}
+                                </span>
+                                <span>•</span>
+                                <span className="truncate max-w-37.5">{r.groupe_nom}</span>
+                            </div>
+                        </div>
+                    );
+                },
+            },
+            {
+                accessorKey: 'coefficient',
+                header: () => <div className="text-center">Coeff</div>,
+                cell: ({ row }) => (
+                    <div className="text-center font-bold text-xs text-foreground">
+                        {Number(row.original.coefficient).toFixed(1)}
+                    </div>
+                ),
+            },
+            {
+                id: 'enseignant',
+                header: 'Enseignant Affecté',
+                cell: ({ row }) => {
+                    const r = row.original;
+                    return (
+                        <div className="min-w-56">
+                            <Select
+                                value={r.personnel_id ? String(r.personnel_id) : 'none'}
+                                onValueChange={(val) =>
+                                    handleRowChange(
+                                        r.matiere_id,
+                                        'personnel_id',
+                                        val === 'none' ? null : Number(val)
+                                    )
+                                }
+                            >
+                                <SelectTrigger className="h-8 text-xs bg-background">
+                                    <SelectValue placeholder="Choisir un enseignant" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="none">
+                                        <em className="text-muted-foreground">Non attribué (vacant)</em>
+                                    </SelectItem>
+                                    {enseignants.map((ens) => (
+                                        <SelectItem key={ens.id} value={String(ens.id)}>
+                                            {ens.nom} {ens.prenom} ({ens.matricule}) [{ens.heures_attribuees}h / {ens.volume_horaire_hebdo}h]
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    );
+                },
+            },
+            {
+                id: 'heures',
+                header: () => <div className="text-center">Heures/sem</div>,
+                cell: ({ row }) => {
+                    const r = row.original;
+                    return (
+                        <div className="text-center">
+                            <Input
+                                type="number"
+                                step="0.5"
+                                min="0"
+                                max="30"
+                                value={r.volume_horaire_reel}
+                                onChange={(e) =>
+                                    handleRowChange(
+                                        r.matiere_id,
+                                        'volume_horaire_reel',
+                                        parseFloat(e.target.value) || 0
+                                    )
+                                }
+                                className="h-8 text-xs text-center font-mono w-20 mx-auto"
+                            />
+                        </div>
+                    );
+                },
+            },
+            {
+                id: 'statut',
+                header: () => <div className="text-right">Statut</div>,
+                cell: ({ row }) => (
+                    <div className="text-right">
+                        {row.original.personnel_id ? (
+                            <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-400 dark:border-emerald-800 text-[10px] font-semibold">
+                                Pourvu
+                            </Badge>
+                        ) : (
+                            <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/50 dark:text-amber-400 dark:border-amber-800 text-[10px] font-semibold">
+                                Non pourvu
+                            </Badge>
+                        )}
+                    </div>
+                ),
+            },
+        ],
+        [enseignants, handleRowChange]
+    );
+
+    const matrixTable = useReactTable({
+        data: rows,
+        columns: matrixColumns,
+        getCoreRowModel: getCoreRowModel(),
+    });
 
     /**
      * Soumission de l'ensemble de la grille en une seule transaction.
@@ -171,15 +307,15 @@ export function ClasseMatrixModal({
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-6 sm:p-8">
+            <DialogContent className="sm:max-w-4xl">
                 <DialogHeader className="border-b pb-4">
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 border border-indigo-200 dark:border-indigo-900/50">
+                        <div className="flex items-start sm:items-center gap-3 min-w-0">
+                            <div className="p-2.5 rounded-xl bg-teal-50 dark:bg-teal-950/50 text-teal-600 border border-teal-200 dark:border-teal-900/50 shrink-0">
                                 <Layers className="size-6" />
                             </div>
-                            <div>
-                                <DialogTitle className="text-xl font-bold text-foreground flex items-center gap-2">
+                            <div className="min-w-0">
+                                <DialogTitle className="text-base sm:text-xl font-bold text-foreground flex flex-wrap items-center gap-2">
                                     <span>Grille des Attributions : {classe.nom}</span>
                                     {classe.serie && (
                                         <Badge variant="outline" className="text-xs">
@@ -194,7 +330,7 @@ export function ClasseMatrixModal({
                         </div>
 
                         {/* Taux de couverture de la classe */}
-                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/60 border text-xs font-semibold">
+                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/60 border text-xs font-semibold w-fit shrink-0">
                             <span className="text-muted-foreground">Couverture :</span>
                             <span className={pourvoiPercent === 100 ? 'text-emerald-600' : 'text-amber-600'}>
                                 {pourvuesCount} / {totalCount} ({pourvoiPercent}%)
@@ -203,104 +339,43 @@ export function ClasseMatrixModal({
                     </div>
                 </DialogHeader>
 
-                {/* TABLEAU DES MATIÈRES AU PROGRAMME */}
-                <div className="space-y-4 pt-2">
-                    <div className="overflow-x-auto rounded-lg border">
-                        <table className="w-full text-xs text-left">
-                            <thead className="bg-muted/50 text-muted-foreground font-semibold uppercase text-[10px] tracking-wider border-b">
-                                <tr>
-                                    <th className="py-2.5 px-3">Matière au programme</th>
-                                    <th className="py-2.5 px-2 text-center">Coeff</th>
-                                    <th className="py-2.5 px-3 min-w-65">Enseignant Affecté</th>
-                                    <th className="py-2.5 px-2 text-center w-27.5">Heures/sem</th>
-                                    <th className="py-2.5 px-3 text-right">Statut</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-border">
-                                {rows.map((row) => (
-                                    <tr key={row.matiere_id} className="hover:bg-muted/30 transition-colors">
-                                        {/* Matière & Code */}
-                                        <td className="py-2.5 px-3">
-                                            <div className="font-semibold text-foreground text-xs truncate max-w-[220px]" title={row.nom}>
-                                                {truncateText(row.nom, 40)}
-                                            </div>
-                                            <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-muted-foreground">
-                                                <span className="font-mono bg-muted px-1 rounded border">
-                                                    {row.code}
-                                                </span>
-                                                <span>•</span>
-                                                <span className="truncate max-w-37.5">{row.groupe_nom}</span>
-                                            </div>
-                                        </td>
-
-                                        {/* Coefficient */}
-                                        <td className="py-2.5 px-2 text-center font-bold text-xs text-foreground">
-                                            {Number(row.coefficient).toFixed(1)}
-                                        </td>
-
-                                        {/* Sélecteur de l'Enseignant */}
-                                        <td className="py-2.5 px-3">
-                                            <Select
-                                                value={row.personnel_id ? String(row.personnel_id) : 'none'}
-                                                onValueChange={(val) =>
-                                                    handleRowChange(
-                                                        row.matiere_id,
-                                                        'personnel_id',
-                                                        val === 'none' ? null : Number(val)
-                                                    )
-                                                }
-                                            >
-                                                <SelectTrigger className="h-8 text-xs bg-background">
-                                                    <SelectValue placeholder="Choisir un enseignant" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="none">
-                                                        <em className="text-muted-foreground">Non attribué (vacant)</em>
-                                                    </SelectItem>
-                                                    {enseignants.map((ens) => (
-                                                        <SelectItem key={ens.id} value={String(ens.id)}>
-                                                            {ens.nom} {ens.prenom} ({ens.matricule}) [{ens.heures_attribuees}h / {ens.volume_horaire_hebdo}h]
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        </td>
-
-                                        {/* Volume horaire réel */}
-                                        <td className="py-2.5 px-2 text-center">
-                                            <Input
-                                                type="number"
-                                                step="0.5"
-                                                min="0"
-                                                max="30"
-                                                value={row.volume_horaire_reel}
-                                                onChange={(e) =>
-                                                    handleRowChange(
-                                                        row.matiere_id,
-                                                        'volume_horaire_reel',
-                                                        parseFloat(e.target.value) || 0
-                                                    )
-                                                }
-                                                className="h-8 text-xs text-center font-mono w-20 mx-auto"
-                                            />
-                                        </td>
-
-                                        {/* Statut d'attribution */}
-                                        <td className="py-2.5 px-3 text-right">
-                                            {row.personnel_id ? (
-                                                <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-400 dark:border-emerald-800 text-[10px] font-semibold">
-                                                    Pourvu
-                                                </Badge>
-                                            ) : (
-                                                <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/50 dark:text-amber-400 dark:border-amber-800 text-[10px] font-semibold">
-                                                    Non pourvu
-                                                </Badge>
-                                            )}
-                                        </td>
-                                    </tr>
+                {/* TABLEAU TANSTACK TABLE DES MATIÈRES AU PROGRAMME */}
+                <div className="space-y-4 pt-2 min-w-0">
+                    <div className="rounded-lg border overflow-hidden">
+                        <Table className="min-w-[680px] text-xs">
+                            <TableHeader className="bg-muted/50 text-muted-foreground font-semibold uppercase text-[10px] tracking-wider">
+                                {matrixTable.getHeaderGroups().map((headerGroup) => (
+                                    <TableRow key={headerGroup.id}>
+                                        {headerGroup.headers.map((header) => (
+                                            <TableHead key={header.id} className="py-2.5 px-3">
+                                                {header.isPlaceholder
+                                                    ? null
+                                                    : flexRender(header.column.columnDef.header, header.getContext())}
+                                            </TableHead>
+                                        ))}
+                                    </TableRow>
                                 ))}
-                            </tbody>
-                        </table>
+                            </TableHeader>
+                            <TableBody>
+                                {matrixTable.getRowModel().rows.length > 0 ? (
+                                    matrixTable.getRowModel().rows.map((row) => (
+                                        <TableRow key={row.id} className="hover:bg-muted/30 transition-colors">
+                                            {row.getVisibleCells().map((cell) => (
+                                                <TableCell key={cell.id} className="py-2.5 px-3">
+                                                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                                </TableCell>
+                                            ))}
+                                        </TableRow>
+                                    ))
+                                ) : (
+                                    <TableRow>
+                                        <TableCell colSpan={matrixColumns.length} className="h-20 text-center text-muted-foreground">
+                                            Aucune matière configurée pour ce niveau.
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
                     </div>
                 </div>
 
@@ -309,7 +384,7 @@ export function ClasseMatrixModal({
                         type="button"
                         variant="outline"
                         onClick={onClose}
-                        className="cursor-pointer"
+                        className="cursor-pointer w-full sm:w-auto"
                     >
                         Annuler
                     </Button>
@@ -317,7 +392,7 @@ export function ClasseMatrixModal({
                         type="button"
                         onClick={handleSaveBatch}
                         disabled={isSubmitting}
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer font-semibold"
+                        className="bg-teal-600 hover:bg-teal-700 text-white cursor-pointer font-semibold w-full sm:w-auto"
                     >
                         <Save className="size-4 mr-1.5" />
                         {isSubmitting ? 'Enregistrement en cours...' : 'Enregistrer la répartition'}

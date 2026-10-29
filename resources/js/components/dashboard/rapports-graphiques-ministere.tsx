@@ -7,16 +7,17 @@ import type { ClasseDensiteDetail, CycleRepartitionDetail } from '@/types/statis
 
 /**
  * Palette de couleurs officielles harmonisée avec la plateforme ministérielle (MINESEC / Matr. National).
+ * Respecte la charte visuelle SYGES et le bannissement strict du pourpre (Purple Ban).
  */
 const MINISTERIAL_CYCLE_COLORS = [
-    '#7b1fa2', // Deuxième Cycle - Francophone - Général (Pourpre / Violet)
+    '#0d9488', // Deuxième Cycle - Francophone - Général (Teal / Sarcelle)
     '#212121', // Deuxième Cycle - Francophone - Technique (Noir / Anthracite)
-    '#fbc02d', // Premier Cycle - Francophone - Général (Jaune d'or / Ambre)
+    '#f59e0b', // Premier Cycle - Francophone - Général (Jaune d'or / Ambre)
     '#00acc1', // Premier Cycle - Francophone - Technique (Turquoise / Cyan)
     '#1e3a8a', // Premier Cycle - Anglophone - General (Bleu marine)
     '#059669', // Second Cycle - Anglophone - General (Émeraude)
     '#ea580c', // Technique / Commercial (Orange)
-    '#db2777', // Autres (Rose fuchsia)
+    '#db2777', // Autres (Rose framboise)
 ];
 
 interface BarChartClassesProps {
@@ -24,8 +25,36 @@ interface BarChartClassesProps {
 }
 
 /**
+ * Calcule l'échelle maximale dynamique de l'axe Y et les paliers de graduation.
+ * Prend en compte à la fois la plus haute capacité configurée et le plus grand effectif inscrit.
+ *
+ * @param {ClasseDensiteDetail[]} classes - Liste des classes avec effectifs et capacités.
+ * @returns {{ yAxisMax: number, ySteps: number[], maxCapacite: number, maxEffectif: number }}
+ */
+function computeYAxis(classes: ClasseDensiteDetail[]) {
+    const maxEffectif = Math.max(0, ...classes.map((c) => c.effectif || 0));
+    const maxCapacite = Math.max(0, ...classes.map((c) => c.capacite || 0));
+    const peak = Math.max(maxEffectif, maxCapacite, 20);
+
+    // Détermination d'un pas de graduation équilibré (10, 20, 25 ou 50)
+    let step = 10;
+    if (peak > 50) step = 20;
+    if (peak > 100) step = 25;
+    if (peak > 200) step = 50;
+
+    const yAxisMax = Math.ceil(peak / step) * step;
+    const ySteps: number[] = [];
+    for (let v = 0; v <= yAxisMax; v += step) {
+        ySteps.push(v);
+    }
+
+    return { yAxisMax, ySteps, maxCapacite, maxEffectif };
+}
+
+/**
  * Composant de graphique en barres (Histogramme) pour la répartition des élèves par classe.
  * Rendu vectoriel SVG natif optimisé pour une pleine largeur panoramique, responsive et interactif.
+ * Calcule dynamiquement l'échelle maximale en fonction de la capacité configurée (ex: 80) et des effectifs réels.
  *
  * @param {BarChartClassesProps} props - Liste des classes avec effectifs et capacités.
  * @returns {JSX.Element}
@@ -33,11 +62,16 @@ interface BarChartClassesProps {
 export function BarChartClasses({ classes }: BarChartClassesProps) {
     const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
 
-    // Calcul du maximum pour l'échelle de l'axe Y
-    const maxEffectif = Math.max(...classes.map((c) => c.effectif), 10);
-    // Arrondi supérieur à la dizaine la plus proche (ex: 45 -> 50)
-    const yAxisMax = Math.max(50, Math.ceil(maxEffectif / 10) * 10);
-    const ySteps = [0, yAxisMax * 0.2, yAxisMax * 0.4, yAxisMax * 0.6, yAxisMax * 0.8, yAxisMax];
+    if (!classes || classes.length === 0) {
+        return (
+            <div className="flex h-56 items-center justify-center text-sm text-muted-foreground italic">
+                Aucune classe enregistrée pour cet établissement.
+            </div>
+        );
+    }
+
+    // Calcul dynamique de l'échelle de l'axe Y basée sur les capacités configurées et effectifs
+    const { yAxisMax, ySteps, maxCapacite } = computeYAxis(classes);
 
     // Dimensions SVG adaptatives pour exploiter toute la largeur de l'écran
     const totalBars = classes.length;
@@ -51,21 +85,19 @@ export function BarChartClasses({ classes }: BarChartClassesProps) {
     const xEnd = svgWidth - 30;
     const usableWidth = xEnd - xStart;
 
-    if (!classes || classes.length === 0) {
-        return (
-            <div className="flex h-56 items-center justify-center text-sm text-muted-foreground italic">
-                Aucune classe enregistrée pour cet établissement.
-            </div>
-        );
-    }
-
     return (
         <div className="relative w-full overflow-x-auto">
             <div className="min-w-175">
-                {/* Légende du graphique (comme sur la capture ministérielle) */}
-                <div className="mb-2 flex items-center justify-center gap-2 text-xs font-medium text-muted-foreground">
-                    <span className="inline-block size-3 rounded-xs bg-[#1b5e20]" />
-                    <span>Effectif des élèves inscrits</span>
+                {/* Légende du graphique enrichie avec la capacité d'accueil */}
+                <div className="mb-2 flex flex-wrap items-center justify-center gap-4 text-xs font-medium text-muted-foreground">
+                    <div className="flex items-center gap-1.5">
+                        <span className="inline-block size-3 rounded-xs bg-[#1b5e20]" />
+                        <span>Effectif des élèves inscrits</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                        <span className="inline-flex items-center justify-center size-3 rounded-xs border border-dashed border-slate-500 bg-muted/40" />
+                        <span>Capacité configurée ({maxCapacite > 0 ? `${maxCapacite} max` : '80 max'})</span>
+                    </div>
                 </div>
 
                 <div className="relative">
@@ -120,6 +152,10 @@ export function BarChartClasses({ classes }: BarChartClassesProps) {
                             const yTop = chartTopPadding + usableHeight - barHeight;
                             const isHovered = hoveredIdx === idx;
 
+                            // Hauteur et repère de la capacité maximale de la classe
+                            const capHeight = ((cls.capacite || 0) / yAxisMax) * usableHeight;
+                            const yCapTop = chartTopPadding + usableHeight - capHeight;
+
                             return (
                                 <g
                                     key={cls.id}
@@ -127,14 +163,41 @@ export function BarChartClasses({ classes }: BarChartClassesProps) {
                                     onMouseEnter={() => setHoveredIdx(idx)}
                                     onMouseLeave={() => setHoveredIdx(null)}
                                 >
-                                    {/* Barre de données */}
+                                    {/* Fond représentant la capacité d'accueil configurée */}
+                                    {cls.capacite > 0 && (
+                                        <rect
+                                            x={xLeft}
+                                            y={yCapTop}
+                                            width={barWidth}
+                                            height={Math.max(capHeight, 2)}
+                                            rx={2.5}
+                                            fill="currentColor"
+                                            className="fill-muted/20"
+                                        />
+                                    )}
+
+                                    {/* Trait pointillé de seuil de la capacité de la classe */}
+                                    {cls.capacite > 0 && (
+                                        <line
+                                            x1={xLeft - 3}
+                                            y1={yCapTop}
+                                            x2={xLeft + barWidth + 3}
+                                            y2={yCapTop}
+                                            stroke={cls.is_surchargee ? '#ef4444' : '#64748b'}
+                                            strokeWidth="1.5"
+                                            strokeDasharray="2 2"
+                                            strokeOpacity="0.8"
+                                        />
+                                    )}
+
+                                    {/* Barre de données d'effectif réel */}
                                     <rect
                                         x={xLeft}
                                         y={yTop}
                                         width={barWidth}
                                         height={Math.max(barHeight, 2)}
                                         rx={2.5}
-                                        fill={isHovered ? '#2e7d32' : '#1b5e20'}
+                                        fill={isHovered ? (cls.is_surchargee ? '#ef4444' : '#2e7d32') : (cls.is_surchargee ? '#dc2626' : '#1b5e20')}
                                         className="transition-colors duration-200"
                                     />
 
@@ -144,7 +207,7 @@ export function BarChartClasses({ classes }: BarChartClassesProps) {
                                             x={xCenter}
                                             y={yTop - 5}
                                             textAnchor="middle"
-                                            fontSize="9"
+                                            fontSize="9.5"
                                             fontWeight="600"
                                             fill="currentColor"
                                             className="fill-foreground font-mono"
@@ -177,13 +240,13 @@ export function BarChartClasses({ classes }: BarChartClassesProps) {
                         >
                             <span className="font-bold text-primary">{classes[hoveredIdx].nom}</span>
                             <span className="font-mono">
-                                <strong>{classes[hoveredIdx].effectif}</strong> élèves / {classes[hoveredIdx].capacite} places
+                                <strong>{classes[hoveredIdx].effectif}</strong> élèves inscrits / {classes[hoveredIdx].capacite} places configurées
                             </span>
                             <Badge
                                 variant={classes[hoveredIdx].is_surchargee ? 'destructive' : 'secondary'}
                                 className="text-[10px] py-0 px-1.5"
                             >
-                                {classes[hoveredIdx].taux_occupation}%
+                                {classes[hoveredIdx].taux_occupation}% d'occupation
                             </Badge>
                         </div>
                     )}
@@ -241,9 +304,9 @@ export function DonutChartCycles({ repartition, totalEleves }: PieChartCyclesPro
     });
 
     return (
-        <div className="flex flex-col items-center gap-6 w-full py-2">
-            {/* 1. Grand Diagramme Circulaire Donut (Centré en haut) */}
-            <div className="relative size-64 sm:size-72 shrink-0">
+        <div className="flex flex-col items-center gap-6 w-full py-2 min-w-0">
+            {/* 1. Grand Diagramme Circulaire Donut (Centré en haut, adaptatif sur très petits écrans 320px) */}
+            <div className="relative size-52 sm:size-72 max-w-full shrink-0">
                 <svg viewBox="0 0 260 260" className="size-full overflow-visible">
                     {/* Anneau de fond discret (track) */}
                     <circle
@@ -375,19 +438,19 @@ export interface CarteRepartitionCyclesProps extends PieChartCyclesProps {
  */
 export function CarteRepartitionCycles({ repartition, totalEleves, className }: CarteRepartitionCyclesProps) {
     return (
-        <Card className={cn('flex flex-col h-full', className)}>
+        <Card className={cn('flex flex-col h-full min-w-0', className)}>
             <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                     <div>
                         <CardTitle className="text-base flex items-center gap-2">
-                            <PieChart className="size-4 text-purple-600" />
+                            <PieChart className="size-4 text-teal-600 shrink-0" />
                             Répartition des élèves par cycle
                         </CardTitle>
                         <CardDescription>
                             Ventilation par sous-système (Général / Technique)
                         </CardDescription>
                     </div>
-                    <Badge variant="outline" className="font-mono text-xs">
+                    <Badge variant="outline" className="font-mono text-xs shrink-0">
                         {repartition.length} cycle(s)
                     </Badge>
                 </div>

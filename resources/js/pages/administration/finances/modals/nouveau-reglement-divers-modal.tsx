@@ -108,9 +108,10 @@ export default function NouveauReglementDiversModal({
                     <DialogTitle>Nouveau Règlement Divers (Recette libre)</DialogTitle>
                 </DialogHeader>
 
-                <form onSubmit={handleSubmit} className="space-y-4 py-2">
-                    <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1">
+                <form onSubmit={handleSubmit} className="space-y-4 py-2 min-w-0">
+                    {/* Paires de champs responsive : 1 colonne sur mobile, 2 colonnes dès sm */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1 min-w-0">
                             <Label htmlFor="caisse">Caisse d'encaissement *</Label>
                             <Select
                                 value={caisseId ? caisseId.toString() : ''}
@@ -129,11 +130,11 @@ export default function NouveauReglementDiversModal({
                             </Select>
                         </div>
 
-                        <div className="space-y-1">
+                        <div className="space-y-1 min-w-0">
                             <Label htmlFor="categorie">Catégorie de recette *</Label>
                             <Select
                                 value={categorie}
-                                onValueChange={(val: any) => setCategorie(val)}
+                                onValueChange={(val: 'uniformes' | 'cantine_libre' | 'macaron' | 'location' | 'don' | 'autre') => setCategorie(val)}
                             >
                                 <SelectTrigger>
                                     <SelectValue placeholder="Catégorie" />
@@ -161,8 +162,8 @@ export default function NouveauReglementDiversModal({
                         />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1 min-w-0">
                             <Label htmlFor="payeurNom">Nom du payeur / Client *</Label>
                             <Input
                                 id="payeurNom"
@@ -173,7 +174,7 @@ export default function NouveauReglementDiversModal({
                             />
                         </div>
 
-                        <div className="space-y-1">
+                        <div className="space-y-1 min-w-0">
                             <Label htmlFor="payeurTelephone">Téléphone</Label>
                             <Input
                                 id="payeurTelephone"
@@ -184,8 +185,8 @@ export default function NouveauReglementDiversModal({
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1 min-w-0">
                             <Label htmlFor="montant">Montant perçu (FCFA) *</Label>
                             <Input
                                 id="montant"
@@ -198,11 +199,11 @@ export default function NouveauReglementDiversModal({
                             />
                         </div>
 
-                        <div className="space-y-1">
+                        <div className="space-y-1 min-w-0">
                             <Label htmlFor="modePaiement">Mode de règlement *</Label>
                             <Select
                                 value={modePaiement}
-                                onValueChange={(val: any) => setModePaiement(val)}
+                                onValueChange={(val: 'especes' | 'cheque' | 'virement' | 'mobile_money_manuel') => setModePaiement(val)}
                             >
                                 <SelectTrigger>
                                     <SelectValue />
@@ -229,8 +230,8 @@ export default function NouveauReglementDiversModal({
                         </div>
                     )}
 
-                    <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1 min-w-0">
                             <Label htmlFor="caissier">Agent encaisseur</Label>
                             <Select
                                 value={personnelId}
@@ -249,7 +250,7 @@ export default function NouveauReglementDiversModal({
                             </Select>
                         </div>
 
-                        <div className="space-y-1">
+                        <div className="space-y-1 min-w-0">
                             <Label htmlFor="observations">Remarques éventuelles</Label>
                             <Input
                                 id="observations"
@@ -261,10 +262,10 @@ export default function NouveauReglementDiversModal({
                     </div>
 
                     <DialogFooter className="pt-2">
-                        <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
+                        <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={onClose} disabled={isSubmitting}>
                             Annuler
                         </Button>
-                        <Button type="submit" disabled={isSubmitting} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                        <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white">
                             {isSubmitting ? 'Enregistrement...' : 'Encaisser & Émettre le reçu'}
                         </Button>
                     </DialogFooter>

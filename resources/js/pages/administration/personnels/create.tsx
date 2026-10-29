@@ -209,6 +209,7 @@ export default function CreatePersonnel({
                     description: createAnother
                         ? `${data.nom} a été ajouté. Le formulaire est réinitialisé pour renseigner le membre suivant.`
                         : `${data.nom} a été ajouté au registre du personnel.`,
+                    position: 'top-right',
                     style: {
                         backgroundColor: '#10b981',
                         color: '#ffffff',
@@ -225,6 +226,7 @@ export default function CreatePersonnel({
             onError: () => {
                 toast.error('Erreur lors de l\'enregistrement', {
                     description: 'Veuillez vérifier les champs signalés en rouge.',
+                    position: 'top-right',
                 });
             },
         });
@@ -234,7 +236,8 @@ export default function CreatePersonnel({
         <>
             <Head title="Nouveau membre du personnel - Administration" />
 
-            <div className="flex h-full flex-1 flex-col gap-6 p-6 sm:p-8 max-w-7xl mx-auto w-full pb-20">
+            {/* Conteneur principal plein écran fluide et responsive sans contrainte artificielle de largeur */}
+            <div className="flex h-full flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8 w-full min-w-0 pb-20">
                 {/* EN-TÊTE DE PAGE AVEC NAVIGATION RETOUR ET BOUTONS D'ACTION */}
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b pb-5">
                     <div className="space-y-1">
@@ -248,23 +251,23 @@ export default function CreatePersonnel({
                             </Link>
                         </div>
                         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground flex items-center gap-2.5">
-                            <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-900/50">
+                            <div className="p-2 rounded-xl bg-teal-50 dark:bg-teal-950/50 text-teal-600 dark:text-teal-400 border border-teal-200 dark:border-teal-900/50 shrink-0">
                                 <Briefcase className="size-6" />
                             </div>
-                            Nouveau Membre du Personnel
+                            <span>Nouveau Membre du Personnel</span>
                         </h1>
                         <p className="text-xs sm:text-sm text-muted-foreground">
                             Renseignez la fiche administrative, contractuelle et pédagogique. Vous pouvez simultanément créer un compte d'accès à SYGES.
                         </p>
                     </div>
 
-                    {/* ACTIONS RAPIDES DU HAUT */}
-                    <div className="flex items-center gap-2 flex-wrap sm:justify-end">
+                    {/* ACTIONS RAPIDES DU HAUT RESPONSIVE */}
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
                         <Button
                             type="button"
                             variant="outline"
                             asChild
-                            className="cursor-pointer text-xs h-9"
+                            className="cursor-pointer text-xs h-9 w-full sm:w-auto"
                         >
                             <Link href="/administration/personnels">
                                 <X className="size-3.5 mr-1" />
@@ -277,9 +280,9 @@ export default function CreatePersonnel({
                             variant="outline"
                             disabled={processing}
                             onClick={() => submitForm(true)}
-                            className="cursor-pointer text-xs h-9 border-indigo-600/40 text-indigo-700 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 font-medium"
+                            className="cursor-pointer text-xs h-9 border-teal-500/50 text-teal-700 dark:text-teal-300 hover:bg-teal-50 dark:hover:bg-teal-950/50 font-medium w-full sm:w-auto"
                         >
-                            <PlusCircle className="size-4 mr-1.5 text-indigo-600 dark:text-indigo-400" />
+                            <PlusCircle className="size-4 mr-1.5 text-teal-600 dark:text-teal-400" />
                             Enregistrer & Nouveau
                         </Button>
 
@@ -287,7 +290,7 @@ export default function CreatePersonnel({
                             type="button"
                             disabled={processing}
                             onClick={() => submitForm(false)}
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer font-semibold shadow-sm text-xs h-9"
+                            className="bg-teal-600 hover:bg-teal-700 text-white cursor-pointer font-semibold shadow-sm text-xs h-9 w-full sm:w-auto"
                         >
                             <Check className="size-4 mr-1.5" />
                             {processing ? 'Enregistrement...' : 'Enregistrer & Retourner'}
@@ -972,8 +975,8 @@ export default function CreatePersonnel({
                         </div>
                     </div>
 
-                    {/* BARRE D'ACTIONS INFÉRIEURE */}
-                    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-6 border-t border-border/60">
+                    {/* BARRE D'ACTIONS INFÉRIEURE RESPONSIVE */}
+                    <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-6 border-t border-border/60">
                         <Button
                             type="button"
                             variant="outline"
@@ -986,22 +989,22 @@ export default function CreatePersonnel({
                             </Link>
                         </Button>
 
-                        <div className="flex items-center gap-2.5 w-full sm:w-auto">
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full sm:w-auto">
                             <Button
                                 type="button"
                                 variant="outline"
                                 disabled={processing}
                                 onClick={() => submitForm(true)}
-                                className="cursor-pointer text-xs h-9 flex-1 sm:flex-initial border-indigo-600/40 text-indigo-700 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 font-medium"
+                                className="cursor-pointer text-xs h-9 w-full sm:w-auto border-teal-500/50 text-teal-700 dark:text-teal-300 hover:bg-teal-50 dark:hover:bg-teal-950/50 font-medium"
                             >
-                                <PlusCircle className="size-4 mr-1.5 text-indigo-600 dark:text-indigo-400" />
+                                <PlusCircle className="size-4 mr-1.5 text-teal-600 dark:text-teal-400" />
                                 Enregistrer & Nouveau
                             </Button>
 
                             <Button
                                 type="submit"
                                 disabled={processing}
-                                className="bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer font-semibold shadow-sm text-xs h-9 flex-1 sm:flex-initial"
+                                className="bg-teal-600 hover:bg-teal-700 text-white cursor-pointer font-semibold shadow-sm text-xs h-9 w-full sm:w-auto"
                             >
                                 <Check className="size-4 mr-1.5" />
                                 {processing ? 'Enregistrement...' : 'Enregistrer & Retourner'}

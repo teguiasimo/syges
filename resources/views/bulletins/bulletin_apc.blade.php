@@ -40,14 +40,15 @@
             text-transform: uppercase;
         }
         .school-name {
-            font-size: 9pt;
+            font-size: 8pt;
             font-weight: bold;
             color: #1e3a8a;
             margin-top: 2px;
+            white-space: nowrap;
         }
         .logo-img {
-            max-width: 55px;
-            max-height: 55px;
+            max-width: 72px;
+            max-height: 72px;
             object-fit: contain;
         }
         .title-banner {
@@ -203,32 +204,53 @@
     {{-- En-tête Bilingue Officiel République du Cameroun --}}
     <table class="header-table">
         <tr>
-            <td style="width: 35%;">
+            <td style="width: 38%;">
                 <div class="country-title">RÉPUBLIQUE DU CAMEROUN</div>
                 <div class="motto">Paix – Travail – Patrie</div>
                 <div class="delegation">{{ $classe['etablissement']['delegation_regionale'] ?? 'DÉLÉGATION RÉGIONALE DU CENTRE' }}</div>
                 <div class="delegation">{{ $classe['etablissement']['delegation_departementale'] ?? 'DÉLÉGATION DÉPARTEMENTALE DU MFOUNDI' }}</div>
                 <div class="school-name">{{ $classe['etablissement']['nom'] }}</div>
                 <div style="font-size: 6.5pt; color: #475569;">BP: {{ $classe['etablissement']['boite_postale'] ?? '---' }} | Tél: {{ $classe['etablissement']['telephone'] ?? '---' }}</div>
+                <div class="school-year" style="font-size: 6.8pt; font-weight: bold; color: #1e3a8a; margin-top: 1px;">ANNÉE SCOLAIRE : {{ preg_replace('/^\s*Ann[ée]e\s+scolaire\s*[:\-]?\s*/ui', '', $annee_scolaire['nom']) }}</div>
             </td>
-            <td style="width: 30%;">
-                @if(!empty($classe['etablissement']['logo']))
-                    <img src="{{ public_path($classe['etablissement']['logo']) }}" class="logo-img" alt="Logo">
+            <td style="width: 24%; text-align: center; vertical-align: middle;">
+                @php
+                    $logoPath = !empty($classe['etablissement']['logo_url']) ? public_path(ltrim($classe['etablissement']['logo_url'], '/\\')) : null;
+                    if (!$logoPath || !file_exists($logoPath)) {
+                        $logoPath = !empty($classe['etablissement']['logo']) ? public_path(ltrim($classe['etablissement']['logo'], '/\\')) : null;
+                    }
+                    if (!$logoPath || !file_exists($logoPath)) {
+                        $logoPath = file_exists(public_path('logo.png')) ? public_path('logo.png') : (file_exists(public_path('logo.jpg')) ? public_path('logo.jpg') : null);
+                    }
+                    $logoSrc = null;
+                    if ($logoPath && file_exists($logoPath)) {
+                        $logoExt = strtolower(pathinfo($logoPath, PATHINFO_EXTENSION)) ?: 'png';
+                        $logoSrc = 'data:image/' . ($logoExt === 'jpg' ? 'jpeg' : $logoExt) . ';base64,' . base64_encode(file_get_contents($logoPath));
+                    }
+                @endphp
+                @if($logoSrc)
+                    <img src="{{ $logoSrc }}" class="logo-img" alt="Logo">
                 @else
                     <div style="font-size: 20pt; font-weight: bold; color: #1e3a8a; line-height: 1;">★</div>
                 @endif
-                <div style="font-size: 6.5pt; font-weight: bold; color: #64748b; margin-top: 2px;">
-                    MINESEC / MINEDUB<br>
-                    SYSTÈME SYGES (APC)
-                </div>
+                @if(!empty($classe['etablissement']['devise']))
+                    <div style="font-size: 6pt; font-weight: bold; font-style: italic; color: #1e3a8a; margin-top: 2px;">
+                        « {{ $classe['etablissement']['devise'] }} »
+                    </div>
+                @else
+                    <div style="font-size: 6pt; font-weight: bold; color: #64748b; margin-top: 2px;">
+                        MINESEC / MINEDUB
+                    </div>
+                @endif
             </td>
-            <td style="width: 35%;">
+            <td style="width: 38%;">
                 <div class="country-title">REPUBLIC OF CAMEROON</div>
                 <div class="motto">Peace – Work – Fatherland</div>
                 <div class="delegation">REGIONAL DELEGATION OF EDUCATION</div>
                 <div class="delegation">DIVISIONAL DELEGATION</div>
                 <div class="school-name">{{ $classe['etablissement']['nom_en'] ?: $classe['etablissement']['nom'] }}</div>
                 <div style="font-size: 6.5pt; color: #475569;">Email: {{ $classe['etablissement']['email'] ?? '---' }}</div>
+                <div class="school-year" style="font-size: 6.8pt; font-weight: bold; color: #1e3a8a; margin-top: 1px;">SCHOOL YEAR: {{ preg_replace('/^\s*Ann[ée]e\s+scolaire\s*[:\-]?\s*/ui', '', $annee_scolaire['nom']) }}</div>
             </td>
         </tr>
     </table>

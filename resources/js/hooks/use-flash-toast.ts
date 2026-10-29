@@ -13,7 +13,11 @@ export function useFlashToast(): void {
                 return;
             }
 
-            toast[data.type](data.message);
+            toast[data.type](data.message, {
+                id: 'global-flash-toast',
+                position: 'top-right',
+                className: data.type === 'success' ? 'bg-emerald-600 text-white border-emerald-700' : undefined,
+            });
         });
     }, []);
 }

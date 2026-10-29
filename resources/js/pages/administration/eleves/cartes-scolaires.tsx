@@ -377,9 +377,10 @@ export default function CartesScolairesIndex({
         <>
             <Head title="Générateur de Cartes Scolaires & Badges" />
 
-            <div className="flex h-full flex-1 flex-col gap-6 p-6 sm:p-8">
+            {/* Conteneur principal plein écran avec espacement adaptatif et débordement maîtrisé */}
+            <div className="flex h-full flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8 min-w-0 w-full">
                 {/* En-tête de page & navigation */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                     <div>
                         <div className="flex items-center gap-2 mb-1">
                             <Button variant="ghost" size="sm" asChild className="h-8 px-2 gap-1.5 text-xs text-muted-foreground hover:text-foreground">
@@ -390,11 +391,11 @@ export default function CartesScolairesIndex({
                             </Button>
                         </div>
                         <div className="flex items-center gap-2.5">
-                            <div className="p-2.5 rounded-xl bg-linear-to-br from-blue-600 to-indigo-700 text-white shadow-md shadow-blue-500/20">
+                            <div className="p-2.5 rounded-xl bg-linear-to-br from-teal-600 to-blue-700 text-white shadow-md shadow-teal-500/20 shrink-0">
                                 <CreditCard className="size-6" />
                             </div>
                             <div>
-                                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
+                                <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight text-foreground">
                                     Cartes d'Identité Scolaires
                                 </h1>
                                 <p className="text-xs sm:text-sm text-muted-foreground">
@@ -405,7 +406,7 @@ export default function CartesScolairesIndex({
                     </div>
 
                     {/* Actions d'impression globales */}
-                    <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center gap-2 flex-wrap w-full lg:w-auto">
                         <Button
                             variant="outline"
                             onClick={() => handlePrintPlanche('recto')}
@@ -418,7 +419,7 @@ export default function CartesScolairesIndex({
                         <Button
                             variant="outline"
                             onClick={() => handlePrintPlanche('verso')}
-                            className="gap-2 h-9 text-xs font-semibold border-indigo-300 text-indigo-700 dark:border-indigo-800 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/50"
+                            className="gap-2 h-9 text-xs font-semibold border-teal-300 text-teal-700 dark:border-teal-800 dark:text-teal-300 hover:bg-teal-50 dark:hover:bg-teal-950/50"
                         >
                             <QrCode className="size-4" />
                             <span>Imprimer Planche Verso (A4)</span>
@@ -426,7 +427,7 @@ export default function CartesScolairesIndex({
 
                         <Button
                             onClick={() => handlePrintPlanche('recto_verso')}
-                            className="gap-2 h-9 text-xs font-semibold bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-sm"
+                            className="gap-2 h-9 text-xs font-semibold bg-linear-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white shadow-sm"
                         >
                             <Sparkles className="size-4" />
                             <span>Recto & Verso Alternés</span>
@@ -483,17 +484,17 @@ export default function CartesScolairesIndex({
                         <CardContent className="p-4 flex items-center justify-between">
                             <div className="flex-1 mr-3">
                                 <p className="text-xs font-medium text-muted-foreground">Taux de Couverture</p>
-                                <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400 mt-1">
+                                <p className="text-2xl font-bold text-teal-600 dark:text-teal-400 mt-1 tabular-nums">
                                     {stats.taux_couverture_photo}%
                                 </p>
                                 <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
                                     <div
-                                        className="bg-indigo-600 h-full rounded-full transition-all duration-500"
+                                        className="bg-teal-600 h-full rounded-full transition-all duration-500"
                                         style={{ width: `${stats.taux_couverture_photo}%` }}
                                     />
                                 </div>
                             </div>
-                            <div className="p-3 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 shrink-0">
+                            <div className="p-3 rounded-xl bg-teal-50 dark:bg-teal-950/50 text-teal-600 dark:text-teal-400 shrink-0">
                                 <Camera className="size-5" />
                             </div>
                         </CardContent>
@@ -694,13 +695,14 @@ export default function CartesScolairesIndex({
                                 </div>
                             </CardHeader>
 
-                            <CardContent className="p-6 flex flex-col items-center justify-center">
-                                {/* Carte Interactive avec Dimensions Ratio Exact 85.6 x 54 mm */}
-                                <div
-                                    className="w-85 h-53.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 shadow-xl overflow-hidden relative cursor-pointer select-none transition-all duration-300 hover:scale-[1.02]"
-                                    onClick={() => setCardSide(cardSide === 'recto' ? 'verso' : 'recto')}
-                                    title="Cliquez sur la carte pour la retourner"
-                                >
+                            <CardContent className="p-3 sm:p-6 flex flex-col items-center justify-center min-w-0">
+                                {/* Carte Interactive avec Dimensions Ratio Exact 85.6 x 54 mm et conteneur adaptatif */}
+                                <div className="w-full overflow-x-auto flex justify-center py-2 min-w-0">
+                                    <div
+                                        className="w-[340px] max-w-full h-53.5 shrink-0 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 shadow-xl overflow-hidden relative cursor-pointer select-none transition-all duration-300 hover:scale-[1.02]"
+                                        onClick={() => setCardSide(cardSide === 'recto' ? 'verso' : 'recto')}
+                                        title="Cliquez sur la carte pour la retourner"
+                                    >
                                     {cardSide === 'recto' ? (
                                         /* RECTO */
                                         <div className="p-2.5 h-full flex flex-col justify-between text-[7px] leading-tight">
@@ -884,8 +886,9 @@ export default function CartesScolairesIndex({
                                         </div>
                                     )}
                                 </div>
+                            </div>
 
-                                <p className="text-[11px] text-muted-foreground mt-3 flex items-center gap-1">
+                            <p className="text-[11px] text-muted-foreground mt-3 flex items-center gap-1">
                                     <RotateCw className="size-3 text-blue-600" />
                                     Cliquez sur le badge pour basculer Recto / Verso
                                 </p>

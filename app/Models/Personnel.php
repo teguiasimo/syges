@@ -49,6 +49,26 @@ class Personnel extends Model
     use HasFactory, SoftDeletes, BelongsToEtablissement;
 
     /**
+     * Actions automatiques au cycle de vie du modèle Personnel.
+     * Garantit l'étanchéité multi-tenant en synchronisant automatiquement l'établissement
+     * du compte utilisateur SYGES (`users`) rattaché à cet employé.
+     *
+     * @return void
+     */
+    protected static function booted(): void
+    {
+        static::saved(function (Personnel $personnel) {
+            if ($personnel->user_id && $personnel->etablissement_id) {
+                $user = User::find($personnel->user_id);
+                if ($user && ! $user->isSuperAdmin() && (int) $user->etablissement_id !== (int) $personnel->etablissement_id) {
+                    $user->etablissement_id = (int) $personnel->etablissement_id;
+                    $user->save();
+                }
+            }
+        });
+    }
+
+    /**
      * Les attributs assignables en masse.
      *
      * @var array<int, string>

@@ -92,14 +92,16 @@ class FortifyServiceProvider extends ServiceProvider
 
     /**
      * Configure la logique d'authentification personnalisée :
-     * - Autorise la connexion par adresse email ou par login.
-     * - Vérifie que le compte n'est pas bloqué ou suspendu (is_active = true).
+     * - Autorise la connexion insensible à la casse par adresse email ou par login (ex: `superadmin`).
+     * - Vérifie que le compte n'est pas bloqué ou suspendu (`is_active = true`).
      */
     private function configureAuthentication(): void
     {
         Fortify::authenticateUsing(function (Request $request) {
-            $user = User::where('email', $request->email)
-                ->orWhere('login', $request->email)
+            $identifier = Str::lower(trim((string) $request->input('email', '')));
+
+            $user = User::whereRaw('LOWER(email) = ?', [$identifier])
+                ->orWhereRaw('LOWER(login) = ?', [$identifier])
                 ->first();
 
             if ($user && Hash::check($request->password, $user->password)) {

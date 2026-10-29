@@ -126,12 +126,12 @@ export function ImportCsvModal({
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!file) {
-            toast.error('Veuillez sélectionner un fichier CSV.');
+            toast.error('Veuillez sélectionner un fichier CSV.', { position: 'top-right' });
             return;
         }
 
         if (!targetClasseId) {
-            toast.error('Veuillez sélectionner la classe de destination.');
+            toast.error('Veuillez sélectionner la classe de destination.', { position: 'top-right' });
             return;
         }
 
@@ -146,33 +146,36 @@ export function ImportCsvModal({
         router.post('/administration/eleves/import-csv', formData, {
             onSuccess: () => {
                 setLoading(false);
-                toast.success('Importation réalisée avec succès !');
+                toast.success('Importation réalisée avec succès !', {
+                    position: 'top-right',
+                    className: 'bg-emerald-600 text-white border-emerald-700',
+                });
                 onOpenChange(false);
                 setFile(null);
             },
             onError: (errs) => {
                 setLoading(false);
-                toast.error(errs.fichier || 'Erreur lors de l\'importation.');
+                toast.error(errs.fichier || 'Erreur lors de l\'importation.', { position: 'top-right' });
             },
         });
     };
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-xl">
+            <DialogContent className="w-[95vw] sm:max-w-xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
                 <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2 text-xl">
-                        <FileSpreadsheet className="size-5 text-emerald-600" />
-                        Importer une Liste d'Élèves (CSV / Excel)
+                    <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">
+                        <FileSpreadsheet className="size-5 text-emerald-600 shrink-0" />
+                        <span>Importer une Liste d'Élèves (CSV / Excel)</span>
                     </DialogTitle>
-                    <DialogDescription>
+                    <DialogDescription className="text-xs sm:text-sm">
                         Importez rapidement les élèves d'une classe au format standard SAGEES (compatible avec le fichier modèle <code>ELEVE.csv</code>).
                     </DialogDescription>
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit} className="space-y-4 pt-2">
-                    {/* Notice format */}
-                    <div className="p-3 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/60 dark:bg-emerald-950/30 text-xs text-emerald-800 dark:text-emerald-300 flex items-start justify-between gap-3">
+                    {/* Notice format responsive */}
+                    <div className="p-3 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/60 dark:bg-emerald-950/30 text-xs text-emerald-800 dark:text-emerald-300 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                         <div className="flex items-start gap-2">
                             <AlertCircle className="size-4 shrink-0 mt-0.5" />
                             <div>
@@ -187,7 +190,7 @@ export function ImportCsvModal({
                             variant="outline"
                             size="sm"
                             onClick={downloadTemplate}
-                            className="shrink-0 gap-1.5 text-xs h-8 border-emerald-300 dark:border-emerald-700 hover:bg-emerald-100 dark:hover:bg-emerald-900/50"
+                            className="w-full sm:w-auto shrink-0 gap-1.5 text-xs h-8 border-emerald-300 dark:border-emerald-700 hover:bg-emerald-100 dark:hover:bg-emerald-900/50"
                         >
                             <Download className="size-3.5" />
                             Modèle CSV
@@ -268,11 +271,12 @@ export function ImportCsvModal({
                         </label>
                     </div>
 
-                    <DialogFooter className="pt-3 border-t border-border">
-                        <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+                    {/* Pied de modal responsive avec boutons étirés sur smartphone */}
+                    <DialogFooter className="pt-3 border-t border-border flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
+                        <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} className="w-full sm:w-auto">
                             Annuler
                         </Button>
-                        <Button type="submit" disabled={loading || !file || !targetClasseId} className="gap-2">
+                        <Button type="submit" disabled={loading || !file || !targetClasseId} className="gap-2 w-full sm:w-auto">
                             {loading ? 'Importation en cours...' : 'Lancer l\'Importation'}
                         </Button>
                     </DialogFooter>

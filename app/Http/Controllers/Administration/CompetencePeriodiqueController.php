@@ -4,13 +4,15 @@ namespace App\Http\Controllers\Administration;
 
 use App\Http\Controllers\Controller;
 use App\Models\AnneeScolaire;
+use App\Models\Attribution;
 use App\Models\Classe;
 use App\Models\CompetencePeriodique;
 use App\Models\CoteConfiguration;
 use App\Models\Etablissement;
-use App\Models\Evaluation;
 use App\Models\Matiere;
+use App\Models\MatiereNiveau;
 use App\Models\Periode;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
@@ -53,6 +55,7 @@ class CompetencePeriodiqueController extends Controller implements HasMiddleware
      */
     public function index(Request $request): Response
     {
+        /** @var User|null $user */
         $user = Auth::user();
         $isSuperAdmin = $user ? ($user->hasRole('super-admin') || $user->email === 'admin@gmail.com') : false;
 
@@ -129,11 +132,43 @@ class CompetencePeriodiqueController extends Controller implements HasMiddleware
             ->orderByDesc('borne_minimale')
             ->get();
 
+        // Cartographie des matières enseignées par classe (attributions actives + coefficients de niveau)
+        $classesEtab = Classe::where('is_active', true)
+            ->when($selectedEtabId, fn ($q) => $q->where('etablissement_id', $selectedEtabId))
+            ->get();
+
+        $attributionsParClasse = Attribution::whereIn('classe_id', $classesEtab->pluck('id'))
+            ->where('annee_scolaire_id', $selectedAnneeId)
+            ->where('is_active', true)
+            ->get()
+            ->groupBy('classe_id');
+
+        $matieresNiveauParNiveau = MatiereNiveau::whereIn('niveau_id', $classesEtab->pluck('niveau_id')->unique())
+            ->get()
+            ->groupBy('niveau_id');
+
+        $classeMatieresMap = [];
+        foreach ($classesEtab as $cls) {
+            $fromAttr = isset($attributionsParClasse[$cls->id])
+                ? $attributionsParClasse[$cls->id]->pluck('matiere_id')->toArray()
+                : [];
+
+            $fromNiveau = isset($matieresNiveauParNiveau[$cls->niveau_id])
+                ? $matieresNiveauParNiveau[$cls->niveau_id]
+                    ->filter(fn ($mn) => empty($mn->serie) || $mn->serie === 'Toutes' || $mn->serie === $cls->serie)
+                    ->pluck('matiere_id')
+                    ->toArray()
+                : [];
+
+            $classeMatieresMap[$cls->id] = array_values(array_unique(array_merge($fromAttr, $fromNiveau)));
+        }
+
         return Inertia::render('administration/pedagogie/competences/index', [
             'competences' => $competences,
             'cotes' => $cotes,
             'matieres' => $matieres,
             'periodes' => $periodes,
+            'classeMatieresMap' => $classeMatieresMap,
             'etablissements' => $etablissements,
             'selectedEtabId' => $selectedEtabId,
             'selectedAnneeId' => $selectedAnneeId,

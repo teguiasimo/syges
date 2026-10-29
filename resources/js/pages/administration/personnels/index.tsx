@@ -207,11 +207,13 @@ export default function PersonnelsIndex({
                 onSuccess: () => {
                     toast.success('Statut mis à jour !', {
                         description: `Le statut de ${personnelToToggleStatus.nom} a été basculé sur "${newStatusValue}".`,
+                        position: 'top-right',
+                        className: 'bg-emerald-600 text-white border-emerald-700',
                     });
                     setPersonnelToToggleStatus(null);
                 },
                 onError: () => {
-                    toast.error('Erreur lors du changement de statut');
+                    toast.error('Erreur lors du changement de statut', { position: 'top-right' });
                 },
             }
         );
@@ -227,11 +229,13 @@ export default function PersonnelsIndex({
             onSuccess: () => {
                 toast.success('Fiche archivée avec succès !', {
                     description: `Le membre du personnel ${personnelToDelete.nom} a été archivé.`,
+                    position: 'top-right',
+                    className: 'bg-emerald-600 text-white border-emerald-700',
                 });
                 setPersonnelToDelete(null);
             },
             onError: () => {
-                toast.error('Impossible d\'archiver ce personnel');
+                toast.error('Impossible d\'archiver ce personnel', { position: 'top-right' });
             },
         });
     };
@@ -246,11 +250,13 @@ export default function PersonnelsIndex({
             onSuccess: () => {
                 toast.success('Département supprimé avec succès !', {
                     description: `Le département ${departementToDelete.nom} a été retiré.`,
+                    position: 'top-right',
+                    className: 'bg-emerald-600 text-white border-emerald-700',
                 });
                 setDepartementToDelete(null);
             },
             onError: () => {
-                toast.error('Erreur lors de la suppression du département');
+                toast.error('Impossible de supprimer ce département', { position: 'top-right' });
             },
         });
     };
@@ -385,8 +391,8 @@ export default function PersonnelsIndex({
                     const p = row.original;
                     if (p.user) {
                         return (
-                            <Badge className="bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/50 dark:text-purple-300 dark:border-purple-800 text-[11px] font-medium inline-flex items-center gap-1">
-                                <KeyRound className="size-3 text-purple-600 dark:text-purple-400" />
+                            <Badge className="bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/50 dark:text-teal-300 dark:border-teal-800 text-[11px] font-medium inline-flex items-center gap-1">
+                                <KeyRound className="size-3 text-teal-600 dark:text-teal-400" />
                                 {p.user.login}
                             </Badge>
                         );
@@ -602,12 +608,13 @@ export default function PersonnelsIndex({
         <>
             <Head title="Personnel & Ressources Humaines - Administration" />
 
-            <div className="flex h-full flex-1 flex-col gap-6 p-6 sm:p-8 max-w-7xl mx-auto w-full">
-                {/* EN-TÊTE PRINCIPAL */}
+            {/* Conteneur principal plein écran fluide et responsive sans contrainte artificielle de largeur */}
+            <div className="flex h-full flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8 w-full min-w-0">
+                {/* EN-TÊTE PRINCIPAL RESPONSIVE */}
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div>
                         <div className="flex items-center gap-3">
-                            <div className="p-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-900/50">
+                            <div className="p-2.5 rounded-xl bg-teal-50 dark:bg-teal-950/50 text-teal-600 dark:text-teal-400 border border-teal-200 dark:border-teal-900/50 shrink-0">
                                 <Briefcase className="size-7" />
                             </div>
                             <div>
@@ -621,7 +628,7 @@ export default function PersonnelsIndex({
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2.5 flex-wrap">
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 flex-wrap">
                         {/* Impression officielle de la liste du personnel */}
                         <Button
                             type="button"
@@ -632,7 +639,7 @@ export default function PersonnelsIndex({
                                     : '/administration/documents/liste-personnel';
                                 window.open(url, '_blank');
                             }}
-                            className="cursor-pointer font-medium text-xs sm:text-sm border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800"
+                            className="cursor-pointer font-medium text-xs sm:text-sm border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 w-full sm:w-auto"
                             title="Imprimer la liste officielle du personnel et corps enseignant (PDF)"
                         >
                             <Printer className="size-4 mr-1.5 text-slate-600 dark:text-slate-400" />
@@ -647,9 +654,9 @@ export default function PersonnelsIndex({
                                     setSelectedDepartementForEdit(null);
                                     setIsDepartementModalOpen(true);
                                 }}
-                                className="cursor-pointer font-medium text-xs sm:text-sm border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800"
+                                className="cursor-pointer font-medium text-xs sm:text-sm border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 w-full sm:w-auto"
                             >
-                                <BookOpen className="size-4 mr-1.5 text-blue-600 dark:text-blue-400" />
+                                <BookOpen className="size-4 mr-1.5 text-sky-600 dark:text-sky-400" />
                                 Nouveau département
                             </Button>
                         )}
@@ -657,7 +664,7 @@ export default function PersonnelsIndex({
                         {can.manage && (
                             <Button
                                 asChild
-                                className="bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer font-semibold shadow-sm text-xs sm:text-sm"
+                                className="bg-teal-600 hover:bg-teal-700 text-white cursor-pointer font-semibold shadow-sm text-xs sm:text-sm w-full sm:w-auto"
                             >
                                 <Link href="/administration/personnels/create">
                                     <UserPlus className="size-4 mr-1.5" />
@@ -668,8 +675,8 @@ export default function PersonnelsIndex({
                     </div>
                 </div>
 
-                {/* KPI SYNTHÈSE STATISTIQUE - Palette équilibrée et diversifiée */}
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                {/* KPI SYNTHÈSE STATISTIQUE - Grille responsive fluide */}
+                <div className="grid grid-cols-1 min-[420px]:grid-cols-2 lg:grid-cols-5 gap-3">
                     <div className="p-4 rounded-xl bg-card border shadow-xs space-y-1">
                         <span className="text-[11px] text-muted-foreground uppercase font-semibold tracking-wider">
                             Effectif Total
@@ -695,8 +702,8 @@ export default function PersonnelsIndex({
                             Enseignants
                         </span>
                         <div className="flex items-baseline justify-between">
-                            <span className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{stats.enseignants}</span>
-                            <GraduationCap className="size-4 text-indigo-600 dark:text-indigo-400" />
+                            <span className="text-2xl font-bold text-teal-600 dark:text-teal-400">{stats.enseignants}</span>
+                            <GraduationCap className="size-4 text-teal-600 dark:text-teal-400" />
                         </div>
                     </div>
 
@@ -710,25 +717,25 @@ export default function PersonnelsIndex({
                         </div>
                     </div>
 
-                    <div className="p-4 rounded-xl bg-card border shadow-xs space-y-1 col-span-2 sm:col-span-1">
+                    <div className="p-4 rounded-xl bg-card border shadow-xs space-y-1 min-[420px]:col-span-2 lg:col-span-1">
                         <span className="text-[11px] text-muted-foreground uppercase font-semibold tracking-wider">
                             Comptes SYGES
                         </span>
                         <div className="flex items-baseline justify-between">
-                            <span className="text-2xl font-bold text-purple-600 dark:text-purple-400">{stats.avecCompte}</span>
-                            <KeyRound className="size-4 text-purple-600 dark:text-purple-400" />
+                            <span className="text-2xl font-bold text-cyan-600 dark:text-cyan-400">{stats.avecCompte}</span>
+                            <KeyRound className="size-4 text-cyan-600 dark:text-cyan-400" />
                         </div>
                     </div>
                 </div>
 
-                {/* ONGLET DE NAVIGATION */}
-                <div className="flex items-center gap-2 border-b">
+                {/* ONGLET DE NAVIGATION RESPONSIVE AVEC SCROLL HORIZONTAL */}
+                <div className="flex items-center gap-2 border-b overflow-x-auto pb-1 shrink-0">
                     <button
                         type="button"
                         onClick={() => setActiveTab('personnel')}
-                        className={`pb-3 px-4 font-semibold text-sm transition-colors border-b-2 cursor-pointer flex items-center gap-2 ${
+                        className={`pb-3 px-4 font-semibold text-sm transition-colors border-b-2 cursor-pointer flex items-center gap-2 whitespace-nowrap shrink-0 ${
                             activeTab === 'personnel'
-                                ? 'border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400'
+                                ? 'border-teal-600 text-teal-600 dark:border-teal-400 dark:text-teal-400'
                                 : 'border-transparent text-muted-foreground hover:text-foreground'
                         }`}
                     >
@@ -739,9 +746,9 @@ export default function PersonnelsIndex({
                     <button
                         type="button"
                         onClick={() => setActiveTab('departements')}
-                        className={`pb-3 px-4 font-semibold text-sm transition-colors border-b-2 cursor-pointer flex items-center gap-2 ${
+                        className={`pb-3 px-4 font-semibold text-sm transition-colors border-b-2 cursor-pointer flex items-center gap-2 whitespace-nowrap shrink-0 ${
                             activeTab === 'departements'
-                                ? 'border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400'
+                                ? 'border-teal-600 text-teal-600 dark:border-teal-400 dark:text-teal-400'
                                 : 'border-transparent text-muted-foreground hover:text-foreground'
                         }`}
                     >
@@ -961,19 +968,20 @@ export default function PersonnelsIndex({
                         </Select>
                     </div>
 
-                    <DialogFooter className="gap-2">
+                    {/* Footer responsive pour changement rapide de statut */}
+                    <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
                         <Button
                             type="button"
                             variant="outline"
                             onClick={() => setPersonnelToToggleStatus(null)}
-                            className="cursor-pointer"
+                            className="cursor-pointer w-full sm:w-auto"
                         >
                             Annuler
                         </Button>
                         <Button
                             type="button"
                             onClick={handleConfirmStatusChange}
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer font-semibold"
+                            className="bg-teal-600 hover:bg-teal-700 text-white cursor-pointer font-semibold w-full sm:w-auto"
                         >
                             Confirmer la modification
                         </Button>
@@ -986,7 +994,7 @@ export default function PersonnelsIndex({
                 open={!!personnelToDelete}
                 onOpenChange={(open) => !open && setPersonnelToDelete(null)}
             >
-                <DialogContent className="max-w-md p-6">
+                <DialogContent className="w-[95vw] sm:max-w-md p-4 sm:p-6">
                     <DialogHeader>
                         <div className="size-10 rounded-full bg-rose-100 dark:bg-rose-950/50 text-rose-600 flex items-center justify-center mb-2">
                             <AlertTriangle className="size-5" />
@@ -1005,12 +1013,12 @@ export default function PersonnelsIndex({
                         </DialogDescription>
                     </DialogHeader>
 
-                    <DialogFooter className="gap-2 mt-4">
+                    <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 mt-4 sm:justify-end">
                         <Button
                             type="button"
                             variant="outline"
                             onClick={() => setPersonnelToDelete(null)}
-                            className="cursor-pointer"
+                            className="cursor-pointer w-full sm:w-auto"
                         >
                             Annuler
                         </Button>
@@ -1018,7 +1026,7 @@ export default function PersonnelsIndex({
                             type="button"
                             variant="destructive"
                             onClick={handleConfirmDeletePersonnel}
-                            className="cursor-pointer font-semibold"
+                            className="cursor-pointer font-semibold w-full sm:w-auto"
                         >
                             Confirmer l'archivage
                         </Button>
@@ -1031,7 +1039,7 @@ export default function PersonnelsIndex({
                 open={!!departementToDelete}
                 onOpenChange={(open) => !open && setDepartementToDelete(null)}
             >
-                <DialogContent className="max-w-md p-6">
+                <DialogContent className="w-[95vw] sm:max-w-md p-4 sm:p-6">
                     <DialogHeader>
                         <div className="size-10 rounded-full bg-rose-100 dark:bg-rose-950/50 text-rose-600 flex items-center justify-center mb-2">
                             <AlertTriangle className="size-5" />
@@ -1047,12 +1055,12 @@ export default function PersonnelsIndex({
                         </DialogDescription>
                     </DialogHeader>
 
-                    <DialogFooter className="gap-2 mt-4">
+                    <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 mt-4 sm:justify-end">
                         <Button
                             type="button"
                             variant="outline"
                             onClick={() => setDepartementToDelete(null)}
-                            className="cursor-pointer"
+                            className="cursor-pointer w-full sm:w-auto"
                         >
                             Annuler
                         </Button>
@@ -1060,7 +1068,7 @@ export default function PersonnelsIndex({
                             type="button"
                             variant="destructive"
                             onClick={handleConfirmDeleteDepartement}
-                            className="cursor-pointer font-semibold"
+                            className="cursor-pointer font-semibold w-full sm:w-auto"
                         >
                             Supprimer le département
                         </Button>

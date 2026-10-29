@@ -15,6 +15,7 @@ use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -301,10 +302,12 @@ class PersonnelController extends Controller implements HasMiddleware
 
                 $newUser = User::create([
                     'name' => $fullName,
-                    'login' => $login,
-                    'email' => $userEmail,
+                    'login' => Str::lower($login),
+                    'email' => Str::lower($userEmail),
                     'password' => Hash::make($password),
+                    'etablissement_id' => (int) $validated['etablissement_id'],
                     'is_active' => true,
+                    'email_verified_at' => now(),
                 ]);
 
                 // Attribution du rôle Spatie
@@ -314,6 +317,13 @@ class PersonnelController extends Controller implements HasMiddleware
                 }
 
                 $userId = $newUser->id;
+            } elseif (! empty($userId)) {
+                // Synchronisation de sécurité : si un compte utilisateur existant est associé, on synchronise son campus
+                $linkedUser = User::find($userId);
+                if ($linkedUser && ! $linkedUser->isSuperAdmin() && (int) $linkedUser->etablissement_id !== (int) $validated['etablissement_id']) {
+                    $linkedUser->etablissement_id = (int) $validated['etablissement_id'];
+                    $linkedUser->save();
+                }
             }
 
             // 3. Déduction de is_enseignant si fonction = Enseignant
@@ -406,6 +416,15 @@ class PersonnelController extends Controller implements HasMiddleware
         ]);
 
         $personnel->update($validated);
+
+        // Synchronisation de sécurité : si le personnel est lié à un compte utilisateur, alignement immédiat de l'établissement
+        if ($personnel->user_id && $personnel->etablissement_id) {
+            $linkedUser = User::find($personnel->user_id);
+            if ($linkedUser && ! $linkedUser->isSuperAdmin() && (int) $linkedUser->etablissement_id !== (int) $personnel->etablissement_id) {
+                $linkedUser->etablissement_id = (int) $personnel->etablissement_id;
+                $linkedUser->save();
+            }
+        }
 
         return back()->with('success', 'Fiche du personnel mise à jour avec succès.');
     }

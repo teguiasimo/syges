@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useConfirmDelete } from '@/components/confirm-delete-dialog';
+import { formatDate } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -169,7 +170,7 @@ export default function DisciplineIndex({
             cell: ({ row }) => (
                 <div>
                     <span className="font-semibold text-xs text-slate-800 dark:text-slate-200">
-                        {row.original.date_evenement}
+                        {formatDate(row.original.date_evenement)}
                     </span>
                     <div className="text-[10px] text-slate-500">
                         Signalé par {row.original.signalant?.name ?? 'Vie Scolaire'}
@@ -295,7 +296,7 @@ export default function DisciplineIndex({
             accessorKey: 'date_decision',
             header: 'Date',
             cell: ({ row }) => (
-                <span className="font-semibold text-xs">{row.original.date_decision}</span>
+                <span className="font-semibold text-xs">{formatDate(row.original.date_decision)}</span>
             ),
         },
         {
@@ -565,16 +566,17 @@ export default function DisciplineIndex({
         <>
             <Head title="Discipline & Vie Scolaire - SYGES" />
 
-            <div className="space-y-6">
+            {/* Conteneur principal plein écran fluide et responsive sans contrainte artificielle de largeur */}
+            <div className="flex h-full flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8 w-full min-w-0">
                 {/* En-tête de la page */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
                     <div>
                         <div className="flex items-center gap-2">
-                            <div className="p-2 bg-slate-900 dark:bg-slate-100 rounded-lg text-white dark:text-slate-900">
+                            <div className="p-2 bg-slate-900 dark:bg-slate-100 rounded-lg text-white dark:text-slate-900 shrink-0">
                                 <ShieldAlert className="w-5 h-5 text-rose-500" />
                             </div>
                             <div>
-                                <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">
+                                <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100">
                                     Absences, Retards & Discipline
                                 </h1>
                                 <p className="text-xs text-slate-500">
@@ -585,17 +587,17 @@ export default function DisciplineIndex({
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
                         <Button
                             onClick={() => setIsAssiduiteModalOpen(true)}
-                            className="bg-slate-900 hover:bg-slate-800 text-white flex items-center gap-1.5 shadow-sm text-xs h-9"
+                            className="bg-slate-900 hover:bg-slate-800 text-white flex items-center justify-center gap-1.5 shadow-sm text-xs h-9 w-full sm:w-auto"
                         >
                             <Plus className="w-4 h-4" />
                             Signaler Absence / Retard
                         </Button>
                         <Button
                             onClick={() => setIsSanctionModalOpen(true)}
-                            className="bg-rose-600 hover:bg-rose-700 text-white flex items-center gap-1.5 shadow-sm text-xs h-9"
+                            className="bg-rose-600 hover:bg-rose-700 text-white flex items-center justify-center gap-1.5 shadow-sm text-xs h-9 w-full sm:w-auto"
                         >
                             <AlertOctagon className="w-4 h-4" />
                             Prononcer une Sanction
@@ -604,7 +606,7 @@ export default function DisciplineIndex({
                 </div>
 
                 {/* Cartes KPIs Discipline */}
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                <div className="grid grid-cols-1 min-[420px]:grid-cols-2 lg:grid-cols-5 gap-3">
                     <Card className="border-slate-200 dark:border-slate-800">
                         <CardContent className="p-3">
                             <div className="flex items-center justify-between">
@@ -657,7 +659,7 @@ export default function DisciplineIndex({
                         </CardContent>
                     </Card>
 
-                    <Card className="border-slate-200 dark:border-slate-800 bg-amber-50/30 dark:bg-amber-950/20">
+                    <Card className="border-slate-200 dark:border-slate-800 bg-amber-50/30 dark:bg-amber-950/20 min-[420px]:col-span-2 lg:col-span-1">
                         <CardContent className="p-3">
                             <div className="flex items-center justify-between">
                                 <span className="text-xs font-semibold text-amber-700">Déchéance Honneur</span>
@@ -674,11 +676,11 @@ export default function DisciplineIndex({
                 {/* Onglets et Filtres */}
                 <div className="space-y-4">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-2">
-                        {/* Onglets */}
-                        <div className="flex items-center gap-2">
+                        {/* Onglets avec scroll horizontal fluide */}
+                        <div className="flex items-center gap-2 overflow-x-auto pb-1 shrink-0">
                             <button
                                 onClick={() => setActiveTab('assiduites')}
-                                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors flex items-center gap-1.5 ${
+                                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
                                     activeTab === 'assiduites'
                                         ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
                                         : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
@@ -689,7 +691,7 @@ export default function DisciplineIndex({
                             </button>
                             <button
                                 onClick={() => setActiveTab('sanctions')}
-                                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors flex items-center gap-1.5 ${
+                                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
                                     activeTab === 'sanctions'
                                         ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
                                         : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
@@ -700,7 +702,7 @@ export default function DisciplineIndex({
                             </button>
                             <button
                                 onClick={() => setActiveTab('synthese')}
-                                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors flex items-center gap-1.5 ${
+                                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
                                     activeTab === 'synthese'
                                         ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
                                         : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
@@ -713,7 +715,7 @@ export default function DisciplineIndex({
 
                         {/* Filtre de Période (Trimestre) */}
                         <div className="flex items-center gap-2">
-                            <span className="text-xs text-slate-500 font-medium">Trimestre :</span>
+                            <span className="text-xs text-slate-500 font-medium whitespace-nowrap">Trimestre :</span>
                             <Select
                                 value={String(currentPeriode?.id ?? '')}
                                 onValueChange={(val) => {
@@ -724,7 +726,7 @@ export default function DisciplineIndex({
                                     );
                                 }}
                             >
-                                <SelectTrigger className="h-8 text-xs w-44">
+                                <SelectTrigger className="h-8 text-xs w-full sm:w-44">
                                     <SelectValue placeholder="Sélectionner..." />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -739,7 +741,7 @@ export default function DisciplineIndex({
                     </div>
 
                     {/* Barre d'outils de filtres communs */}
-                    <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3">
                         <div className="relative flex-1 min-w-50">
                             <Search className="w-4 h-4 absolute left-2.5 top-2.5 text-slate-400" />
                             <Input
@@ -750,7 +752,7 @@ export default function DisciplineIndex({
                             />
                         </div>
 
-                        <div className="w-44">
+                        <div className="w-full sm:w-44">
                             <Select value={selectedClasse} onValueChange={setSelectedClasse}>
                                 <SelectTrigger className="h-9 text-xs">
                                     <SelectValue placeholder="Toutes les classes" />
@@ -768,7 +770,7 @@ export default function DisciplineIndex({
 
                         {activeTab === 'assiduites' && (
                             <>
-                                <div className="w-36">
+                                <div className="w-full sm:w-36">
                                     <Select value={selectedType} onValueChange={setSelectedType}>
                                         <SelectTrigger className="h-9 text-xs">
                                             <SelectValue />
@@ -781,7 +783,7 @@ export default function DisciplineIndex({
                                     </Select>
                                 </div>
 
-                                <div className="w-40">
+                                <div className="w-full sm:w-40">
                                     <Select value={selectedJustif} onValueChange={setSelectedJustif}>
                                         <SelectTrigger className="h-9 text-xs">
                                             <SelectValue />
@@ -799,7 +801,7 @@ export default function DisciplineIndex({
 
                     {/* Affichage des Tableaux via TanStack Table */}
                     {activeTab === 'assiduites' && (
-                        <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-4">
+                        <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-2 sm:p-4 overflow-x-auto">
                             <DataTable
                                 columns={assiduiteColumns}
                                 data={filteredAssiduites}
@@ -808,7 +810,7 @@ export default function DisciplineIndex({
                     )}
 
                     {activeTab === 'sanctions' && (
-                        <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-4">
+                        <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-2 sm:p-4 overflow-x-auto">
                             <DataTable
                                 columns={sanctionsColumns}
                                 data={filteredSanctions}
@@ -817,9 +819,9 @@ export default function DisciplineIndex({
                     )}
 
                     {activeTab === 'synthese' && (
-                        <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-4">
+                        <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-2 sm:p-4 overflow-x-auto">
                             <div className="mb-3 text-xs text-slate-500 flex items-center gap-1.5">
-                                <Award className="w-4 h-4 text-amber-600" />
+                                <Award className="w-4 h-4 text-amber-600 shrink-0" />
                                 <span>
                                     Conformément à la règle 12.4 de Gesco V1.1 : tout élève ayant accumulé <strong>≥ 15 heures d'absences non justifiées</strong> ou ayant fait l'objet d'une exclusion est automatiquement déchu de son éligibilité au Tableau d'Honneur et aux mentions honorifiques sur son bulletin de notes.
                                 </span>

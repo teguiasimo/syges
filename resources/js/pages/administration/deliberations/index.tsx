@@ -191,11 +191,16 @@ export default function DeliberationsIndex({
             {
                 preserveScroll: true,
                 onSuccess: () => {
-                    toast.success('Délibérations enregistrées avec succès.');
+                    toast.success('Délibérations enregistrées avec succès.', {
+                        position: 'top-right',
+                        className: 'bg-emerald-600 text-white border-emerald-700',
+                    });
                     setIsSaving(false);
                 },
                 onError: () => {
-                    toast.error('Erreur lors de la sauvegarde des délibérations.');
+                    toast.error('Erreur lors de la sauvegarde des délibérations.', {
+                        position: 'top-right',
+                    });
                     setIsSaving(false);
                 },
             }
@@ -223,12 +228,17 @@ export default function DeliberationsIndex({
             {
                 preserveScroll: true,
                 onSuccess: () => {
-                    toast.success('Promotions de fin d\'année validées et scellées.');
+                    toast.success('Promotions de fin d\'année validées et scellées.', {
+                        position: 'top-right',
+                        className: 'bg-emerald-600 text-white border-emerald-700',
+                    });
                     setIsValidating(false);
                     setIsValidationModalOpen(false);
                 },
                 onError: () => {
-                    toast.error('Erreur lors de la validation des promotions.');
+                    toast.error('Erreur lors de la validation des promotions.', {
+                        position: 'top-right',
+                    });
                     setIsValidating(false);
                 },
             }
@@ -444,15 +454,16 @@ export default function DeliberationsIndex({
         <>
             <Head title="Délibérations du Conseil de Classe" />
 
-            <div className="flex flex-1 flex-col gap-6 p-4 md:p-6">
+            {/* Conteneur principal responsive sans débordement horizontal */}
+            <div className="flex flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8 min-w-0 w-full">
                 {/* En-tête de page */}
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                        <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2.5">
-                            <Award className="size-6 text-amber-600" />
-                            Délibérations & Conseil de Classe
+                <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                    <div className="min-w-0">
+                        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground flex items-start sm:items-center gap-2.5">
+                            <Award className="size-6 shrink-0 text-amber-600 mt-0.5 sm:mt-0" />
+                            <span>Délibérations & Conseil de Classe</span>
                         </h1>
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-sm text-muted-foreground mt-0.5">
                             Attribution des mentions, procès-verbal officiel et validation humaine des passages de classe (Gesco 15.2 & 2.6)
                         </p>
                     </div>
@@ -507,7 +518,7 @@ export default function DeliberationsIndex({
                 {/* Filtres de sélection : Établissement, Classe, Session, Trimestre */}
                 <Card>
                     <CardContent className="p-4">
-                        <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4 items-end">
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 items-end">
                             {/* Établissement */}
                             {etablissements.length > 1 && (
                                 <div className="space-y-1.5">
@@ -596,40 +607,40 @@ export default function DeliberationsIndex({
 
                 {/* Synthèse Chiffrée de la Classe */}
                 {deliberationData && (
-                    <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-5">
-                        <Card className="p-3.5">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
+                        <Card className="p-3.5 min-w-0">
                             <span className="text-xs font-medium text-muted-foreground">Effectif Délibéré</span>
-                            <div className="text-xl font-bold text-foreground mt-0.5">{totalEleves} élèves</div>
-                            <span className="text-[11px] text-muted-foreground">
+                            <div className="text-xl font-bold text-foreground mt-0.5 tabular-nums">{totalEleves} élèves</div>
+                            <span className="text-[11px] text-muted-foreground truncate block">
                                 Prof. Principal : {deliberationData.classe?.professeur_principal ?? 'Non assigné'}
                             </span>
                         </Card>
 
-                        <Card className="p-3.5">
+                        <Card className="p-3.5 min-w-0">
                             <span className="text-xs font-medium text-muted-foreground">Admis (&ge;10/20)</span>
-                            <div className="text-xl font-bold text-emerald-600 mt-0.5">{totalAdmis} élèves</div>
+                            <div className="text-xl font-bold text-emerald-600 mt-0.5 tabular-nums">{totalAdmis} élèves</div>
                             <span className="text-[11px] text-muted-foreground">{tauxReussite}% de réussite</span>
                         </Card>
 
-                        <Card className="p-3.5">
+                        <Card className="p-3.5 min-w-0">
                             <span className="text-xs font-medium text-muted-foreground">Moyenne de Classe</span>
-                            <div className="text-xl font-bold text-foreground mt-0.5">
+                            <div className="text-xl font-bold text-foreground mt-0.5 tabular-nums">
                                 {formatMoyenne(stats.moyenne_classe)} / 20
                             </div>
                             <span className="text-[11px] text-muted-foreground">Moyenne générale calculée</span>
                         </Card>
 
-                        <Card className="p-3.5">
+                        <Card className="p-3.5 min-w-0">
                             <span className="text-xs font-medium text-muted-foreground">Plus Forte Moyenne</span>
-                            <div className="text-xl font-bold text-blue-600 mt-0.5">
+                            <div className="text-xl font-bold text-blue-600 mt-0.5 tabular-nums">
                                 {formatMoyenne(stats.moyenne_max)} / 20
                             </div>
                             <span className="text-[11px] text-muted-foreground">Major de promotion</span>
                         </Card>
 
-                        <Card className="p-3.5">
+                        <Card className="p-3.5 min-w-0">
                             <span className="text-xs font-medium text-muted-foreground">Plus Faible Moyenne</span>
-                            <div className="text-xl font-bold text-destructive mt-0.5">
+                            <div className="text-xl font-bold text-destructive mt-0.5 tabular-nums">
                                 {formatMoyenne(stats.moyenne_min)} / 20
                             </div>
                             <span className="text-[11px] text-muted-foreground">Seuil minimum classe</span>
@@ -638,12 +649,12 @@ export default function DeliberationsIndex({
                 )}
 
                 {/* Tableau Principal des Délibérations TanStack */}
-                <Card>
-                    <CardHeader className="pb-3">
-                        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                            <div>
+                <Card className="overflow-hidden min-w-0">
+                    <CardHeader className="pb-3 px-4 sm:px-6">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="min-w-0">
                                 <CardTitle className="text-base flex items-center gap-2">
-                                    <BookOpen className="size-4 text-primary" />
+                                    <BookOpen className="size-4 shrink-0 text-primary" />
                                     Grille de Délibération & Décisions du Conseil
                                 </CardTitle>
                                 <CardDescription>
@@ -652,14 +663,14 @@ export default function DeliberationsIndex({
                             </div>
 
                             {deliberationData?.toutes_validees && (
-                                <Badge className="bg-emerald-600 text-white gap-1.5">
+                                <Badge className="bg-emerald-600 text-white gap-1.5 w-fit shrink-0">
                                     <Check className="size-3.5" />
                                     Promotion Annuelle Validée
                                 </Badge>
                             )}
                         </div>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="px-3 sm:px-6">
                         {deliberationData ? (
                             lignesLocales.length > 0 ? (
                                 <DataTable
@@ -709,7 +720,7 @@ export default function DeliberationsIndex({
                             </p>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                        <div className="grid grid-cols-1 min-[380px]:grid-cols-3 gap-2 text-center text-xs">
                             <div className="p-2 rounded bg-emerald-50 border border-emerald-200 text-emerald-800 dark:bg-emerald-950/50 dark:border-emerald-800 dark:text-emerald-200">
                                 <span className="block font-bold text-base">{lignesLocales.filter((l) => l.statut_retenu === 'promu').length}</span>
                                 <span>Promus</span>

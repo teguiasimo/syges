@@ -69,13 +69,13 @@ export default function SmsDirectModal({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-md">
+            <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2 text-lg font-bold text-slate-800 dark:text-slate-100">
-                        <MessageSquare className="w-5 h-5 text-indigo-600" />
-                        Envoyer un SMS Direct
+                    <DialogTitle className="flex items-center gap-2 text-base sm:text-lg font-bold text-slate-800 dark:text-slate-100">
+                        <MessageSquare className="w-5 h-5 text-teal-600 shrink-0" />
+                        <span>Envoyer un SMS Direct</span>
                     </DialogTitle>
-                    <DialogDescription>
+                    <DialogDescription className="text-xs sm:text-sm">
                         Message unitaire avec normalisation internationale automatique (+237...).
                     </DialogDescription>
                 </DialogHeader>
@@ -129,7 +129,7 @@ export default function SmsDirectModal({
                         {errors.message && <p className="text-xs text-rose-500">{errors.message}</p>}
                     </div>
 
-                    <DialogFooter className="gap-2 pt-2">
+                    <DialogFooter className="flex-col sm:flex-row gap-2 pt-2">
                         <Button
                             type="button"
                             variant="outline"
@@ -138,12 +138,13 @@ export default function SmsDirectModal({
                                 onOpenChange(false);
                             }}
                             disabled={processing}
+                            className="w-full sm:w-auto"
                         >
                             Annuler
                         </Button>
                         <Button
                             type="submit"
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold"
+                            className="bg-teal-600 hover:bg-teal-700 text-white font-semibold w-full sm:w-auto"
                             disabled={processing}
                         >
                             {processing ? 'Envoi...' : 'Expédier le SMS'}

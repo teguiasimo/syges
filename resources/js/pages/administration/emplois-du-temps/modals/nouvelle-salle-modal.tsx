@@ -78,11 +78,11 @@ export default function NouvelleSalleModal({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-md">
+            <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2 text-lg font-bold text-slate-800 dark:text-slate-100">
-                        <DoorOpen className="w-5 h-5 text-indigo-600" />
-                        Ajouter une Salle Pédagogique
+                    <DialogTitle className="flex items-center gap-2 text-base sm:text-lg font-bold text-slate-800 dark:text-slate-100">
+                        <DoorOpen className="w-5 h-5 text-teal-600 shrink-0" />
+                        <span>Ajouter une Salle Pédagogique</span>
                     </DialogTitle>
                     <DialogDescription>
                         Répertoire des locaux pour l'attribution des créneaux et le contrôle des effectifs.
@@ -90,7 +90,7 @@ export default function NouvelleSalleModal({
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit} className="space-y-3.5 py-2">
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className="space-y-1">
                             <Label htmlFor="nom" className="text-xs font-semibold">
                                 Nom de la salle <span className="text-rose-500">*</span>
@@ -122,7 +122,7 @@ export default function NouvelleSalleModal({
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className="space-y-1">
                             <Label htmlFor="type_salle" className="text-xs font-semibold">
                                 Type de local <span className="text-rose-500">*</span>
@@ -188,7 +188,7 @@ export default function NouvelleSalleModal({
                         </Button>
                         <Button
                             type="submit"
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold"
+                            className="bg-teal-600 hover:bg-teal-700 text-white font-semibold"
                             disabled={processing}
                         >
                             {processing ? 'Enregistrement...' : 'Créer la Salle'}

@@ -45,6 +45,7 @@
             color: #1e3a8a;
             margin-top: 1px;
             text-transform: uppercase;
+            white-space: nowrap;
         }
         .school-contact {
             font-size: 5.4pt;
@@ -59,8 +60,8 @@
             text-transform: uppercase;
         }
         .logo-img {
-            max-width: 44px;
-            max-height: 44px;
+            max-width: 65px;
+            max-height: 65px;
             object-fit: contain;
         }
         .title-banner {
@@ -336,27 +337,30 @@
     <table class="header-table">
         <tr>
             {{-- Partie Gauche (Francophone) --}}
-            <td style="width: 37%; text-align: center;">
+            <td style="width: 38%; text-align: center;">
                 <div class="country-title">RÉPUBLIQUE DU CAMEROUN</div>
                 <div class="motto">Paix - Travail - Patrie</div>
                 <div class="delegation">MINISTÈRE DES ENSEIGNEMENTS SECONDAIRES</div>
                 <div class="delegation">{{ $classe['etablissement']['delegation_regionale'] ?? 'DÉLÉGATION RÉGIONALE DES ENSEIGNEMENTS SECONDAIRES' }}</div>
                 <div class="school-name">{{ $classe['etablissement']['nom'] }}</div>
                 <div class="school-contact">BP : {{ $displayBp }} | Tél : {{ $classe['etablissement']['telephone'] ?? '---' }}</div>
-                <div class="school-year">ANNÉE SCOLAIRE {{ $annee_scolaire['nom'] }}</div>
+                <div class="school-year">ANNÉE SCOLAIRE {{ preg_replace('/^\s*Ann[ée]e\s+scolaire\s*[:\-]?\s*/ui', '', $annee_scolaire['nom']) }}</div>
             </td>
 
             {{-- Partie Centrale (Armoiries / Logo Établissement + Devise) --}}
-            <td style="width: 26%; text-align: center; vertical-align: middle;">
+            <td style="width: 24%; text-align: center; vertical-align: middle;">
                 @php
                     $logoPath = !empty($classe['etablissement']['logo_url']) ? public_path(ltrim($classe['etablissement']['logo_url'], '/\\')) : null;
                     if (!$logoPath || !file_exists($logoPath)) {
                         $logoPath = !empty($classe['etablissement']['logo']) ? public_path(ltrim($classe['etablissement']['logo'], '/\\')) : null;
                     }
+                    if (!$logoPath || !file_exists($logoPath)) {
+                        $logoPath = file_exists(public_path('logo.png')) ? public_path('logo.png') : (file_exists(public_path('logo.jpg')) ? public_path('logo.jpg') : null);
+                    }
                     $logoSrc = null;
                     if ($logoPath && file_exists($logoPath)) {
-                        $logoExt = pathinfo($logoPath, PATHINFO_EXTENSION) ?: 'png';
-                        $logoSrc = 'data:image/' . $logoExt . ';base64,' . base64_encode(file_get_contents($logoPath));
+                        $logoExt = strtolower(pathinfo($logoPath, PATHINFO_EXTENSION)) ?: 'png';
+                        $logoSrc = 'data:image/' . ($logoExt === 'jpg' ? 'jpeg' : $logoExt) . ';base64,' . base64_encode(file_get_contents($logoPath));
                     }
                 @endphp
                 @if($logoSrc)
@@ -372,14 +376,14 @@
             </td>
 
             {{-- Partie Droite (Anglophone) --}}
-            <td style="width: 37%; text-align: center;">
+            <td style="width: 38%; text-align: center;">
                 <div class="country-title">REPUBLIC OF CAMEROON</div>
                 <div class="motto">Peace - Work - Fatherland</div>
                 <div class="delegation">MINISTRY OF SECONDARY EDUCATION</div>
                 <div class="delegation">{{ $classe['etablissement']['delegation_regionale_en'] ?? 'REGIONAL DELEGATION OF SECONDARY EDUCATION' }}</div>
                 <div class="school-name">{{ $classe['etablissement']['nom_en'] ?: $classe['etablissement']['nom'] }}</div>
                 <div class="school-contact">PO. Box : {{ $displayBp }} | Phone : {{ $classe['etablissement']['telephone'] ?? '---' }}</div>
-                <div class="school-year">ANNÉE SCOLAIRE {{ $annee_scolaire['nom'] }}</div>
+                <div class="school-year">SCHOOL YEAR {{ preg_replace('/^\s*Ann[ée]e\s+scolaire\s*[:\-]?\s*/ui', '', $annee_scolaire['nom']) }}</div>
             </td>
         </tr>
     </table>

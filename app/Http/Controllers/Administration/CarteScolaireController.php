@@ -251,9 +251,9 @@ class CarteScolaireController extends Controller implements HasMiddleware
         $anneeNom = trim(preg_replace('/^Ann[eé]e\s+Scolaire\s*/iu', '', $anneeNomBrut));
 
         // Résolution du logo établissement en Data URI Base64 pour éliminer les échecs de rendu DomPDF
-        $logoUrl = $etab->logo_url ?: ($etab->effective_logo ?: ($etab->logo ?: $inst?->logo));
-        $logoBase64 = null;
-        if (!empty($logoUrl)) {
+        $logoBase64 = $etab?->getEffectiveLogoBase64();
+        $logoUrl = $etab?->logo_url ?: ($etab?->effective_logo ?: ($etab?->logo ?: $inst?->logo));
+        if (!$logoBase64 && !empty($logoUrl)) {
             $rawLogo = ltrim($logoUrl, '/');
             $logoPath = file_exists(public_path($rawLogo))
                 ? public_path($rawLogo)
@@ -263,6 +263,9 @@ class CarteScolaireController extends Controller implements HasMiddleware
                 $mime = mime_content_type($logoPath) ?: 'image/png';
                 $logoBase64 = 'data:' . $mime . ';base64,' . base64_encode(file_get_contents($logoPath));
             }
+        }
+        if (!$logoBase64 && file_exists(public_path('logo.png'))) {
+            $logoBase64 = 'data:image/png;base64,' . base64_encode(file_get_contents(public_path('logo.png')));
         }
 
         // Résolution de la photo d'identité en Data URI Base64

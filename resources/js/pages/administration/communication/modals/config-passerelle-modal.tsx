@@ -71,19 +71,19 @@ export default function ConfigPasserelleModal({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-md">
+            <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2 text-lg font-bold text-slate-800 dark:text-slate-100">
-                        <Settings className="w-5 h-5 text-indigo-600" />
-                        Passerelle SMS & Sender ID
+                    <DialogTitle className="flex items-center gap-2 text-base sm:text-lg font-bold text-slate-800 dark:text-slate-100">
+                        <Settings className="w-5 h-5 text-teal-600 shrink-0" />
+                        <span>Passerelle SMS & Sender ID</span>
                     </DialogTitle>
-                    <DialogDescription>
+                    <DialogDescription className="text-xs sm:text-sm">
                         Paramétrage des identifiants d'opérateur télécom et du nom d'expéditeur GSM officiel.
                     </DialogDescription>
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit} className="space-y-3.5 py-2">
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className="space-y-1">
                             <Label htmlFor="fournisseur" className="text-xs font-semibold">
                                 Agrégateur télécom <span className="text-rose-500">*</span>
@@ -92,7 +92,7 @@ export default function ConfigPasserelleModal({
                                 value={data.fournisseur}
                                 onValueChange={(val: FournisseurSms) => setData('fournisseur', val)}
                             >
-                                <SelectTrigger id="fournisseur" className="text-xs h-9">
+                                <SelectTrigger id="fournisseur" className="text-xs h-9 w-full">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -148,7 +148,7 @@ export default function ConfigPasserelleModal({
                         />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className="space-y-1">
                             <Label htmlFor="seuil_alerte_solde" className="text-xs font-semibold">
                                 Seuil d'alerte solde bas
@@ -173,7 +173,7 @@ export default function ConfigPasserelleModal({
                                 value={data.is_active ? '1' : '0'}
                                 onValueChange={(val) => setData('is_active', val === '1')}
                             >
-                                <SelectTrigger id="is_active" className="text-xs h-9">
+                                <SelectTrigger id="is_active" className="text-xs h-9 w-full">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -184,18 +184,19 @@ export default function ConfigPasserelleModal({
                         </div>
                     </div>
 
-                    <DialogFooter className="gap-2 pt-2">
+                    <DialogFooter className="flex-col sm:flex-row gap-2 pt-2">
                         <Button
                             type="button"
                             variant="outline"
                             onClick={() => onOpenChange(false)}
                             disabled={processing}
+                            className="w-full sm:w-auto"
                         >
                             Annuler
                         </Button>
                         <Button
                             type="submit"
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold"
+                            className="bg-teal-600 hover:bg-teal-700 text-white font-semibold w-full sm:w-auto"
                             disabled={processing}
                         >
                             {processing ? 'Enregistrement...' : 'Sauvegarder les Paramètres'}

@@ -3,10 +3,13 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Scopes\EtablissementScope;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
@@ -30,10 +33,11 @@ use Spatie\Permission\Traits\HasRoles;
  * @property string|null $remember_token
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
- *
  * @property-read Etablissement|null $etablissement
  * @property-read Personnel|null $personnel
- * @mixin \Spatie\Permission\Traits\HasRoles
+ *
+ * @mixin HasRoles
+ *
  * @method bool hasRole(string|int|array|\Spatie\Permission\Contracts\Role|\Illuminate\Support\Collection $roles, ?string $guard = null)
  * @method bool can(string $ability, array|mixed $arguments = [])
  */
@@ -42,7 +46,29 @@ use Spatie\Permission\Traits\HasRoles;
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable, HasRoles;
+    use HasFactory, HasRoles, Notifiable;
+
+    /**
+     * Actions automatiques au cycle de vie du modèle User.
+     * Garantit l'étanchéité multi-tenant : si un utilisateur n'est pas Super-Admin
+     * et n'a pas d'établissement direct, synchronise son établissement depuis sa fiche Personnel.
+     *
+     * @return void
+     */
+    protected static function booted(): void
+    {
+        static::saving(function (User $user) {
+            if ($user->etablissement_id === null && ! $user->isSuperAdmin()) {
+                $personnelEtabId = Personnel::withoutGlobalScope(EtablissementScope::class)
+                    ->where('user_id', $user->id)
+                    ->value('etablissement_id');
+
+                if ($personnelEtabId) {
+                    $user->etablissement_id = (int) $personnelEtabId;
+                }
+            }
+        });
+    }
 
     /**
      * Obtenir les attributs convertis dans des types natifs.
@@ -62,8 +88,6 @@ class User extends Authenticatable
 
     /**
      * Vérifie si le compte utilisateur est actuellement actif.
-     *
-     * @return bool
      */
     public function isActive(): bool
     {
@@ -73,38 +97,33 @@ class User extends Authenticatable
     /**
      * Établissement / campus de rattachement principal du compte utilisateur.
      * Vaut null pour les comptes de type Super Administrateur (accès transversal).
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
-    public function etablissement(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function etablissement(): BelongsTo
     {
         return $this->belongsTo(Etablissement::class, 'etablissement_id');
     }
 
     /**
      * Fiche de personnel associée à cet utilisateur (si l'utilisateur est un employé de l'établissement).
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\HasOne
      */
-    public function personnel(): \Illuminate\Database\Eloquent\Relations\HasOne
+    public function personnel(): HasOne
     {
         return $this->hasOne(Personnel::class, 'user_id');
     }
 
     /**
      * Détermine si l'utilisateur possède les prérogatives de Super-Administrateur transversal.
-     *
-     * @return bool
+     * Vérifie le rôle `super-admin`, le login racine `superadmin` ou l'email racine historique.
      */
     public function isSuperAdmin(): bool
     {
-        return $this->hasRole('super-admin') || $this->email === 'admin@gmail.com';
+        return $this->hasRole('super-admin')
+            || $this->login === 'superadmin'
+            || $this->email === 'admin@gmail.com';
     }
 
     /**
      * Accesseur magique pour accéder à $user->is_super_admin sous forme de propriété.
-     *
-     * @return bool
      */
     public function getIsSuperAdminAttribute(): bool
     {
@@ -115,8 +134,6 @@ class User extends Authenticatable
      * Récupère l'identifiant d'établissement effectif du compte.
      * Donne priorité à `etablissement_id` direct sur le User, puis à sa fiche Personnel.
      * Utilise withoutGlobalScope pour éviter toute récursion infinie lors de l'application de EtablissementScope.
-     *
-     * @return int|null
      */
     public function getEffectiveEtablissementId(): ?int
     {
@@ -128,9 +145,8 @@ class User extends Authenticatable
             return $this->personnel?->etablissement_id;
         }
 
-        return Personnel::withoutGlobalScope(\App\Scopes\EtablissementScope::class)
+        return Personnel::withoutGlobalScope(EtablissementScope::class)
             ->where('user_id', $this->id)
             ->value('etablissement_id');
     }
 }
-

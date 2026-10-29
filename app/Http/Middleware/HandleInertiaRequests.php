@@ -2,8 +2,11 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Etablissement;
+use App\Models\Personnel;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
+use Spatie\Permission\Models\Permission;
 
 class HandleInertiaRequests extends Middleware
 {
@@ -31,19 +34,19 @@ class HandleInertiaRequests extends Middleware
      * Intègre le contexte multi-établissements (SaaS Multi-Tenant) en résolvant l'établissement
      * actif en session pour le Super Admin ou l'établissement assigné pour le personnel.
      *
-     * @param Request $request Requête HTTP entrante.
+     * @param  Request  $request  Requête HTTP entrante.
      * @return array<string, mixed> Tableau des variables globales partagées.
      */
     public function share(Request $request): array
     {
         $user = $request->user();
-        $isSuperAdmin = $user ? ($user->hasRole('super-admin') || $user->email === 'admin@gmail.com') : false;
+        $isSuperAdmin = $user ? $user->isSuperAdmin() : false;
 
         $currentEtablissement = null;
         $availableEtablissements = [];
 
         if ($user) {
-            $allEtablissements = \App\Models\Etablissement::select('id', 'nom', 'code', 'ordre_enseignement')->orderBy('nom')->get();
+            $allEtablissements = Etablissement::select('id', 'nom', 'code', 'ordre_enseignement')->orderBy('nom')->get();
 
             if ($isSuperAdmin) {
                 // Pour le Super Admin : lecture depuis la session ou défaut sur le premier établissement
@@ -54,13 +57,13 @@ class HandleInertiaRequests extends Middleware
                 $availableEtablissements = $allEtablissements->toArray();
             } else {
                 // Pour le personnel d'établissement : verrouillage sur le campus assigné
-                $userPersonnel = $user->personnel ?? ($user->email ? \App\Models\Personnel::where('email', $user->email)->first() : null);
-                if ($userPersonnel && $userPersonnel->etablissement_id) {
-                    $currentEtablissement = $allEtablissements->firstWhere('id', $userPersonnel->etablissement_id);
+                $effectiveEtabId = $user->getEffectiveEtablissementId();
+                if ($effectiveEtabId) {
+                    $currentEtablissement = $allEtablissements->firstWhere('id', $effectiveEtabId);
                     $availableEtablissements = $currentEtablissement ? [$currentEtablissement->toArray()] : [];
                 } else {
-                    $currentEtablissement = $allEtablissements->first();
-                    $availableEtablissements = $allEtablissements->toArray();
+                    $currentEtablissement = null;
+                    $availableEtablissements = [];
                 }
             }
         }
@@ -83,7 +86,7 @@ class HandleInertiaRequests extends Middleware
                     'is_super_admin' => $isSuperAdmin,
                     'roles' => $user->roles->pluck('name')->toArray(),
                     'permissions' => $isSuperAdmin
-                        ? \Spatie\Permission\Models\Permission::pluck('name')->toArray()
+                        ? Permission::pluck('name')->toArray()
                         : $user->getAllPermissions()->pluck('name')->toArray(),
                 ] : null,
             ],

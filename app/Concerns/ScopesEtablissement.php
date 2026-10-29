@@ -23,9 +23,9 @@ trait ScopesEtablissement
     /**
      * Résout l'établissement actif et la collection d'établissements autorisés pour l'utilisateur connecté.
      *
-     * @param Request $request Requête HTTP entrante.
-     * @param array<int|string, mixed>|null $relations Relations Eloquent optionnelles à charger (ex: `['sections']`).
-     * @param array<int|string, mixed>|null $withCount Relations de comptage Eloquent optionnelles (ex: `['sections']`).
+     * @param  Request  $request  Requête HTTP entrante.
+     * @param  array<int|string, mixed>|null  $relations  Relations Eloquent optionnelles à charger (ex: `['sections']`).
+     * @param  array<int|string, mixed>|null  $withCount  Relations de comptage Eloquent optionnelles (ex: `['sections']`).
      * @return array{
      *     isSuperAdmin: bool,
      *     personnel: Personnel|null,
@@ -37,7 +37,7 @@ trait ScopesEtablissement
     protected function resolveEtablissementContext(Request $request, ?array $relations = null, ?array $withCount = null): array
     {
         $user = $request->user();
-        $isSuperAdmin = $user ? ($user->hasRole('super-admin') || $user->email === 'admin@gmail.com') : false;
+        $isSuperAdmin = $user ? $user->isSuperAdmin() : false;
         $personnel = $user?->personnel ?? ($user?->email ? Personnel::where('email', $user->email)->first() : null);
         $userEtablissementId = $user?->getEffectiveEtablissementId() ?? $personnel?->etablissement_id;
 
@@ -51,14 +51,21 @@ trait ScopesEtablissement
         }
         $allEtablissements = $query->get();
 
-        if (! $isSuperAdmin && $userEtablissementId) {
+        if (! $isSuperAdmin) {
             // Verrouillage strict : l'utilisateur local ne peut voir QUE son campus
-            $etablissementId = (int) $userEtablissementId;
-            $selectedEtablissement = $allEtablissements->firstWhere('id', $etablissementId)
-                ?: Etablissement::find($etablissementId);
-            $etablissements = $selectedEtablissement ? collect([$selectedEtablissement]) : collect();
+            if ($userEtablissementId) {
+                $etablissementId = (int) $userEtablissementId;
+                $selectedEtablissement = $allEtablissements->firstWhere('id', $etablissementId)
+                    ?: Etablissement::find($etablissementId);
+                $etablissements = $selectedEtablissement ? collect([$selectedEtablissement]) : collect();
+            } else {
+                // Compte local sans aucun campus assigné : aucun campus accessible (cloisonnement de sécurité)
+                $etablissementId = null;
+                $selectedEtablissement = null;
+                $etablissements = collect();
+            }
         } else {
-            // Super-Admin ou utilisateur sans affectation campus spécifique
+            // Super-Admin uniquement : navigation transversale sur l'ensemble des campus
             $requestedId = $request->query('etablissement_id') ?? $request->input('etablissement_id');
 
             if ($requestedId) {

@@ -35,6 +35,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { formatDate } from '@/lib/utils';
 import type { BreadcrumbItem } from '@/types';
 import type {
     EnfantResume,
@@ -195,7 +196,7 @@ const versementsColumns: ColumnDef<VersementPortail>[] = [
     {
         accessorKey: 'date_versement',
         header: 'Date',
-        cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.date_versement}</span>,
+        cell: ({ row }) => <span className="text-xs text-muted-foreground">{formatDate(row.original.date_versement)}</span>,
     },
     {
         accessorKey: 'montant',
@@ -232,7 +233,7 @@ const sanctionsColumns: ColumnDef<SanctionPortail>[] = [
     {
         accessorKey: 'date_decision',
         header: 'Date',
-        cell: ({ row }) => <span className="text-xs text-muted-foreground">{row.original.date_decision}</span>,
+        cell: ({ row }) => <span className="text-xs text-muted-foreground">{formatDate(row.original.date_decision)}</span>,
     },
     {
         accessorKey: 'nature_sanction',
@@ -307,20 +308,20 @@ export default function PortailParentIndex({
                                         key={enf.id}
                                         type="button"
                                         onClick={() => handleNavigation({ enfant_id: enf.id })}
-                                        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border text-left transition-all ${
+                                        className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border text-left transition-all w-full sm:w-auto min-w-0 ${
                                             isSelected
                                                 ? 'bg-primary text-primary-foreground border-primary shadow-sm'
                                                 : 'bg-card text-card-foreground border-border hover:bg-muted/50'
                                         }`}
                                     >
-                                        <div className="flex size-9 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-sm">
+                                        <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-sm">
                                             {enf.nom.charAt(0)}
                                         </div>
-                                        <div className="flex flex-col">
-                                            <span className="font-semibold text-sm leading-tight">
+                                        <div className="flex flex-col min-w-0">
+                                            <span className="font-semibold text-sm leading-tight truncate">
                                                 {enf.nom} {enf.prenom}
                                             </span>
-                                            <span className={`text-xs ${isSelected ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
+                                            <span className={`text-xs truncate ${isSelected ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
                                                 {classeNom} • {enf.matricule}
                                             </span>
                                         </div>
@@ -336,13 +337,13 @@ export default function PortailParentIndex({
                     <>
                         {/* Carte récapitulative de l'enfant */}
                         <Card className="border-border/80 bg-linear-to-r from-card via-card to-primary/5">
-                            <CardContent className="p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                                <div className="flex items-center gap-4">
-                                    <div className="flex size-14 items-center justify-center rounded-2xl bg-primary/10 border border-primary/20 text-primary font-bold text-xl">
+                            <CardContent className="p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                                <div className="flex items-center gap-3.5 sm:gap-4 min-w-0 w-full sm:w-auto">
+                                    <div className="flex size-12 sm:size-14 shrink-0 items-center justify-center rounded-2xl bg-primary/10 border border-primary/20 text-primary font-bold text-xl">
                                         {profil.eleve.nom.charAt(0)}
                                     </div>
-                                    <div className="space-y-0.5">
-                                        <h2 className="text-xl font-bold text-foreground">
+                                    <div className="space-y-0.5 min-w-0 flex-1">
+                                        <h2 className="text-lg sm:text-xl font-bold text-foreground wrap-break-word">
                                             {profil.eleve.nom_complet}
                                         </h2>
                                         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -379,21 +380,21 @@ export default function PortailParentIndex({
                             className="w-full"
                         >
                             <TabsList className="grid grid-cols-2 sm:grid-cols-4 w-full max-w-2xl mb-4 h-auto p-1 gap-1">
-                                <TabsTrigger value="academique" className="text-xs gap-1.5">
-                                    <BookOpen className="size-3.5" />
-                                    Notes & Bulletins
+                                <TabsTrigger value="academique" className="text-[11px] sm:text-xs gap-1.5 px-2 py-1.5 min-w-0">
+                                    <BookOpen className="size-3.5 shrink-0" />
+                                    <span className="truncate">Notes & Bulletins</span>
                                 </TabsTrigger>
-                                <TabsTrigger value="emploi-temps" className="text-xs gap-1.5">
-                                    <CalendarDays className="size-3.5" />
-                                    Emploi du Temps
+                                <TabsTrigger value="emploi-temps" className="text-[11px] sm:text-xs gap-1.5 px-2 py-1.5 min-w-0">
+                                    <CalendarDays className="size-3.5 shrink-0" />
+                                    <span className="truncate">Emploi du Temps</span>
                                 </TabsTrigger>
-                                <TabsTrigger value="discipline" className="text-xs gap-1.5">
-                                    <ShieldAlert className="size-3.5" />
-                                    Discipline
+                                <TabsTrigger value="discipline" className="text-[11px] sm:text-xs gap-1.5 px-2 py-1.5 min-w-0">
+                                    <ShieldAlert className="size-3.5 shrink-0" />
+                                    <span className="truncate">Discipline</span>
                                 </TabsTrigger>
-                                <TabsTrigger value="finances" className="text-xs gap-1.5">
-                                    <DollarSign className="size-3.5" />
-                                    Finances & Reçus
+                                <TabsTrigger value="finances" className="text-[11px] sm:text-xs gap-1.5 px-2 py-1.5 min-w-0">
+                                    <DollarSign className="size-3.5 shrink-0" />
+                                    <span className="truncate">Finances & Reçus</span>
                                 </TabsTrigger>
                             </TabsList>
 
@@ -401,13 +402,13 @@ export default function PortailParentIndex({
                             <TabsContent value="academique" className="space-y-4">
                                 {/* Sélecteur de Trimestre & Téléchargement Bulletin */}
                                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-muted/40 p-3.5 rounded-xl border">
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-xs font-semibold text-muted-foreground">Période :</span>
+                                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                                        <span className="text-xs font-semibold text-muted-foreground shrink-0">Période :</span>
                                         <Select
                                             value={profil.active_periode_id ? profil.active_periode_id.toString() : ''}
                                             onValueChange={(val) => handleNavigation({ periode_id: val })}
                                         >
-                                            <SelectTrigger className="w-45 h-8 text-xs">
+                                            <SelectTrigger className="w-full sm:w-48 h-8 text-xs">
                                                 <SelectValue placeholder="Choisir un trimestre" />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -423,19 +424,19 @@ export default function PortailParentIndex({
                                     {/* Action de Téléchargement OU Message de Verrou (Gesco 11.5 & 16.3) */}
                                     {profil.verrou_solvabilite.est_bloque ? (
                                         <div className="flex items-center gap-2 text-xs font-semibold text-destructive">
-                                            <Lock className="size-4" />
+                                            <Lock className="size-4 shrink-0" />
                                             <span>Bulletin verrouillé (insolvabilité)</span>
                                         </div>
                                     ) : (
                                         profil.inscription && (
-                                            <Button size="sm" className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white" asChild>
+                                            <Button size="sm" className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white w-full sm:w-auto h-auto py-2 whitespace-normal text-center" asChild>
                                                 <a
                                                     href={`/portail/bulletin/${profil.inscription.id}${profil.active_periode_id ? `?periode_id=${profil.active_periode_id}` : ''}`}
                                                     target="_blank"
                                                     rel="noreferrer"
                                                 >
-                                                    <Download className="size-4" />
-                                                    Télécharger le Bulletin Officiel (PDF)
+                                                    <Download className="size-4 shrink-0" />
+                                                    <span>Télécharger le Bulletin Officiel (PDF)</span>
                                                 </a>
                                             </Button>
                                         )

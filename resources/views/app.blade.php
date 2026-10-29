@@ -31,9 +31,16 @@
             }
         </style>
 
-        <link rel="icon" href="/favicon.ico" sizes="any">
-        <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+        {{-- 
+            Identité visuelle & Favicons personnalisés SYGES
+            Configuration multi-formats (PNG 32x32, PNG 16x16, ICO universel, Apple Touch Icon)
+            Utilisation d'un paramètre de version ?v=syges2 pour forcer l'invalidation du cache navigateur (Favicons cache)
+        --}}
+        <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=syges2">
+        <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=syges2">
+        <link rel="shortcut icon" href="/favicon.ico?v=syges2">
+        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=syges2">
+        <link rel="manifest" href="/site.webmanifest?v=syges2">
 
         @fonts
 

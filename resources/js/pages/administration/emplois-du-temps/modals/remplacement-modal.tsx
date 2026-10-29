@@ -69,11 +69,11 @@ export default function RemplacementModal({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-md">
+            <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2 text-lg font-bold text-slate-800 dark:text-slate-100">
-                        <UserCheck className="w-5 h-5 text-indigo-600" />
-                        Affecter un Enseignant Remplaçant
+                    <DialogTitle className="flex items-center gap-2 text-base sm:text-lg font-bold text-slate-800 dark:text-slate-100">
+                        <UserCheck className="w-5 h-5 text-teal-600 shrink-0" />
+                        <span>Affecter un Enseignant Remplaçant</span>
                     </DialogTitle>
                     <DialogDescription>
                         {seance && (
@@ -139,7 +139,7 @@ export default function RemplacementModal({
                         </Button>
                         <Button
                             type="submit"
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold"
+                            className="bg-teal-600 hover:bg-teal-700 text-white font-semibold"
                             disabled={processing}
                         >
                             {processing ? 'Vérification...' : 'Confirmer le Remplacement'}

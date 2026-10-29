@@ -148,8 +148,13 @@
                 @endif
             </td>
             <td class="header-center">
-                @if($etablissement && $etablissement->logo_url)
-                    <img src="{{ public_path($etablissement->logo_url) }}" alt="Logo" style="max-height: 82px; max-width: 95px; object-fit: contain;">
+                @php
+                    $logoSrc = ($etablissement && method_exists($etablissement, 'getEffectiveLogoBase64'))
+                        ? $etablissement->getEffectiveLogoBase64()
+                        : (file_exists(public_path('logo.png')) ? 'data:image/png;base64,' . base64_encode(file_get_contents(public_path('logo.png'))) : null);
+                @endphp
+                @if($logoSrc)
+                    <img src="{{ $logoSrc }}" alt="Logo" style="max-height: 82px; max-width: 95px; object-fit: contain;">
                 @else
                     <div style="font-size: 24pt; font-weight: bold; color: #1e3a8a;">SYGES</div>
                 @endif

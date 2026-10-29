@@ -22,6 +22,7 @@ import {
     MessageSquare,
     Award,
     BarChart3,
+    RefreshCw,
 } from 'lucide-react';
 import { useTranslation } from '@/contexts/language-context';
 import { usePermission } from '@/hooks/use-permission';
@@ -58,6 +59,7 @@ type AdminModule = {
     bgColor: string;
     href?: string;
     permission?: string;
+    superAdminOnly?: boolean;
     category: string;
 };
 
@@ -286,6 +288,17 @@ const adminModules: AdminModule[] = [
         permission: 'roles.view',
         category: 'Sécurité & Système',
     },
+    {
+        titleKey: 'admin.system_update_title',
+        descKey: 'admin.system_update_desc',
+        icon: RefreshCw,
+        color: 'text-sky-600 dark:text-sky-400',
+        bgColor: 'bg-sky-50 dark:bg-sky-950/50 border border-sky-100 dark:border-sky-900/40',
+        href: '/administration/system-update',
+        permission: 'system.update',
+        superAdminOnly: true,
+        category: 'Sécurité & Système',
+    },
 ];
 
 /**
@@ -311,8 +324,9 @@ export default function Administration() {
     const { t } = useTranslation();
     const { can, isSuperAdmin } = usePermission();
 
-    // Filtre strict : un module n'est affiché que si l'utilisateur est Super Admin ou possède la permission requise
+    // Filtre strict : un module réservé Super Admin est totalement masqué aux autres rôles ; sinon vérification de la permission
     const visibleModules = adminModules.filter((module) => {
+        if (module.superAdminOnly) return isSuperAdmin;
         if (isSuperAdmin) return true;
         if (!module.permission) return false;
         return can(module.permission);

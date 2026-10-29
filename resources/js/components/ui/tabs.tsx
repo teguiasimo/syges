@@ -56,6 +56,11 @@ const Tabs = React.forwardRef<HTMLDivElement, TabsProps>(
 );
 Tabs.displayName = 'Tabs';
 
+/**
+ * Barre d'onglets horizontale adaptative.
+ * Autorise le défilement tactile horizontal fluide sur petits écrans (`max-w-full overflow-x-auto`)
+ * avec alignement `justify-start` pour éviter toute troncature du premier onglet.
+ */
 const TabsList = React.forwardRef<
     HTMLDivElement,
     React.HTMLAttributes<HTMLDivElement>
@@ -63,7 +68,7 @@ const TabsList = React.forwardRef<
     <div
         ref={ref}
         className={cn(
-            'inline-flex h-9 items-center justify-center rounded-lg bg-muted p-1 text-muted-foreground',
+            'inline-flex max-w-full overflow-x-auto overflow-y-hidden h-9 items-center justify-start rounded-lg bg-muted p-1 text-muted-foreground scrollbar-none',
             className
         )}
         {...props}

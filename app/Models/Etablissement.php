@@ -194,7 +194,7 @@ class Etablissement extends Model
      *
      * Chaque établissement est autonome et peut disposer de son propre logo.
      * Si l'établissement ne possède pas de logo spécifique, le logo officiel
-     * de l'institution faîtière parente est automatiquement utilisé pour tous les états imprimables.
+     * de l'institution faîtière parente ou le logo par défaut est automatiquement utilisé pour tous les états imprimables.
      *
      * @return string|null Chemin relatif ou URL du logo effectif.
      */
@@ -204,7 +204,20 @@ class Etablissement extends Model
             return $this->attributes['logo'];
         }
 
-        return $this->institution?->logo;
+        if (! empty($this->institution?->logo)) {
+            return $this->institution->logo;
+        }
+
+        // Repli par défaut sur le logo officiel configuré
+        if (file_exists(public_path('logo.png'))) {
+            return '/logo.png';
+        }
+
+        if (file_exists(public_path('logo.jpg'))) {
+            return '/logo.jpg';
+        }
+
+        return null;
     }
 
     /**
@@ -215,6 +228,36 @@ class Etablissement extends Model
     public function getLogoUrlAttribute(): ?string
     {
         return $this->effective_logo;
+    }
+
+    /**
+     * Retourne le logo effectif encodé en base64 pour une intégration directe et infaillible dans DomPDF.
+     * Élimine les dépendances réseau ou chemins relatifs lors de la génération des états imprimables.
+     *
+     * @return string|null Chaîne data URI (ex: data:image/png;base64,...) ou null.
+     */
+    public function getEffectiveLogoBase64(): ?string
+    {
+        $candidates = array_filter([
+            $this->logo_url ? public_path(ltrim($this->logo_url, '/\\')) : null,
+            ! empty($this->attributes['logo']) ? public_path(ltrim($this->attributes['logo'], '/\\')) : null,
+            $this->institution?->logo ? public_path(ltrim($this->institution->logo, '/\\')) : null,
+            public_path('logo.png'),
+            public_path('logo.jpg'),
+        ]);
+
+        foreach ($candidates as $path) {
+            if ($path && file_exists($path) && is_file($path)) {
+                $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION)) ?: 'png';
+                $mime = in_array($ext, ['jpg', 'jpeg']) ? 'image/jpeg' : 'image/png';
+                $content = @file_get_contents($path);
+                if ($content !== false) {
+                    return 'data:' . $mime . ';base64,' . base64_encode($content);
+                }
+            }
+        }
+
+        return null;
     }
 
     /**

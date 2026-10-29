@@ -1,7 +1,6 @@
 /.phpunit.cache
 /bootstrap/ssr
 /node_modules
-/public/build
 /public/fonts-manifest.dev.json
 /public/hot
 /public/storage
@@ -33,4 +32,12 @@ yarn-error.log
 ~$*
 *.tmp
 /storage/backups
+/storage/app/backups
+/storage/app/update_history.json
 *.sql
+/docs/a corriger/
+/docs/Logo app et favicon.png
+/docs/ces/
+/docs/WhatsApp*/
+/docs/*.zip
+/docs/*.pdf

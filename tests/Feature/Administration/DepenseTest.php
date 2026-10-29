@@ -5,10 +5,17 @@
 use App\Models\AnneeScolaire;
 use App\Models\Caisse;
 use App\Models\CategorieDepense;
+use App\Models\Classe;
+use App\Models\CompteFinancierEleve;
+use App\Models\Cycle;
 use App\Models\Depense;
+use App\Models\Eleve;
 use App\Models\Etablissement;
+use App\Models\Inscription;
 use App\Models\Institution;
+use App\Models\Niveau;
 use App\Models\ReglementDivers;
+use App\Models\Section;
 use App\Models\User;
 use App\Models\VersementCaisse;
 use Spatie\Permission\Models\Role;
@@ -95,6 +102,20 @@ test("l'écran des dépenses et du bilan financier s'affiche avec les statistiqu
         'created_by' => $this->adminUser->id,
     ]);
 
+    // Création d'une recette diverse
+    ReglementDivers::create([
+        'etablissement_id' => $this->etablissement->id,
+        'caisse_id' => $this->caisse->id,
+        'reference_recu' => 'REC-DIV-2026-0001',
+        'date_reglement' => '2026-09-10',
+        'payeur_nom' => 'Parent Visiteur',
+        'categorie' => 'uniformes',
+        'libelle' => 'Achat écusson et uniforme',
+        'montant' => 15000,
+        'mode_paiement' => 'especes',
+        'statut' => 'valide',
+    ]);
+
     $response = $this->get(route('administration.finances.depenses.index', [
         'etablissement_id' => $this->etablissement->id,
         'annee_scolaire_id' => $this->annee->id,
@@ -108,6 +129,9 @@ test("l'écran des dépenses et du bilan financier s'affiche avec les statistiqu
         ->has('caisses')
         ->where('stats.total_depenses', 45000)
         ->where('stats.nb_depenses', 1)
+        ->where('stats.total_divers', 15000)
+        ->where('stats.total_recettes', 15000)
+        ->where('stats.solde_net', -30000)
     );
 });
 
@@ -264,4 +288,88 @@ test("on peut générer le bilan financier Entrées/Sorties en PDF", function ()
     $response->assertOk();
     expect($response->headers->get('content-type'))->toBe('application/pdf');
     expect($response->headers->get('content-disposition'))->toContain('BILAN_FINANCIER_2026-2027.pdf');
+});
+
+test("les statistiques du bilan calculent correctement le total des versements de caisse via montant_total", function () {
+    actingAs($this->adminUser);
+
+    // Structure académique pour l'élève
+    $section = Section::create([
+        'etablissement_id' => $this->etablissement->id,
+        'nom' => 'Section Francophone',
+        'code' => 'SEC-FR-DEP',
+    ]);
+
+    $cycle = Cycle::create([
+        'section_id' => $section->id,
+        'nom' => '1er Cycle',
+        'code' => 'CYC-1-DEP',
+        'ordre' => 1,
+    ]);
+
+    $niveau = Niveau::create([
+        'cycle_id' => $cycle->id,
+        'nom' => '6ème',
+        'code' => 'NIV-6-DEP',
+        'ordre' => 1,
+    ]);
+
+    $classe = Classe::create([
+        'etablissement_id' => $this->etablissement->id,
+        'niveau_id' => $niveau->id,
+        'nom' => '6ème A',
+        'code' => '6A-DEP',
+        'capacite_max' => 50,
+    ]);
+
+    $eleve = Eleve::create([
+        'matricule' => 'ELEVE-DEP-001',
+        'nom' => 'MBIA',
+        'prenom' => 'Samuel',
+        'sexe' => 'M',
+        'date_naissance' => '2014-01-15',
+    ]);
+
+    $inscription = Inscription::create([
+        'eleve_id' => $eleve->id,
+        'annee_scolaire_id' => $this->annee->id,
+        'classe_id' => $classe->id,
+        'statut' => 'validee',
+    ]);
+
+    $compte = CompteFinancierEleve::create([
+        'eleve_id' => $eleve->id,
+        'annee_scolaire_id' => $this->annee->id,
+        'inscription_id' => $inscription->id,
+        'etablissement_id' => $this->etablissement->id,
+        'debit_initial' => 100000,
+        'montant_net_exigible' => 100000,
+        'total_paye' => 50000,
+        'solde_restant' => 50000,
+        'statut_financier' => 'en_regle_tranche_1',
+    ]);
+
+    // Versement de caisse scolaire avec montant_total
+    VersementCaisse::create([
+        'reference_recu' => 'REC-2026-DEP-0001',
+        'compte_financier_id' => $compte->id,
+        'inscription_id' => $inscription->id,
+        'etablissement_id' => $this->etablissement->id,
+        'caisse_id' => $this->caisse->id,
+        'date_versement' => '2026-09-12 10:00:00',
+        'montant_total' => 50000,
+        'mode_paiement' => 'especes',
+        'statut' => 'valide',
+    ]);
+
+    $response = $this->get(route('administration.finances.depenses.index', [
+        'etablissement_id' => $this->etablissement->id,
+        'annee_scolaire_id' => $this->annee->id,
+    ]));
+
+    $response->assertOk();
+    $response->assertInertia(fn ($page) => $page
+        ->component('administration/finances/depenses/index')
+        ->where('stats.total_versements', 50000)
+    );
 });

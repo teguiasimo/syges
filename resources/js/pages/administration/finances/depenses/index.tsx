@@ -293,7 +293,7 @@ export default function DepensesIndex({
                 accessorKey: 'numero_piece',
                 header: 'N° Pièce',
                 cell: ({ row }) => (
-                    <span className="font-mono font-bold text-xs text-foreground">
+                    <span className="font-mono font-bold text-xs text-foreground whitespace-nowrap">
                         {row.original.numero_piece}
                     </span>
                 ),
@@ -302,7 +302,7 @@ export default function DepensesIndex({
                 accessorKey: 'date_depense',
                 header: 'Date',
                 cell: ({ row }) => (
-                    <span className="text-xs text-foreground font-medium">
+                    <span className="text-xs text-foreground font-medium whitespace-nowrap">
                         {formatDate(row.original.date_depense)}
                     </span>
                 ),
@@ -311,7 +311,7 @@ export default function DepensesIndex({
                 accessorKey: 'beneficiaire',
                 header: 'Bénéficiaire & Motif',
                 cell: ({ row }) => (
-                    <div className="max-w-xs">
+                    <div className="min-w-44 max-w-xs">
                         <div className="font-semibold text-sm text-foreground">
                             {row.original.beneficiaire}
                         </div>
@@ -367,7 +367,7 @@ export default function DepensesIndex({
                 accessorKey: 'montant',
                 header: 'Montant Décaissé',
                 cell: ({ row }) => (
-                    <span className="font-mono font-bold text-sm text-rose-600 dark:text-rose-400">
+                    <span className="font-mono font-bold text-sm text-rose-600 dark:text-rose-400 whitespace-nowrap tabular-nums">
                         {new Intl.NumberFormat('fr-FR').format(row.original.montant)} FCFA
                     </span>
                 ),
@@ -378,19 +378,19 @@ export default function DepensesIndex({
                 cell: ({ row }) => {
                     const st = row.original.statut;
                     if (st === 'validee') {
-                        return <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300">Validée</Badge>;
+                        return <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 whitespace-nowrap">Validée</Badge>;
                     }
                     if (st === 'en_attente') {
-                        return <Badge className="bg-amber-100 text-amber-800 border-amber-300">En attente</Badge>;
+                        return <Badge className="bg-amber-100 text-amber-800 border-amber-300 whitespace-nowrap">En attente</Badge>;
                     }
-                    return <Badge className="bg-rose-100 text-rose-800 border-rose-300">Annulée</Badge>;
+                    return <Badge className="bg-rose-100 text-rose-800 border-rose-300 whitespace-nowrap">Annulée</Badge>;
                 },
             },
             {
                 id: 'actions',
                 header: 'Actions',
                 cell: ({ row }) => (
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 whitespace-nowrap">
                         <Button
                             variant="outline"
                             size="sm"
@@ -472,24 +472,25 @@ export default function DepensesIndex({
         <>
             <Head title="Gestion des Dépenses & Bilan Financier" />
 
-            <div className="flex h-full flex-1 flex-col gap-6 p-6 sm:p-8">
+            {/* Conteneur principal responsive adapté aux mobiles, tablettes et laptops */}
+            <div className="flex h-full flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8 min-w-0">
                 {/* En-tête & navigation */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                    <div>
+                <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
+                    <div className="min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                             <Button variant="ghost" size="sm" asChild className="h-8 px-2 gap-1.5 text-xs text-muted-foreground hover:text-foreground">
                                 <Link href="/administration/finances">
-                                    <ArrowLeft className="size-3.5" />
+                                    <ArrowLeft className="size-3.5 shrink-0" />
                                     Retour au Grand Livre Financier
                                 </Link>
                             </Button>
                         </div>
-                        <div className="flex items-center gap-2.5">
-                            <div className="p-2.5 rounded-xl bg-linear-to-br from-amber-600 to-orange-700 text-white shadow-md shadow-amber-500/20">
+                        <div className="flex items-start sm:items-center gap-2.5 min-w-0">
+                            <div className="p-2.5 rounded-xl bg-linear-to-br from-amber-600 to-orange-700 text-white shadow-md shadow-amber-500/20 shrink-0">
                                 <Wallet className="size-6" />
                             </div>
-                            <div>
-                                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
+                            <div className="min-w-0">
+                                <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight text-foreground">
                                     Gestion des Dépenses & Bilan Financier
                                 </h1>
                                 <p className="text-xs sm:text-sm text-muted-foreground">
@@ -500,13 +501,13 @@ export default function DepensesIndex({
                     </div>
 
                     {/* Actions d'ajout & Bilan */}
-                    <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 flex-wrap w-full sm:w-auto">
                         <Button
                             variant="outline"
                             onClick={handlePrintBilan}
-                            className="gap-2 h-9 text-xs font-semibold border-teal-300 text-teal-700 hover:bg-teal-50 dark:border-teal-800 dark:text-teal-300"
+                            className="gap-2 h-9 text-xs font-semibold w-full sm:w-auto justify-center border-teal-300 text-teal-700 hover:bg-teal-50 dark:border-teal-800 dark:text-teal-300"
                         >
-                            <FileSpreadsheet className="size-3.5" />
+                            <FileSpreadsheet className="size-3.5 shrink-0" />
                             Bilan Entrées/Sorties (PDF)
                         </Button>
                         <Button
@@ -520,9 +521,9 @@ export default function DepensesIndex({
                                 });
                                 setIsCategoryModalOpen(true);
                             }}
-                            className="gap-2 h-9 text-xs font-semibold border-border text-foreground hover:bg-muted"
+                            className="gap-2 h-9 text-xs font-semibold w-full sm:w-auto justify-center border-border text-foreground hover:bg-muted"
                         >
-                            <Tag className="size-3.5" />
+                            <Tag className="size-3.5 shrink-0" />
                             Nouvelle Catégorie
                         </Button>
                         <Button
@@ -540,71 +541,71 @@ export default function DepensesIndex({
                                 });
                                 setIsCreateOpen(true);
                             }}
-                            className="gap-2 h-9 text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white shadow-sm"
+                            className="gap-2 h-9 text-xs font-semibold w-full sm:w-auto justify-center bg-rose-600 hover:bg-rose-700 text-white shadow-sm"
                         >
-                            <Plus className="size-4" />
+                            <Plus className="size-4 shrink-0" />
                             Enregistrer une Dépense
                         </Button>
                     </div>
                 </div>
 
                 {/* Cartes KPI Synthèse Entrées vs Sorties */}
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
                     <Card className="border-border/60 shadow-sm">
-                        <CardContent className="p-4 flex items-center justify-between">
-                            <div>
+                        <CardContent className="p-4 flex items-start sm:items-center justify-between gap-2">
+                            <div className="min-w-0 flex-1">
                                 <p className="text-xs font-medium text-muted-foreground">Total Recettes Encaissées</p>
-                                <h3 className="text-2xl font-bold tracking-tight text-blue-600 dark:text-blue-400 mt-0.5 font-mono">
+                                <h3 className="text-lg sm:text-xl 2xl:text-2xl font-bold tracking-tight text-blue-600 dark:text-blue-400 mt-0.5 font-mono tabular-nums wrap-break-word leading-tight">
                                     {new Intl.NumberFormat('fr-FR').format(stats.total_recettes)}
                                 </h3>
                                 <p className="text-[10px] text-muted-foreground">Scolarité + Divers</p>
                             </div>
-                            <div className="p-2.5 rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+                            <div className="p-2.5 rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300 shrink-0">
                                 <TrendingUp className="size-5" />
                             </div>
                         </CardContent>
                     </Card>
 
                     <Card className="border-border/60 shadow-sm">
-                        <CardContent className="p-4 flex items-center justify-between">
-                            <div>
+                        <CardContent className="p-4 flex items-start sm:items-center justify-between gap-2">
+                            <div className="min-w-0 flex-1">
                                 <p className="text-xs font-medium text-muted-foreground">Total Dépenses Décaissées</p>
-                                <h3 className="text-2xl font-bold tracking-tight text-rose-600 dark:text-rose-400 mt-0.5 font-mono">
+                                <h3 className="text-lg sm:text-xl 2xl:text-2xl font-bold tracking-tight text-rose-600 dark:text-rose-400 mt-0.5 font-mono tabular-nums wrap-break-word leading-tight">
                                     {new Intl.NumberFormat('fr-FR').format(stats.total_depenses)}
                                 </h3>
                                 <p className="text-[10px] text-muted-foreground">{stats.nb_depenses} opération(s)</p>
                             </div>
-                            <div className="p-2.5 rounded-lg bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300">
+                            <div className="p-2.5 rounded-lg bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300 shrink-0">
                                 <TrendingDown className="size-5" />
                             </div>
                         </CardContent>
                     </Card>
 
                     <Card className="border-border/60 shadow-sm">
-                        <CardContent className="p-4 flex items-center justify-between">
-                            <div>
+                        <CardContent className="p-4 flex items-start sm:items-center justify-between gap-2">
+                            <div className="min-w-0 flex-1">
                                 <p className="text-xs font-medium text-muted-foreground">Résultat Net d'Exploitation</p>
-                                <h3 className={`text-2xl font-bold tracking-tight mt-0.5 font-mono ${stats.solde_net >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                                <h3 className={`text-lg sm:text-xl 2xl:text-2xl font-bold tracking-tight mt-0.5 font-mono tabular-nums wrap-break-word leading-tight ${stats.solde_net >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
                                     {new Intl.NumberFormat('fr-FR').format(stats.solde_net)}
                                 </h3>
                                 <p className="text-[10px] font-semibold text-muted-foreground">
                                     {stats.solde_net >= 0 ? 'Excédent budgétaire' : 'Déficit budgétaire'}
                                 </p>
                             </div>
-                            <div className={`p-2.5 rounded-lg ${stats.solde_net >= 0 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300'}`}>
+                            <div className={`p-2.5 rounded-lg shrink-0 ${stats.solde_net >= 0 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300'}`}>
                                 <Scale className="size-5" />
                             </div>
                         </CardContent>
                     </Card>
 
                     <Card className="border-border/60 shadow-sm">
-                        <CardContent className="p-4 flex items-center justify-between">
-                            <div>
+                        <CardContent className="p-4 flex items-start sm:items-center justify-between gap-2">
+                            <div className="min-w-0 flex-1">
                                 <p className="text-xs font-medium text-muted-foreground">Caisses Actives</p>
-                                <h3 className="text-2xl font-bold tracking-tight text-foreground mt-0.5 font-mono">{caisses.length}</h3>
+                                <h3 className="text-lg sm:text-xl 2xl:text-2xl font-bold tracking-tight text-foreground mt-0.5 font-mono tabular-nums leading-tight">{caisses.length}</h3>
                                 <p className="text-[10px] text-muted-foreground">{categories.length} catégories budgétaires</p>
                             </div>
-                            <div className="p-2.5 rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+                            <div className="p-2.5 rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300 shrink-0">
                                 <Wallet className="size-5" />
                             </div>
                         </CardContent>
@@ -614,7 +615,7 @@ export default function DepensesIndex({
                 {/* Filtres */}
                 <Card className="border-border/60 shadow-sm">
                     <CardContent className="p-4 sm:p-5">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3 items-end">
                             <div>
                                 <label className="text-xs font-medium text-muted-foreground mb-1 block">Caisse</label>
                                 <select
@@ -670,7 +671,7 @@ export default function DepensesIndex({
                                 </select>
                             </div>
 
-                            <div className="lg:col-span-2">
+                            <div className="sm:col-span-2 xl:col-span-2">
                                 <label className="text-xs font-medium text-muted-foreground mb-1 block">Recherche</label>
                                 <div className="relative">
                                     <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
@@ -699,7 +700,7 @@ export default function DepensesIndex({
                                 {table.getHeaderGroups().map((headerGroup) => (
                                     <tr key={headerGroup.id} className="border-b bg-muted/40 text-muted-foreground text-xs font-semibold">
                                         {headerGroup.headers.map((header) => (
-                                            <th key={header.id} className="p-3.5">
+                                            <th key={header.id} className="px-3 py-2.5 sm:p-3.5 whitespace-nowrap">
                                                 {header.isPlaceholder
                                                     ? null
                                                     : flexRender(header.column.columnDef.header, header.getContext())}
@@ -713,7 +714,7 @@ export default function DepensesIndex({
                                     table.getRowModel().rows.map((row) => (
                                         <tr key={row.id} className="hover:bg-muted/30 transition-colors">
                                             {row.getVisibleCells().map((cell) => (
-                                                <td key={cell.id} className="p-3.5">
+                                                <td key={cell.id} className="px-3 py-2.5 sm:p-3.5">
                                                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                                                 </td>
                                             ))}
@@ -721,7 +722,7 @@ export default function DepensesIndex({
                                     ))
                                 ) : (
                                     <tr>
-                                        <td colSpan={columns.length} className="text-center py-12 text-muted-foreground">
+                                        <td colSpan={columns.length} className="text-center py-12 px-4 text-muted-foreground">
                                             <div className="flex flex-col items-center justify-center gap-2">
                                                 <Wallet className="size-8 text-muted-foreground/40" />
                                                 <p className="text-sm font-medium">Aucune dépense enregistrée pour cette sélection.</p>
@@ -734,9 +735,9 @@ export default function DepensesIndex({
                         </table>
                     </div>
 
-                    {/* Pagination TanStack Table */}
+                    {/* Pagination TanStack Table responsive */}
                     {table.getPageCount() > 1 && (
-                        <div className="flex items-center justify-between p-4 border-t text-xs text-muted-foreground">
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 sm:p-4 border-t text-xs text-muted-foreground">
                             <span>
                                 Page {table.getState().pagination.pageIndex + 1} sur {table.getPageCount()} ({depenses.length} au total)
                             </span>
@@ -788,7 +789,7 @@ export default function DepensesIndex({
                 <DialogContent className="sm:max-w-lg">
                     <DialogHeader>
                         <DialogTitle className="text-base font-bold flex items-center gap-2">
-                            <Wallet className="size-4 text-rose-600" />
+                            <Wallet className="size-4 text-rose-600 shrink-0" />
                             Enregistrer un Décaissement / Dépense de Caisse
                         </DialogTitle>
                         <DialogDescription className="text-xs">
@@ -797,7 +798,7 @@ export default function DepensesIndex({
                     </DialogHeader>
 
                     <form onSubmit={handleCreateDepense} className="space-y-3.5 py-2">
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
                                 <label className="text-xs font-semibold text-foreground mb-1 block">Caisse Débitée *</label>
                                 <select
@@ -831,7 +832,7 @@ export default function DepensesIndex({
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
                                 <label className="text-xs font-semibold text-foreground mb-1 block">Bénéficiaire des fonds *</label>
                                 <Input
@@ -857,7 +858,7 @@ export default function DepensesIndex({
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
                                 <label className="text-xs font-semibold text-foreground mb-1 block">Date décaissement *</label>
                                 <Input
@@ -908,10 +909,10 @@ export default function DepensesIndex({
                         </div>
 
                         <DialogFooter className="pt-2">
-                            <Button type="button" variant="outline" size="sm" onClick={() => setIsCreateOpen(false)}>
+                            <Button type="button" variant="outline" size="sm" className="w-full sm:w-auto" onClick={() => setIsCreateOpen(false)}>
                                 Annuler
                             </Button>
-                            <Button type="submit" size="sm" className="bg-rose-600 hover:bg-rose-700 text-white">
+                            <Button type="submit" size="sm" className="w-full sm:w-auto bg-rose-600 hover:bg-rose-700 text-white">
                                 Valider et Générer Décharge
                             </Button>
                         </DialogFooter>
@@ -924,13 +925,13 @@ export default function DepensesIndex({
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
                         <DialogTitle className="text-base font-bold flex items-center gap-2">
-                            <Tag className="size-4 text-blue-600" />
+                            <Tag className="size-4 text-blue-600 shrink-0" />
                             Nouvelle Catégorie Budgétaire
                         </DialogTitle>
                     </DialogHeader>
 
                     <form onSubmit={handleCreateCategory} className="space-y-3.5 py-2">
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
                                 <label className="text-xs font-semibold text-foreground mb-1 block">Code *</label>
                                 <Input
@@ -949,7 +950,7 @@ export default function DepensesIndex({
                                         type="color"
                                         value={catFormData.couleur}
                                         onChange={(e) => setCatFormData({ ...catFormData, couleur: e.target.value })}
-                                        className="size-9 rounded border cursor-pointer p-0.5"
+                                        className="size-9 rounded border cursor-pointer p-0.5 shrink-0"
                                     />
                                     <Input
                                         value={catFormData.couleur}
@@ -982,10 +983,10 @@ export default function DepensesIndex({
                         </div>
 
                         <DialogFooter className="pt-2">
-                            <Button type="button" variant="outline" size="sm" onClick={() => setIsCategoryModalOpen(false)}>
+                            <Button type="button" variant="outline" size="sm" className="w-full sm:w-auto" onClick={() => setIsCategoryModalOpen(false)}>
                                 Annuler
                             </Button>
-                            <Button type="submit" size="sm" className="bg-blue-600 hover:bg-blue-700 text-white">
+                            <Button type="submit" size="sm" className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white">
                                 Créer la Catégorie
                             </Button>
                         </DialogFooter>

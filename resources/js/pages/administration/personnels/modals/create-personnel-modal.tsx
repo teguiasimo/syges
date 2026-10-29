@@ -188,6 +188,8 @@ export function CreatePersonnelModal({
             onSuccess: () => {
                 toast.success('Personnel enregistré avec succès !', {
                     description: `${data.nom} ${data.prenom} a été ajouté au registre du personnel.`,
+                    position: 'top-right',
+                    className: 'bg-emerald-600 text-white border-emerald-700',
                 });
                 reset();
                 clearErrors();
@@ -196,6 +198,7 @@ export function CreatePersonnelModal({
             onError: () => {
                 toast.error('Erreur lors de l\'enregistrement', {
                     description: 'Veuillez vérifier les champs signalés en rouge.',
+                    position: 'top-right',
                 });
             },
         });
@@ -203,13 +206,13 @@ export function CreatePersonnelModal({
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-6 sm:p-8">
+            <DialogContent className="w-[95vw] sm:max-w-4xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
                 <DialogHeader className="border-b pb-4">
                     <DialogTitle className="text-xl font-bold flex items-center gap-2 text-foreground">
-                        <div className="p-2 rounded-lg bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-900/50">
+                        <div className="p-2 rounded-lg bg-teal-50 dark:bg-teal-950/50 text-teal-600 dark:text-teal-400 border border-teal-200 dark:border-teal-900/50 shrink-0">
                             <Briefcase className="size-5" />
                         </div>
-                        Enregistrer un nouveau membre du personnel
+                        <span>Enregistrer un nouveau membre du personnel</span>
                     </DialogTitle>
                     <DialogDescription className="text-xs sm:text-sm text-muted-foreground mt-1">
                         Renseignez la fiche administrative, contractuelle et pédagogique. Vous pouvez simultanément lui créer un compte d'accès à SYGES.
@@ -220,7 +223,7 @@ export function CreatePersonnelModal({
                     {/* SECTION 1 : ÉTAT CIVIL & COORDONNÉES */}
                     <div className="space-y-4">
                         <div className="flex items-center gap-2 border-b pb-2">
-                            <User className="size-4 text-indigo-600 dark:text-indigo-400" />
+                            <User className="size-4 text-teal-600 dark:text-teal-400" />
                             <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">
                                 1. État Civil & Contact
                             </h3>
@@ -766,19 +769,20 @@ export function CreatePersonnelModal({
                         )}
                     </div>
 
-                    <DialogFooter className="gap-2 border-t pt-4">
+                    {/* Pied de dialogue responsive */}
+                    <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 border-t pt-4 sm:justify-end">
                         <Button
                             type="button"
                             variant="outline"
                             onClick={onClose}
-                            className="cursor-pointer"
+                            className="cursor-pointer w-full sm:w-auto"
                         >
                             Annuler
                         </Button>
                         <Button
                             type="submit"
                             disabled={processing}
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer font-semibold"
+                            className="bg-teal-600 hover:bg-teal-700 text-white cursor-pointer font-semibold w-full sm:w-auto"
                         >
                             <Plus className="size-4 mr-1.5" />
                             {processing ? 'Enregistrement...' : 'Enregistrer le personnel'}

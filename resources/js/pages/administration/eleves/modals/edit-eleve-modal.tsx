@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { User, Phone, Edit3 } from 'lucide-react';
+import { formatDateForInput } from '@/lib/utils';
 import type { Eleve } from '@/types/eleve';
 
 /**
@@ -65,12 +66,17 @@ export function EditEleveModal({ open, onOpenChange, eleve }: EditEleveModalProp
         router.put(`/administration/eleves/${eleve.id}`, formData, {
             onSuccess: () => {
                 setLoading(false);
-                toast.success("Fiche de l'élève mise à jour avec succès !");
+                toast.success("Fiche de l'élève mise à jour avec succès !", {
+                    position: 'top-right',
+                    className: 'bg-emerald-600 text-white border-emerald-700',
+                });
                 onOpenChange(false);
             },
             onError: () => {
                 setLoading(false);
-                toast.error('Une erreur est survenue lors de la mise à jour.');
+                toast.error('Une erreur est survenue lors de la mise à jour.', {
+                    position: 'top-right',
+                });
             },
         });
     };
@@ -79,42 +85,42 @@ export function EditEleveModal({ open, onOpenChange, eleve }: EditEleveModalProp
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
                 <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2 text-xl">
-                        <Edit3 className="size-5 text-primary" />
-                        Modifier la fiche de {eleve.nom_complet}
+                    <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">
+                        <Edit3 className="size-5 text-primary shrink-0" />
+                        <span>Modifier la fiche de {eleve.nom_complet}</span>
                     </DialogTitle>
-                    <DialogDescription>
+                    <DialogDescription className="text-xs sm:text-sm">
                         Matricule : <span className="font-mono font-semibold">{eleve.matricule}</span>
                     </DialogDescription>
                 </DialogHeader>
 
-                {/* Tabs */}
-                <div className="flex border-b border-border mt-2 gap-1">
+                {/* Onglets avec support de défilement horizontal sur mobile */}
+                <div className="flex border-b border-border mt-2 gap-1 overflow-x-auto pb-1 shrink-0">
                     <button
                         type="button"
                         onClick={() => setActiveTab('identite')}
-                        className={`flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-t-lg transition-colors border-b-2 ${
+                        className={`flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-t-lg transition-colors border-b-2 whitespace-nowrap shrink-0 ${
                             activeTab === 'identite'
                                 ? 'border-primary text-primary bg-primary/5'
                                 : 'border-transparent text-muted-foreground hover:text-foreground'
                         }`}
                     >
-                        <User className="size-4" />
-                        État Civil
+                        <User className="size-4 shrink-0" />
+                        <span>État Civil</span>
                     </button>
                     <button
                         type="button"
                         onClick={() => setActiveTab('parents')}
-                        className={`flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-t-lg transition-colors border-b-2 ${
+                        className={`flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-t-lg transition-colors border-b-2 whitespace-nowrap shrink-0 ${
                             activeTab === 'parents'
                                 ? 'border-primary text-primary bg-primary/5'
                                 : 'border-transparent text-muted-foreground hover:text-foreground'
                         }`}
                     >
-                        <Phone className="size-4" />
-                        Parents & Contacts
+                        <Phone className="size-4 shrink-0" />
+                        <span>Parents & Contacts</span>
                     </button>
                 </div>
 
@@ -182,7 +188,7 @@ export function EditEleveModal({ open, onOpenChange, eleve }: EditEleveModalProp
                                 <Input
                                     id="edit_date_naissance"
                                     type="date"
-                                    value={formData.date_naissance ? String(formData.date_naissance).slice(0, 10) : ''}
+                                    value={formData.date_naissance ? formatDateForInput(formData.date_naissance) : ''}
                                     onChange={(e) => setFormData({ ...formData, date_naissance: e.target.value })}
                                     className="mt-1"
                                 />
@@ -276,11 +282,12 @@ export function EditEleveModal({ open, onOpenChange, eleve }: EditEleveModalProp
                         </div>
                     )}
 
-                    <DialogFooter className="pt-4 border-t border-border">
-                        <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+                    {/* Pied de modal responsive avec boutons pleine largeur sur mobile */}
+                    <DialogFooter className="pt-4 border-t border-border flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
+                        <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} className="w-full sm:w-auto">
                             Annuler
                         </Button>
-                        <Button type="submit" disabled={loading}>
+                        <Button type="submit" disabled={loading} className="w-full sm:w-auto">
                             {loading ? 'Enregistrement...' : 'Enregistrer les modifications'}
                         </Button>
                     </DialogFooter>

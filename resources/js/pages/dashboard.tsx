@@ -18,6 +18,7 @@ import {
     Users,
 } from 'lucide-react';
 import * as React from 'react';
+import { useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -35,6 +36,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { formatAnneeLabel } from '@/lib/utils';
 import type { BreadcrumbItem } from '@/types';
 import type {
     StatistiqueDemographique,
@@ -51,6 +53,7 @@ interface EtablissementOption {
 interface AnneeOption {
     id: number;
     nom: string;
+    code?: string;
 }
 
 export interface EnseignantAttributionStat {
@@ -171,6 +174,11 @@ export default function Dashboard({
         );
     };
 
+    // Année scolaire activement sélectionnée (pour affichage concis dans le déclencheur Select)
+    const selectedAnnee = React.useMemo(() => {
+        return annees.find((an) => an.id === currentAnneeId);
+    }, [annees, currentAnneeId]);
+
     /**
      * Si l'utilisateur est un enseignant sans prérogatives de gestion globale,
      * afficher l'espace pédagogique personnel sans fuite de données financières.
@@ -204,15 +212,15 @@ export default function Dashboard({
                         </p>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
                         {etablissements.length > 1 && (
-                            <div className="flex items-center gap-2">
-                                <Building2 className="size-4 text-muted-foreground" />
+                            <div className="flex items-center gap-2 w-full sm:w-auto">
+                                <Building2 className="size-4 text-muted-foreground shrink-0" />
                                 <Select
                                     value={currentEtablissement?.id.toString()}
                                     onValueChange={(val) => handleFilterChange('etablissement_id', val)}
                                 >
-                                    <SelectTrigger className="w-50">
+                                    <SelectTrigger className="w-full sm:w-52">
                                         <SelectValue placeholder="Établissement" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -226,19 +234,21 @@ export default function Dashboard({
                             </div>
                         )}
 
-                        <div className="flex items-center gap-2">
-                            <Calendar className="size-4 text-muted-foreground" />
+                        <div className="flex items-center gap-2 w-full sm:w-auto">
+                            <Calendar className="size-4 text-muted-foreground shrink-0" />
                             <Select
                                 value={currentAnneeId.toString()}
                                 onValueChange={(val) => handleFilterChange('annee_id', val)}
                             >
-                                <SelectTrigger className="w-37.5">
-                                    <SelectValue placeholder="Année Scolaire" />
+                                <SelectTrigger className="w-full sm:w-36">
+                                    <SelectValue placeholder="Session">
+                                        {selectedAnnee ? formatAnneeLabel(selectedAnnee.nom, selectedAnnee.code) : undefined}
+                                    </SelectValue>
                                 </SelectTrigger>
                                 <SelectContent>
                                     {annees.map((an) => (
                                         <SelectItem key={an.id} value={an.id.toString()}>
-                                            {an.nom}
+                                            {formatAnneeLabel(an.nom, an.code)}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
@@ -267,24 +277,58 @@ export default function Dashboard({
                         </CardContent>
                     </Card>
 
-                    {/* Parité Filles / Garçons */}
+                    {/* Parité Filles / Garçons (Jauge bicolore 100% équilibrée Filles & Garçons) */}
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between pb-2">
                             <CardTitle className="text-sm font-medium text-muted-foreground">
                                 Parité de Scolarisation
                             </CardTitle>
-                            <GraduationCap className="size-4 text-blue-500" />
+                            <Users className="size-4 text-sky-500" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold text-foreground">
-                                {demographie?.parite?.taux_filles ?? 0}% Filles
+                            <div className="flex items-baseline justify-between">
+                                <div className="text-2xl font-bold text-foreground flex items-baseline gap-1.5">
+                                    <span className="text-rose-600 dark:text-rose-400 font-mono">
+                                        {demographie?.parite?.taux_filles ?? 0}%
+                                    </span>
+                                    <span className="text-xs font-semibold text-rose-600/80 dark:text-rose-400/80 uppercase">
+                                        F
+                                    </span>
+                                    <span className="text-muted-foreground/30 font-light text-base mx-0.5">/</span>
+                                    <span className="text-sky-600 dark:text-sky-400 font-mono">
+                                        {demographie?.parite?.taux_garcons ?? 0}%
+                                    </span>
+                                    <span className="text-xs font-semibold text-sky-600/80 dark:text-sky-400/80 uppercase">
+                                        G
+                                    </span>
+                                </div>
                             </div>
-                            <div className="mt-2 flex items-center gap-2">
-                                <Progress value={demographie?.parite?.taux_filles ?? 0} className="h-2" />
+
+                            {/* Barre de parité segmentée bicolore (Filles + Garçons = 100% de la largeur) */}
+                            <div className="mt-2.5 h-2.5 w-full overflow-hidden rounded-full bg-muted flex shadow-inner">
+                                <div
+                                    className="h-full bg-rose-500 transition-all duration-500"
+                                    style={{ width: `${demographie?.parite?.taux_filles ?? 0}%` }}
+                                    title={`Filles : ${demographie?.parite?.taux_filles ?? 0}% (${demographie?.parite?.filles ?? 0} élèves)`}
+                                />
+                                <div
+                                    className="h-full bg-sky-500 transition-all duration-500"
+                                    style={{ width: `${demographie?.parite?.taux_garcons ?? 0}%` }}
+                                    title={`Garçons : ${demographie?.parite?.taux_garcons ?? 0}% (${demographie?.parite?.garcons ?? 0} élèves)`}
+                                />
                             </div>
-                            <p className="text-xs text-muted-foreground mt-1.5">
-                                {demographie?.parite?.filles ?? 0} Filles / {demographie?.parite?.garcons ?? 0} Garçons
-                            </p>
+
+                            {/* Légende détaillée bicolore avec effectifs chiffrés */}
+                            <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+                                <div className="flex items-center gap-1.5 font-medium">
+                                    <span className="size-2 rounded-full bg-rose-500 inline-block shrink-0" />
+                                    <span>{demographie?.parite?.filles ?? 0} Filles</span>
+                                </div>
+                                <div className="flex items-center gap-1.5 font-medium">
+                                    <span className="size-2 rounded-full bg-sky-500 inline-block shrink-0" />
+                                    <span>{demographie?.parite?.garcons ?? 0} Garçons</span>
+                                </div>
+                            </div>
                         </CardContent>
                     </Card>
 
@@ -331,57 +375,57 @@ export default function Dashboard({
                     </Card>
                 </div>
 
-                {/* Liens Rapides vers les Modules Clés */}
-                <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">
-                    <Button variant="outline" className="h-auto justify-between p-3.5 text-left" asChild>
+                {/* Liens Rapides vers les Modules Clés (2 colonnes tablette / petit laptop, 4 colonnes grand écran) */}
+                <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
+                    <Button variant="outline" className="h-auto min-w-0 whitespace-normal justify-between p-3.5 text-left" asChild>
                         <Link href="/administration/deliberations">
-                            <div className="flex items-center gap-2.5">
-                                <Award className="size-5 text-amber-600" />
-                                <div>
-                                    <div className="font-semibold text-sm">Conseil & Délibérations</div>
-                                    <div className="text-xs text-muted-foreground">PV & Décisions de passage</div>
+                            <div className="flex items-center gap-2.5 min-w-0">
+                                <Award className="size-5 text-amber-600 shrink-0" />
+                                <div className="min-w-0">
+                                    <div className="font-semibold text-sm truncate">Conseil & Délibérations</div>
+                                    <div className="text-xs text-muted-foreground truncate">PV & Décisions de passage</div>
                                 </div>
                             </div>
-                            <ArrowUpRight className="size-4 text-muted-foreground" />
+                            <ArrowUpRight className="size-4 text-muted-foreground shrink-0 ml-2" />
                         </Link>
                     </Button>
 
-                    <Button variant="outline" className="h-auto justify-between p-3.5 text-left" asChild>
+                    <Button variant="outline" className="h-auto min-w-0 whitespace-normal justify-between p-3.5 text-left" asChild>
                         <Link href="/administration/statistiques">
-                            <div className="flex items-center gap-2.5">
-                                <BookOpen className="size-5 text-blue-600" />
-                                <div>
-                                    <div className="font-semibold text-sm">Statistiques Ministérielles</div>
-                                    <div className="text-xs text-muted-foreground">Bordereaux MINESEC</div>
+                            <div className="flex items-center gap-2.5 min-w-0">
+                                <BookOpen className="size-5 text-blue-600 shrink-0" />
+                                <div className="min-w-0">
+                                    <div className="font-semibold text-sm truncate">Statistiques Ministérielles</div>
+                                    <div className="text-xs text-muted-foreground truncate">Bordereaux MINESEC</div>
                                 </div>
                             </div>
-                            <ArrowUpRight className="size-4 text-muted-foreground" />
+                            <ArrowUpRight className="size-4 text-muted-foreground shrink-0 ml-2" />
                         </Link>
                     </Button>
 
-                    <Button variant="outline" className="h-auto justify-between p-3.5 text-left" asChild>
+                    <Button variant="outline" className="h-auto min-w-0 whitespace-normal justify-between p-3.5 text-left" asChild>
                         <Link href="/administration/bulletins">
-                            <div className="flex items-center gap-2.5">
-                                <GraduationCap className="size-5 text-emerald-600" />
-                                <div>
-                                    <div className="font-semibold text-sm">Bulletins Scolaires</div>
-                                    <div className="text-xs text-muted-foreground">APC & Standards</div>
+                            <div className="flex items-center gap-2.5 min-w-0">
+                                <GraduationCap className="size-5 text-emerald-600 shrink-0" />
+                                <div className="min-w-0">
+                                    <div className="font-semibold text-sm truncate">Bulletins Scolaires</div>
+                                    <div className="text-xs text-muted-foreground truncate">APC & Standards</div>
                                 </div>
                             </div>
-                            <ArrowUpRight className="size-4 text-muted-foreground" />
+                            <ArrowUpRight className="size-4 text-muted-foreground shrink-0 ml-2" />
                         </Link>
                     </Button>
 
-                    <Button variant="outline" className="h-auto justify-between p-3.5 text-left" asChild>
+                    <Button variant="outline" className="h-auto min-w-0 whitespace-normal justify-between p-3.5 text-left" asChild>
                         <Link href="/administration/finances">
-                            <div className="flex items-center gap-2.5">
-                                <DollarSign className="size-5 text-purple-600" />
-                                <div>
-                                    <div className="font-semibold text-sm">Caisse & Versements</div>
-                                    <div className="text-xs text-muted-foreground">Reçus & Clôtures</div>
+                            <div className="flex items-center gap-2.5 min-w-0">
+                                <DollarSign className="size-5 text-teal-600 shrink-0" />
+                                <div className="min-w-0">
+                                    <div className="font-semibold text-sm truncate">Caisse & Versements</div>
+                                    <div className="text-xs text-muted-foreground truncate">Reçus & Clôtures</div>
                                 </div>
                             </div>
-                            <ArrowUpRight className="size-4 text-muted-foreground" />
+                            <ArrowUpRight className="size-4 text-muted-foreground shrink-0 ml-2" />
                         </Link>
                     </Button>
                 </div>
@@ -392,7 +436,7 @@ export default function Dashboard({
                 />
 
                 {/* Section Mixte : Répartition par Cycle (70%) & Densitométrie des Classes (30%) */}
-                <div className="grid gap-6 grid-cols-1 lg:grid-cols-[7fr_3fr]">
+                <div className="grid gap-6 grid-cols-1 xl:grid-cols-[7fr_3fr]">
                     {/* 1. Répartition des élèves par cycle (Diagramme Donut calqué sur la maquette ministérielle - 70%) */}
                     <CarteRepartitionCycles
                         repartition={demographie?.repartition_cycles ?? []}
@@ -400,9 +444,9 @@ export default function Dashboard({
                     />
 
                     {/* 2. Densitométrie et Capacité des Classes (30%) */}
-                    <Card className="flex flex-col h-full">
+                    <Card className="flex flex-col h-full min-w-0">
                         <CardHeader className="pb-3">
-                            <div className="flex items-center justify-between">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
                                 <div>
                                     <CardTitle className="text-base">Densitométrie des Classes</CardTitle>
                                     <CardDescription>
@@ -559,7 +603,8 @@ function EnseignantDashboardView({
         <>
             <Head title="Espace Pédagogique Enseignant" />
 
-            <div className="flex flex-1 flex-col gap-6 p-4 md:p-6 max-w-7xl mx-auto w-full">
+            {/* Conteneur principal plein écran sans contrainte artificielle de largeur pour les écrans 22" */}
+            <div className="flex flex-1 flex-col gap-6 p-4 md:p-6 w-full min-w-0">
                 {/* En-tête Enseignant */}
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
@@ -572,15 +617,15 @@ function EnseignantDashboardView({
                     </div>
 
                     {/* Sélecteurs de Contexte */}
-                    <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
                         {etablissements.length > 1 && (
-                            <div className="flex items-center gap-2">
-                                <Building2 className="size-4 text-muted-foreground" />
+                            <div className="flex items-center gap-2 w-full sm:w-auto">
+                                <Building2 className="size-4 text-muted-foreground shrink-0" />
                                 <Select
                                     value={currentEtablissement?.id.toString()}
                                     onValueChange={(val) => onFilterChange('etablissement_id', val)}
                                 >
-                                    <SelectTrigger className="w-50">
+                                    <SelectTrigger className="w-full sm:w-52">
                                         <SelectValue placeholder="Établissement" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -594,19 +639,24 @@ function EnseignantDashboardView({
                             </div>
                         )}
 
-                        <div className="flex items-center gap-2">
-                            <Calendar className="size-4 text-muted-foreground" />
+                        <div className="flex items-center gap-2 w-full sm:w-auto">
+                            <Calendar className="size-4 text-muted-foreground shrink-0" />
                             <Select
                                 value={currentAnneeId.toString()}
                                 onValueChange={(val) => onFilterChange('annee_id', val)}
                             >
-                                <SelectTrigger className="w-37.5">
-                                    <SelectValue placeholder="Année Scolaire" />
+                                <SelectTrigger className="w-full sm:w-36">
+                                    <SelectValue placeholder="Session">
+                                        {(() => {
+                                            const an = annees.find((a) => a.id === currentAnneeId);
+                                            return an ? formatAnneeLabel(an.nom, an.code) : undefined;
+                                        })()}
+                                    </SelectValue>
                                 </SelectTrigger>
                                 <SelectContent>
                                     {annees.map((an) => (
                                         <SelectItem key={an.id} value={an.id.toString()}>
-                                            {an.nom}
+                                            {formatAnneeLabel(an.nom, an.code)}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>

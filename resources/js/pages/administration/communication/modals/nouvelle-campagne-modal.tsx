@@ -88,13 +88,13 @@ export default function NouvelleCampagneModal({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-lg">
+            <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2 text-lg font-bold text-slate-800 dark:text-slate-100">
-                        <Send className="w-5 h-5 text-indigo-600" />
-                        Diffuser une Campagne SMS Groupée
+                    <DialogTitle className="flex items-center gap-2 text-base sm:text-lg font-bold text-slate-800 dark:text-slate-100">
+                        <Send className="w-5 h-5 text-teal-600 shrink-0" />
+                        <span>Diffuser une Campagne SMS Groupée</span>
                     </DialogTitle>
-                    <DialogDescription>
+                    <DialogDescription className="text-xs sm:text-sm">
                         Envoi ciblé aux parents avec conversion automatique GSM 7-bit (sans surcoût d'accent).
                     </DialogDescription>
                 </DialogHeader>
@@ -115,7 +115,7 @@ export default function NouvelleCampagneModal({
                         {errors.titre && <p className="text-xs text-rose-500">{errors.titre}</p>}
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className="space-y-1">
                             <Label htmlFor="cible_type" className="text-xs font-semibold">
                                 Cible de diffusion <span className="text-rose-500">*</span>
@@ -127,7 +127,7 @@ export default function NouvelleCampagneModal({
                                     setData('cible_id', '');
                                 }}
                             >
-                                <SelectTrigger id="cible_type" className="text-xs h-9">
+                                <SelectTrigger id="cible_type" className="text-xs h-9 w-full">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -149,7 +149,7 @@ export default function NouvelleCampagneModal({
                                     value={data.cible_id}
                                     onValueChange={(val) => setData('cible_id', val)}
                                 >
-                                    <SelectTrigger id="cible_id" className="text-xs h-9">
+                                    <SelectTrigger id="cible_id" className="text-xs h-9 w-full">
                                         <SelectValue placeholder="Choisir une classe..." />
                                     </SelectTrigger>
                                     <SelectContent className="max-h-56">
@@ -172,7 +172,7 @@ export default function NouvelleCampagneModal({
                                     value={data.cible_id}
                                     onValueChange={(val) => setData('cible_id', val)}
                                 >
-                                    <SelectTrigger id="cible_id" className="text-xs h-9">
+                                    <SelectTrigger id="cible_id" className="text-xs h-9 w-full">
                                         <SelectValue placeholder="Choisir un niveau..." />
                                     </SelectTrigger>
                                     <SelectContent className="max-h-56">
@@ -195,7 +195,7 @@ export default function NouvelleCampagneModal({
                                     value={data.cible_id}
                                     onValueChange={(val) => setData('cible_id', val)}
                                 >
-                                    <SelectTrigger id="cible_id" className="text-xs h-9">
+                                    <SelectTrigger id="cible_id" className="text-xs h-9 w-full">
                                         <SelectValue placeholder="Choisir une section..." />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -228,15 +228,15 @@ export default function NouvelleCampagneModal({
                             required
                         />
                         {errors.message && <p className="text-xs text-rose-500">{errors.message}</p>}
-                        <div className="flex items-center gap-1.5 text-[10px] text-indigo-600 dark:text-indigo-400 bg-indigo-50/60 dark:bg-indigo-950/30 p-2 rounded">
-                            <Sparkles className="w-3.5 h-3.5 shrink-0" />
+                        <div className="flex items-center gap-1.5 text-[10px] text-teal-700 dark:text-teal-300 bg-teal-50/80 dark:bg-teal-950/40 p-2 rounded">
+                            <Sparkles className="w-3.5 h-3.5 shrink-0 text-teal-600" />
                             <span>
                                 <strong>Sanitisation GSM 7-bit active</strong> : les accents (é, è, à, ç) seront nettoyés avant émission pour garantir 160 car./SMS au lieu de 70.
                             </span>
                         </div>
                     </div>
 
-                    <DialogFooter className="gap-2 pt-2">
+                    <DialogFooter className="flex-col sm:flex-row gap-2 pt-2">
                         <Button
                             type="button"
                             variant="outline"
@@ -245,12 +245,13 @@ export default function NouvelleCampagneModal({
                                 onOpenChange(false);
                             }}
                             disabled={processing}
+                            className="w-full sm:w-auto"
                         >
                             Annuler
                         </Button>
                         <Button
                             type="submit"
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold"
+                            className="bg-teal-600 hover:bg-teal-700 text-white font-semibold w-full sm:w-auto"
                             disabled={processing}
                         >
                             {processing ? 'Diffusion en cours...' : 'Diffuser la Campagne'}

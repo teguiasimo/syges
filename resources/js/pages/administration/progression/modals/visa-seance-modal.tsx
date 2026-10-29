@@ -79,10 +79,10 @@ export function VisaSeanceModal({ open, onOpenChange, seance }: VisaSeanceModalP
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-lg">
+            <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
-                    <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
-                        <ShieldCheck className="w-5 h-5" />
+                    <div className="flex items-center gap-2 text-teal-600 dark:text-teal-400">
+                        <ShieldCheck className="w-5 h-5 shrink-0" />
                         <DialogTitle>Visa Pédagogique du Censeur</DialogTitle>
                     </div>
                     <DialogDescription>
@@ -92,19 +92,19 @@ export function VisaSeanceModal({ open, onOpenChange, seance }: VisaSeanceModalP
 
                 {/* Récapitulatif de la séance */}
                 <div className="rounded-md border bg-slate-50 dark:bg-slate-900/50 p-3 space-y-2 text-xs">
-                    <div className="flex justify-between">
+                    <div className="flex flex-col min-[400px]:flex-row min-[400px]:justify-between gap-0.5">
                         <span className="text-slate-500">Date & Semaine :</span>
                         <span className="font-semibold text-slate-800 dark:text-slate-200">
                             {formatDate(seance.date_seance)} {seance.semaine_numero ? `(Semaine ${seance.semaine_numero})` : ''}
                         </span>
                     </div>
-                    <div className="flex justify-between">
+                    <div className="flex flex-col min-[400px]:flex-row min-[400px]:justify-between gap-0.5">
                         <span className="text-slate-500">Classe & Matière :</span>
                         <span className="font-semibold text-slate-800 dark:text-slate-200">
                             {seance.attribution?.classe?.nom} - {seance.attribution?.matiere?.nom}
                         </span>
                     </div>
-                    <div className="flex justify-between">
+                    <div className="flex flex-col min-[400px]:flex-row min-[400px]:justify-between gap-0.5">
                         <span className="text-slate-500">Enseignant :</span>
                         <span className="font-semibold text-slate-800 dark:text-slate-200">
                             {seance.attribution?.personnel?.nom} {seance.attribution?.personnel?.prenom}
@@ -120,9 +120,9 @@ export function VisaSeanceModal({ open, onOpenChange, seance }: VisaSeanceModalP
                             </p>
                         )}
                     </div>
-                    <div className="flex justify-between border-t pt-2">
+                    <div className="flex flex-col min-[400px]:flex-row min-[400px]:justify-between gap-0.5 border-t pt-2">
                         <span className="text-slate-500">Volume horaire réalisé :</span>
-                        <span className="font-bold text-indigo-600 dark:text-indigo-400">
+                        <span className="font-bold text-teal-600 dark:text-teal-400">
                             {seance.heures_effectuees} h / {seance.heures_prevues} h prévues
                         </span>
                     </div>

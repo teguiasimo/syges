@@ -69,6 +69,7 @@ import { ReinscriptionModal } from './modals/reinscription-modal';
 import { TransfertModal } from './modals/transfert-modal';
 import { EleveDetailDrawer } from './modals/eleve-detail-drawer';
 import { ImportCsvModal } from './modals/import-csv-modal';
+import { ImprimerListesModal } from './modals/imprimer-listes-modal';
 
 import type {
     Inscription,
@@ -128,6 +129,7 @@ export default function ElevesIndex({
     const [reinscriptionModalOpen, setReinscriptionModalOpen] = useState(false);
     const [transfertModalOpen, setTransfertModalOpen] = useState(false);
     const [importModalOpen, setImportModalOpen] = useState(false);
+    const [imprimerModalOpen, setImprimerModalOpen] = useState(false);
 
     // État du tiroir de détails
     const [detailDrawerOpen, setDetailDrawerOpen] = useState(false);
@@ -452,7 +454,7 @@ export default function ElevesIndex({
                                         onClick={() => window.open(`/administration/documents/certificat-scolarite/${insc.id}`, '_blank')}
                                         className="gap-2 cursor-pointer font-medium"
                                     >
-                                        <FileText className="size-4 text-indigo-600" />
+                                        <FileText className="size-4 text-teal-600" />
                                         Certificat de Scolarité (PDF)
                                     </DropdownMenuItem>
                                     <DropdownMenuItem
@@ -476,25 +478,6 @@ export default function ElevesIndex({
                                         <Wallet className="size-4 text-emerald-600" />
                                         Situation Financière (PDF)
                                     </DropdownMenuItem>
-
-                                    {insc.classe_id && (
-                                        <>
-                                            <DropdownMenuItem
-                                                onClick={() => window.open(`/administration/documents/liste-eleves/${insc.classe_id}?type=definitive&annee_id=${selectedAnneeId}`, '_blank')}
-                                                className="gap-2 cursor-pointer font-medium"
-                                            >
-                                                <Users className="size-4 text-teal-600" />
-                                                Liste classe ({insc.classe?.nom})
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem
-                                                onClick={() => window.open(`/administration/documents/fiche-appel/${insc.classe_id}?annee_id=${selectedAnneeId}`, '_blank')}
-                                                className="gap-2 cursor-pointer font-medium"
-                                            >
-                                                <Printer className="size-4 text-blue-600" />
-                                                Fiche d'appel ({insc.classe?.nom})
-                                            </DropdownMenuItem>
-                                        </>
-                                    )}
 
                                     {can.eleves_delete && (
                                         <>
@@ -546,9 +529,9 @@ export default function ElevesIndex({
         return table.getSelectedRowModel().rows.map((r) => r.original);
     }, [rowSelection, inscriptions]);
 
-    // Liste des classes pour le filtre
+    // Liste des classes pour le filtre et l'impression
     const filterClasses = useMemo(() => {
-        const list: { id: number; nom: string; niveauNom: string }[] = [];
+        const list: { id: number; nom: string; niveauId?: number; niveauNom?: string }[] = [];
         etablissements.forEach((etab) => {
             if (!selectedEtab || String(etab.id) === selectedEtab) {
                 etab.sections?.forEach((s) => {
@@ -558,9 +541,35 @@ export default function ElevesIndex({
                                 list.push({
                                     id: cls.id,
                                     nom: cls.nom,
+                                    niveauId: n.id,
                                     niveauNom: n.nom,
                                 });
                             });
+                        });
+                    });
+                });
+            }
+        });
+        return list;
+    }, [etablissements, selectedEtab]);
+
+    // Liste consolidée des niveaux scolaires (pour impression officielle par niveau)
+    const filterNiveaux = useMemo(() => {
+        const list: { id: number; nom: string; code?: string }[] = [];
+        const seen = new Set<number>();
+        etablissements.forEach((etab) => {
+            if (!selectedEtab || String(etab.id) === selectedEtab) {
+                etab.sections?.forEach((s) => {
+                    s.cycles?.forEach((c) => {
+                        c.niveaux?.forEach((n) => {
+                            if (!seen.has(n.id)) {
+                                seen.add(n.id);
+                                list.push({
+                                    id: n.id,
+                                    nom: n.nom,
+                                    code: n.code,
+                                });
+                            }
                         });
                     });
                 });
@@ -583,16 +592,17 @@ export default function ElevesIndex({
         <>
             <Head title="Gestion des Élèves & Inscriptions" />
 
-            <div className="flex h-full flex-1 flex-col gap-6 p-6 sm:p-8">
-                {/* En-tête de page & Année scolaire active */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            {/* Conteneur principal plein écran avec espacement adaptatif et débordement maîtrisé */}
+            <div className="flex h-full flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8 min-w-0 w-full">
+                {/* En-tête de page & Année scolaire active responsive */}
+                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                     <div>
                         <div className="flex items-center gap-2.5">
-                            <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-900/40">
+                            <div className="p-2 rounded-xl bg-teal-50 dark:bg-teal-950/50 text-teal-600 dark:text-teal-400 border border-teal-100 dark:border-teal-900/40 shrink-0">
                                 <GraduationCap className="size-6" />
                             </div>
                             <div>
-                                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
+                                <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight text-foreground">
                                     Élèves & Inscriptions
                                 </h1>
                                 <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
@@ -602,8 +612,8 @@ export default function ElevesIndex({
                         </div>
                     </div>
 
-                    {/* Sélecteur d'Année Scolaire & Boutons d'Action Principaux */}
-                    <div className="flex items-center gap-2 flex-wrap">
+                    {/* Sélecteur d'Année Scolaire & Boutons d'Action Principaux avec repli fluide */}
+                    <div className="flex items-center gap-2 flex-wrap w-full lg:w-auto">
                         <select
                             value={selectedAnneeId}
                             onChange={(e) => handleFilterChange({ annee_scolaire_id: e.target.value })}
@@ -666,72 +676,17 @@ export default function ElevesIndex({
                             </Link>
                         </Button>
 
-                        {/* Menu d'impression des états et listes administratives officielles */}
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="gap-1.5 h-9 border-indigo-200 text-indigo-700 dark:border-indigo-800 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 cursor-pointer"
-                                    title="Imprimer les listes et fiches administratives officielles (PDF)"
-                                >
-                                    <Printer className="size-4 text-indigo-600 dark:text-indigo-400" />
-                                    <span className="hidden sm:inline">Listes & Fiches (PDF)</span>
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-64">
-                                <DropdownMenuLabel className="text-xs font-bold text-slate-500">
-                                    {selectedClasse
-                                        ? `Classe : ${filterClasses.find((c) => String(c.id) === selectedClasse)?.nom ?? ''}`
-                                        : 'Documents de classe'}
-                                </DropdownMenuLabel>
-
-                                {selectedClasse ? (
-                                    <>
-                                        <DropdownMenuItem
-                                            onClick={() => window.open(`/administration/documents/liste-eleves/${selectedClasse}?type=definitive&annee_id=${selectedAnneeId}`, '_blank')}
-                                            className="gap-2 cursor-pointer font-medium"
-                                        >
-                                            <FileText className="size-4 text-emerald-600" />
-                                            <span>Liste Définitive des élèves</span>
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem
-                                            onClick={() => window.open(`/administration/documents/liste-eleves/${selectedClasse}?type=provisoire&annee_id=${selectedAnneeId}`, '_blank')}
-                                            className="gap-2 cursor-pointer font-medium"
-                                        >
-                                            <FileText className="size-4 text-amber-600" />
-                                            <span>Liste Provisoire des élèves</span>
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem
-                                            onClick={() => window.open(`/administration/documents/fiche-appel/${selectedClasse}?annee_id=${selectedAnneeId}`, '_blank')}
-                                            className="gap-2 cursor-pointer font-medium"
-                                        >
-                                            <Printer className="size-4 text-blue-600" />
-                                            <span>Fiche d'Appel (Émargement)</span>
-                                        </DropdownMenuItem>
-                                    </>
-                                ) : (
-                                    <div className="px-2 py-1.5 text-xs text-muted-foreground italic">
-                                        Sélectionnez une classe dans les filtres pour générer sa fiche d'appel ou sa liste nominative.
-                                    </div>
-                                )}
-
-                                <DropdownMenuSeparator />
-                                <DropdownMenuLabel className="text-xs font-bold text-slate-500">
-                                    Répertoire Général
-                                </DropdownMenuLabel>
-                                <DropdownMenuItem
-                                    onClick={() => {
-                                        const etabParam = selectedEtab ? `&etablissement_id=${selectedEtab}` : '';
-                                        window.open(`/administration/documents/liste-classes?annee_id=${selectedAnneeId}${etabParam}`, '_blank');
-                                    }}
-                                    className="gap-2 cursor-pointer font-medium"
-                                >
-                                    <School className="size-4 text-indigo-600" />
-                                    <span>Liste Récapitulative des Classes</span>
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
+                        {/* Bouton d'accès direct à l'impression des listes et fiches officielles */}
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setImprimerModalOpen(true)}
+                            className="gap-1.5 h-9 border-teal-200 text-teal-700 dark:border-teal-800 dark:text-teal-300 hover:bg-teal-50 dark:hover:bg-teal-950/40 cursor-pointer font-medium"
+                            title="Imprimer les listes d'élèves (par classe ou par niveau) et fiches d'appel (PDF)"
+                        >
+                            <Printer className="size-4 text-teal-600 dark:text-teal-400 shrink-0" />
+                            <span>Listes & Fiches (PDF)</span>
+                        </Button>
 
                         {can.inscriptions_transfer && (
                             <Button
@@ -741,7 +696,7 @@ export default function ElevesIndex({
                                 disabled={selectedInscriptions.length === 0}
                                 className="gap-1.5 h-9"
                             >
-                                <ArrowRightLeft className="size-4 text-indigo-600" />
+                                <ArrowRightLeft className="size-4 text-teal-600" />
                                 <span>Transférer ({selectedInscriptions.length})</span>
                             </Button>
                         )}
@@ -827,8 +782,8 @@ export default function ElevesIndex({
                     </div>
                 ) : null}
 
-                {/* Grille des 4 KPIs en temps réel */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Grille des 4 KPIs en temps réel avec responsive adaptatif */}
+                <div className="grid grid-cols-1 min-[420px]:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                     <div className="rounded-2xl border border-border/80 bg-card p-4 shadow-xs">
                         <div className="flex items-center justify-between">
                             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
@@ -839,7 +794,7 @@ export default function ElevesIndex({
                             </div>
                         </div>
                         <div className="mt-2 flex items-baseline gap-2">
-                            <span className="text-2xl font-bold text-foreground">{stats.totalInscrits}</span>
+                            <span className="text-2xl font-bold text-foreground tabular-nums">{stats.totalInscrits}</span>
                             <Badge variant="outline" className="text-[10px] text-emerald-600 border-emerald-300">
                                 Validés
                             </Badge>
@@ -858,13 +813,13 @@ export default function ElevesIndex({
                         </div>
                         <div className="mt-2 flex items-center justify-between">
                             <div>
-                                <span className="text-base font-bold text-rose-600">{stats.totalFilles} F</span>
+                                <span className="text-base font-bold text-rose-600 tabular-nums">{stats.totalFilles} F</span>
                                 <span className="text-xs text-muted-foreground ml-1">
                                     ({stats.totalInscrits > 0 ? Math.round((stats.totalFilles / stats.totalInscrits) * 100) : 0}%)
                                 </span>
                             </div>
                             <div className="text-right">
-                                <span className="text-base font-bold text-blue-600">{stats.totalGarcons} G</span>
+                                <span className="text-base font-bold text-blue-600 tabular-nums">{stats.totalGarcons} G</span>
                                 <span className="text-xs text-muted-foreground ml-1">
                                     ({stats.totalInscrits > 0 ? Math.round((stats.totalGarcons / stats.totalInscrits) * 100) : 0}%)
                                 </span>
@@ -891,16 +846,16 @@ export default function ElevesIndex({
                             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                                 Régime Scolaire
                             </span>
-                            <div className="p-1.5 rounded-lg bg-violet-50 text-violet-600 dark:bg-violet-950/40">
+                            <div className="p-1.5 rounded-lg bg-teal-50 text-teal-600 dark:bg-teal-950/40">
                                 <School className="size-4" />
                             </div>
                         </div>
                         <div className="mt-2 flex items-baseline gap-2">
-                            <span className="text-2xl font-bold text-foreground">
+                            <span className="text-2xl font-bold text-foreground tabular-nums">
                                 {stats.totalInscrits - stats.totalRedoublants}
                             </span>
                             <span className="text-xs text-muted-foreground">Nouveaux</span>
-                            <span className="text-xs text-amber-600 font-semibold ml-auto">
+                            <span className="text-xs text-amber-600 font-semibold ml-auto tabular-nums">
                                 {stats.totalRedoublants} Redoublant(s)
                             </span>
                         </div>
@@ -929,18 +884,18 @@ export default function ElevesIndex({
                     </div>
                 </div>
 
-                {/* Filtres Drill-down & Barre de recherche */}
+                {/* Filtres Drill-down & Barre de recherche avec disposition responsive */}
                 <div className="rounded-2xl border border-border/80 bg-card p-4 shadow-xs space-y-3">
-                    <div className="flex flex-col md:flex-row items-center gap-3">
+                    <div className="flex flex-col sm:flex-row sm:flex-wrap lg:flex-nowrap items-stretch sm:items-center gap-2.5 sm:gap-3">
                         {/* Barre de recherche */}
-                        <div className="relative flex-1 w-full">
+                        <div className="relative flex-1 min-w-0 w-full sm:min-w-[220px]">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                             <Input
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 onKeyDown={(e) => e.key === 'Enter' && handleFilterChange({ search: searchTerm })}
                                 placeholder="Rechercher par nom, prénom, matricule, téléphone du parent..."
-                                className="pl-9 h-9"
+                                className="pl-9 h-9 w-full text-xs"
                             />
                         </div>
 
@@ -952,7 +907,7 @@ export default function ElevesIndex({
                                 setSelectedClasse('');
                                 handleFilterChange({ etablissement_id: e.target.value, classe_id: '' });
                             }}
-                            className="w-full md:w-48 h-9 rounded-md border border-input bg-background px-3 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
+                            className="w-full sm:w-auto md:w-48 h-9 rounded-md border border-input bg-background px-3 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
                         >
                             <option value="">Tous les établissements</option>
                             {etablissements.map((etab) => (
@@ -963,7 +918,7 @@ export default function ElevesIndex({
                         </select>
 
                         {/* Filtre Classe avec recherche instantanée */}
-                        <div className="w-full md:w-56">
+                        <div className="w-full sm:w-auto md:w-56 min-w-0">
                             <SearchableSelect
                                 options={classeOptions}
                                 value={selectedClasse}
@@ -973,7 +928,7 @@ export default function ElevesIndex({
                                 }}
                                 placeholder="Toutes les classes"
                                 searchPlaceholder="Rechercher une classe..."
-                                className="h-9 text-xs"
+                                className="h-9 text-xs w-full"
                             />
                         </div>
 
@@ -984,7 +939,7 @@ export default function ElevesIndex({
                                 setSelectedStatut(e.target.value);
                                 handleFilterChange({ statut: e.target.value });
                             }}
-                            className="w-full md:w-36 h-9 rounded-md border border-input bg-background px-3 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
+                            className="w-full sm:w-auto md:w-36 h-9 rounded-md border border-input bg-background px-3 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
                         >
                             <option value="">Tous les statuts</option>
                             <option value="validee">Validées</option>
@@ -1001,7 +956,7 @@ export default function ElevesIndex({
                                 setSelectedSexe(e.target.value);
                                 handleFilterChange({ sexe: e.target.value });
                             }}
-                            className="w-full md:w-28 h-9 rounded-md border border-input bg-background px-3 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
+                            className="w-full sm:w-auto md:w-28 h-9 rounded-md border border-input bg-background px-3 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
                         >
                             <option value="">Tous sexes</option>
                             <option value="M">Garçons (M)</option>
@@ -1012,7 +967,7 @@ export default function ElevesIndex({
                             variant="secondary"
                             size="sm"
                             onClick={() => handleFilterChange({})}
-                            className="h-9 px-4 shrink-0"
+                            className="h-9 px-4 shrink-0 w-full sm:w-auto cursor-pointer"
                         >
                             Filtrer
                         </Button>
@@ -1021,14 +976,14 @@ export default function ElevesIndex({
 
                 {/* Bandeau d'actions rapides pour la classe activement filtrée */}
                 {selectedClasse && (
-                    <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-2xl bg-indigo-50/70 border border-indigo-200 dark:bg-indigo-950/30 dark:border-indigo-800 shadow-xs">
-                        <div className="flex items-center gap-2.5 text-xs font-semibold text-indigo-950 dark:text-indigo-200">
-                            <div className="p-1.5 rounded-lg bg-indigo-600 text-white shrink-0 shadow-xs">
+                    <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-2xl bg-teal-50/70 border border-teal-200 dark:bg-teal-950/30 dark:border-teal-800 shadow-xs">
+                        <div className="flex items-center gap-2.5 text-xs font-semibold text-teal-950 dark:text-teal-200">
+                            <div className="p-1.5 rounded-lg bg-teal-600 text-white shrink-0 shadow-xs">
                                 <Printer className="size-3.5" />
                             </div>
                             <div>
                                 <span>Documents officiels de la division : </span>
-                                <strong className="font-bold underline text-indigo-800 dark:text-indigo-300">
+                                <strong className="font-bold underline text-teal-800 dark:text-teal-300">
                                     {filterClasses.find((c) => String(c.id) === selectedClasse)?.nom ?? 'Classe sélectionnée'}
                                 </strong>
                             </div>
@@ -1038,7 +993,7 @@ export default function ElevesIndex({
                                 type="button"
                                 size="sm"
                                 variant="outline"
-                                className="h-8 text-xs font-semibold gap-1.5 bg-white dark:bg-slate-900 border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-950 text-emerald-700 dark:text-emerald-400 cursor-pointer shadow-xs"
+                                className="h-8 text-xs font-semibold gap-1.5 bg-white dark:bg-slate-900 border-teal-200 dark:border-teal-800 hover:bg-teal-100 dark:hover:bg-teal-950 text-emerald-700 dark:text-emerald-400 cursor-pointer shadow-xs"
                                 onClick={() => window.open(`/administration/documents/liste-eleves/${selectedClasse}?type=definitive&annee_id=${selectedAnneeId}`, '_blank')}
                                 title="Télécharger la liste définitive officielle de cette classe"
                             >
@@ -1049,7 +1004,7 @@ export default function ElevesIndex({
                                 type="button"
                                 size="sm"
                                 variant="outline"
-                                className="h-8 text-xs font-semibold gap-1.5 bg-white dark:bg-slate-900 border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-950 text-amber-700 dark:text-amber-400 cursor-pointer shadow-xs"
+                                className="h-8 text-xs font-semibold gap-1.5 bg-white dark:bg-slate-900 border-teal-200 dark:border-teal-800 hover:bg-teal-100 dark:hover:bg-teal-950 text-amber-700 dark:text-amber-400 cursor-pointer shadow-xs"
                                 onClick={() => window.open(`/administration/documents/liste-eleves/${selectedClasse}?type=provisoire&annee_id=${selectedAnneeId}`, '_blank')}
                                 title="Télécharger la liste provisoire de cette classe"
                             >
@@ -1060,11 +1015,11 @@ export default function ElevesIndex({
                                 type="button"
                                 size="sm"
                                 variant="outline"
-                                className="h-8 text-xs font-semibold gap-1.5 bg-white dark:bg-slate-900 border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-950 text-blue-700 dark:text-blue-400 cursor-pointer shadow-xs"
+                                className="h-8 text-xs font-semibold gap-1.5 bg-white dark:bg-slate-900 border-teal-200 dark:border-teal-800 hover:bg-teal-100 dark:hover:bg-teal-950 text-sky-700 dark:text-sky-400 cursor-pointer shadow-xs"
                                 onClick={() => window.open(`/administration/documents/fiche-appel/${selectedClasse}?annee_id=${selectedAnneeId}`, '_blank')}
                                 title="Télécharger la fiche d'appel mensuelle d'émargement"
                             >
-                                <Printer className="size-3.5 text-blue-600" />
+                                <Printer className="size-3.5 text-sky-600" />
                                 <span>Fiche d'Appel (PDF)</span>
                             </Button>
                         </div>
@@ -1072,9 +1027,9 @@ export default function ElevesIndex({
                 )}
 
                 {/* TABLEAU DE DONNÉES TANSTACK TABLE */}
-                <div className="rounded-2xl border border-border/80 bg-card overflow-hidden shadow-xs">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse">
+                <div className="rounded-2xl border border-border/80 bg-card overflow-hidden shadow-xs min-w-0">
+                    <div className="overflow-x-auto min-w-0">
+                        <table className="w-full text-left border-collapse min-w-[850px]">
                             <thead>
                                 {table.getHeaderGroups().map((headerGroup) => (
                                     <tr key={headerGroup.id} className="border-b border-border bg-muted/40">
@@ -1235,6 +1190,17 @@ export default function ElevesIndex({
                     selectedAnneeId={selectedAnneeId}
                 />
             )}
+
+            {/* Modale d'impression officielle des listes d'élèves (par classe ou par niveau) et fiches d'appel */}
+            <ImprimerListesModal
+                open={imprimerModalOpen}
+                onOpenChange={setImprimerModalOpen}
+                classes={filterClasses}
+                niveaux={filterNiveaux}
+                selectedClasseId={selectedClasse}
+                selectedAnneeId={selectedAnneeId}
+                selectedEtabId={selectedEtab}
+            />
 
             <EleveDetailDrawer
                 open={detailDrawerOpen}

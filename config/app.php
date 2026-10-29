@@ -17,6 +17,21 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Version de l'Application & Email Développeur (Mises à jour SemVer)
+    |--------------------------------------------------------------------------
+    |
+    | Définit la version courante de repli (SemVer) lorsqu'aucun tag Git n'est
+    | encore présent localement, ainsi que l'adresse email du développeur
+    | destinataire des sauvegardes automatiques avant chaque mise à jour.
+    |
+    */
+
+    'version' => env('APP_VERSION', '1.0.0'),
+
+    'developer_email' => env('DEVELOPER_NOTIFICATION_EMAIL', 'teguiasimo@gmail.com'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Environment
     |--------------------------------------------------------------------------
     |

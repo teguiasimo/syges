@@ -100,7 +100,7 @@ export function ConfirmDeleteDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-md p-0 overflow-hidden border-border/80 shadow-2xl">
+            <DialogContent className="max-w-md p-0 sm:p-0 overflow-hidden border-border/80 shadow-2xl">
                 {/* Bandeau d'en-tête avec icône d'alerte stylisée */}
                 <div className="p-6 pb-4 space-y-4">
                     <div className="flex items-start gap-4">

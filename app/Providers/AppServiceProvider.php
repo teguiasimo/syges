@@ -36,7 +36,7 @@ class AppServiceProvider extends ServiceProvider
     protected function configureGates(): void
     {
         Gate::before(function ($user, string $ability) {
-            if ($user->hasRole('super-admin') || $user->email === 'admin@gmail.com') {
+            if ($user->isSuperAdmin()) {
                 return true;
             }
 

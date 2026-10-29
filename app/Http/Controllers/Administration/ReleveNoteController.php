@@ -9,6 +9,7 @@ use App\Models\Attribution;
 use App\Models\Classe;
 use App\Models\Evaluation;
 use App\Models\Inscription;
+use App\Models\MatiereNiveau;
 use App\Models\Note;
 use App\Models\Periode;
 use App\Models\Personnel;
@@ -44,7 +45,7 @@ class ReleveNoteController extends Controller implements HasMiddleware
     {
         return [
             new Middleware('can:releves_notes.view', only: ['index']),
-            new Middleware('can:releves_notes.print|can:releves_notes.view', only: ['exportPdf']),
+            new Middleware('can:releves_notes.print|can:releves_notes.view', only: ['exportPdf', 'exportEtatRemplissage']),
         ];
     }
 
@@ -438,5 +439,307 @@ class ReleveNoteController extends Controller implements HasMiddleware
         );
 
         return $pdf->stream($filename);
+    }
+
+    /**
+     * Génère et télécharge le document PDF officiel de l'État de Remplissage des Notes de la Classe.
+     *
+     * Désigné sous le nom de "Grand Babillard de Classe" ou "Grille Récapitulative Pré-Bulletins",
+     * ce document matriciel croisé (Élèves en lignes x Toutes les matières en colonnes) permet :
+     * 1. À la Direction et aux Censeurs de contrôler la complétude des saisies avant l'impression des bulletins.
+     * 2. L'affichage mural en salle de classe pour vérification contradictoire par les élèves.
+     *
+     * @param Request $request La requête HTTP contenant classe_id, annee_id, et éventuellement periode_id ou evaluation_id.
+     * @return Response Document PDF prêt à l'impression au format A4 Paysage.
+     */
+    public function exportEtatRemplissage(Request $request): Response
+    {
+        /** @var User|null $user */
+        $user = Auth::user();
+        $isSuperAdmin = $user ? $user->isSuperAdmin() : false;
+        $isGestionnaire = $isSuperAdmin || ($user && ($user->hasRole(['admin', 'directeur-etudes', 'censeur', 'surveillant-general']) || $user->can('notes.manage')));
+
+        $request->validate([
+            'classe_id' => ['required', 'integer', 'exists:classes,id'],
+            'annee_id' => ['required', 'integer', 'exists:annees_scolaires,id'],
+            'periode_id' => ['nullable', 'integer'],
+            'evaluation_id' => ['nullable', 'integer'],
+        ]);
+
+        $classeId = (int) $request->input('classe_id');
+        $anneeId = (int) $request->input('annee_id');
+        $periodeId = (int) $request->input('periode_id', 0);
+        $evaluationId = (int) $request->input('evaluation_id', 0);
+
+        $classe = Classe::with(['niveau', 'etablissement.institution'])->findOrFail($classeId);
+
+        // Cloisonnement Enseignant : vérifier que l'enseignant intervient bien dans cette classe
+        if (! $isGestionnaire) {
+            $personnel = $user->personnel ?? ($user->email ? Personnel::where('email', $user->email)->first() : null);
+            if (! $personnel) {
+                abort(403, 'Accès interdit : profil enseignant introuvable.');
+            }
+
+            $intervient = Attribution::where('classe_id', $classe->id)
+                ->where('personnel_id', $personnel->id)
+                ->where('annee_scolaire_id', $anneeId)
+                ->where('is_active', true)
+                ->exists();
+
+            if (! $intervient) {
+                abort(403, 'Accès interdit : vous n\'enseignez pas dans cette classe.');
+            }
+        }
+
+        // Contexte SaaS Multi-Tenant
+        $context = $this->resolveEtablissementContext($request, ['institution']);
+        $etablissement = $classe->etablissement ?? $context['selectedEtablissement'];
+        $etablissementId = $etablissement?->id;
+        $anneeScolaire = AnneeScolaire::findOrFail($anneeId);
+
+        // Récupération de l'ensemble des matières actives enseignées dans la classe
+        $attributions = Attribution::with(['matiere', 'personnel'])
+            ->where('classe_id', $classe->id)
+            ->where('annee_scolaire_id', $anneeId)
+            ->where('is_active', true)
+            ->get()
+            ->sortBy(fn ($attr) => $attr->matiere?->ordre ?? $attr->matiere?->nom ?? '')
+            ->values();
+
+        // Récupération des inscriptions actives ordonnées
+        $inscriptions = Inscription::with(['eleve'])
+            ->where('classe_id', $classe->id)
+            ->where('annee_scolaire_id', $anneeId)
+            ->where('statut', 'validee')
+            ->when($etablissementId, fn ($q) => $q->where('etablissement_id', $etablissementId))
+            ->get()
+            ->sortBy(fn ($ins) => ($ins->eleve?->nom ?? '') . ' ' . ($ins->eleve?->prenom ?? ''))
+            ->values();
+
+        // Résolution du libellé de l'évaluation ou de la période
+        if ($evaluationId > 0) {
+            $evaluations = Evaluation::where('id', $evaluationId)->get();
+            $titrePeriode = $evaluations->first()?->nom ?? 'Évaluation';
+        } elseif ($periodeId > 0) {
+            $periode = Periode::with(['evaluations' => fn ($q) => $q->orderBy('ordre')])->findOrFail($periodeId);
+            $evaluations = $periode->evaluations;
+            $titrePeriode = $periode->nom;
+        } else {
+            $evaluations = Evaluation::whereHas('periode', fn ($q) => $q->where('annee_scolaire_id', $anneeId)->when($etablissementId, fn ($sq) => $sq->where('etablissement_id', $etablissementId)))
+                ->orderBy('ordre')
+                ->get();
+            $titrePeriode = 'Toutes Évaluations';
+        }
+
+        // Récupération de la grille des coefficients officiels par matière pour le niveau et la série (MatiereNiveau)
+        $coefficientsGrille = MatiereNiveau::where('niveau_id', $classe->niveau_id)
+            ->where(function ($query) use ($classe) {
+                $query->where('serie', $classe->serie)
+                    ->orWhere('serie', 'Toutes')
+                    ->orWhereNull('serie');
+            })
+            ->get()
+            ->keyBy('matiere_id');
+
+        // Association du coefficient officiel réel à chaque attribution
+        foreach ($attributions as $attr) {
+            $mn = $coefficientsGrille->get($attr->matiere_id);
+            $attr->coefficient_officiel = $mn ? (float) $mn->coefficient : (float) ($attr->matiere?->coefficient_defaut ?? 1.0);
+        }
+
+        // Récupération globale des notes
+        $notes = Note::whereIn('attribution_id', $attributions->pluck('id'))
+            ->whereIn('inscription_id', $inscriptions->pluck('id'))
+            ->when($evaluations->isNotEmpty(), fn ($q) => $q->whereIn('evaluation_id', $evaluations->pluck('id')))
+            ->get();
+
+        $notesGrouped = $notes->groupBy(fn ($n) => $n->inscription_id . '_' . $n->attribution_id);
+
+        $totalCoeffClasse = (float) $attributions->sum('coefficient_officiel');
+
+        // Initialisation des statistiques par matière
+        $matieresStats = [];
+        foreach ($attributions as $attr) {
+            $matieresStats[$attr->id] = [
+                'somme' => 0,
+                'count' => 0,
+                'saisies' => 0,
+            ];
+        }
+
+        // Construction des lignes élèves
+        $eleves = [];
+        $notesSaisiesGlobal = 0;
+
+        foreach ($inscriptions as $index => $ins) {
+            $notesParMatiere = [];
+            $totalPointsEleve = 0;
+            $totalCoeffEleve = 0;
+
+            foreach ($attributions as $attr) {
+                $coeff = (float) ($attr->coefficient_officiel ?? 1.0);
+                $key = $ins->id . '_' . $attr->id;
+                $notesEleveMatiere = $notesGrouped->get($key, collect([]));
+
+                if ($notesEleveMatiere->isNotEmpty()) {
+                    $notesSaisiesGlobal++;
+                    $matieresStats[$attr->id]['saisies']++;
+
+                    // Calcul de la note sur la matière pour l'évaluation ou la période
+                    $valeursNotes = $notesEleveMatiere->where('statut_presence', 'P')->pluck('valeur_note')->filter(fn ($v) => $v !== null);
+
+                    if ($valeursNotes->isNotEmpty()) {
+                        $noteVal = round($valeursNotes->avg(), 2);
+                        $notesParMatiere[$attr->id] = [
+                            'valeur' => $noteVal,
+                            'presence' => 'P',
+                        ];
+                        $totalPointsEleve += ($noteVal * $coeff);
+                        $totalCoeffEleve += $coeff;
+
+                        $matieresStats[$attr->id]['somme'] += $noteVal;
+                        $matieresStats[$attr->id]['count']++;
+                    } else {
+                        // Élève absent
+                        $notesParMatiere[$attr->id] = [
+                            'valeur' => null,
+                            'presence' => 'A',
+                        ];
+                    }
+                } else {
+                    // Note non saisie / manquante
+                    $notesParMatiere[$attr->id] = [
+                        'valeur' => null,
+                        'presence' => 'P',
+                    ];
+                }
+            }
+
+            $moyenneEleve = $totalCoeffEleve > 0 ? round($totalPointsEleve / $totalCoeffEleve, 2) : null;
+
+            $eleves[] = [
+                'numero' => $index + 1,
+                'matricule' => $ins->eleve?->matricule ?? '-',
+                'nom_complet' => trim(($ins->eleve?->nom ?? '') . ' ' . ($ins->eleve?->prenom ?? '')),
+                'sexe' => $ins->eleve?->sexe ?? 'M',
+                'notes' => $notesParMatiere,
+                'total_points' => $totalPointsEleve,
+                'total_coeff' => $totalCoeffEleve,
+                'moyenne' => $moyenneEleve,
+                'mention' => $moyenneEleve !== null ? self::getMention($moyenneEleve) : '-',
+                'rang' => null,
+            ];
+        }
+
+        // Tri pour attribution des rangs (les élèves sans notes classés en dernier)
+        usort($eleves, function ($a, $b) {
+            if ($a['moyenne'] === null && $b['moyenne'] === null) return 0;
+            if ($a['moyenne'] === null) return 1;
+            if ($b['moyenne'] === null) return -1;
+            return $b['moyenne'] <=> $a['moyenne'];
+        });
+
+        // Attribution des rangs avec gestion des ex-aequo
+        $currentRang = 1;
+        $prevMoyenne = null;
+        foreach ($eleves as $idx => &$el) {
+            if ($el['moyenne'] !== null) {
+                if ($prevMoyenne !== null && abs($el['moyenne'] - $prevMoyenne) < 0.001) {
+                    $el['rang'] = $currentRang;
+                } else {
+                    $currentRang = $idx + 1;
+                    $el['rang'] = $currentRang;
+                    $prevMoyenne = $el['moyenne'];
+                }
+            }
+        }
+        unset($el);
+
+        // Re-tri par ordre alphabétique pour faciliter la recherche nominative lors de l'affichage sur la porte
+        usort($eleves, fn ($a, $b) => strcmp($a['nom_complet'], $b['nom_complet']));
+        foreach ($eleves as $idx => &$el) {
+            $el['numero'] = $idx + 1;
+        }
+        unset($el);
+
+        // Synthèse des statistiques globales
+        $nbEleves = count($eleves);
+        $nbMatieres = count($attributions);
+        $notesAttendues = $nbEleves * $nbMatieres;
+        $tauxRemplissage = $notesAttendues > 0 ? round(($notesSaisiesGlobal / $notesAttendues) * 100, 1) : 0;
+
+        $moyennesEleves = array_filter(array_column($eleves, 'moyenne'), fn ($m) => $m !== null);
+        $nbAdmis = count(array_filter($moyennesEleves, fn ($m) => $m >= 10.0));
+        $tauxReussite = count($moyennesEleves) > 0 ? round(($nbAdmis / count($moyennesEleves)) * 100, 1) : 0;
+        $moyenneClasse = count($moyennesEleves) > 0 ? round(array_sum($moyennesEleves) / count($moyennesEleves), 2) : 0;
+        $maxMoyenne = !empty($moyennesEleves) ? max($moyennesEleves) : 0;
+        $minMoyenne = !empty($moyennesEleves) ? min($moyennesEleves) : 0;
+
+        // Calcul des moyennes et taux de remplissage par matière
+        foreach ($attributions as $attr) {
+            $st = $matieresStats[$attr->id];
+            $matieresStats[$attr->id]['moyenne'] = $st['count'] > 0 ? round($st['somme'] / $st['count'], 2) : null;
+            $matieresStats[$attr->id]['taux'] = $nbEleves > 0 ? round(($st['saisies'] / $nbEleves) * 100, 1) : 0;
+        }
+
+        // Nettoyage de l'année scolaire pour éviter le doublon "Année Scolaire : Année Scolaire 2026-2027"
+        $sessionAnnee = $anneeScolaire->session ?? $anneeScolaire->code ?? trim(preg_replace('/^Année\s+Scolaire\s*[:\-]?\s*/iu', '', $anneeScolaire->nom ?? ''));
+        if (preg_match('/\b(\d{4}[\/\-]\d{4})\b/', $sessionAnnee, $m)) {
+            $sessionAnnee = $m[1];
+        }
+
+        $pdf = Pdf::loadView('pdf.etat_remplissage_classe', [
+            'etablissement' => $etablissement,
+            'anneeScolaire' => $anneeScolaire,
+            'sessionAnnee' => $sessionAnnee,
+            'classe' => $classe,
+            'titrePeriode' => $titrePeriode,
+            'attributions' => $attributions,
+            'eleves' => $eleves,
+            'stats' => [
+                'nb_eleves' => $nbEleves,
+                'nb_matieres' => $nbMatieres,
+                'total_coeff_classe' => $totalCoeffClasse,
+                'notes_attendues' => $notesAttendues,
+                'notes_saisies' => $notesSaisiesGlobal,
+                'taux_remplissage' => $tauxRemplissage,
+                'nb_admis' => $nbAdmis,
+                'taux_reussite' => $tauxReussite,
+                'moyenne_classe' => $moyenneClasse,
+                'max_moyenne' => $maxMoyenne,
+                'min_moyenne' => $minMoyenne,
+                'matieres_stats' => $matieresStats,
+            ],
+            'dateGeneration' => now()->format('d/m/Y H:i'),
+        ])->setPaper('a4', 'landscape');
+
+        $fileName = sprintf(
+            'Etat_Remplissage_%s_%s_%s.pdf',
+            str_replace(' ', '_', $classe->code ?? ($classe->nom ?? 'Classe')),
+            str_replace(' ', '_', $titrePeriode),
+            now()->format('Ymd')
+        );
+
+        return $pdf->stream($fileName);
+    }
+
+    /**
+     * Calcule la mention littéraire officielle à partir de la moyenne sur 20.
+     *
+     * @param float $moyenne Moyenne générale de l'élève.
+     * @return string Mention officielle correspondante.
+     */
+    private static function getMention(float $moyenne): string
+    {
+        return match (true) {
+            $moyenne >= 18 => 'Excellent',
+            $moyenne >= 16 => 'Très Bien',
+            $moyenne >= 14 => 'Bien',
+            $moyenne >= 12 => 'Assez Bien',
+            $moyenne >= 10 => 'Passable',
+            $moyenne >= 8 => 'Insuffisant',
+            $moyenne >= 6 => 'Faible',
+            default => 'Très Faible',
+        };
     }
 }

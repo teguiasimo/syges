@@ -202,13 +202,13 @@ export function CreateAttributionModal({
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <DialogContent className="max-w-lg p-6">
+            <DialogContent className="sm:max-w-lg">
                 <DialogHeader className="border-b pb-4">
-                    <DialogTitle className="text-lg font-bold flex items-center gap-2 text-foreground">
-                        <div className="p-2 rounded-lg bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 border border-indigo-200 dark:border-indigo-900/50">
+                    <DialogTitle className="text-base sm:text-lg font-bold flex items-center gap-2 text-foreground">
+                        <div className="p-2 rounded-lg bg-teal-50 dark:bg-teal-950/50 text-teal-600 border border-teal-200 dark:border-teal-900/50 shrink-0">
                             <Layers className="size-5" />
                         </div>
-                        Affecter un Enseignant à un Cours
+                        <span>Affecter un Enseignant à un Cours</span>
                     </DialogTitle>
                     <DialogDescription className="text-xs text-muted-foreground mt-1">
                         Sélectionnez la classe, la discipline et l'enseignant responsable avec son volume horaire hebdomadaire effectif.
@@ -314,26 +314,27 @@ export function CreateAttributionModal({
                         <p className="text-rose-500 text-xs mt-0.5">{errors.volume_horaire_reel}</p>
                     )}
 
-                    <DialogFooter className="gap-2 border-t pt-4 sm:justify-between flex-wrap">
+                    {/* Pied de modale adaptatif empilant les 3 actions sur mobile sans débordement */}
+                    <DialogFooter className="gap-2 border-t pt-4 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between w-full">
                         <Button
                             type="button"
                             variant="outline"
                             onClick={onClose}
-                            className="cursor-pointer text-xs"
+                            className="cursor-pointer text-xs w-full sm:w-auto"
                         >
                             Annuler
                         </Button>
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center justify-end gap-2 w-full sm:w-auto">
                             {/* Bouton pour enchaîner les attributions sans fermer la modale */}
                             <Button
                                 type="button"
                                 variant="outline"
                                 disabled={processing}
                                 onClick={(e) => handleSubmit(e, true)}
-                                className="cursor-pointer text-xs border-indigo-600/40 text-indigo-700 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 font-medium"
+                                className="cursor-pointer text-xs border-teal-600/40 text-teal-700 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-950/50 font-medium flex-1 sm:flex-initial"
                             >
-                                <Plus className="size-3.5 mr-1 text-indigo-600" />
+                                <Plus className="size-3.5 mr-1 text-teal-600" />
                                 Affecter & Continuer
                             </Button>
 
@@ -341,7 +342,7 @@ export function CreateAttributionModal({
                             <Button
                                 type="submit"
                                 disabled={processing}
-                                className="bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer font-semibold text-xs shadow-xs"
+                                className="bg-teal-600 hover:bg-teal-700 text-white cursor-pointer font-semibold text-xs shadow-xs flex-1 sm:flex-initial"
                             >
                                 <Check className="size-4 mr-1.5" />
                                 {processing ? 'Enregistrement...' : 'Affecter le cours'}

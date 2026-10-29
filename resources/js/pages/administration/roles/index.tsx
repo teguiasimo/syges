@@ -41,6 +41,7 @@ import {
     MessageSquare,
     BarChart,
     Archive,
+    RefreshCw,
 } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -161,6 +162,7 @@ const moduleIconMap: Record<string, React.ElementType> = {
     Users,
     ShieldCheck,
     Settings,
+    RefreshCw,
 };
 
 /**
@@ -230,14 +232,19 @@ export default function RolesIndex({ roles, modules, totalPermissions, can }: Ro
     }, [currentRole]);
 
     /**
-     * Affiche les notifications Toast dès la réception des messages flash de session.
+     * Affiche les notifications Toast dès la réception des messages flash de session conformément aux règles SYGES.
      */
     useEffect(() => {
         if (flash?.success) {
-            toast.success(flash.success);
+            toast.success(flash.success, {
+                position: 'top-right',
+                className: 'bg-emerald-600 text-white border-none',
+            });
         }
         if (flash?.error) {
-            toast.error(flash.error);
+            toast.error(flash.error, {
+                position: 'top-right',
+            });
         }
     }, [flash]);
 
@@ -441,15 +448,16 @@ export default function RolesIndex({ roles, modules, totalPermissions, can }: Ro
         <>
             <Head title="Rôles & Permissions - Administration" />
 
-            <div className="flex h-full flex-1 flex-col gap-6 p-6 sm:p-8 max-w-7xl mx-auto w-full">
-                {/* En-tête principal : Titre, sous-titre et action de création */}
+            {/* Conteneur principal plein écran fluide et responsive sans contrainte artificielle de largeur */}
+            <div className="flex h-full flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8 w-full min-w-0">
+                {/* En-tête principal : Titre, sous-titre et action de création responsive */}
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div>
-                        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground flex items-center gap-3">
-                            <ShieldCheck className="size-8 text-amber-500" />
-                            Rôles & Permissions
+                        <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight text-foreground flex items-center gap-2.5 sm:gap-3">
+                            <ShieldCheck className="size-6 sm:size-8 text-amber-500 shrink-0" />
+                            <span>Rôles & Permissions</span>
                         </h1>
-                        <p className="text-muted-foreground text-sm mt-1">
+                        <p className="text-muted-foreground text-xs sm:text-sm mt-1">
                             Sélectionnez un rôle à gauche pour configurer et ajuster ses habilitations par module scolaire.
                         </p>
                     </div>
@@ -461,23 +469,23 @@ export default function RolesIndex({ roles, modules, totalPermissions, can }: Ro
                                 createForm.reset();
                                 setIsCreateModalOpen(true);
                             }}
-                            className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-sm flex items-center gap-2 self-start sm:self-auto cursor-pointer"
+                            className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-sm flex items-center gap-2 w-full sm:w-auto cursor-pointer"
                         >
-                            <Plus className="size-4" />
-                            Nouveau rôle
+                            <Plus className="size-4 shrink-0" />
+                            <span>Nouveau rôle</span>
                         </Button>
                     )}
                 </div>
 
-                {/* Synthèse statistique compacte et discrète */}
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                {/* Synthèse statistique compacte et discrète avec grille responsive */}
+                <div className="grid grid-cols-1 min-[400px]:grid-cols-2 lg:grid-cols-4 gap-3">
                     <div className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl border border-border/80 bg-card/70 hover:bg-card transition-colors">
                         <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600">
                             <Shield className="size-4" />
                         </div>
                         <div className="min-w-0 flex-1">
                             <p className="text-[11px] font-medium text-muted-foreground truncate">Total des Rôles</p>
-                            <p className="text-base font-bold text-foreground leading-none mt-0.5">{stats.totalRoles}</p>
+                            <p className="text-base font-bold text-foreground leading-none mt-0.5 tabular-nums">{stats.totalRoles}</p>
                         </div>
                     </div>
 
@@ -487,7 +495,7 @@ export default function RolesIndex({ roles, modules, totalPermissions, can }: Ro
                         </div>
                         <div className="min-w-0 flex-1">
                             <p className="text-[11px] font-medium text-muted-foreground truncate">Permissions actives</p>
-                            <p className="text-base font-bold text-foreground leading-none mt-0.5">{stats.totalPermissions}</p>
+                            <p className="text-base font-bold text-foreground leading-none mt-0.5 tabular-nums">{stats.totalPermissions}</p>
                         </div>
                     </div>
 
@@ -497,17 +505,17 @@ export default function RolesIndex({ roles, modules, totalPermissions, can }: Ro
                         </div>
                         <div className="min-w-0 flex-1">
                             <p className="text-[11px] font-medium text-muted-foreground truncate">Utilisateurs rattachés</p>
-                            <p className="text-base font-bold text-foreground leading-none mt-0.5">{stats.totalAssignedUsers}</p>
+                            <p className="text-base font-bold text-foreground leading-none mt-0.5 tabular-nums">{stats.totalAssignedUsers}</p>
                         </div>
                     </div>
 
                     <div className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl border border-border/80 bg-card/70 hover:bg-card transition-colors">
-                        <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-purple-500/10 text-purple-600">
+                        <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-400">
                             <Lock className="size-4" />
                         </div>
                         <div className="min-w-0 flex-1">
                             <p className="text-[11px] font-medium text-muted-foreground truncate">Rôles protégés</p>
-                            <p className="text-base font-bold text-foreground leading-none mt-0.5">{stats.systemRoles}</p>
+                            <p className="text-base font-bold text-foreground leading-none mt-0.5 tabular-nums">{stats.systemRoles}</p>
                         </div>
                     </div>
                 </div>
@@ -529,8 +537,8 @@ export default function RolesIndex({ roles, modules, totalPermissions, can }: Ro
                             />
                         </div>
 
-                        {/* Liste des rôles sur une seule colonne verticale */}
-                        <div className="flex flex-col gap-2.5">
+                        {/* Liste des rôles sur une seule colonne verticale avec défilement fluide maîtrisé */}
+                        <div className="flex flex-col gap-2.5 max-h-[480px] lg:max-h-[calc(100vh-14rem)] overflow-y-auto pr-1">
                             {filteredRoles.map((role) => {
                                 const isSelected = role.id === selectedRoleId;
                                 const percent =
@@ -1032,19 +1040,19 @@ export default function RolesIndex({ roles, modules, totalPermissions, can }: Ro
                             )}
                         </div>
 
-                        <DialogFooter className="pt-2 gap-2">
+                        <DialogFooter className="flex-col sm:flex-row pt-2 gap-2">
                             <Button
                                 type="button"
                                 variant="outline"
                                 onClick={() => setIsCreateModalOpen(false)}
-                                className="cursor-pointer"
+                                className="w-full sm:w-auto cursor-pointer"
                             >
                                 Annuler
                             </Button>
                             <Button
                                 type="submit"
                                 disabled={createForm.processing || !createForm.data.name.trim()}
-                                className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold cursor-pointer"
+                                className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold w-full sm:w-auto cursor-pointer"
                             >
                                 {createForm.processing ? (
                                     <span className="flex items-center gap-1.5">
@@ -1090,18 +1098,18 @@ export default function RolesIndex({ roles, modules, totalPermissions, can }: Ro
                         ?
                     </div>
 
-                    <DialogFooter className="gap-2">
+                    <DialogFooter className="flex-col sm:flex-row gap-2">
                         <Button
                             variant="outline"
                             onClick={() => setRoleToDelete(null)}
-                            className="cursor-pointer"
+                            className="w-full sm:w-auto cursor-pointer"
                         >
                             Annuler
                         </Button>
                         <Button
                             variant="destructive"
                             onClick={handleConfirmDelete}
-                            className="cursor-pointer"
+                            className="w-full sm:w-auto cursor-pointer"
                         >
                             Supprimer définitivement
                         </Button>

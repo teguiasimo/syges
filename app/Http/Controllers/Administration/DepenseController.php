@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Administration;
 
+use App\Concerns\ScopesEtablissement;
 use App\Http\Controllers\Controller;
 use App\Models\AnneeScolaire;
 use App\Models\Caisse;
@@ -30,6 +31,8 @@ use Inertia\Response;
  */
 class DepenseController extends Controller implements HasMiddleware
 {
+    use ScopesEtablissement;
+
     /**
      * Définition de la matrice des middlewares d'autorisation pour les Dépenses & Décaissements.
      *
@@ -46,25 +49,23 @@ class DepenseController extends Controller implements HasMiddleware
             new Middleware('can:depenses.bilan|depenses.view|finances.view', only: ['imprimerBilan']),
         ];
     }
+
     /**
      * Affiche l'écran de gestion des dépenses et du bilan entrées/sorties.
      *
-     * @param Request $request
-     * @return Response
+     * @param Request $request Requête HTTP avec filtres optionnels.
+     * @return Response Rendu Inertia avec statistiques et liste des dépenses.
      */
     public function index(Request $request): Response
     {
         $user = Auth::user();
-        $isSuperAdmin = $user ? ($user->hasRole('super-admin') || $user->email === 'admin@gmail.com') : false;
 
-        $etablissementsQuery = Etablissement::with('institution');
-
-        if (! $isSuperAdmin && $user?->personnel?->etablissement_id) {
-            $etablissementsQuery->where('id', $user->personnel->etablissement_id);
-        }
-
-        $etablissements = $etablissementsQuery->get();
-        $selectedEtabId = (int) $request->input('etablissement_id', $etablissements->first()?->id);
+        // Résolution hermétique du contexte établissement (Multi-Tenant)
+        $context = $this->resolveEtablissementContext($request, ['institution']);
+        $etablissements = $context['etablissements'];
+        $selectedEtablissement = $context['selectedEtablissement'];
+        $selectedEtabId = (int) ($selectedEtablissement?->id ?? 0);
+        $isSuperAdmin = $context['isSuperAdmin'];
 
         $anneeActive = AnneeScolaire::where('is_current', true)->first() ?? AnneeScolaire::latest()->first();
         $selectedAnneeId = (int) $request->input('annee_scolaire_id', $anneeActive?->id);
@@ -74,7 +75,7 @@ class DepenseController extends Controller implements HasMiddleware
         $statut = $request->input('statut');
         $search = $request->input('search');
 
-        // Récupération des dépenses
+        // Récupération des dépenses filtrées
         $depensesQuery = Depense::with([
             'caisse',
             'categorieDepense',
@@ -111,10 +112,19 @@ class DepenseController extends Controller implements HasMiddleware
             ->where('statut', 'validee')
             ->sum('montant');
 
-        $totalVersements = (float) VersementCaisse::where('etablissement_id', $selectedEtabId)
-            ->where('statut', 'valide')
-            ->sum('montant');
+        // Somme des versements de caisse scolaires (colonne 'montant_total')
+        $versementsQuery = VersementCaisse::where('etablissement_id', $selectedEtabId)
+            ->where('statut', 'valide');
 
+        if ($selectedAnneeId) {
+            $versementsQuery->whereHas('inscription', function ($q) use ($selectedAnneeId) {
+                $q->where('annee_scolaire_id', $selectedAnneeId);
+            });
+        }
+
+        $totalVersements = (float) $versementsQuery->sum('montant_total');
+
+        // Somme des règlements divers hors scolarité (colonne 'montant')
         $totalDivers = (float) ReglementDivers::where('etablissement_id', $selectedEtabId)
             ->where('statut', 'valide')
             ->sum('montant');
@@ -295,23 +305,37 @@ class DepenseController extends Controller implements HasMiddleware
     /**
      * Génère le Bilan Synthétique Entrées / Sorties au format PDF.
      *
-     * @param Request $request
-     * @return HttpResponse
+     * @param Request $request Requête HTTP contenant l'ID établissement et l'ID année scolaire.
+     * @return HttpResponse Fichier PDF du bilan financier.
      */
     public function imprimerBilan(Request $request): HttpResponse
     {
         $etablissementId = (int) $request->input('etablissement_id');
         $anneeId = (int) $request->input('annee_scolaire_id');
 
+        // Cloisonnement SaaS Multi-Tenant
+        $context = $this->resolveEtablissementContext($request);
+        if (! $context['isSuperAdmin'] && $etablissementId !== (int) $context['etablissementId']) {
+            abort(403, 'Accès non autorisé au bilan de cet établissement.');
+        }
+
         $etablissement = Etablissement::with('institution')->findOrFail($etablissementId);
         $annee = AnneeScolaire::findOrFail($anneeId);
 
-        // Recettes
-        $versements = VersementCaisse::where('etablissement_id', $etablissementId)
-            ->where('statut', 'valide')
-            ->sum('montant');
+        // Recettes scolaires (VersementCaisse montant_total)
+        $versementsQuery = VersementCaisse::where('etablissement_id', $etablissementId)
+            ->where('statut', 'valide');
 
-        $divers = ReglementDivers::where('etablissement_id', $etablissementId)
+        if ($anneeId) {
+            $versementsQuery->whereHas('inscription', function ($q) use ($anneeId) {
+                $q->where('annee_scolaire_id', $anneeId);
+            });
+        }
+
+        $versements = (float) $versementsQuery->sum('montant_total');
+
+        // Recettes diverses hors scolarité (ReglementDivers montant)
+        $divers = (float) ReglementDivers::where('etablissement_id', $etablissementId)
             ->where('statut', 'valide')
             ->sum('montant');
 

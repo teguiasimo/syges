@@ -76,32 +76,33 @@ export default function RemiseBourseModal({ open, onOpenChange, compte }: Remise
             <DialogContent className="max-w-md">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2 text-lg font-bold text-slate-800 dark:text-slate-100">
-                        <Award className="w-5 h-5 text-indigo-600" />
+                        <Award className="w-5 h-5 text-teal-600 shrink-0" />
                         Ajustement Financier de l'Élève
                     </DialogTitle>
-                    <DialogDescription>
+                    <DialogDescription className="wrap-break-word">
                         Élève : <strong>{compte?.eleve?.nom} {compte?.eleve?.prenom}</strong> ({compte?.eleve?.matricule})
                     </DialogDescription>
                 </DialogHeader>
 
-                <form onSubmit={handleSubmit} className="space-y-4">
+                <form onSubmit={handleSubmit} className="space-y-4 min-w-0">
+                    {/* Synthèse chiffrée adaptable aux petits écrans */}
                     <div className="p-3 bg-slate-50 dark:bg-slate-900 rounded-lg border text-xs space-y-1.5">
-                        <div className="flex justify-between">
+                        <div className="flex flex-wrap justify-between gap-2">
                             <span className="text-slate-500">Frais Annuels Bruts :</span>
-                            <span className="font-semibold">{debitInitial.toLocaleString('fr-FR')} FCFA</span>
+                            <span className="font-semibold tabular-nums">{debitInitial.toLocaleString('fr-FR')} FCFA</span>
                         </div>
-                        <div className="flex justify-between">
+                        <div className="flex flex-wrap justify-between gap-2">
                             <span className="text-slate-500">Total Déjà Versé :</span>
-                            <span className="font-semibold text-emerald-600">{Number(compte?.total_paye || 0).toLocaleString('fr-FR')} FCFA</span>
+                            <span className="font-semibold text-emerald-600 tabular-nums">{Number(compte?.total_paye || 0).toLocaleString('fr-FR')} FCFA</span>
                         </div>
-                        <div className="flex justify-between pt-1 border-t border-slate-200 dark:border-slate-800 font-bold">
+                        <div className="flex flex-wrap justify-between gap-2 pt-1 border-t border-slate-200 dark:border-slate-800 font-bold">
                             <span className="text-slate-700 dark:text-slate-300">Net Exigible Calculé :</span>
-                            <span className="text-indigo-600">{netPrevu.toLocaleString('fr-FR')} FCFA</span>
+                            <span className="text-teal-600 dark:text-teal-400 tabular-nums">{netPrevu.toLocaleString('fr-FR')} FCFA</span>
                         </div>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div className="space-y-1.5">
+                        <div className="space-y-1.5 min-w-0">
                             <Label htmlFor="arrieres_anterieurs">Arriérés Antérieurs (FCFA)</Label>
                             <Input
                                 id="arrieres_anterieurs"
@@ -109,11 +110,11 @@ export default function RemiseBourseModal({ open, onOpenChange, compte }: Remise
                                 min={0}
                                 value={data.arrieres_anterieurs}
                                 onChange={(e) => setData('arrieres_anterieurs', e.target.value)}
-                                className="text-right font-semibold"
+                                className="text-right font-semibold tabular-nums"
                             />
                         </div>
 
-                        <div className="space-y-1.5">
+                        <div className="space-y-1.5 min-w-0">
                             <Label htmlFor="remise_bourse">Remise / Bourse (FCFA)</Label>
                             <Input
                                 id="remise_bourse"
@@ -121,7 +122,7 @@ export default function RemiseBourseModal({ open, onOpenChange, compte }: Remise
                                 min={0}
                                 value={data.remise_bourse}
                                 onChange={(e) => setData('remise_bourse', e.target.value)}
-                                className="text-right font-semibold"
+                                className="text-right font-semibold tabular-nums"
                             />
                         </div>
                     </div>
@@ -138,15 +139,15 @@ export default function RemiseBourseModal({ open, onOpenChange, compte }: Remise
                     </div>
 
                     <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                        <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => onOpenChange(false)}>
                             Annuler
                         </Button>
                         <Button
                             type="submit"
                             disabled={processing}
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-1"
+                            className="w-full sm:w-auto bg-teal-600 hover:bg-teal-700 text-white flex items-center justify-center gap-1"
                         >
-                            <CheckCircle2 className="w-4 h-4" />
+                            <CheckCircle2 className="w-4 h-4 shrink-0" />
                             {processing ? 'Enregistrement...' : 'Valider la Remise'}
                         </Button>
                     </DialogFooter>

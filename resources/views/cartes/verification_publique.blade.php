@@ -203,8 +203,12 @@
 
             <div class="card-body">
                 <div class="school-badge">
-                    @if(!empty($inscription->etablissement->logo) && file_exists(public_path($inscription->etablissement->logo)))
+                    @if(!empty($inscription->etablissement->logo_url))
+                        <img src="{{ asset($inscription->etablissement->logo_url) }}" class="school-logo" alt="Logo">
+                    @elseif(!empty($inscription->etablissement->logo) && file_exists(public_path($inscription->etablissement->logo)))
                         <img src="{{ asset($inscription->etablissement->logo) }}" class="school-logo" alt="Logo">
+                    @elseif(file_exists(public_path('logo.png')))
+                        <img src="{{ asset('logo.png') }}" class="school-logo" alt="Logo">
                     @else
                         <div class="school-logo" style="display: flex; align-items: center; justify-content: center; font-weight: bold; color: #0284c7;">★</div>
                     @endif

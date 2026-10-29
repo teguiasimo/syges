@@ -23,8 +23,6 @@ class DatabaseSeeder extends Seeder
 {
     /**
      * Exécute le peuplement de la base de données.
-     *
-     * @return void
      */
     public function run(): void
     {
@@ -297,6 +295,11 @@ class DatabaseSeeder extends Seeder
             'archivage.archiver' => 'web',
             'archivage.dupliquer' => 'web',
             'archivage.numerotation' => 'web',
+
+            // ==========================================
+            // 20. Module Maintenance & Mise à Jour Système (Exclusif Super Admin)
+            // ==========================================
+            'system.update' => 'web',
         ];
 
         // Création ou persistance des permissions
@@ -317,10 +320,52 @@ class DatabaseSeeder extends Seeder
         $teacherRole = Role::firstOrCreate(['name' => 'enseignant', 'guard_name' => 'web']);
         $secretaryRole = Role::firstOrCreate(['name' => 'secretaire', 'guard_name' => 'web']);
 
-        // Attribution des permissions par rôle
+        // Attribution des permissions par rôle :
+        // - Super Administrateur : détient l'intégralité des permissions du système (accès transversal absolu).
         $allPermissions = Permission::all();
         $superAdminRole->syncPermissions($allPermissions);
-        $adminRole->syncPermissions($allPermissions);
+
+        // - Administrateur (Responsable d'établissement local) :
+        //   Dispose des permissions de gestion quotidienne de son établissement, mais est privé
+        //   des opérations système critiques, de la modification des rôles de sécurité et des suppressions destructrices
+        //   (ex: interdiction de supprimer un élève, un personnel, une classe, un établissement ou de lancer une mise à jour système).
+        $excludedForLocalAdmin = [
+            // Système & Sécurité globale
+            'system.update',
+            'roles.view',
+            'roles.create',
+            'roles.edit',
+            'roles.delete',
+            // Institution & Établissements (pas de création/suppression de campus SaaS)
+            'institutions.edit',
+            'etablissements.create',
+            'etablissements.delete',
+            'etablissements.manage',
+            // Suppressions critiques de structure pédagogique et calendrier
+            'sections.delete',
+            'cycles.delete',
+            'niveaux.delete',
+            'classes.delete',
+            'series.delete',
+            'periodes.delete',
+            'evaluations.delete',
+            'matieres.delete',
+            'groupes_matieres.delete',
+            // Interdiction stricte de suppression définitive des élèves, inscriptions, personnels et dépenses
+            'eleves.delete',
+            'inscriptions.delete',
+            'personnels.delete',
+            'departements.delete',
+            'depenses.delete',
+            'discipline.sanction_delete',
+            'conseil_discipline.delete',
+            'dispenses.delete',
+        ];
+
+        $adminPermissions = $allPermissions->reject(
+            fn (Permission $permission) => in_array($permission->name, $excludedForLocalAdmin, true)
+        );
+        $adminRole->syncPermissions($adminPermissions);
 
         // Permissions du Directeur des Études / Proviseur
         $directorRole->syncPermissions([
@@ -429,21 +474,27 @@ class DatabaseSeeder extends Seeder
             'communication.view', 'communication.send',
         ]);
 
-        // 4. Création du compte Super Administrateur principal (accès global initial)
-        $superAdmin = User::firstOrCreate(
-            ['email' => 'admin@gmail.com'],
-            [
-                'name' => 'Super Admin',
-                'login' => 'admin',
-                'is_active' => true,
-                'password' => Hash::make('admin@'),
-                'email_verified_at' => now(),
-            ]
-        );
+        // 4. Création ou synchronisation du compte Super Administrateur principal (identifiants dédiés : superadmin / 5idfasuper)
+        $superAdmin = User::where('login', 'superadmin')
+            ->orWhere('email', 'admin@gmail.com')
+            ->first();
 
-        if (empty($superAdmin->login) || ! isset($superAdmin->is_active)) {
-            $superAdmin->login = 'admin';
+        if (! $superAdmin) {
+            $superAdmin = User::create([
+                'name' => 'Super Admin',
+                'login' => 'superadmin',
+                'email' => 'admin@gmail.com',
+                'is_active' => true,
+                'password' => Hash::make('5idfasuper'),
+                'email_verified_at' => now(),
+            ]);
+        } else {
+            $superAdmin->login = 'superadmin';
             $superAdmin->is_active = true;
+            $superAdmin->password = Hash::make('5idfasuper');
+            if (! $superAdmin->email_verified_at) {
+                $superAdmin->email_verified_at = now();
+            }
             $superAdmin->save();
         }
 

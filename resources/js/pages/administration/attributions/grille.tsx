@@ -717,14 +717,15 @@ export default function AttributionsGrillePage({
                 }
             />
 
-            <div className="flex h-full flex-1 flex-col gap-6 p-6 sm:p-8 max-w-7xl mx-auto w-full pb-24">
+            {/* Conteneur principal plein écran fluide et responsive sans contrainte artificielle de largeur */}
+            <div className="flex h-full flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8 w-full min-w-0 pb-32 sm:pb-24">
                 {/* FIL D'ARIANE ET NAVIGATION SUPÉRIEURE */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b pb-4">
-                    <div className="space-y-1">
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 border-b pb-4">
+                    <div className="space-y-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                             <Link
                                 href="/administration/attributions"
-                                className="hover:text-indigo-600 transition-colors inline-flex items-center gap-1 font-medium"
+                                className="hover:text-teal-600 transition-colors inline-flex items-center gap-1 font-medium"
                             >
                                 <ArrowLeft className="size-3.5" />
                                 Répartition Pédagogique
@@ -733,15 +734,15 @@ export default function AttributionsGrillePage({
                             <span className="text-foreground font-semibold">Grille de Classe</span>
                         </div>
 
-                        <div className="flex items-center gap-3 pt-1">
-                            <div className="p-2.5 rounded-xl bg-linear-to-br from-indigo-500 to-indigo-700 text-white shadow-xs">
+                        <div className="flex items-start sm:items-center gap-3 pt-1">
+                            <div className="p-2.5 rounded-xl bg-linear-to-br from-teal-600 to-emerald-700 text-white shadow-xs shrink-0">
                                 <FileSpreadsheet className="size-6" />
                             </div>
-                            <div>
-                                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground flex items-center gap-2.5">
-                                    Grille de Programmation : {selectedClasse ? selectedClasse.nom : 'Aucune classe'}
+                            <div className="min-w-0">
+                                <h1 className="text-lg sm:text-2xl font-bold tracking-tight text-foreground flex flex-wrap items-center gap-2">
+                                    <span>Grille de Programmation : {selectedClasse ? selectedClasse.nom : 'Aucune classe'}</span>
                                     {selectedClasse?.serie && (
-                                        <Badge variant="outline" className="font-semibold text-xs border-indigo-300 text-indigo-700">
+                                        <Badge variant="outline" className="font-semibold text-xs border-teal-300 text-teal-700">
                                             Série {selectedClasse.serie}
                                         </Badge>
                                     )}
@@ -754,7 +755,7 @@ export default function AttributionsGrillePage({
                     </div>
 
                     {/* SÉLECTEUR RAPIDE DE CLASSE ET BOUTONS D'ACTION */}
-                    <div className="flex items-center gap-3 flex-wrap w-full sm:w-auto">
+                    <div className="flex items-center gap-3 flex-wrap w-full lg:w-auto">
                         <div className="w-full sm:w-56">
                             <SearchableSelect
                                 options={classeOptions}
@@ -771,7 +772,7 @@ export default function AttributionsGrillePage({
                                 type="button"
                                 disabled={isSaving}
                                 onClick={handleSaveBatch}
-                                className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold shadow-xs text-xs h-9 cursor-pointer w-full sm:w-auto"
+                                className="bg-teal-600 hover:bg-teal-700 text-white font-semibold shadow-xs text-xs h-9 cursor-pointer w-full sm:w-auto"
                             >
                                 <Save className="size-4 mr-1.5" />
                                 {isSaving ? 'Enregistrement...' : 'Enregistrer la Grille'}
@@ -880,8 +881,8 @@ export default function AttributionsGrillePage({
 
                 {/* TABLEAU TANSTACK TABLE DE LA GRILLE PÉDAGOGIQUE */}
                 <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                             <h2 className="text-base font-bold text-foreground">
                                 Disciplines au Programme ({rows.length})
                             </h2>
@@ -906,13 +907,14 @@ export default function AttributionsGrillePage({
                         )}
                     </div>
 
-                    <div className="rounded-xl border bg-card shadow-xs overflow-hidden">
+                    {/* Sans overflow-hidden externe afin de ne pas rogner les menus déroulants SearchableSelect */}
+                    <div className="rounded-xl border bg-card shadow-xs p-3 sm:p-4">
                         <DataTable
                             columns={columns}
                             data={rows}
                             searchPlaceholder="Filtrer une discipline dans la grille..."
                             defaultPageSize={50}
-                            tableClassName="min-w-[960px] w-full"
+                            tableClassName="min-w-[820px] w-full"
                         />
                     </div>
                 </div>

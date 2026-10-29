@@ -30,6 +30,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { formatDate } from '@/lib/utils';
 import {
     HistoriqueSms,
     SmsCampagne,
@@ -99,8 +100,9 @@ export default function CommunicationIndex({
                 const date = row.original.created_at ? new Date(row.original.created_at) : new Date();
                 return (
                     <div>
+                        {/* Formatage obligatoire jj-mm-aaaa via formatDate */}
                         <span className="font-semibold text-xs text-slate-800 dark:text-slate-200">
-                            {date.toLocaleDateString('fr-FR')}
+                            {row.original.created_at ? formatDate(row.original.created_at) : '-'}
                         </span>
                         <div className="text-[10px] text-slate-500 font-mono">
                             {date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
@@ -113,9 +115,9 @@ export default function CommunicationIndex({
             accessorKey: 'titre',
             header: 'Objet de la Campagne',
             cell: ({ row }) => (
-                <div>
-                    <span className="font-bold text-xs text-slate-900 dark:text-slate-100">{row.original.titre}</span>
-                    <p className="text-[10px] text-slate-500 line-clamp-1 max-w-70" title={row.original.message_sanitise}>
+                <div className="min-w-0">
+                    <span className="font-bold text-xs text-slate-900 dark:text-slate-100 block truncate">{row.original.titre}</span>
+                    <p className="text-[10px] text-slate-500 line-clamp-1 max-w-xs" title={row.original.message_sanitise}>
                         {row.original.message_sanitise}
                     </p>
                 </div>
@@ -126,15 +128,15 @@ export default function CommunicationIndex({
             header: 'Cible',
             cell: ({ row }) => {
                 const map: Record<TypeCible, { label: string; className: string }> = {
-                    tous: { label: 'Tout l\'établissement', className: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
-                    section: { label: 'Section', className: 'bg-sky-50 text-sky-700 border-sky-200' },
-                    niveau: { label: 'Niveau', className: 'bg-violet-50 text-violet-700 border-violet-200' },
-                    classe: { label: 'Classe', className: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-                    insolvables: { label: 'Parents Insolvables', className: 'bg-rose-50 text-rose-700 border-rose-200' },
+                    tous: { label: 'Tout l\'établissement', className: 'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/40 dark:text-teal-300' },
+                    section: { label: 'Section', className: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-300' },
+                    niveau: { label: 'Niveau', className: 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300' },
+                    classe: { label: 'Classe', className: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300' },
+                    insolvables: { label: 'Parents Insolvables', className: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300' },
                 };
                 const conf = map[row.original.cible_type] || { label: row.original.cible_type, className: '' };
                 return (
-                    <Badge variant="outline" className={`text-[10px] ${conf.className}`}>
+                    <Badge variant="outline" className={`text-[10px] whitespace-nowrap ${conf.className}`}>
                         {conf.label}
                     </Badge>
                 );
@@ -153,7 +155,7 @@ export default function CommunicationIndex({
             accessorKey: 'total_credits',
             header: () => <div className="text-center">Crédits Déduits</div>,
             cell: ({ row }) => (
-                <div className="text-center font-mono font-bold text-xs text-indigo-600">
+                <div className="text-center font-mono font-bold text-xs text-teal-600 dark:text-teal-400">
                     {row.original.total_credits} SMS
                 </div>
             ),
@@ -187,7 +189,8 @@ export default function CommunicationIndex({
                 const date = row.original.created_at ? new Date(row.original.created_at) : new Date();
                 return (
                     <div className="font-mono text-xs">
-                        <span className="font-semibold">{date.toLocaleDateString('fr-FR')}</span>
+                        {/* Formatage obligatoire jj-mm-aaaa via formatDate */}
+                        <span className="font-semibold">{row.original.created_at ? formatDate(row.original.created_at) : '-'}</span>
                         <span className="text-slate-400 ml-1">{date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</span>
                     </div>
                 );
@@ -197,11 +200,11 @@ export default function CommunicationIndex({
             accessorKey: 'destinataire_telephone',
             header: 'Destinataire',
             cell: ({ row }) => (
-                <div>
-                    <div className="font-bold text-xs text-slate-900 dark:text-slate-100">
+                <div className="min-w-0">
+                    <div className="font-bold text-xs text-slate-900 dark:text-slate-100 truncate">
                         {row.original.destinataire_nom ?? 'Parent d\'élève'}
                     </div>
-                    <span className="font-mono text-[10px] text-indigo-600 dark:text-indigo-400 font-semibold">
+                    <span className="font-mono text-[10px] text-teal-600 dark:text-teal-400 font-semibold">
                         {row.original.destinataire_telephone}
                     </span>
                 </div>
@@ -294,61 +297,62 @@ export default function CommunicationIndex({
         <>
             <Head title="Communication & Notifications SMS - SYGES" />
 
-            <div className="space-y-6">
-                {/* En-tête */}
+            {/* Conteneur principal plein écran avec espacement adaptatif et débordement maîtrisé */}
+            <div className="flex flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8 min-w-0 w-full">
+                {/* En-tête responsive avec boutons d'actions repliables */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
                     <div>
-                        <div className="flex items-center gap-2">
-                            <div className="p-2 bg-indigo-600 rounded-lg text-white">
+                        <div className="flex items-center gap-2.5">
+                            <div className="p-2 bg-teal-600 rounded-lg text-white shrink-0">
                                 <MessageSquare className="w-5 h-5" />
                             </div>
                             <div>
-                                <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">
+                                <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100">
                                     Communication & Notifications SMS
                                 </h1>
-                                <p className="text-xs text-slate-500">
+                                <p className="text-xs text-slate-500 mt-0.5">
                                     Établissement : <strong>{currentEtablissement?.nom}</strong> | Expéditeur officiel :{' '}
-                                    <strong className="font-mono text-indigo-600">{config.sender_id}</strong>
+                                    <strong className="font-mono text-teal-600 dark:text-teal-400">{config.sender_id}</strong>
                                 </p>
                             </div>
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                         <Button
                             onClick={() => setIsSmsDirectModalOpen(true)}
                             variant="outline"
                             className="text-xs h-9 flex items-center gap-1.5"
                         >
                             <MessageSquare className="w-4 h-4" />
-                            SMS Direct
+                            <span>SMS Direct</span>
                         </Button>
                         <Button
                             onClick={() => setIsCampagneModalOpen(true)}
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-1.5 shadow-sm text-xs h-9"
+                            className="bg-teal-600 hover:bg-teal-700 text-white flex items-center gap-1.5 shadow-sm text-xs h-9"
                         >
                             <Send className="w-4 h-4" />
-                            Diffuser une Campagne
+                            <span>Diffuser une Campagne</span>
                         </Button>
                     </div>
                 </div>
 
-                {/* Cartes KPI et Solde */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {/* Cartes KPI et Solde adaptatives */}
+                <div className="grid grid-cols-1 min-[420px]:grid-cols-2 lg:grid-cols-4 gap-3">
                     <Card className={`border-slate-200 dark:border-slate-800 ${isSoldeBas ? 'bg-rose-50/50 dark:bg-rose-950/20 border-rose-200' : 'bg-emerald-50/40 dark:bg-emerald-950/20'}`}>
                         <CardContent className="p-3">
                             <div className="flex items-center justify-between">
                                 <span className="text-xs font-semibold text-slate-600">Solde Crédits SMS</span>
                                 <Coins className={`w-4 h-4 ${isSoldeBas ? 'text-rose-600' : 'text-emerald-600'}`} />
                             </div>
-                            <div className={`text-xl font-extrabold mt-1 ${isSoldeBas ? 'text-rose-700' : 'text-emerald-700 dark:text-emerald-400'}`}>
+                            <div className={`text-xl font-extrabold mt-1 tabular-nums ${isSoldeBas ? 'text-rose-700' : 'text-emerald-700 dark:text-emerald-400'}`}>
                                 {config.solde_credits} SMS
                             </div>
                             <div className="flex items-center justify-between mt-1">
                                 <span className="text-[10px] text-slate-500">Alerte seuil : {config.seuil_alerte_solde}</span>
                                 <button
                                     onClick={() => setIsRechargerModalOpen(true)}
-                                    className="text-[10px] font-bold text-indigo-600 hover:underline"
+                                    className="text-[10px] font-bold text-teal-600 hover:underline"
                                 >
                                     Recharger +
                                 </button>
@@ -360,9 +364,9 @@ export default function CommunicationIndex({
                         <CardContent className="p-3">
                             <div className="flex items-center justify-between">
                                 <span className="text-xs font-semibold text-slate-500">Campagnes Diffusées</span>
-                                <Send className="w-4 h-4 text-indigo-600" />
+                                <Send className="w-4 h-4 text-teal-600" />
                             </div>
-                            <div className="text-lg font-extrabold text-slate-900 dark:text-slate-100 mt-1">
+                            <div className="text-lg font-extrabold text-slate-900 dark:text-slate-100 mt-1 tabular-nums">
                                 {campagnes.length}
                             </div>
                             <span className="text-[10px] text-slate-400">Diffusion groupée aux parents</span>
@@ -375,7 +379,7 @@ export default function CommunicationIndex({
                                 <span className="text-xs font-semibold text-slate-500">Total SMS Émis</span>
                                 <Radio className="w-4 h-4 text-slate-500" />
                             </div>
-                            <div className="text-lg font-extrabold text-slate-900 dark:text-slate-100 mt-1">
+                            <div className="text-lg font-extrabold text-slate-900 dark:text-slate-100 mt-1 tabular-nums">
                                 {historiqueSms.length}
                             </div>
                             <span className="text-[10px] text-slate-400">Audit trail & traçabilité</span>
@@ -396,64 +400,64 @@ export default function CommunicationIndex({
                     </Card>
                 </div>
 
-                {/* Onglets et Filtres */}
+                {/* Onglets et Filtres avec défilement fluide */}
                 <div className="space-y-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-2">
-                        {/* Onglets */}
-                        <div className="flex items-center gap-2">
+                    <div className="border-b border-slate-200 dark:border-slate-800 pb-2">
+                        {/* Onglets avec défilement horizontal sur mobile */}
+                        <div className="flex items-center gap-2 overflow-x-auto pb-1 -mb-1 w-full shrink-0">
                             <button
                                 onClick={() => setActiveTab('campagnes')}
-                                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors flex items-center gap-1.5 ${
+                                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
                                     activeTab === 'campagnes'
                                         ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
                                         : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
                                 }`}
                             >
-                                <Send className="w-3.5 h-3.5" />
-                                Campagnes SMS ({campagnes.length})
+                                <Send className="w-3.5 h-3.5 shrink-0" />
+                                <span>Campagnes SMS ({campagnes.length})</span>
                             </button>
                             <button
                                 onClick={() => setActiveTab('historique')}
-                                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors flex items-center gap-1.5 ${
+                                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
                                     activeTab === 'historique'
                                         ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
                                         : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
                                 }`}
                             >
-                                <Radio className="w-3.5 h-3.5" />
-                                Journal des SMS ({historiqueSms.length})
+                                <Radio className="w-3.5 h-3.5 shrink-0" />
+                                <span>Journal des SMS ({historiqueSms.length})</span>
                             </button>
                             <button
                                 onClick={() => setActiveTab('passerelle')}
-                                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors flex items-center gap-1.5 ${
+                                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
                                     activeTab === 'passerelle'
                                         ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
                                         : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
                                 }`}
                             >
-                                <Settings className="w-3.5 h-3.5" />
-                                Passerelle Télécom & Sender ID
+                                <Settings className="w-3.5 h-3.5 shrink-0" />
+                                <span>Passerelle Télécom & Sender ID</span>
                             </button>
                         </div>
                     </div>
 
-                    {/* Barre d'outils de filtres */}
+                    {/* Barre d'outils de filtres responsive */}
                     {activeTab !== 'passerelle' && (
-                        <div className="flex flex-wrap items-center gap-3">
-                            <div className="relative flex-1 min-w-50">
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                            <div className="relative flex-1 min-w-0">
                                 <Search className="w-4 h-4 absolute left-2.5 top-2.5 text-slate-400" />
                                 <Input
                                     placeholder="Rechercher par titre, destinataire ou contenu..."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="h-9 pl-9 text-xs"
+                                    className="h-9 pl-9 text-xs w-full"
                                 />
                             </div>
 
                             {activeTab === 'historique' && (
-                                <div className="w-48">
+                                <div className="w-full sm:w-52 shrink-0">
                                     <Select value={selectedTypeNotif} onValueChange={setSelectedTypeNotif}>
-                                        <SelectTrigger className="h-9 text-xs">
+                                        <SelectTrigger className="h-9 text-xs w-full">
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -471,9 +475,9 @@ export default function CommunicationIndex({
                         </div>
                     )}
 
-                    {/* Rendu des Tables TanStack */}
+                    {/* Rendu des Tables TanStack avec carte enveloppante scrollable */}
                     {activeTab === 'campagnes' && (
-                        <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-4">
+                        <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-3 sm:p-4 overflow-hidden min-w-0">
                             <DataTable
                                 columns={campagnesColumns}
                                 data={filteredCampagnes}
@@ -482,7 +486,7 @@ export default function CommunicationIndex({
                     )}
 
                     {activeTab === 'historique' && (
-                        <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-4">
+                        <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-3 sm:p-4 overflow-hidden min-w-0">
                             <DataTable
                                 columns={historiqueColumns}
                                 data={filteredHistorique}
@@ -491,12 +495,12 @@ export default function CommunicationIndex({
                     )}
 
                     {activeTab === 'passerelle' && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                             <Card className="border-slate-200 dark:border-slate-800">
                                 <CardContent className="p-4 space-y-4">
                                     <div className="flex items-center justify-between border-b pb-3">
                                         <div className="flex items-center gap-2">
-                                            <Settings className="w-5 h-5 text-indigo-600" />
+                                            <Settings className="w-5 h-5 text-teal-600 shrink-0" />
                                             <div>
                                                 <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100">
                                                     Passerelle Télécom Active
@@ -514,7 +518,7 @@ export default function CommunicationIndex({
                                     <div className="space-y-2 text-xs">
                                         <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
                                             <span className="text-slate-500">Sender ID (Expéditeur GSM) :</span>
-                                            <span className="font-mono font-bold text-indigo-600">{config.sender_id}</span>
+                                            <span className="font-mono font-bold text-teal-600 dark:text-teal-400">{config.sender_id}</span>
                                         </div>
                                         <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
                                             <span className="text-slate-500">Solde de Crédits Actuel :</span>
@@ -526,11 +530,11 @@ export default function CommunicationIndex({
                                         </div>
                                         <div className="flex justify-between py-1">
                                             <span className="text-slate-500">URL Endpoint :</span>
-                                            <span className="font-mono text-slate-600 truncate max-w-50">{config.api_url || 'Par défaut SDK'}</span>
+                                            <span className="font-mono text-slate-600 truncate max-w-[180px] sm:max-w-xs">{config.api_url || 'Par défaut SDK'}</span>
                                         </div>
                                     </div>
 
-                                    <div className="pt-2 flex items-center gap-2">
+                                    <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                                         <Button
                                             onClick={() => setIsConfigModalOpen(true)}
                                             variant="outline"
@@ -551,8 +555,8 @@ export default function CommunicationIndex({
                             <Card className="border-slate-200 dark:border-slate-800">
                                 <CardContent className="p-4 space-y-3">
                                     <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
-                                        <Sparkles className="w-4 h-4 text-amber-500" />
-                                        Norme GSM 7-bit & Tarification
+                                        <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
+                                        <span>Norme GSM 7-bit & Tarification</span>
                                     </h2>
                                     <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
                                         SYGES intègre un filtre de sanitisation automatique (Gesco V1.1 - Module 14.4).

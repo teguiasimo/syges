@@ -7,6 +7,7 @@ import {
     Calculator,
     CheckCircle2,
     Edit3,
+    FileSpreadsheet,
     GraduationCap,
     Lock,
     Save,
@@ -21,6 +22,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import { DataTable } from '@/components/ui/data-table';
 import { Input } from '@/components/ui/input';
 import {
+    SearchableSelect,
+    type SearchableOption,
+} from '@/components/ui/searchable-select';
+import {
     Select,
     SelectContent,
     SelectItem,
@@ -28,6 +33,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { useTranslation } from '@/contexts/language-context';
+import { formatAnneeLabel } from '@/lib/utils';
 import type {
     AttributionNote,
     CoteAPC,
@@ -40,7 +46,7 @@ import type {
  * Propriétés transmises par Inertia à la page de saisie des notes.
  */
 interface NotesPageProps {
-    annees: Array<{ id: number; nom: string; is_active: boolean }>;
+    annees: Array<{ id: number; nom: string; code?: string; session?: string; is_active?: boolean; is_current?: boolean }>;
     anneeActiveId: number;
     periodes: Array<{
         id: number;
@@ -87,6 +93,12 @@ export default function NotesIndex({
     const [selectedAnnee, setSelectedAnnee] = useState<string>(
         String(filters.annee_id || anneeActiveId || (annees[0]?.id ?? ''))
     );
+
+    // Année scolaire activement sélectionnée (pour affichage concis dans le déclencheur Select)
+    const selectedAnneeObj = useMemo(() => {
+        return annees.find((a) => String(a.id) === selectedAnnee);
+    }, [annees, selectedAnnee]);
+
     const [selectedClasse, setSelectedClasse] = useState<string>(
         String(filters.classe_id || '')
     );
@@ -108,16 +120,20 @@ export default function NotesIndex({
     // Références pour la navigation au clavier (haut / bas / entrée)
     const inputsRef = useRef<Record<number, HTMLInputElement | null>>({});
 
-    // Notifications Flash
+    // Notifications Flash (déduplication stricte pour éviter tout toast superposé)
     useEffect(() => {
         if (flash?.success) {
+            toast.dismiss('notes-action-toast');
             toast.success(flash.success, {
+                id: 'notes-action-toast',
                 position: 'top-right',
                 className: 'bg-emerald-600 text-white border-emerald-700',
             });
         }
         if (flash?.error) {
+            toast.dismiss('notes-action-toast');
             toast.error(flash.error, {
+                id: 'notes-action-toast',
                 position: 'top-right',
             });
         }
@@ -128,6 +144,29 @@ export default function NotesIndex({
         if (!selectedClasse) return [];
         return attributions.filter((a) => String(a.classe_id) === selectedClasse);
     }, [attributions, selectedClasse]);
+
+    // Options de cours et matières formatées pour le composant SearchableSelect avec recherche
+    const matiereOptions = useMemo<SearchableOption[]>(() => {
+        return attributionsDeLaClasse.map((attr) => {
+            const nomMatiere = attr.matiere?.nom ?? '-';
+            const codeMatiere = attr.matiere?.code ? `[${attr.matiere.code}] ` : '';
+            const enseignant = attr.personnel?.nom_complet;
+            const displayText = isGestionnaire && enseignant
+                ? `${nomMatiere} (${enseignant})`
+                : nomMatiere;
+
+            return {
+                value: String(attr.id),
+                label: displayText,
+                description: [
+                    codeMatiere ? `Code : ${attr.matiere?.code}` : null,
+                    enseignant ? `Prof : ${enseignant}` : null,
+                ]
+                    .filter(Boolean)
+                    .join(' • '),
+            };
+        });
+    }, [attributionsDeLaClasse, isGestionnaire]);
 
     // Liste plate de toutes les évaluations disponibles
     const toutesLesEvaluations = useMemo(() => {
@@ -237,14 +276,11 @@ export default function NotesIndex({
                 preserveScroll: true,
                 onSuccess: () => {
                     setIsSaving(false);
-                    toast.success('Notes enregistrées avec succès !', {
-                        position: 'top-right',
-                        className: 'bg-emerald-600 text-white border-emerald-700',
-                    });
                 },
-                onError: (err) => {
+                onError: () => {
                     setIsSaving(false);
                     toast.error('Erreur lors de l\'enregistrement des notes.', {
+                        id: 'notes-action-toast',
                         position: 'top-right',
                     });
                 },
@@ -268,9 +304,11 @@ export default function NotesIndex({
                 preserveScroll: true,
                 onSuccess: () => {
                     setIsLocked(true);
-                    toast.success('Session de notes verrouillée avec succès.', {
+                },
+                onError: () => {
+                    toast.error('Erreur lors du verrouillage de la session.', {
+                        id: 'notes-action-toast',
                         position: 'top-right',
-                        className: 'bg-emerald-600 text-white border-emerald-700',
                     });
                 },
             }
@@ -293,9 +331,11 @@ export default function NotesIndex({
                 preserveScroll: true,
                 onSuccess: () => {
                     setIsLocked(false);
-                    toast.success('Session déverrouillée avec succès.', {
+                },
+                onError: () => {
+                    toast.error('Erreur lors du déverrouillage de la session.', {
+                        id: 'notes-action-toast',
                         position: 'top-right',
-                        className: 'bg-emerald-600 text-white border-emerald-700',
                     });
                 },
             }
@@ -488,21 +528,22 @@ export default function NotesIndex({
         <>
             <Head title={t('notes.title')} />
 
-            <div className="flex flex-1 flex-col gap-5 p-4 md:p-6">
-                {/* En-tête de page */}
+            {/* Conteneur principal responsive sans débordement horizontal */}
+            <div className="flex flex-1 flex-col gap-5 p-4 sm:p-6 lg:p-8 min-w-0 w-full">
+                {/* En-tête de page adaptatif */}
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <div>
-                        <div className="flex items-center gap-2">
-                            <h1 className="text-2xl font-bold tracking-tight text-foreground">
+                    <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
                                 {t('notes.title')}
                             </h1>
                             {isLocked ? (
-                                <Badge variant="destructive" className="flex items-center gap-1">
+                                <Badge variant="destructive" className="flex items-center gap-1 shrink-0">
                                     <Lock className="h-3 w-3" />
                                     {t('notes.locked_badge')}
                                 </Badge>
                             ) : (
-                                <Badge variant="secondary" className="flex items-center gap-1 bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                                <Badge variant="secondary" className="flex items-center gap-1 shrink-0 bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
                                     <CheckCircle2 className="h-3 w-3" />
                                     {t('notes.open_badge')}
                                 </Badge>
@@ -513,52 +554,73 @@ export default function NotesIndex({
                         </p>
                     </div>
 
-                    {/* Actions de sauvegarde et verrouillage */}
-                    {grille.length > 0 && (
-                        <div className="flex items-center gap-2">
-                            {isLocked && isGestionnaire && (
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={handleUnlockGrille}
-                                    className="gap-1.5 border-amber-500 text-amber-600 hover:bg-amber-50"
+                    {/* Actions de sauvegarde, verrouillage et impression de l'état de remplissage */}
+                    <div className="flex flex-wrap items-center gap-2">
+                        {selectedClasse && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                asChild
+                                className="gap-1.5 border-blue-500/50 text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/40"
+                                title="Génère la matrice croisée de la classe avec toutes les matières en colonnes et les élèves en lignes pour affichage et contrôle"
+                            >
+                                <a
+                                    href={`/administration/notes/releves/etat-remplissage?classe_id=${selectedClasse}&annee_id=${selectedAnnee}&evaluation_id=${selectedEvaluation}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
                                 >
-                                    <Unlock className="h-4 w-4" />
-                                    {t('notes.btn_unlock')}
-                                </Button>
-                            )}
+                                    <FileSpreadsheet className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                                    État de Remplissage (PDF)
+                                </a>
+                            </Button>
+                        )}
 
-                            {!isLocked && (
-                                <>
+                        {grille.length > 0 && (
+                            <>
+                                {isLocked && isGestionnaire && (
                                     <Button
                                         variant="outline"
                                         size="sm"
-                                        onClick={handleLockGrille}
-                                        className="gap-1.5"
+                                        onClick={handleUnlockGrille}
+                                        className="gap-1.5 border-amber-500 text-amber-600 hover:bg-amber-50"
                                     >
-                                        <Lock className="h-4 w-4" />
-                                        {t('notes.btn_lock')}
+                                        <Unlock className="h-4 w-4" />
+                                        {t('notes.btn_unlock')}
                                     </Button>
+                                )}
 
-                                    <Button
-                                        size="sm"
-                                        onClick={handleSaveGrille}
-                                        disabled={isSaving}
-                                        className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
-                                    >
-                                        <Save className="h-4 w-4" />
-                                        {isSaving ? 'Enregistrement...' : t('notes.btn_save')}
-                                    </Button>
-                                </>
-                            )}
-                        </div>
-                    )}
+                                {!isLocked && (
+                                    <>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={handleLockGrille}
+                                            className="gap-1.5"
+                                        >
+                                            <Lock className="h-4 w-4" />
+                                            {t('notes.btn_lock')}
+                                        </Button>
+
+                                        <Button
+                                            size="sm"
+                                            onClick={handleSaveGrille}
+                                            disabled={isSaving}
+                                            className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                                        >
+                                            <Save className="h-4 w-4" />
+                                            {isSaving ? 'Enregistrement...' : t('notes.btn_save')}
+                                        </Button>
+                                    </>
+                                )}
+                            </>
+                        )}
+                    </div>
                 </div>
 
-                {/* Barre des Filtres Sélecteurs */}
+                {/* Barre des Filtres Sélecteurs (1 col mobile, 2 cols tablette/sidebar ouverte, 4 cols grand écran) */}
                 <Card className="border-border/60 shadow-sm">
-                    <CardContent className="p-4">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                    <CardContent className="p-3.5 sm:p-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
                             {/* Année Scolaire */}
                             <div className="min-w-0">
                                 <label className="text-xs font-semibold text-muted-foreground mb-1 block">
@@ -573,12 +635,32 @@ export default function NotesIndex({
                                     }}
                                 >
                                     <SelectTrigger className="h-9 w-full min-w-0 overflow-hidden [&>span]:truncate [&>span]:block">
-                                        <SelectValue placeholder="Choisir une année" />
+                                        <div className="flex items-center gap-2 truncate">
+                                            {(selectedAnneeObj?.is_active || selectedAnneeObj?.is_current) && (
+                                                <span className="relative flex h-2 w-2 shrink-0" title="Année scolaire active">
+                                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500 shadow-xs shadow-emerald-500/50"></span>
+                                                </span>
+                                            )}
+                                            <SelectValue placeholder="Choisir une année">
+                                                {selectedAnneeObj
+                                                    ? formatAnneeLabel(selectedAnneeObj.nom, selectedAnneeObj.code, selectedAnneeObj.session)
+                                                    : undefined}
+                                            </SelectValue>
+                                        </div>
                                     </SelectTrigger>
                                     <SelectContent>
                                         {annees.map((a) => (
                                             <SelectItem key={a.id} value={String(a.id)}>
-                                                {a.nom} {a.is_active && '(Actuelle)'}
+                                                <div className="flex items-center gap-2">
+                                                    {(a.is_active || a.is_current) && (
+                                                        <span className="relative flex h-2 w-2 shrink-0">
+                                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                                                        </span>
+                                                    )}
+                                                    <span>{formatAnneeLabel(a.nom, a.code, a.session)}</span>
+                                                </div>
                                             </SelectItem>
                                         ))}
                                     </SelectContent>
@@ -615,46 +697,22 @@ export default function NotesIndex({
                                 <label className="text-xs font-semibold text-muted-foreground mb-1 block">
                                     {t('notes.select_matiere')}
                                 </label>
-                                <Select
+                                <SearchableSelect
                                     disabled={!selectedClasse || attributionsDeLaClasse.length === 0}
                                     value={selectedAttribution}
                                     onValueChange={setSelectedAttribution}
-                                >
-                                    <SelectTrigger className="h-9 w-full min-w-0 overflow-hidden [&>span]:truncate [&>span]:block">
-                                        <SelectValue
-                                            placeholder={
-                                                attributionsDeLaClasse.length === 0
-                                                    ? 'Aucun cours disponible'
-                                                    : 'Choisir une matière'
-                                            }
-                                        />
-                                    </SelectTrigger>
-                                    <SelectContent className="max-w-md">
-                                        {attributionsDeLaClasse.map((attr) => {
-                                            const displayText = isGestionnaire && attr.personnel?.nom_complet
-                                                ? `${attr.matiere?.nom} (${attr.personnel.nom_complet})`
-                                                : (attr.matiere?.nom ?? '-');
-
-                                            return (
-                                                <SelectItem
-                                                    key={attr.id}
-                                                    value={String(attr.id)}
-                                                    title={displayText}
-                                                    className="truncate max-w-full"
-                                                >
-                                                    <span className="truncate block">
-                                                        {attr.matiere?.nom}
-                                                        {isGestionnaire && attr.personnel?.nom_complet && (
-                                                            <span className="text-muted-foreground text-xs ml-1 font-normal">
-                                                                ({attr.personnel.nom_complet})
-                                                            </span>
-                                                        )}
-                                                    </span>
-                                                </SelectItem>
-                                            );
-                                        })}
-                                    </SelectContent>
-                                </Select>
+                                    options={matiereOptions}
+                                    placeholder={
+                                        !selectedClasse
+                                            ? 'Choisir une classe'
+                                            : attributionsDeLaClasse.length === 0
+                                            ? 'Aucun cours disponible'
+                                            : 'Choisir une matière'
+                                    }
+                                    searchPlaceholder="Rechercher une matière ou cours..."
+                                    emptyMessage="Aucune matière ne correspond à"
+                                    className="h-9 w-full min-w-0 text-xs font-normal"
+                                />
                             </div>
 
                             {/* Évaluation / Séquence */}
@@ -689,29 +747,29 @@ export default function NotesIndex({
                     </CardContent>
                 </Card>
 
-                {/* Synthèse provisoire de la saisie */}
+                {/* Synthèse provisoire de la saisie (grille responsive dès 320px) */}
                 {grille.length > 0 && (
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="grid grid-cols-1 min-[420px]:grid-cols-2 lg:grid-cols-4 gap-3">
                         <Card className="border-border/60">
                             <CardContent className="p-3 flex items-center gap-3">
-                                <div className="p-2 rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-950/50">
+                                <div className="p-2 shrink-0 rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-950/50">
                                     <Users className="h-5 w-5" />
                                 </div>
-                                <div>
-                                    <div className="text-xs text-muted-foreground font-medium">Effectif classe</div>
-                                    <div className="text-lg font-bold text-foreground">{totalEleves}</div>
+                                <div className="min-w-0">
+                                    <div className="text-xs text-muted-foreground font-medium truncate">Effectif classe</div>
+                                    <div className="text-lg font-bold text-foreground tabular-nums">{totalEleves}</div>
                                 </div>
                             </CardContent>
                         </Card>
 
                         <Card className="border-border/60">
                             <CardContent className="p-3 flex items-center gap-3">
-                                <div className="p-2 rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50">
+                                <div className="p-2 shrink-0 rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50">
                                     <CheckCircle2 className="h-5 w-5" />
                                 </div>
-                                <div>
-                                    <div className="text-xs text-muted-foreground font-medium">{t('notes.graded_count')}</div>
-                                    <div className="text-lg font-bold text-foreground">
+                                <div className="min-w-0">
+                                    <div className="text-xs text-muted-foreground font-medium truncate">{t('notes.graded_count')}</div>
+                                    <div className="text-lg font-bold text-foreground tabular-nums">
                                         {notesValides.length} / {totalEleves}
                                     </div>
                                 </div>
@@ -720,23 +778,23 @@ export default function NotesIndex({
 
                         <Card className="border-border/60">
                             <CardContent className="p-3 flex items-center gap-3">
-                                <div className="p-2 rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-950/50">
+                                <div className="p-2 shrink-0 rounded-lg bg-teal-50 text-teal-600 dark:bg-teal-950/50">
                                     <Calculator className="h-5 w-5" />
                                 </div>
-                                <div>
-                                    <div className="text-xs text-muted-foreground font-medium">{t('notes.class_average_preview')}</div>
-                                    <div className="text-lg font-bold text-foreground">{moyenneProvisoire} / 20</div>
+                                <div className="min-w-0">
+                                    <div className="text-xs text-muted-foreground font-medium truncate">{t('notes.class_average_preview')}</div>
+                                    <div className="text-lg font-bold text-foreground tabular-nums">{moyenneProvisoire} / 20</div>
                                 </div>
                             </CardContent>
                         </Card>
 
                         <Card className="border-border/60">
                             <CardContent className="p-3 flex items-center gap-3">
-                                <div className="p-2 rounded-lg bg-rose-50 text-rose-600 dark:bg-rose-950/50">
+                                <div className="p-2 shrink-0 rounded-lg bg-rose-50 text-rose-600 dark:bg-rose-950/50">
                                     <Award className="h-5 w-5" />
                                 </div>
-                                <div>
-                                    <div className="text-xs text-muted-foreground font-medium">Cote APC dominante</div>
+                                <div className="min-w-0">
+                                    <div className="text-xs text-muted-foreground font-medium truncate">Cote APC dominante</div>
                                     <div className="text-lg font-bold text-foreground">
                                         {Number(moyenneProvisoire) >= 16
                                             ? 'CTBA'
@@ -754,20 +812,30 @@ export default function NotesIndex({
 
                 {/* Tableau TanStack Table ou Message de sélection */}
                 {isLoadingGrille ? (
-                    <div className="flex flex-col items-center justify-center p-12 bg-card rounded-lg border border-border/60">
+                    <div className="flex flex-col items-center justify-center p-8 sm:p-12 bg-card rounded-lg border border-border/60">
                         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mb-3" />
                         <p className="text-sm text-muted-foreground font-medium">
                             Chargement de la grille d'évaluation...
                         </p>
                     </div>
                 ) : grille.length > 0 ? (
-                    <div className="flex flex-col gap-3">
+                    <div className="flex flex-col gap-3 min-w-0">
+                        {/* Bannière informative lorsque l'évaluation ou la session est verrouillée */}
+                        {isLocked && (
+                            <div className="flex items-center gap-2.5 px-4 py-3 rounded-lg border border-amber-200 bg-amber-50/80 text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200 text-xs sm:text-sm">
+                                <Lock className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                                <span>
+                                    <strong>Session verrouillée :</strong> La saisie des notes pour cette évaluation est close (verrouillage administratif ou date limite de saisie dépassée). Les notes sont consultables en lecture seule.
+                                </span>
+                            </div>
+                        )}
+
                         {/* Barre d'affectation globale de compétence de session (masquée par défaut) */}
                         {showApcSessionBar && (
-                            <Card className="border-indigo-100 bg-indigo-50/50 dark:border-indigo-950 dark:bg-indigo-950/20">
+                            <Card className="border-teal-200 bg-teal-50/50 dark:border-teal-900 dark:bg-teal-950/20">
                                 <CardContent className="p-3.5 flex flex-col sm:flex-row sm:items-center gap-3">
-                                    <div className="flex-1">
-                                        <label className="text-xs font-semibold text-indigo-950 dark:text-indigo-200 block mb-1">
+                                    <div className="flex-1 min-w-0">
+                                        <label className="text-xs font-semibold text-teal-950 dark:text-teal-200 block mb-1">
                                             Compétence évaluée pour cette session (APC - Nouvelles normes Cameroun)
                                         </label>
                                         <Input
@@ -795,9 +863,9 @@ export default function NotesIndex({
                                                 className: 'bg-emerald-600 text-white border-emerald-700',
                                             });
                                         }}
-                                        className="sm:self-end h-8 text-xs bg-indigo-600 hover:bg-indigo-700 text-white gap-1 shrink-0"
+                                        className="w-full sm:w-auto sm:self-end h-8 text-xs bg-teal-600 hover:bg-teal-700 text-white gap-1 shrink-0"
                                     >
-                                        <CheckCircle2 className="h-3.5 w-3.5" />
+                                        <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
                                         Appliquer à toute la classe
                                     </Button>
                                 </CardContent>
@@ -805,7 +873,7 @@ export default function NotesIndex({
                         )}
 
                         {/* Grille TanStack Table */}
-                        <Card className="border-border/60 shadow-sm overflow-hidden">
+                        <Card className="border-border/60 shadow-sm overflow-hidden min-w-0">
                             <CardContent className="p-0">
                                 <DataTable
                                     columns={columns}
@@ -833,11 +901,11 @@ export default function NotesIndex({
                                             variant="outline"
                                             size="sm"
                                             onClick={() => setShowApcSessionBar(!showApcSessionBar)}
-                                            className="h-9 text-xs gap-1.5 cursor-pointer bg-card border-input hover:bg-accent"
+                                            className="h-9 w-full sm:w-auto text-xs gap-1.5 cursor-pointer bg-card border-input hover:bg-accent"
                                             title="Afficher ou masquer le champ de saisie de compétence globale APC"
                                         >
-                                            <BookOpen className="size-3.5 text-muted-foreground" />
-                                            <span>{showApcSessionBar ? 'Masquer compétence session' : 'Compétence session (APC)'}</span>
+                                            <BookOpen className="size-3.5 shrink-0 text-muted-foreground" />
+                                            <span className="truncate">{showApcSessionBar ? 'Masquer compétence session' : 'Compétence session (APC)'}</span>
                                         </Button>
                                     }
                                 />
@@ -845,7 +913,7 @@ export default function NotesIndex({
                         </Card>
                     </div>
                 ) : (
-                    <div className="flex flex-col items-center justify-center p-12 bg-muted/20 rounded-lg border border-dashed border-border/80 text-center">
+                    <div className="flex flex-col items-center justify-center p-6 sm:p-12 bg-muted/20 rounded-lg border border-dashed border-border/80 text-center">
                         <Edit3 className="h-10 w-10 text-muted-foreground/60 mb-2" />
                         <h3 className="text-base font-semibold text-foreground">
                             {t('notes.grille_title')}

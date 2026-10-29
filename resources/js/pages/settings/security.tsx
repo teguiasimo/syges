@@ -1,6 +1,5 @@
 import { Form, Head } from '@inertiajs/react';
 import { useRef } from 'react';
-import { toast } from 'sonner';
 import SecurityController from '@/actions/App/Http/Controllers/Settings/SecurityController';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
@@ -52,12 +51,6 @@ export default function Security(props: Props) {
                         'current_password',
                     ]}
                     resetOnSuccess
-                    onSuccess={() => {
-                        toast.success('Votre mot de passe a été modifié avec succès.', {
-                            position: 'top-right',
-                            className: 'bg-emerald-600 text-white border-emerald-700',
-                        });
-                    }}
                     onError={(errors) => {
                         if (errors.password) {
                             passwordInput.current?.focus();
@@ -127,7 +120,7 @@ export default function Security(props: Props) {
                                 <Button
                                     disabled={processing}
                                     data-test="update-password-button"
-                                    className="bg-primary cursor-pointer"
+                                    className="bg-primary cursor-pointer w-full sm:w-auto h-auto py-2 whitespace-normal text-center"
                                 >
                                     {processing ? 'Enregistrement...' : 'Enregistrer le nouveau mot de passe'}
                                 </Button>

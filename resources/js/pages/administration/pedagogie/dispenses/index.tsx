@@ -341,13 +341,13 @@ export default function DispensesIndex({
                 accessorKey: 'type_dispense',
                 header: 'Type & Motif',
                 cell: ({ row }) => (
-                    <div className="max-w-xs">
+                    <div className="max-w-xs whitespace-normal">
                         <Badge
                             variant="secondary"
                             className={
                                 row.original.type_dispense === 'medicale'
                                     ? 'bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300 border-sky-300'
-                                    : 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 border-purple-300'
+                                    : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-amber-300'
                             }
                         >
                             {row.original.type_dispense === 'medicale' ? 'Médicale / EPS' : ucfirst(row.original.type_dispense)}
@@ -515,24 +515,25 @@ export default function DispensesIndex({
         <>
             <Head title="Dérogations & Dispenses Officielles (EPS & Médicales)" />
 
-            <div className="flex h-full flex-1 flex-col gap-6 p-6 sm:p-8">
+            {/* Conteneur principal responsive sans débordement horizontal */}
+            <div className="flex h-full flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8 min-w-0 w-full">
                 {/* En-tête de page & navigation */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                    <div>
+                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                    <div className="min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                             <Button variant="ghost" size="sm" asChild className="h-8 px-2 gap-1.5 text-xs text-muted-foreground hover:text-foreground">
                                 <Link href="/administration/notes">
-                                    <ArrowLeft className="size-3.5" />
+                                    <ArrowLeft className="size-3.5 shrink-0" />
                                     Retour aux Évaluations & Bulletins
                                 </Link>
                             </Button>
                         </div>
-                        <div className="flex items-center gap-2.5">
-                            <div className="p-2.5 rounded-xl bg-linear-to-br from-teal-600 to-emerald-700 text-white shadow-md shadow-teal-500/20">
+                        <div className="flex items-start sm:items-center gap-2.5">
+                            <div className="p-2.5 shrink-0 rounded-xl bg-linear-to-br from-teal-600 to-emerald-700 text-white shadow-md shadow-teal-500/20">
                                 <HeartPulse className="size-6" />
                             </div>
-                            <div>
-                                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
+                            <div className="min-w-0">
+                                <h1 className="text-xl sm:text-3xl font-bold tracking-tight text-foreground">
                                     Dérogations & Dispenses Officielles
                                 </h1>
                                 <p className="text-xs sm:text-sm text-muted-foreground">
@@ -549,7 +550,7 @@ export default function DispensesIndex({
                             onClick={handlePrintPv}
                             className="gap-2 h-9 text-xs font-semibold border-teal-300 text-teal-700 hover:bg-teal-50 dark:border-teal-800 dark:text-teal-300"
                         >
-                            <Printer className="size-3.5" />
+                            <Printer className="size-3.5 shrink-0" />
                             Imprimer PV Officiel (PDF)
                         </Button>
                         <Button
@@ -572,57 +573,57 @@ export default function DispensesIndex({
                             }}
                             className="gap-2 h-9 text-xs font-semibold bg-teal-600 hover:bg-teal-700 text-white shadow-sm"
                         >
-                            <Plus className="size-4" />
+                            <Plus className="size-4 shrink-0" />
                             Enregistrer une Dispense
                         </Button>
                     </div>
                 </div>
 
-                {/* Cartes KPI */}
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Cartes KPI adaptatives (1 col sur 320px, 2 cols dès 420px, 4 cols sur laptop) */}
+                <div className="grid grid-cols-1 min-[420px]:grid-cols-2 lg:grid-cols-4 gap-4">
                     <Card className="border-border/60 shadow-sm">
-                        <CardContent className="p-4 flex items-center justify-between">
-                            <div>
-                                <p className="text-xs font-medium text-muted-foreground">Total Dispenses</p>
-                                <h3 className="text-2xl font-bold tracking-tight text-foreground mt-0.5">{stats.total_dispenses}</h3>
+                        <CardContent className="p-4 flex items-center justify-between gap-2">
+                            <div className="min-w-0">
+                                <p className="text-xs font-medium text-muted-foreground truncate">Total Dispenses</p>
+                                <h3 className="text-2xl font-bold tracking-tight text-foreground mt-0.5 tabular-nums">{stats.total_dispenses}</h3>
                             </div>
-                            <div className="p-2.5 rounded-lg bg-teal-100 text-teal-700 dark:bg-teal-950 dark:text-teal-300">
+                            <div className="p-2.5 shrink-0 rounded-lg bg-teal-100 text-teal-700 dark:bg-teal-950 dark:text-teal-300">
                                 <FileText className="size-5" />
                             </div>
                         </CardContent>
                     </Card>
 
                     <Card className="border-border/60 shadow-sm">
-                        <CardContent className="p-4 flex items-center justify-between">
-                            <div>
-                                <p className="text-xs font-medium text-muted-foreground">Dispenses EPS (Sport)</p>
-                                <h3 className="text-2xl font-bold tracking-tight text-foreground mt-0.5">{stats.total_eps}</h3>
+                        <CardContent className="p-4 flex items-center justify-between gap-2">
+                            <div className="min-w-0">
+                                <p className="text-xs font-medium text-muted-foreground truncate">Dispenses EPS (Sport)</p>
+                                <h3 className="text-2xl font-bold tracking-tight text-foreground mt-0.5 tabular-nums">{stats.total_eps}</h3>
                             </div>
-                            <div className="p-2.5 rounded-lg bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300">
+                            <div className="p-2.5 shrink-0 rounded-lg bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300">
                                 <Activity className="size-5" />
                             </div>
                         </CardContent>
                     </Card>
 
                     <Card className="border-border/60 shadow-sm">
-                        <CardContent className="p-4 flex items-center justify-between">
-                            <div>
-                                <p className="text-xs font-medium text-muted-foreground">Dispenses Validées</p>
-                                <h3 className="text-2xl font-bold tracking-tight text-foreground mt-0.5">{stats.total_validees}</h3>
+                        <CardContent className="p-4 flex items-center justify-between gap-2">
+                            <div className="min-w-0">
+                                <p className="text-xs font-medium text-muted-foreground truncate">Dispenses Validées</p>
+                                <h3 className="text-2xl font-bold tracking-tight text-foreground mt-0.5 tabular-nums">{stats.total_validees}</h3>
                             </div>
-                            <div className="p-2.5 rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                            <div className="p-2.5 shrink-0 rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
                                 <CheckCircle2 className="size-5" />
                             </div>
                         </CardContent>
                     </Card>
 
                     <Card className="border-border/60 shadow-sm">
-                        <CardContent className="p-4 flex items-center justify-between">
-                            <div>
-                                <p className="text-xs font-medium text-muted-foreground">En Attente de Visa</p>
-                                <h3 className="text-2xl font-bold tracking-tight text-foreground mt-0.5">{stats.total_en_attente}</h3>
+                        <CardContent className="p-4 flex items-center justify-between gap-2">
+                            <div className="min-w-0">
+                                <p className="text-xs font-medium text-muted-foreground truncate">En Attente de Visa</p>
+                                <h3 className="text-2xl font-bold tracking-tight text-foreground mt-0.5 tabular-nums">{stats.total_en_attente}</h3>
                             </div>
-                            <div className="p-2.5 rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+                            <div className="p-2.5 shrink-0 rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300">
                                 <Clock className="size-5" />
                             </div>
                         </CardContent>
@@ -632,7 +633,7 @@ export default function DispensesIndex({
                 {/* Filtres de recherche */}
                 <Card className="border-border/60 shadow-sm">
                     <CardContent className="p-4 sm:p-5">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">
                             {/* Classe */}
                             <div>
                                 <label className="text-xs font-medium text-muted-foreground mb-1 block">Classe</label>
@@ -733,10 +734,10 @@ export default function DispensesIndex({
                     </CardContent>
                 </Card>
 
-                {/* Tableau TanStack Table */}
-                <Card className="border-border/60 shadow-sm overflow-hidden">
+                {/* Tableau TanStack Table avec défilement horizontal sécurisé sur mobile */}
+                <Card className="border-border/60 shadow-sm overflow-hidden min-w-0">
                     <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse text-sm">
+                        <table className="w-full min-w-[820px] text-left border-collapse text-sm">
                             <thead>
                                 {table.getHeaderGroups().map((headerGroup) => (
                                     <tr key={headerGroup.id} className="border-b bg-muted/40 text-muted-foreground text-xs font-semibold">
@@ -776,9 +777,9 @@ export default function DispensesIndex({
                         </table>
                     </div>
 
-                    {/* Pagination TanStack Table */}
+                    {/* Pagination TanStack Table responsive */}
                     {table.getPageCount() > 1 && (
-                        <div className="flex items-center justify-between p-4 border-t text-xs text-muted-foreground">
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-2 p-4 border-t text-xs text-muted-foreground">
                             <span>
                                 Page {table.getState().pagination.pageIndex + 1} sur {table.getPageCount()} ({dispenses.length} au total)
                             </span>
@@ -856,7 +857,7 @@ export default function DispensesIndex({
                             </select>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
                                 <label className="text-xs font-semibold text-foreground mb-1 block">Matière *</label>
                                 <select
@@ -889,7 +890,7 @@ export default function DispensesIndex({
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
                                 <label className="text-xs font-medium text-muted-foreground mb-1 block">Période concernée</label>
                                 <select
@@ -932,7 +933,7 @@ export default function DispensesIndex({
                             />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
                                 <label className="text-xs font-medium text-muted-foreground mb-1 block">Réf. Certificat Médical</label>
                                 <Input
@@ -954,7 +955,7 @@ export default function DispensesIndex({
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
                                 <label className="text-xs font-medium text-muted-foreground mb-1 block">Date début</label>
                                 <Input
@@ -1010,7 +1011,7 @@ export default function DispensesIndex({
                     </DialogHeader>
 
                     <form onSubmit={handleUpdateDispense} className="space-y-3.5 py-2">
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
                                 <label className="text-xs font-semibold text-foreground mb-1 block">Matière *</label>
                                 <select
@@ -1052,7 +1053,7 @@ export default function DispensesIndex({
                             />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
                                 <label className="text-xs font-medium text-muted-foreground mb-1 block">Réf. Certificat Médical</label>
                                 <Input
@@ -1072,7 +1073,7 @@ export default function DispensesIndex({
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
                                 <label className="text-xs font-medium text-muted-foreground mb-1 block">Date début</label>
                                 <Input

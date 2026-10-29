@@ -179,12 +179,15 @@ export function EditPersonnelModal({
             onSuccess: () => {
                 toast.success('Fiche personnel mise à jour !', {
                     description: `Les modifications de ${data.nom} ont été enregistrées avec succès.`,
+                    position: 'top-right',
+                    className: 'bg-emerald-600 text-white border-emerald-700',
                 });
                 onClose();
             },
             onError: () => {
                 toast.error('Erreur lors de la modification', {
                     description: 'Veuillez vérifier les informations renseignées.',
+                    position: 'top-right',
                 });
             },
         });
@@ -205,18 +208,18 @@ export function EditPersonnelModal({
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-6 sm:p-8">
+            <DialogContent className="w-[95vw] sm:max-w-4xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
                 <DialogHeader className="border-b pb-4">
                     <DialogTitle className="text-xl font-bold flex items-center gap-2 text-foreground">
-                        <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-950/50 text-blue-600 border border-blue-200 dark:border-blue-900/50">
+                        <div className="p-2 rounded-lg bg-teal-50 dark:bg-teal-950/50 text-teal-600 dark:text-teal-400 border border-teal-200 dark:border-teal-900/50 shrink-0">
                             <Briefcase className="size-5" />
                         </div>
-                        Modifier la fiche : {personnel.nom} {personnel.prenom}
+                        <span>Modifier la fiche : {personnel.nom} {personnel.prenom}</span>
                     </DialogTitle>
-                    <DialogDescription className="text-xs sm:text-sm text-muted-foreground mt-1 flex items-center gap-3">
+                    <DialogDescription className="text-xs sm:text-sm text-muted-foreground mt-1 flex items-center gap-3 flex-wrap">
                         <span>Matricule officiel : <strong className="text-foreground font-mono">{personnel.matricule}</strong></span>
                         {personnel.user && (
-                            <span className="inline-flex items-center gap-1 text-purple-600 dark:text-purple-400 font-medium">
+                            <span className="inline-flex items-center gap-1 text-teal-600 dark:text-teal-400 font-medium">
                                 <KeyRound className="size-3.5" /> Compte utilisateur SYGES actif
                             </span>
                         )}
@@ -595,7 +598,7 @@ export function EditPersonnelModal({
                     {/* SECTION 4 : COMPTE UTILISATEUR RATTACHÉ */}
                     <div className="space-y-4 pt-2 border-t">
                         <div className="flex items-center gap-2">
-                            <KeyRound className="size-4 text-purple-600 dark:text-purple-400" />
+                            <KeyRound className="size-4 text-teal-600 dark:text-teal-400" />
                             <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">
                                 4. Liaison Compte Utilisateur SYGES
                             </h3>
@@ -626,19 +629,20 @@ export function EditPersonnelModal({
                         </div>
                     </div>
 
-                    <DialogFooter className="gap-2 border-t pt-4">
+                    {/* Pied de dialogue responsive */}
+                    <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 border-t pt-4 sm:justify-end">
                         <Button
                             type="button"
                             variant="outline"
                             onClick={onClose}
-                            className="cursor-pointer"
+                            className="cursor-pointer w-full sm:w-auto"
                         >
                             Annuler
                         </Button>
                         <Button
                             type="submit"
                             disabled={processing}
-                            className="bg-blue-600 hover:bg-blue-700 text-white cursor-pointer font-semibold"
+                            className="bg-teal-600 hover:bg-teal-700 text-white cursor-pointer font-semibold w-full sm:w-auto"
                         >
                             <Check className="size-4 mr-1.5" />
                             {processing ? 'Enregistrement...' : 'Mettre à jour la fiche'}

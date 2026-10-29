@@ -65,13 +65,13 @@ export default function RechargerSoldeModal({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-sm">
+            <DialogContent className="sm:max-w-sm">
                 <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2 text-lg font-bold text-slate-800 dark:text-slate-100">
-                        <Coins className="w-5 h-5 text-amber-500" />
-                        Recharger le Solde SMS
+                    <DialogTitle className="flex items-center gap-2 text-base sm:text-lg font-bold text-slate-800 dark:text-slate-100">
+                        <Coins className="w-5 h-5 text-amber-500 shrink-0" />
+                        <span>Recharger le Solde SMS</span>
                     </DialogTitle>
-                    <DialogDescription>
+                    <DialogDescription className="text-xs sm:text-sm">
                         Solde actuel : <strong>{soldeActuel} crédits SMS</strong>.
                     </DialogDescription>
                 </DialogHeader>
@@ -85,7 +85,7 @@ export default function RechargerSoldeModal({
                             value={data.credits}
                             onValueChange={(val) => setData('credits', val)}
                         >
-                            <SelectTrigger id="credits" className="text-xs h-9">
+                            <SelectTrigger id="credits" className="text-xs h-9 w-full">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -97,18 +97,19 @@ export default function RechargerSoldeModal({
                         </Select>
                     </div>
 
-                    <DialogFooter className="gap-2 pt-2">
+                    <DialogFooter className="flex-col sm:flex-row gap-2 pt-2">
                         <Button
                             type="button"
                             variant="outline"
                             onClick={() => onOpenChange(false)}
                             disabled={processing}
+                            className="w-full sm:w-auto"
                         >
                             Annuler
                         </Button>
                         <Button
                             type="submit"
-                            className="bg-amber-500 hover:bg-amber-600 text-white font-semibold"
+                            className="bg-amber-500 hover:bg-amber-600 text-white font-semibold w-full sm:w-auto"
                             disabled={processing}
                         >
                             {processing ? 'Crédit en cours...' : 'Recharger le Solde'}

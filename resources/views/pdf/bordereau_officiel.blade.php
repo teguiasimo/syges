@@ -102,8 +102,11 @@
                 <div style="font-size: 6.5pt;">Code Établissement : <strong>{{ $etablissement->code ?? 'N/A' }}</strong></div>
             </td>
             <td style="width: 20%;" class="text-center">
-                @if($etablissement->logo_url)
-                    <img src="{{ public_path($etablissement->logo_url) }}" style="max-height: 45px;" alt="Logo">
+                @php
+                    $logoSrc = $etablissement->getEffectiveLogoBase64();
+                @endphp
+                @if($logoSrc)
+                    <img src="{{ $logoSrc }}" style="max-height: 48px; max-width: 80px; object-fit: contain;" alt="Logo">
                 @endif
             </td>
             <td style="width: 40%;" class="text-right">

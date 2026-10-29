@@ -170,8 +170,11 @@
                 {{ $etablissement->institution?->delegation_departementale ?? 'DÉLÉGATION DÉPARTEMENTALE' }}
             </td>
             <td class="header-center">
-                @if(!empty($etablissement->logo) && file_exists(public_path($etablissement->logo)))
-                    <img src="{{ public_path($etablissement->logo) }}" style="max-height: 45px;" alt="Logo"><br>
+                @php
+                    $logoSrc = $etablissement->getEffectiveLogoBase64();
+                @endphp
+                @if($logoSrc)
+                    <img src="{{ $logoSrc }}" style="max-height: 48px; max-width: 80px; object-fit: contain; margin-bottom: 2px;" alt="Logo"><br>
                 @endif
                 <div class="school-name">{{ $etablissement->nom ?? 'SYGES INSTITUTION' }}</div>
                 <div class="school-contacts">

@@ -26,7 +26,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { formatDate } from '@/lib/utils';
+import { formatDate, formatAnneeLabel } from '@/lib/utils';
 import type { BreadcrumbItem } from '@/types';
 
 /**
@@ -117,7 +117,7 @@ interface EleveReleveLigne {
 interface RelevesProps {
     etablissements: Array<{ id: number; nom: string; code: string }>;
     currentEtablissement: { id: number; nom: string; code: string } | null;
-    annees: Array<{ id: number; nom: string; code?: string; session?: string }>;
+    annees: Array<{ id: number; nom: string; code?: string; session?: string; is_active?: boolean; is_current?: boolean }>;
     anneeActiveId: number;
     periodes: PeriodeItem[];
     classes: ClasseItem[];
@@ -223,6 +223,31 @@ export default function RelevesNotesIndex({
                 preserveScroll: true,
             }
         );
+    };
+
+    /**
+     * Génère et ouvre le document PDF officiel de l'État de Remplissage de la Classe (Grand Babillard Multidisciplinaire).
+     * Présente la grille croisée complète de la classe avec toutes les matières en colonnes et les élèves en lignes.
+     */
+    const handlePrintEtatRemplissage = () => {
+        if (!selectedClasse) {
+            toast.error('Veuillez d\'abord sélectionner une classe.', { position: 'top-right' });
+            return;
+        }
+
+        const queryParams = new URLSearchParams({
+            classe_id: selectedClasse.id.toString(),
+            annee_id: (filters.annee_id || anneeActiveId).toString(),
+            periode_id: (filters.periode_id || 0).toString(),
+            evaluation_id: (filters.evaluation_id || 0).toString(),
+        });
+
+        const url = `/administration/notes/releves/etat-remplissage?${queryParams.toString()}`;
+        window.open(url, '_blank');
+
+        toast.success('Génération du babillard / état de remplissage de la classe en cours...', {
+            position: 'top-right',
+        });
     };
 
     /**
@@ -402,15 +427,16 @@ export default function RelevesNotesIndex({
         <>
             <Head title="Relevés de Notes & Fiches de Notation" />
 
-            <div className="flex flex-1 flex-col gap-6 p-4 md:p-6 max-w-7xl mx-auto w-full">
+            {/* Conteneur principal plein écran fluide et responsive sans contrainte artificielle de largeur */}
+            <div className="flex flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8 w-full min-w-0">
                 {/* En-tête de la page */}
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                        <div className="flex items-center gap-2">
-                            <div className="flex size-9 items-center justify-center rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="min-w-0">
+                        <div className="flex items-start sm:items-center gap-2.5">
+                            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400">
                                 <FileSpreadsheet className="size-5" />
                             </div>
-                            <h1 className="text-2xl font-bold tracking-tight text-foreground">
+                            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
                                 Relevés de Notes & Fiches de Notation
                             </h1>
                         </div>
@@ -422,43 +448,54 @@ export default function RelevesNotesIndex({
                     {/* Actions d'impression PDF */}
                     <div className="flex flex-wrap items-center gap-2">
                         <Button
+                            variant="default"
+                            size="sm"
+                            onClick={handlePrintEtatRemplissage}
+                            disabled={!selectedClasse}
+                            className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-white shadow-xs"
+                            title="Tableau croisé : toutes les matières en colonnes et les élèves en lignes pour affichage et contrôle"
+                        >
+                            <FileSpreadsheet className="size-4 shrink-0" />
+                            État de Remplissage de la Classe (PDF)
+                        </Button>
+                        <Button
                             variant="outline"
                             size="sm"
                             onClick={() => handlePrintPdf('vierge')}
                             disabled={!selectedClasse}
                             className="gap-1.5"
                         >
-                            <Printer className="size-4 text-amber-600 dark:text-amber-400" />
+                            <Printer className="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
                             Fiche Vierge (PDF)
                         </Button>
                         <Button
-                            variant="default"
+                            variant="outline"
                             size="sm"
                             onClick={() => handlePrintPdf('rempli')}
                             disabled={!selectedClasse || !selectedAttribution}
-                            className="gap-1.5 bg-amber-600 hover:bg-amber-700 text-white disabled:opacity-50"
+                            className="gap-1.5 border-amber-600 text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/40 disabled:opacity-50"
                         >
-                            <Download className="size-4" />
-                            Imprimer Relevé Rempli (PDF)
+                            <Download className="size-4 shrink-0" />
+                            Relevé Rempli (Matière)
                         </Button>
                     </div>
                 </div>
 
                 {/* Filtres de sélection contextuelle */}
                 <Card className="border-border/60 shadow-xs">
-                    <CardHeader className="pb-3">
+                    <CardHeader className="pb-3 px-4 sm:px-6">
                         <CardTitle className="text-base font-semibold flex items-center gap-2">
-                            <GraduationCap className="size-4 text-primary" />
+                            <GraduationCap className="size-4 shrink-0 text-primary" />
                             Sélection de la Classe & de la Matière
                         </CardTitle>
                         <CardDescription>
                             Choisissez votre classe et éventuellement votre matière pour afficher la liste des élèves ou tirer votre fiche de notes
                         </CardDescription>
                     </CardHeader>
-                    <CardContent>
-                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                    <CardContent className="px-4 sm:px-6">
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
                             {/* 1. Année Scolaire (affichée sans redondance) */}
-                            <div className="flex flex-col gap-1.5">
+                            <div className="flex flex-col gap-1.5 min-w-0">
                                 <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
                                     <Calendar className="size-3.5" />
                                     Année Scolaire
@@ -468,17 +505,38 @@ export default function RelevesNotesIndex({
                                     onValueChange={(val) => handleFilterChange('annee_id', val)}
                                 >
                                     <SelectTrigger className="w-full">
-                                        <SelectValue placeholder="Année" />
+                                        <div className="flex items-center gap-2 truncate">
+                                            {(() => {
+                                                const an = annees.find((a) => a.id.toString() === (filters.annee_id?.toString() || anneeActiveId.toString()));
+                                                return an && (an.is_current || an.is_active) ? (
+                                                    <span className="relative flex h-2 w-2 shrink-0" title="Année scolaire active">
+                                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500 shadow-xs shadow-emerald-500/50"></span>
+                                                    </span>
+                                                ) : null;
+                                            })()}
+                                            <SelectValue placeholder="Année">
+                                                {(() => {
+                                                    const an = annees.find((a) => a.id.toString() === (filters.annee_id?.toString() || anneeActiveId.toString()));
+                                                    return an ? formatAnneeLabel(an.nom, an.code, an.session) : undefined;
+                                                })()}
+                                            </SelectValue>
+                                        </div>
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {annees.map((a) => {
-                                            const sessionClean = a.session || a.code || a.nom.replace(/^année\s*scolaire\s*/i, '');
-                                            return (
-                                                <SelectItem key={a.id} value={a.id.toString()}>
-                                                    {sessionClean}
-                                                </SelectItem>
-                                            );
-                                        })}
+                                        {annees.map((a) => (
+                                            <SelectItem key={a.id} value={a.id.toString()}>
+                                                <div className="flex items-center gap-2">
+                                                    {(a.is_current || a.is_active) && (
+                                                        <span className="relative flex h-2 w-2 shrink-0">
+                                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                                                        </span>
+                                                    )}
+                                                    <span>{formatAnneeLabel(a.nom, a.code, a.session)}</span>
+                                                </div>
+                                            </SelectItem>
+                                        ))}
                                     </SelectContent>
                                 </Select>
                             </div>
@@ -583,7 +641,7 @@ export default function RelevesNotesIndex({
 
                         {/* Sélecteur de mode d'affichage rapide */}
                         <div className="flex flex-wrap items-center justify-between gap-3 mt-4 pt-3 border-t border-border/50">
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                                 <span>Mode de vue :</span>
                                 <Badge
                                     variant={filters.mode === 'rempli' ? 'default' : 'outline'}
@@ -612,7 +670,7 @@ export default function RelevesNotesIndex({
                                     href={`/administration/notes?attribution_id=${selectedAttribution.id}&annee_id=${filters.annee_id || anneeActiveId}`}
                                     className="text-xs font-medium text-rose-600 hover:text-rose-700 dark:text-rose-400 flex items-center gap-1"
                                 >
-                                    <Edit3 className="size-3.5" />
+                                    <Edit3 className="size-3.5 shrink-0" />
                                     Basculer vers la Saisie des Notes
                                 </Link>
                             )}
@@ -622,29 +680,29 @@ export default function RelevesNotesIndex({
 
                 {/* Bannière récapitulative du cours sélectionné */}
                 {selectedClasse ? (
-                    <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                         <Card className="bg-primary/5 border-primary/20 p-4 flex items-center gap-3">
-                            <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                                 <GraduationCap className="size-5" />
                             </div>
-                            <div>
+                            <div className="min-w-0">
                                 <div className="text-xs text-muted-foreground">Classe assignée</div>
-                                <div className="text-base font-bold text-foreground">
+                                <div className="text-base font-bold text-foreground truncate">
                                     {selectedClasse.nom}
                                 </div>
                             </div>
                         </Card>
 
                         <Card className="bg-amber-500/5 border-amber-500/20 p-4 flex items-center gap-3">
-                            <div className="flex size-10 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
                                 <BookOpen className="size-5" />
                             </div>
-                            <div>
+                            <div className="min-w-0">
                                 <div className="text-xs text-muted-foreground">Discipline / Matière</div>
-                                <div className="text-base font-bold text-foreground">
+                                <div className="text-base font-bold text-foreground truncate">
                                     {selectedAttribution ? selectedAttribution.matiere?.nom : 'Fiche vierge polyvalente'}
                                 </div>
-                                <div className="text-[11px] text-muted-foreground">
+                                <div className="text-[11px] text-muted-foreground truncate">
                                     {selectedAttribution
                                         ? (selectedAttribution.personnel ? `${selectedAttribution.personnel.nom} ${selectedAttribution.personnel.prenom ?? ''}` : 'Enseignant assigné')
                                         : 'À renseigner au stylo (multi-matières)'}
@@ -653,19 +711,19 @@ export default function RelevesNotesIndex({
                         </Card>
 
                         <Card className="bg-emerald-500/5 border-emerald-500/20 p-4 flex items-center gap-3">
-                            <div className="flex size-10 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
                                 <Users className="size-5" />
                             </div>
-                            <div>
+                            <div className="min-w-0">
                                 <div className="text-xs text-muted-foreground">Effectif total</div>
-                                <div className="text-base font-bold text-foreground">
+                                <div className="text-base font-bold text-foreground tabular-nums">
                                     {eleves.length} élèves inscrits
                                 </div>
                             </div>
                         </Card>
                     </div>
                 ) : (
-                    <Card className="p-8 text-center border-dashed">
+                    <Card className="p-6 sm:p-8 text-center border-dashed">
                         <div className="flex flex-col items-center gap-2">
                             <FileSpreadsheet className="size-8 text-muted-foreground/60" />
                             <h3 className="font-semibold text-foreground">Aucune classe sélectionnée</h3>
@@ -678,9 +736,9 @@ export default function RelevesNotesIndex({
 
                 {/* Tableau TanStack Table officiel */}
                 {selectedClasse && (
-                    <Card className="border-border/60 shadow-xs">
-                        <CardHeader className="pb-3 flex flex-row items-center justify-between">
-                            <div>
+                    <Card className="border-border/60 shadow-xs overflow-hidden min-w-0">
+                        <CardHeader className="pb-3 flex flex-wrap items-center justify-between gap-2 px-4 sm:px-6">
+                            <div className="min-w-0">
                                 <CardTitle className="text-base font-semibold">
                                     Liste Officielle des Élèves ({eleves.length}) — {selectedClasse.nom}
                                 </CardTitle>
@@ -691,7 +749,7 @@ export default function RelevesNotesIndex({
                                 </CardDescription>
                             </div>
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="px-3 sm:px-6">
                             <DataTable columns={columns} data={eleves} />
                         </CardContent>
                     </Card>

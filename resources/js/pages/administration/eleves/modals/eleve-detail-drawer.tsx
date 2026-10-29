@@ -57,9 +57,10 @@ export function EleveDetailDrawer({
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
-            <SheetContent className="w-full sm:max-w-xl overflow-y-auto p-6 space-y-6">
+            {/* Contenu du tiroir latéral optimisé pour le responsive mobile et tablette */}
+            <SheetContent className="w-full sm:max-w-xl overflow-y-auto p-4 sm:p-6 space-y-6">
                 <SheetHeader className="pb-4 border-b border-border text-left">
-                    <div className="flex items-start gap-4">
+                    <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 text-center sm:text-left">
                         {/* Photo de profil ou avatar */}
                         <div className="size-20 rounded-2xl border-2 border-primary/20 bg-muted/40 overflow-hidden flex items-center justify-center shrink-0 shadow-sm">
                             {eleve.photo_url ? (
@@ -71,7 +72,7 @@ export function EleveDetailDrawer({
 
                         {/* Identité principale */}
                         <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2 flex-wrap">
+                            <div className="flex items-center justify-center sm:justify-start gap-2 flex-wrap">
                                 <Badge variant="outline" className="font-mono text-xs font-bold bg-primary/5 text-primary border-primary/20">
                                     {eleve.matricule}
                                 </Badge>
@@ -121,7 +122,7 @@ export function EleveDetailDrawer({
                         </Badge>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3 text-xs pt-1">
+                    <div className="grid grid-cols-1 min-[420px]:grid-cols-2 gap-3 text-xs pt-1">
                         <div>
                             <span className="text-muted-foreground block text-[11px]">Classe :</span>
                             <span className="font-bold text-foreground text-sm">{classe?.nom ?? 'Non assignée'}</span>
@@ -162,7 +163,7 @@ export function EleveDetailDrawer({
                     </span>
 
                     <div className="space-y-2 text-xs pt-1">
-                        <div className="flex items-center justify-between p-2 rounded-xl bg-muted/40">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between p-2 rounded-xl bg-muted/40 gap-1">
                             <span className="text-muted-foreground">Téléphone Principal (SMS / Portail) :</span>
                             <a
                                 href={`tel:${eleve.telephone_parent}`}
@@ -174,7 +175,7 @@ export function EleveDetailDrawer({
                         </div>
 
                         {eleve.email_parent && (
-                            <div className="flex items-center justify-between p-2 rounded-xl bg-muted/40">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between p-2 rounded-xl bg-muted/40 gap-1">
                                 <span className="text-muted-foreground">Email du tuteur :</span>
                                 <a href={`mailto:${eleve.email_parent}`} className="font-semibold hover:underline flex items-center gap-1">
                                     <Mail className="size-3.5" />
@@ -183,7 +184,7 @@ export function EleveDetailDrawer({
                             </div>
                         )}
 
-                        <div className="grid grid-cols-2 gap-2 pt-1">
+                        <div className="grid grid-cols-1 min-[420px]:grid-cols-2 gap-2 pt-1">
                             {eleve.nom_pere && (
                                 <div>
                                     <span className="text-muted-foreground block text-[11px]">Père :</span>
@@ -213,13 +214,13 @@ export function EleveDetailDrawer({
                     </div>
                 </div>
 
-                {/* Boutons d'actions */}
-                <div className="flex gap-2 pt-2">
+                {/* Boutons d'actions responsive */}
+                <div className="flex flex-col-reverse sm:flex-row gap-2 pt-2">
                     {onEdit && (
                         <Button
                             type="button"
                             variant="secondary"
-                            className="flex-1 gap-2"
+                            className="w-full sm:flex-1 gap-2"
                             onClick={() => {
                                 onOpenChange(false);
                                 onEdit(eleve);
@@ -228,7 +229,7 @@ export function EleveDetailDrawer({
                             Modifier les informations
                         </Button>
                     )}
-                    <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                    <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="w-full sm:w-auto">
                         Fermer
                     </Button>
                 </div>

@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Assiduite } from '@/types/discipline';
 import { ShieldCheck } from 'lucide-react';
+import { formatDate } from '@/lib/utils';
 
 interface JustifierModalProps {
     open: boolean;
@@ -59,16 +60,16 @@ export default function JustifierModal({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-md">
+            <DialogContent className="w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6">
                 <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2 text-lg font-bold text-slate-800 dark:text-slate-100">
-                        <ShieldCheck className="w-5 h-5 text-emerald-600" />
-                        Justifier une Absence / Retard
+                    <DialogTitle className="flex items-center gap-2 text-base sm:text-lg font-bold text-slate-800 dark:text-slate-100">
+                        <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
+                        <span>Justifier une Absence / Retard</span>
                     </DialogTitle>
-                    <DialogDescription>
+                    <DialogDescription className="text-xs sm:text-sm">
                         {assiduite && (
                             <span>
-                                Élève : <strong>{assiduite.inscription?.eleve?.nom} {assiduite.inscription?.eleve?.prenom}</strong> ({assiduite.nombre_heures}h le {assiduite.date_evenement})
+                                Élève : <strong>{assiduite.inscription?.eleve?.nom} {assiduite.inscription?.eleve?.prenom}</strong> ({assiduite.nombre_heures}h le {formatDate(assiduite.date_evenement)})
                             </span>
                         )}
                     </DialogDescription>
@@ -92,7 +93,7 @@ export default function JustifierModal({
                         )}
                     </div>
 
-                    <DialogFooter className="gap-2 pt-2">
+                    <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 pt-2 sm:justify-end">
                         <Button
                             type="button"
                             variant="outline"
@@ -101,12 +102,13 @@ export default function JustifierModal({
                                 onOpenChange(false);
                             }}
                             disabled={processing}
+                            className="w-full sm:w-auto"
                         >
                             Annuler
                         </Button>
                         <Button
                             type="submit"
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold w-full sm:w-auto"
                             disabled={processing}
                         >
                             {processing ? 'Enregistrement...' : 'Valider la Justification'}

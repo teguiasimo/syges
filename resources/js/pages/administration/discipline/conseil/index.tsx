@@ -671,7 +671,8 @@ export default function ConseilDisciplineIndex({
         <>
             <Head title="Conseil de Discipline & Heures de Consigne" />
 
-            <div className="flex h-full flex-1 flex-col gap-6 p-6 sm:p-8">
+            {/* Conteneur principal plein écran fluide et responsive sans contrainte artificielle de largeur */}
+            <div className="flex h-full flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8 w-full min-w-0">
                 {/* En-tête & navigation */}
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div>
@@ -684,7 +685,7 @@ export default function ConseilDisciplineIndex({
                             </Button>
                         </div>
                         <div className="flex items-center gap-2.5">
-                            <div className="p-2.5 rounded-xl bg-linear-to-br from-rose-600 to-red-800 text-white shadow-md shadow-rose-500/20">
+                            <div className="p-2.5 rounded-xl bg-linear-to-br from-rose-600 to-red-800 text-white shadow-md shadow-rose-500/20 shrink-0">
                                 <Gavel className="size-6" />
                             </div>
                             <div>
@@ -698,8 +699,8 @@ export default function ConseilDisciplineIndex({
                         </div>
                     </div>
 
-                    {/* Actions d'ajout */}
-                    <div className="flex items-center gap-2 flex-wrap">
+                    {/* Actions d'ajout responsive */}
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
                         <Button
                             variant="outline"
                             onClick={() => {
@@ -716,7 +717,7 @@ export default function ConseilDisciplineIndex({
                                 });
                                 setIsConsigneModalOpen(true);
                             }}
-                            className="gap-2 h-9 text-xs font-semibold border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-300"
+                            className="gap-2 h-9 text-xs font-semibold border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-300 w-full sm:w-auto"
                         >
                             <Clock className="size-3.5" />
                             Programmer Consigne
@@ -736,7 +737,7 @@ export default function ConseilDisciplineIndex({
                                 });
                                 setIsSessionModalOpen(true);
                             }}
-                            className="gap-2 h-9 text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white shadow-sm"
+                            className="gap-2 h-9 text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white shadow-sm w-full sm:w-auto"
                         >
                             <Plus className="size-4" />
                             Nouvelle Session CD
@@ -744,8 +745,8 @@ export default function ConseilDisciplineIndex({
                     </div>
                 </div>
 
-                {/* Cartes KPI */}
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Cartes KPI responsive */}
+                <div className="grid grid-cols-1 min-[420px]:grid-cols-2 lg:grid-cols-4 gap-4">
                     <Card className="border-border/60 shadow-sm">
                         <CardContent className="p-4 flex items-center justify-between">
                             <div>
@@ -1039,7 +1040,7 @@ export default function ConseilDisciplineIndex({
 
             {/* MODAL 1 : NOUVELLE SESSION DE CD */}
             <Dialog open={isSessionModalOpen} onOpenChange={setIsSessionModalOpen}>
-                <DialogContent className="sm:max-w-lg">
+                <DialogContent className="w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto p-4 sm:p-6">
                     <DialogHeader>
                         <DialogTitle className="text-base font-bold flex items-center gap-2">
                             <Gavel className="size-4 text-rose-600" />
@@ -1048,7 +1049,7 @@ export default function ConseilDisciplineIndex({
                     </DialogHeader>
 
                     <form onSubmit={handleCreateSession} className="space-y-3.5 py-2">
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
                                 <label className="text-xs font-semibold text-foreground mb-1 block">Numéro de session *</label>
                                 <Input
@@ -1082,7 +1083,7 @@ export default function ConseilDisciplineIndex({
                             />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
                                 <label className="text-xs font-semibold text-foreground mb-1 block">Président de séance *</label>
                                 <Input
@@ -1117,11 +1118,11 @@ export default function ConseilDisciplineIndex({
                             />
                         </div>
 
-                        <DialogFooter className="pt-2">
-                            <Button type="button" variant="outline" size="sm" onClick={() => setIsSessionModalOpen(false)}>
+                        <DialogFooter className="pt-2 flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
+                            <Button type="button" variant="outline" size="sm" onClick={() => setIsSessionModalOpen(false)} className="w-full sm:w-auto">
                                 Annuler
                             </Button>
-                            <Button type="submit" size="sm" className="bg-rose-600 hover:bg-rose-700 text-white">
+                            <Button type="submit" size="sm" className="bg-rose-600 hover:bg-rose-700 text-white w-full sm:w-auto">
                                 Créer la Session
                             </Button>
                         </DialogFooter>
@@ -1131,11 +1132,11 @@ export default function ConseilDisciplineIndex({
 
             {/* MODAL 2 : TRADUIRE UN ÉLÈVE EN CD */}
             <Dialog open={isDossierModalOpen} onOpenChange={setIsDossierModalOpen}>
-                <DialogContent className="sm:max-w-lg">
+                <DialogContent className="w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto p-4 sm:p-6">
                     <DialogHeader>
                         <DialogTitle className="text-base font-bold flex items-center gap-2">
-                            <UserPlus className="size-4 text-indigo-600" />
-                            Traduire un Élève devant {activeSession?.numero_session}
+                            <UserPlus className="size-4 text-teal-600" />
+                            <span>Traduire un Élève devant {activeSession?.numero_session}</span>
                         </DialogTitle>
                     </DialogHeader>
 
@@ -1169,7 +1170,7 @@ export default function ConseilDisciplineIndex({
                             />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
                                 <label className="text-xs font-semibold text-foreground mb-1 block">Décision / Sanction *</label>
                                 <select
@@ -1227,11 +1228,11 @@ export default function ConseilDisciplineIndex({
                             </label>
                         </div>
 
-                        <DialogFooter className="pt-2">
-                            <Button type="button" variant="outline" size="sm" onClick={() => setIsDossierModalOpen(false)}>
+                        <DialogFooter className="pt-2 flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
+                            <Button type="button" variant="outline" size="sm" onClick={() => setIsDossierModalOpen(false)} className="w-full sm:w-auto">
                                 Annuler
                             </Button>
-                            <Button type="submit" size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white">
+                            <Button type="submit" size="sm" className="bg-teal-600 hover:bg-teal-700 text-white w-full sm:w-auto">
                                 Enregistrer le Dossier
                             </Button>
                         </DialogFooter>
@@ -1241,11 +1242,11 @@ export default function ConseilDisciplineIndex({
 
             {/* MODAL 3 : MODIFIER DÉLIBÉRATION */}
             <Dialog open={isEditDossierOpen} onOpenChange={setIsEditDossierOpen}>
-                <DialogContent className="sm:max-w-lg">
+                <DialogContent className="w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto p-4 sm:p-6">
                     <DialogHeader>
                         <DialogTitle className="text-base font-bold flex items-center gap-2">
                             <Edit2 className="size-4 text-blue-600" />
-                            Délibération du Dossier
+                            <span>Délibération du Dossier</span>
                         </DialogTitle>
                     </DialogHeader>
 
@@ -1271,7 +1272,7 @@ export default function ConseilDisciplineIndex({
                             />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
                                 <label className="text-xs font-semibold text-foreground mb-1 block">Sanction arrêtée *</label>
                                 <select
@@ -1329,11 +1330,11 @@ export default function ConseilDisciplineIndex({
                             </label>
                         </div>
 
-                        <DialogFooter className="pt-2">
-                            <Button type="button" variant="outline" size="sm" onClick={() => setIsEditDossierOpen(false)}>
+                        <DialogFooter className="pt-2 flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
+                            <Button type="button" variant="outline" size="sm" onClick={() => setIsEditDossierOpen(false)} className="w-full sm:w-auto">
                                 Annuler
                             </Button>
-                            <Button type="submit" size="sm" className="bg-blue-600 hover:bg-blue-700 text-white">
+                            <Button type="submit" size="sm" className="bg-teal-600 hover:bg-teal-700 text-white w-full sm:w-auto">
                                 Sauvegarder la Décision
                             </Button>
                         </DialogFooter>
@@ -1343,11 +1344,11 @@ export default function ConseilDisciplineIndex({
 
             {/* MODAL 4 : PROGRAMMER UNE CONSIGNE */}
             <Dialog open={isConsigneModalOpen} onOpenChange={setIsConsigneModalOpen}>
-                <DialogContent className="sm:max-w-md">
+                <DialogContent className="w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6">
                     <DialogHeader>
                         <DialogTitle className="text-base font-bold flex items-center gap-2">
                             <Clock className="size-4 text-amber-600" />
-                            Programmer une Séance de Consigne (Retenue)
+                            <span>Programmer une Séance de Consigne (Retenue)</span>
                         </DialogTitle>
                     </DialogHeader>
 
@@ -1369,7 +1370,7 @@ export default function ConseilDisciplineIndex({
                             </select>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
                                 <label className="text-xs font-semibold text-foreground mb-1 block">Date retenue *</label>
                                 <Input
@@ -1415,11 +1416,11 @@ export default function ConseilDisciplineIndex({
                             />
                         </div>
 
-                        <DialogFooter className="pt-2">
-                            <Button type="button" variant="outline" size="sm" onClick={() => setIsConsigneModalOpen(false)}>
+                        <DialogFooter className="pt-2 flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
+                            <Button type="button" variant="outline" size="sm" onClick={() => setIsConsigneModalOpen(false)} className="w-full sm:w-auto">
                                 Annuler
                             </Button>
-                            <Button type="submit" size="sm" className="bg-amber-600 hover:bg-amber-700 text-white">
+                            <Button type="submit" size="sm" className="bg-amber-600 hover:bg-amber-700 text-white w-full sm:w-auto">
                                 Programmer
                             </Button>
                         </DialogFooter>

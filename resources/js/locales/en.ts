@@ -135,6 +135,9 @@ export const en: Translations = {
 
         roles_title: 'Roles & Permissions',
         roles_desc: 'Define system access levels and permissions.',
+
+        system_update_title: 'System Update & Versions',
+        system_update_desc: 'SemVer release manager (GitHub tags), SQL database backup and 1-click remote update.',
     },
 
     // Module 9 : Attribution des Classes & Matières (Gesco 9)
@@ -270,7 +273,7 @@ export const en: Translations = {
         login_title: 'Sign in to your account',
         login_subtitle: 'Enter your credentials to access the SYGES platform',
         login_input_label: 'Username or Email',
-        login_input_placeholder: 'e.g. admin or admin@gmail.com',
+        login_input_placeholder: 'e.g. superadmin or email@domain.com',
         password_label: 'Password',
         password_placeholder: '••••••••',
         remember_me: 'Remember me',
@@ -284,6 +287,15 @@ export const en: Translations = {
         feature_students_desc: 'Administrative records, student registrations and attendance monitoring.',
         feature_security: 'Security & Access Control',
         feature_security_desc: 'Granular role-based permissions, access control and audit tracking.',
+        error_credentials_title: 'Invalid credentials',
+        error_credentials_desc: 'Incorrect username or password. Please verify your login credentials.',
+        cameroon_subsystem: 'Cameroonian Education System',
+        mineduc_compliance: 'Compliant with MINESEC & MINEDUB standards',
+        secure_portal: 'Secure Portal',
+        encryption_notice: '256-bit SSL/TLS encrypted session • Protected school data',
+        need_help: 'Need assistance?',
+        contact_admin: 'Contact your school administration',
+        server_operational: 'Platform operational',
     },
 
     // Language switcher and internationalization

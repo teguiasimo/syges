@@ -152,16 +152,17 @@ export default function ModeleBourseModal({
 
     return (
         <Dialog open={isOpen} onOpenChange={open => !open && onClose()}>
-            <DialogContent className="max-w-md">
+            <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
                     <DialogTitle>{isEditing ? 'Modifier le modèle' : 'Nouveau Modèle de Bourse ou Remise'}</DialogTitle>
                 </DialogHeader>
 
-                <form onSubmit={handleSubmit} className="space-y-4 py-2">
-                    <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1">
+                <form onSubmit={handleSubmit} className="space-y-4 py-2 min-w-0">
+                    {/* Paires de champs empilées sur mobile et alignées sur 2 colonnes dès sm */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1 min-w-0">
                             <Label htmlFor="type">Type *</Label>
-                            <Select value={type} onValueChange={(val: any) => setType(val)}>
+                            <Select value={type} onValueChange={(val: 'bourse' | 'remise') => setType(val)}>
                                 <SelectTrigger>
                                     <SelectValue />
                                 </SelectTrigger>
@@ -172,9 +173,9 @@ export default function ModeleBourseModal({
                             </Select>
                         </div>
 
-                        <div className="space-y-1">
+                        <div className="space-y-1 min-w-0">
                             <Label htmlFor="categorie">Catégorie *</Label>
-                            <Select value={categorie} onValueChange={(val: any) => setCategorie(val)}>
+                            <Select value={categorie} onValueChange={(val: 'excellence' | 'sociale' | 'fratrie' | 'personnel' | 'autre') => setCategorie(val)}>
                                 <SelectTrigger>
                                     <SelectValue />
                                 </SelectTrigger>
@@ -189,8 +190,8 @@ export default function ModeleBourseModal({
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1 min-w-0">
                             <Label htmlFor="code">Code abrégé *</Label>
                             <Input
                                 id="code"
@@ -201,9 +202,9 @@ export default function ModeleBourseModal({
                             />
                         </div>
 
-                        <div className="space-y-1">
+                        <div className="space-y-1 min-w-0">
                             <Label htmlFor="modeCalcul">Mode de calcul *</Label>
-                            <Select value={modeCalcul} onValueChange={(val: any) => setModeCalcul(val)}>
+                            <Select value={modeCalcul} onValueChange={(val: 'pourcentage' | 'montant_fixe') => setModeCalcul(val)}>
                                 <SelectTrigger>
                                     <SelectValue />
                                 </SelectTrigger>
@@ -242,8 +243,8 @@ export default function ModeleBourseModal({
                         />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1 min-w-0">
                             <Label htmlFor="niveau">Niveau spécifique</Label>
                             <Select value={niveauId} onValueChange={val => setNiveauId(val)}>
                                 <SelectTrigger>
@@ -260,7 +261,7 @@ export default function ModeleBourseModal({
                             </Select>
                         </div>
 
-                        <div className="space-y-1">
+                        <div className="space-y-1 min-w-0">
                             <Label htmlFor="typeFrais">Frais spécifique</Label>
                             <Select value={typeFraisId} onValueChange={val => setTypeFraisId(val)}>
                                 <SelectTrigger>
@@ -288,21 +289,21 @@ export default function ModeleBourseModal({
                         />
                     </div>
 
-                    <label className="flex items-center space-x-2 text-sm cursor-pointer pt-1">
+                    <label className="flex items-start gap-2.5 text-sm cursor-pointer pt-1">
                         <input
                             type="checkbox"
                             checked={isActive}
                             onChange={e => setIsActive(e.target.checked)}
-                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            className="mt-0.5 shrink-0 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
                         />
-                        <span>Modèle actif et disponible pour attribution</span>
+                        <span className="leading-snug">Modèle actif et disponible pour attribution</span>
                     </label>
 
                     <DialogFooter className="pt-2">
-                        <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
+                        <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={onClose} disabled={isSubmitting}>
                             Annuler
                         </Button>
-                        <Button type="submit" disabled={isSubmitting} className="bg-indigo-600 hover:bg-indigo-700 text-white">
+                        <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto bg-teal-600 hover:bg-teal-700 text-white">
                             {isSubmitting ? 'Enregistrement...' : isEditing ? 'Mettre à jour' : 'Enregistrer le modèle'}
                         </Button>
                     </DialogFooter>

@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { JournalDuJour } from '@/types/finance';
+import { formatDate } from '@/lib/utils';
 import { Lock, ShieldCheck } from 'lucide-react';
 
 interface ClotureCaisseModalProps {
@@ -66,36 +67,36 @@ export default function ClotureCaisseModal({
             <DialogContent className="max-w-md">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2 text-lg font-bold text-slate-800 dark:text-slate-100">
-                        <Lock className="w-5 h-5 text-amber-600" />
+                        <Lock className="w-5 h-5 text-amber-600 shrink-0" />
                         Clôture Journalière de Caisse
                     </DialogTitle>
                     <DialogDescription>
-                        Date de clôture : <strong>{journal.date}</strong> ({journal.nombre_transactions} transactions)
+                        Date de clôture : <strong>{formatDate(journal.date)}</strong> ({journal.nombre_transactions} transactions)
                     </DialogDescription>
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    {/* Synthèse par mode de paiement */}
+                    {/* Synthèse par mode de paiement adaptable aux petits écrans */}
                     <div className="p-3 bg-slate-50 dark:bg-slate-900 rounded border divide-y divide-slate-200 dark:divide-slate-800 text-xs">
-                        <div className="flex justify-between py-1">
+                        <div className="flex flex-wrap justify-between gap-2 py-1">
                             <span>Espèces physiques :</span>
-                            <span className="font-semibold">{Number(journal.total_especes).toLocaleString('fr-FR')} FCFA</span>
+                            <span className="font-semibold tabular-nums">{Number(journal.total_especes).toLocaleString('fr-FR')} FCFA</span>
                         </div>
-                        <div className="flex justify-between py-1">
+                        <div className="flex flex-wrap justify-between gap-2 py-1">
                             <span>Mobile Money (Manuel) :</span>
-                            <span className="font-semibold">{Number(journal.total_mobile_money).toLocaleString('fr-FR')} FCFA</span>
+                            <span className="font-semibold tabular-nums">{Number(journal.total_mobile_money).toLocaleString('fr-FR')} FCFA</span>
                         </div>
-                        <div className="flex justify-between py-1">
+                        <div className="flex flex-wrap justify-between gap-2 py-1">
                             <span>Virements Bancaires :</span>
-                            <span className="font-semibold">{Number(journal.total_virements).toLocaleString('fr-FR')} FCFA</span>
+                            <span className="font-semibold tabular-nums">{Number(journal.total_virements).toLocaleString('fr-FR')} FCFA</span>
                         </div>
-                        <div className="flex justify-between py-1">
+                        <div className="flex flex-wrap justify-between gap-2 py-1">
                             <span>Chèques :</span>
-                            <span className="font-semibold">{Number(journal.total_cheques).toLocaleString('fr-FR')} FCFA</span>
+                            <span className="font-semibold tabular-nums">{Number(journal.total_cheques).toLocaleString('fr-FR')} FCFA</span>
                         </div>
-                        <div className="flex justify-between pt-2 font-bold text-sm text-emerald-600">
+                        <div className="flex flex-wrap justify-between gap-2 pt-2 font-bold text-sm text-emerald-600">
                             <span>TOTAL GÉNÉRAL DU JOUR :</span>
-                            <span>{Number(journal.total_general).toLocaleString('fr-FR')} FCFA</span>
+                            <span className="tabular-nums">{Number(journal.total_general).toLocaleString('fr-FR')} FCFA</span>
                         </div>
                     </div>
 
@@ -111,15 +112,15 @@ export default function ClotureCaisseModal({
                     </div>
 
                     <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                        <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => onOpenChange(false)}>
                             Annuler
                         </Button>
                         <Button
                             type="submit"
                             disabled={processing}
-                            className="bg-amber-600 hover:bg-amber-700 text-white flex items-center gap-1"
+                            className="w-full sm:w-auto bg-amber-600 hover:bg-amber-700 text-white flex items-center justify-center gap-1"
                         >
-                            <ShieldCheck className="w-4 h-4" />
+                            <ShieldCheck className="w-4 h-4 shrink-0" />
                             {processing ? 'Verrouillage...' : 'Valider la Clôture'}
                         </Button>
                     </DialogFooter>

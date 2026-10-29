@@ -74,7 +74,7 @@ export function DupliquerAnneeModal({ open, onOpenChange, annees }: DupliquerAnn
             onSuccess: () => {
                 toast.success('Configuration annuelle reconduite avec succès !', {
                     position: 'top-right',
-                    className: 'bg-emerald-600 text-white font-medium border-none shadow-lg',
+                    className: 'bg-emerald-600 text-white font-medium border-emerald-700 shadow-lg',
                 });
                 reset();
                 onOpenChange(false);
@@ -89,13 +89,13 @@ export function DupliquerAnneeModal({ open, onOpenChange, annees }: DupliquerAnn
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-xl">
+            <DialogContent className="w-[95vw] sm:max-w-xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
                 <DialogHeader>
-                    <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
-                        <Sparkles className="w-5 h-5" />
-                        <DialogTitle>Assistant de Reconduction Annuelle (1-Clic)</DialogTitle>
+                    <div className="flex items-center gap-2 text-teal-600 dark:text-teal-400">
+                        <Sparkles className="w-5 h-5 shrink-0" />
+                        <DialogTitle className="text-base sm:text-lg">Assistant de Reconduction Annuelle (1-Clic)</DialogTitle>
                     </div>
-                    <DialogDescription>
+                    <DialogDescription className="text-xs sm:text-sm">
                         Clonez automatiquement les paramètres d'une année précédente vers une nouvelle année pour préparer la rentrée scolaire sans ressaisie.
                     </DialogDescription>
                 </DialogHeader>
@@ -111,7 +111,7 @@ export function DupliquerAnneeModal({ open, onOpenChange, annees }: DupliquerAnn
                                 value={data.source_annee_id}
                                 onValueChange={(val) => setData('source_annee_id', val)}
                             >
-                                <SelectTrigger id="source">
+                                <SelectTrigger id="source" className="w-full">
                                     <SelectValue placeholder="Année source..." />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -128,14 +128,14 @@ export function DupliquerAnneeModal({ open, onOpenChange, annees }: DupliquerAnn
                         </div>
 
                         <div className="space-y-1.5">
-                            <Label htmlFor="cible" className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
+                            <Label htmlFor="cible" className="text-xs font-semibold text-teal-600 dark:text-teal-400">
                                 Nouvelle Année (Cible)
                             </Label>
                             <Select
                                 value={data.cible_annee_id}
                                 onValueChange={(val) => setData('cible_annee_id', val)}
                             >
-                                <SelectTrigger id="cible" className="border-indigo-300">
+                                <SelectTrigger id="cible" className="w-full border-teal-300">
                                     <SelectValue placeholder="Choisir la nouvelle année..." />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -248,18 +248,19 @@ export function DupliquerAnneeModal({ open, onOpenChange, annees }: DupliquerAnn
                         <span>Les inscriptions et les notes ne sont pas dupliquées. Seules les structures administratives sont clonées.</span>
                     </div>
 
-                    <DialogFooter className="pt-2">
+                    <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-3">
                         <Button
                             type="button"
                             variant="outline"
                             onClick={() => onOpenChange(false)}
                             disabled={processing}
+                            className="w-full sm:w-auto"
                         >
                             Annuler
                         </Button>
                         <Button
                             type="submit"
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5"
+                            className="w-full sm:w-auto bg-teal-600 hover:bg-teal-700 text-white gap-1.5"
                             disabled={processing}
                         >
                             {processing ? (

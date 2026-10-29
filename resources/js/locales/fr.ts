@@ -133,6 +133,9 @@ export const fr = {
 
         roles_title: 'Rôles & Permissions',
         roles_desc: 'Définir les profils et niveaux d\'accès au système.',
+
+        system_update_title: 'Mise à jour & Versions',
+        system_update_desc: 'Gestionnaire de versions SemVer (tags GitHub), sauvegarde SQL et mise à jour en 1 clic.',
     },
 
     // Module 9 : Attribution des Classes & Matières (Gesco 9)
@@ -268,7 +271,7 @@ export const fr = {
         login_title: 'Connexion à votre espace',
         login_subtitle: 'Entrez vos identifiants pour accéder à la plateforme SYGES',
         login_input_label: 'Identifiant ou Email',
-        login_input_placeholder: 'ex: admin ou admin@gmail.com',
+        login_input_placeholder: 'ex: superadmin ou email@domaine.com',
         password_label: 'Mot de passe',
         password_placeholder: '••••••••',
         remember_me: 'Se souvenir de moi',
@@ -282,6 +285,15 @@ export const fr = {
         feature_students_desc: 'Dossiers administratifs, inscriptions et contrôle des présences.',
         feature_security: 'Sécurité & Contrôle des Accès',
         feature_security_desc: 'Gestion fine des profils, habilitations et historique des opérations.',
+        error_credentials_title: 'Identifiants incorrects',
+        error_credentials_desc: 'Identifiant ou mot de passe incorrect. Veuillez vérifier vos informations de connexion.',
+        cameroon_subsystem: 'Système Éducatif Camerounais',
+        mineduc_compliance: 'Conforme aux normes MINESEC & MINEDUB',
+        secure_portal: 'Portail Sécurisé',
+        encryption_notice: 'Session chiffrée SSL/TLS 256-bit • Données scolaires protégées',
+        need_help: 'Besoin d\'assistance ?',
+        contact_admin: 'Contactez l\'administration de l\'établissement',
+        server_operational: 'Plateforme opérationnelle',
     },
 
     // Sélecteur de langue et internationalisation

@@ -22,6 +22,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { TypeSanction } from '@/types/discipline';
 import { AlertOctagon } from 'lucide-react';
+import { formatDateForInput } from '@/lib/utils';
 
 interface NouvelleSanctionModalProps {
     open: boolean;
@@ -42,7 +43,7 @@ export default function NouvelleSanctionModal({
     inscriptions,
     periodeId,
 }: NouvelleSanctionModalProps) {
-    const today = new Date().toISOString().split('T')[0];
+    const today = formatDateForInput(new Date().toISOString());
 
     const { data, setData, post, processing, reset, errors, transform } = useForm({
         inscription_id: '',
@@ -67,7 +68,7 @@ export default function NouvelleSanctionModal({
             onSuccess: () => {
                 toast.success('Sanction disciplinaire enregistrée avec succès.', {
                     position: 'top-right',
-                    className: 'bg-emerald-600 text-white border-none',
+                    className: 'bg-emerald-600 text-white border-emerald-700',
                 });
                 reset();
                 onOpenChange(false);
@@ -82,27 +83,27 @@ export default function NouvelleSanctionModal({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-lg">
+            <DialogContent className="w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto p-4 sm:p-6">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2 text-lg font-bold text-slate-800 dark:text-slate-100">
-                        <AlertOctagon className="w-5 h-5 text-rose-600" />
-                        Prononcer une Sanction Disciplinaire
+                        <AlertOctagon className="w-5 h-5 text-rose-600 shrink-0" />
+                        <span>Prononcer une Sanction Disciplinaire</span>
                     </DialogTitle>
-                    <DialogDescription>
+                    <DialogDescription className="text-xs sm:text-sm">
                         Enregistrement officiel dans le dossier disciplinaire et report sur le bulletin.
                     </DialogDescription>
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit} className="space-y-4 py-2">
                     <div className="space-y-1">
-                        <Label htmlFor="inscription_id" className="text-sm font-medium">
+                        <Label htmlFor="inscription_id" className="text-xs sm:text-sm font-medium">
                             Élève concerné <span className="text-rose-500">*</span>
                         </Label>
                         <Select
                             value={data.inscription_id}
                             onValueChange={(val) => setData('inscription_id', val)}
                         >
-                            <SelectTrigger id="inscription_id">
+                            <SelectTrigger id="inscription_id" className="w-full">
                                 <SelectValue placeholder="Sélectionner un élève..." />
                             </SelectTrigger>
                             <SelectContent className="max-h-60">
@@ -118,16 +119,16 @@ export default function NouvelleSanctionModal({
                         )}
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 min-[420px]:grid-cols-2 gap-3">
                         <div className="space-y-1">
-                            <Label htmlFor="type_sanction" className="text-sm font-medium">
+                            <Label htmlFor="type_sanction" className="text-xs sm:text-sm font-medium">
                                 Nature de la sanction <span className="text-rose-500">*</span>
                             </Label>
                             <Select
                                 value={data.type_sanction}
                                 onValueChange={(val: TypeSanction) => setData('type_sanction', val)}
                             >
-                                <SelectTrigger id="type_sanction">
+                                <SelectTrigger id="type_sanction" className="w-full">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -141,7 +142,7 @@ export default function NouvelleSanctionModal({
                         </div>
 
                         <div className="space-y-1">
-                            <Label htmlFor="nombre_jours_ou_heures" className="text-sm font-medium">
+                            <Label htmlFor="nombre_jours_ou_heures" className="text-xs sm:text-sm font-medium">
                                 {data.type_sanction === 'retenue' ? 'Nombre d\'heures' : 'Durée / Impact (jours)'} <span className="text-rose-500">*</span>
                             </Label>
                             <Input
@@ -152,13 +153,14 @@ export default function NouvelleSanctionModal({
                                 value={data.nombre_jours_ou_heures}
                                 onChange={(e) => setData('nombre_jours_ou_heures', e.target.value)}
                                 required
+                                className="w-full"
                             />
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 min-[420px]:grid-cols-2 gap-3">
                         <div className="space-y-1">
-                            <Label htmlFor="date_decision" className="text-sm font-medium">
+                            <Label htmlFor="date_decision" className="text-xs sm:text-sm font-medium">
                                 Date de notification <span className="text-rose-500">*</span>
                             </Label>
                             <Input
@@ -167,18 +169,19 @@ export default function NouvelleSanctionModal({
                                 value={data.date_decision}
                                 onChange={(e) => setData('date_decision', e.target.value)}
                                 required
+                                className="w-full"
                             />
                         </div>
 
                         <div className="space-y-1">
-                            <Label htmlFor="decide_par" className="text-sm font-medium">
+                            <Label htmlFor="decide_par" className="text-xs sm:text-sm font-medium">
                                 Autorité décisionnaire <span className="text-rose-500">*</span>
                             </Label>
                             <Select
                                 value={data.decide_par}
                                 onValueChange={(val) => setData('decide_par', val)}
                             >
-                                <SelectTrigger id="decide_par">
+                                <SelectTrigger id="decide_par" className="w-full">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -192,7 +195,7 @@ export default function NouvelleSanctionModal({
                     </div>
 
                     <div className="space-y-1">
-                        <Label htmlFor="motif" className="text-sm font-medium">
+                        <Label htmlFor="motif" className="text-xs sm:text-sm font-medium">
                             Motif circonstancié de la sanction <span className="text-rose-500">*</span>
                         </Label>
                         <Textarea
@@ -202,11 +205,12 @@ export default function NouvelleSanctionModal({
                             value={data.motif}
                             onChange={(e) => setData('motif', e.target.value)}
                             required
+                            className="w-full text-xs sm:text-sm"
                         />
                         {errors.motif && <p className="text-xs text-rose-500">{errors.motif}</p>}
                     </div>
 
-                    <DialogFooter className="gap-2 pt-2">
+                    <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-3">
                         <Button
                             type="button"
                             variant="outline"
@@ -215,12 +219,13 @@ export default function NouvelleSanctionModal({
                                 onOpenChange(false);
                             }}
                             disabled={processing}
+                            className="w-full sm:w-auto"
                         >
                             Annuler
                         </Button>
                         <Button
                             type="submit"
-                            className="bg-rose-600 hover:bg-rose-700 text-white font-semibold"
+                            className="w-full sm:w-auto bg-rose-600 hover:bg-rose-700 text-white font-semibold"
                             disabled={processing}
                         >
                             {processing ? 'Enregistrement...' : 'Prononcer la Sanction'}

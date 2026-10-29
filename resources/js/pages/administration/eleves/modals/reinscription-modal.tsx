@@ -447,15 +447,16 @@ export function ReinscriptionModal({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto">
+            {/* Contenu modale avec largeur responsive fluide et défilement */}
+            <DialogContent className="w-[95vw] sm:max-w-3xl max-h-[92vh] overflow-y-auto p-4 sm:p-6">
                 <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2 text-xl font-bold">
-                        <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                    <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl font-bold">
+                        <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 shrink-0">
                             <UserCheck className="size-5" />
                         </div>
-                        Réinscription des Anciens Élèves (Rentrée Scolaire)
+                        <span>Réinscription des Anciens Élèves (Rentrée Scolaire)</span>
                     </DialogTitle>
-                    <DialogDescription>
+                    <DialogDescription className="text-xs sm:text-sm">
                         Affectez les anciens élèves dans leurs nouvelles classes pour l'année scolaire en cours.
                     </DialogDescription>
                 </DialogHeader>
@@ -751,19 +752,19 @@ export function ReinscriptionModal({
                             </div>
                         </div>
 
-                        {/* Footer avec hiérarchie : Annuler | + Réinscrire & Nouveau | Valider */}
-                        <DialogFooter className="pt-3 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-2">
+                        {/* Footer responsive avec hiérarchie : Annuler | + Réinscrire & Nouveau | Valider */}
+                        <DialogFooter className="pt-3 border-t border-border flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2">
                             <Button
                                 type="button"
                                 variant="ghost"
                                 onClick={() => onOpenChange(false)}
-                                className="text-xs h-9"
+                                className="w-full sm:w-auto text-xs h-9"
                             >
                                 Annuler
                             </Button>
 
-                            <div className="flex items-center gap-2 w-full sm:w-auto">
-                                {/* Bouton demandé : Réinscrire et Nouveau (garde la modale ouverte pour le prochain cas) */}
+                            <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
+                                {/* Bouton Réinscrire et Nouveau (garde la modale ouverte pour le prochain cas) */}
                                 <TooltipProvider>
                                     <Tooltip>
                                         <TooltipTrigger asChild>
@@ -772,9 +773,9 @@ export function ReinscriptionModal({
                                                 variant="outline"
                                                 disabled={loading || !selectedEleve || !targetClasseId}
                                                 onClick={() => handleIndividualSubmit('save_and_new')}
-                                                className="flex-1 sm:flex-initial text-xs h-9 border-indigo-400/60 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 gap-1.5 font-medium"
+                                                className="w-full sm:w-auto text-xs h-9 border-teal-500/60 text-teal-700 dark:text-teal-300 hover:bg-teal-50 dark:hover:bg-teal-950/40 gap-1.5 font-medium"
                                             >
-                                                <PlusCircle className="size-3.5 text-indigo-600" />
+                                                <PlusCircle className="size-3.5 text-teal-600" />
                                                 Réinscrire et Nouveau
                                             </Button>
                                         </TooltipTrigger>
@@ -787,7 +788,7 @@ export function ReinscriptionModal({
                                 <Button
                                     type="submit"
                                     disabled={loading || !selectedEleve || !targetClasseId}
-                                    className="flex-1 sm:flex-initial gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-9"
+                                    className="w-full sm:w-auto gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-9"
                                 >
                                     <Check className="size-3.5" />
                                     {loading ? 'Enregistrement...' : 'Valider la Réinscription'}
@@ -958,13 +959,13 @@ export function ReinscriptionModal({
                             </div>
                         )}
 
-                        {/* Footer pour le mode lot */}
-                        <DialogFooter className="pt-3 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-2">
+                        {/* Footer responsive pour le mode lot */}
+                        <DialogFooter className="pt-3 border-t border-border flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2">
                             <Button
                                 type="button"
                                 variant="ghost"
                                 onClick={() => onOpenChange(false)}
-                                className="text-xs h-9"
+                                className="w-full sm:w-auto text-xs h-9"
                             >
                                 Annuler
                             </Button>
@@ -973,7 +974,7 @@ export function ReinscriptionModal({
                                 type="button"
                                 onClick={handleBatchSubmit}
                                 disabled={loading || selectedBatchCount === 0 || !batchTargetClasseId}
-                                className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-9"
+                                className="w-full sm:w-auto gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-9"
                             >
                                 <CheckCircle2 className="size-4" />
                                 {loading

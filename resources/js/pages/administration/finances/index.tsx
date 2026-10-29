@@ -750,7 +750,7 @@ export default function FinancesIndex({
             cell: ({ row }) => {
                 const tranches = row.original.tranches || [];
                 return (
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="flex flex-wrap gap-1.5 whitespace-normal min-w-50">
                         {tranches.map((t) => (
                             <Badge key={t.id} variant="outline" className="text-[10px] bg-slate-50">
                                 {t.libelle}: {formatDate(t.date_limite)} ({t.pourcentage_exigible}%)
@@ -953,55 +953,56 @@ export default function FinancesIndex({
         <>
             <Head title="Gestion Financière & Caisse Avancée - SYGES" />
 
-            <div className="space-y-6">
+            {/* Conteneur principal responsive avec marges adaptatives mobile/tablette/desktop */}
+            <div className="flex flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8 min-w-0 w-full">
                 {/* En-tête de la page */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
-                    <div>
-                        <div className="flex items-center gap-2">
-                            <div className="p-2 bg-emerald-600 rounded-lg text-white">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
+                    <div className="min-w-0">
+                        <div className="flex items-start sm:items-center gap-2.5 min-w-0">
+                            <div className="p-2 bg-emerald-600 rounded-lg text-white shrink-0">
                                 <Wallet className="w-5 h-5" />
                             </div>
-                            <div>
-                                <h1 className="text-xl font-black tracking-tight text-slate-900 dark:text-slate-100">
+                            <div className="min-w-0">
+                                <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-slate-100">
                                     Finances & Comptabilité Scolaire
                                 </h1>
-                                <p className="text-xs text-slate-500">
-                                    Établissement : <strong className="text-slate-800 dark:text-slate-200">{currentEtablissement?.nom}</strong>
-                                    {currentAnnee && <> | Année Scolaire : <span className="font-semibold text-emerald-600">{currentAnnee.code}</span></>}
+                                <p className="text-xs text-slate-500 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                                    <span>Établissement : <strong className="text-slate-800 dark:text-slate-200">{currentEtablissement?.nom}</strong></span>
+                                    {currentAnnee && <span>| Année Scolaire : <span className="font-semibold text-emerald-600">{currentAnnee.code}</span></span>}
                                 </p>
                             </div>
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                         <Button
                             onClick={() => {
                                 setSelectedCompteForPayment(null);
                                 setIsVersementModalOpen(true);
                             }}
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-9 font-semibold flex items-center gap-1.5 shadow-sm"
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-9 font-semibold flex-1 sm:flex-initial justify-center flex items-center gap-1.5 shadow-sm"
                         >
-                            <Plus className="w-4 h-4" /> Encaisser Scolarité
+                            <Plus className="w-4 h-4 shrink-0" /> Encaisser Scolarité
                         </Button>
                         <Button
                             onClick={() => setIsReglementDiversModalOpen(true)}
                             variant="outline"
-                            className="text-xs h-9 font-semibold flex items-center gap-1.5 border-emerald-300 text-emerald-800 hover:bg-emerald-50"
+                            className="text-xs h-9 font-semibold flex-1 sm:flex-initial justify-center flex items-center gap-1.5 border-emerald-300 text-emerald-800 hover:bg-emerald-50"
                         >
-                            <Receipt className="w-4 h-4" /> Recette Diverse
+                            <Receipt className="w-4 h-4 shrink-0" /> Recette Diverse
                         </Button>
                     </div>
                 </div>
 
-                {/* Cartes KPIs du Jour (Encaissements Journaliers) */}
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                {/* Cartes KPIs du Jour (Encaissements Journaliers) : empilement progressif pour montants FCFA longs */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5 gap-3">
                     <Card className="border-slate-200 dark:border-slate-800 bg-emerald-50/40 dark:bg-emerald-950/20">
                         <CardContent className="p-3">
-                            <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-between gap-2">
                                 <span className="text-xs font-semibold text-slate-500">Total Recettes (Jour)</span>
-                                <DollarSign className="w-4 h-4 text-emerald-600" />
+                                <DollarSign className="w-4 h-4 text-emerald-600 shrink-0" />
                             </div>
-                            <div className="text-lg font-extrabold text-emerald-700 dark:text-emerald-400 mt-1">
+                            <div className="text-base sm:text-lg font-extrabold text-emerald-700 dark:text-emerald-400 mt-1 tabular-nums leading-tight wrap-break-word">
                                 {Number(journalDuJour.total_general).toLocaleString('fr-FR')} FCFA
                             </div>
                             <span className="text-[10px] text-slate-500">{journalDuJour.nombre_transactions} opérations aujourd'hui</span>
@@ -1010,11 +1011,11 @@ export default function FinancesIndex({
 
                     <Card className="border-slate-200 dark:border-slate-800">
                         <CardContent className="p-3">
-                            <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-between gap-2">
                                 <span className="text-xs font-semibold text-slate-500">Espèces Caisse</span>
-                                <Receipt className="w-4 h-4 text-slate-500" />
+                                <Receipt className="w-4 h-4 text-slate-500 shrink-0" />
                             </div>
-                            <div className="text-base font-bold text-slate-800 dark:text-slate-200 mt-1">
+                            <div className="text-sm sm:text-base font-bold text-slate-800 dark:text-slate-200 mt-1 tabular-nums leading-tight wrap-break-word">
                                 {Number(journalDuJour.total_especes).toLocaleString('fr-FR')} FCFA
                             </div>
                         </CardContent>
@@ -1022,11 +1023,11 @@ export default function FinancesIndex({
 
                     <Card className="border-slate-200 dark:border-slate-800">
                         <CardContent className="p-3">
-                            <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-between gap-2">
                                 <span className="text-xs font-semibold text-slate-500">Mobile Money</span>
-                                <Smartphone className="w-4 h-4 text-amber-600" />
+                                <Smartphone className="w-4 h-4 text-amber-600 shrink-0" />
                             </div>
-                            <div className="text-base font-bold text-slate-800 dark:text-slate-200 mt-1">
+                            <div className="text-sm sm:text-base font-bold text-slate-800 dark:text-slate-200 mt-1 tabular-nums leading-tight wrap-break-word">
                                 {Number(journalDuJour.total_mobile_money).toLocaleString('fr-FR')} FCFA
                             </div>
                         </CardContent>
@@ -1034,23 +1035,23 @@ export default function FinancesIndex({
 
                     <Card className="border-slate-200 dark:border-slate-800">
                         <CardContent className="p-3">
-                            <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-between gap-2">
                                 <span className="text-xs font-semibold text-slate-500">Virements / Chèques</span>
-                                <CreditCard className="w-4 h-4 text-blue-600" />
+                                <CreditCard className="w-4 h-4 text-blue-600 shrink-0" />
                             </div>
-                            <div className="text-base font-bold text-slate-800 dark:text-slate-200 mt-1">
+                            <div className="text-sm sm:text-base font-bold text-slate-800 dark:text-slate-200 mt-1 tabular-nums leading-tight wrap-break-word">
                                 {(Number(journalDuJour.total_virements) + Number(journalDuJour.total_cheques)).toLocaleString('fr-FR')} FCFA
                             </div>
                         </CardContent>
                     </Card>
 
-                    <Card className={`border-slate-200 dark:border-slate-800 ${journalDuJour.est_cloture ? 'bg-slate-100 dark:bg-slate-900' : 'bg-amber-50/50 dark:bg-amber-950/20'}`}>
+                    <Card className={`sm:col-span-2 lg:col-span-1 border-slate-200 dark:border-slate-800 ${journalDuJour.est_cloture ? 'bg-slate-100 dark:bg-slate-900' : 'bg-amber-50/50 dark:bg-amber-950/20'}`}>
                         <CardContent className="p-3 flex flex-col justify-between h-full">
-                            <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-between gap-2">
                                 <span className="text-xs font-semibold text-slate-500">État Caisse Journalière</span>
-                                {journalDuJour.est_cloture ? <Lock className="w-4 h-4 text-slate-700" /> : <Unlock className="w-4 h-4 text-amber-600" />}
+                                {journalDuJour.est_cloture ? <Lock className="w-4 h-4 text-slate-700 shrink-0" /> : <Unlock className="w-4 h-4 text-amber-600 shrink-0" />}
                             </div>
-                            <div className="mt-1 flex items-center justify-between">
+                            <div className="mt-1 flex flex-wrap items-center justify-between gap-1.5">
                                 <span className="text-xs font-bold">
                                     {journalDuJour.est_cloture ? 'Journée Clôturée' : 'Caisse Ouverte'}
                                 </span>
@@ -1069,94 +1070,94 @@ export default function FinancesIndex({
                     </Card>
                 </div>
 
-                {/* Onglets de navigation complets (8 onglets) */}
-                <div className="flex flex-wrap border-b border-slate-200 dark:border-slate-800 gap-2 text-sm font-medium">
+                {/* Onglets de navigation complets (8 onglets) : défilement horizontal fluide sur mobile/tablette/laptop */}
+                <div className="flex items-center overflow-x-auto overscroll-x-contain border-b border-slate-200 dark:border-slate-800 gap-1 sm:gap-2 text-xs sm:text-sm font-medium max-w-full scrollbar-none">
                     <button
                         onClick={() => setActiveTab('versements')}
-                        className={`pb-2.5 px-2 flex items-center gap-1.5 border-b-2 transition-colors ${
+                        className={`pb-2.5 px-2.5 whitespace-nowrap shrink-0 flex items-center gap-1.5 border-b-2 transition-colors cursor-pointer ${
                             activeTab === 'versements'
                                 ? 'border-emerald-600 text-emerald-600 font-bold'
                                 : 'border-transparent text-slate-500 hover:text-slate-800'
                         }`}
                     >
-                        <Receipt className="w-4 h-4" />
+                        <Receipt className="w-4 h-4 shrink-0" />
                         Versements Scolarité ({versements.length})
                     </button>
                     <button
                         onClick={() => setActiveTab('comptes')}
-                        className={`pb-2.5 px-2 flex items-center gap-1.5 border-b-2 transition-colors ${
+                        className={`pb-2.5 px-2.5 whitespace-nowrap shrink-0 flex items-center gap-1.5 border-b-2 transition-colors cursor-pointer ${
                             activeTab === 'comptes'
                                 ? 'border-emerald-600 text-emerald-600 font-bold'
                                 : 'border-transparent text-slate-500 hover:text-slate-800'
                         }`}
                     >
-                        <Users className="w-4 h-4" />
+                        <Users className="w-4 h-4 shrink-0" />
                         Comptes Élèves ({comptes.length})
                     </button>
                     <button
                         onClick={() => setActiveTab('reglements_divers')}
-                        className={`pb-2.5 px-2 flex items-center gap-1.5 border-b-2 transition-colors ${
+                        className={`pb-2.5 px-2.5 whitespace-nowrap shrink-0 flex items-center gap-1.5 border-b-2 transition-colors cursor-pointer ${
                             activeTab === 'reglements_divers'
                                 ? 'border-emerald-600 text-emerald-600 font-bold'
                                 : 'border-transparent text-slate-500 hover:text-slate-800'
                         }`}
                     >
-                        <Tag className="w-4 h-4" />
+                        <Tag className="w-4 h-4 shrink-0" />
                         Règlements Divers ({reglementsDivers.length})
                     </button>
                     <button
                         onClick={() => setActiveTab('caisses')}
-                        className={`pb-2.5 px-2 flex items-center gap-1.5 border-b-2 transition-colors ${
+                        className={`pb-2.5 px-2.5 whitespace-nowrap shrink-0 flex items-center gap-1.5 border-b-2 transition-colors cursor-pointer ${
                             activeTab === 'caisses'
                                 ? 'border-emerald-600 text-emerald-600 font-bold'
                                 : 'border-transparent text-slate-500 hover:text-slate-800'
                         }`}
                     >
-                        <Building2 className="w-4 h-4" />
+                        <Building2 className="w-4 h-4 shrink-0" />
                         Caisses Multiples ({caisses.length})
                     </button>
                     <button
                         onClick={() => setActiveTab('bourses_remises')}
-                        className={`pb-2.5 px-2 flex items-center gap-1.5 border-b-2 transition-colors ${
+                        className={`pb-2.5 px-2.5 whitespace-nowrap shrink-0 flex items-center gap-1.5 border-b-2 transition-colors cursor-pointer ${
                             activeTab === 'bourses_remises'
                                 ? 'border-emerald-600 text-emerald-600 font-bold'
                                 : 'border-transparent text-slate-500 hover:text-slate-800'
                         }`}
                     >
-                        <Award className="w-4 h-4" />
+                        <Award className="w-4 h-4 shrink-0" />
                         Bourses & Remises ({boursesRemises.length})
                     </button>
                     <button
                         onClick={() => setActiveTab('echeances_penalites')}
-                        className={`pb-2.5 px-2 flex items-center gap-1.5 border-b-2 transition-colors ${
+                        className={`pb-2.5 px-2.5 whitespace-nowrap shrink-0 flex items-center gap-1.5 border-b-2 transition-colors cursor-pointer ${
                             activeTab === 'echeances_penalites'
                                 ? 'border-emerald-600 text-emerald-600 font-bold'
                                 : 'border-transparent text-slate-500 hover:text-slate-800'
                         }`}
                     >
-                        <CalendarClock className="w-4 h-4" />
+                        <CalendarClock className="w-4 h-4 shrink-0" />
                         Échéanciers & Pénalités
                     </button>
                     <button
                         onClick={() => setActiveTab('tarifs')}
-                        className={`pb-2.5 px-2 flex items-center gap-1.5 border-b-2 transition-colors ${
+                        className={`pb-2.5 px-2.5 whitespace-nowrap shrink-0 flex items-center gap-1.5 border-b-2 transition-colors cursor-pointer ${
                             activeTab === 'tarifs'
                                 ? 'border-emerald-600 text-emerald-600 font-bold'
                                 : 'border-transparent text-slate-500 hover:text-slate-800'
                         }`}
                     >
-                        <Layers className="w-4 h-4" />
+                        <Layers className="w-4 h-4 shrink-0" />
                         Grille Tarifaire & Verrou
                     </button>
                     <button
                         onClick={() => setActiveTab('journal')}
-                        className={`pb-2.5 px-2 flex items-center gap-1.5 border-b-2 transition-colors ${
+                        className={`pb-2.5 px-2.5 whitespace-nowrap shrink-0 flex items-center gap-1.5 border-b-2 transition-colors cursor-pointer ${
                             activeTab === 'journal'
                                 ? 'border-emerald-600 text-emerald-600 font-bold'
                                 : 'border-transparent text-slate-500 hover:text-slate-800'
                         }`}
                     >
-                        <Calendar className="w-4 h-4" />
+                        <Calendar className="w-4 h-4 shrink-0" />
                         Journal & Clôtures ({historiqueClotures.length})
                     </button>
                 </div>
@@ -1175,8 +1176,8 @@ export default function FinancesIndex({
                 {/* CONTENU ONGLET 2 : COMPTES ÉLÈVES */}
                 {activeTab === 'comptes' && (
                     <div className="space-y-4">
-                        <div className="flex flex-wrap items-center gap-3">
-                            <div className="relative w-72">
+                        <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3">
+                            <div className="relative w-full sm:w-64 lg:w-72">
                                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
                                 <Input
                                     placeholder="Nom, prénom ou matricule..."
@@ -1187,7 +1188,7 @@ export default function FinancesIndex({
                             </div>
 
                             <Select value={selectedClasse} onValueChange={setSelectedClasse}>
-                                <SelectTrigger className="w-48 h-9 text-xs">
+                                <SelectTrigger className="w-full sm:w-48 h-9 text-xs">
                                     <SelectValue placeholder="Toutes les classes" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -1199,7 +1200,7 @@ export default function FinancesIndex({
                             </Select>
 
                             <Select value={selectedStatutFinancier} onValueChange={setSelectedStatutFinancier}>
-                                <SelectTrigger className="w-48 h-9 text-xs">
+                                <SelectTrigger className="w-full sm:w-48 h-9 text-xs">
                                     <SelectValue placeholder="Tous les statuts" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -1215,6 +1216,7 @@ export default function FinancesIndex({
                         <DataTable
                             columns={comptesColumns}
                             data={filteredComptes}
+                            showColumnVisibilityToggle
                         />
                     </div>
                 )}
@@ -1222,8 +1224,8 @@ export default function FinancesIndex({
                 {/* CONTENU ONGLET 3 : RÈGLEMENTS DIVERS (Aurore §4.2) */}
                 {activeTab === 'reglements_divers' && (
                     <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                            <div>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div className="min-w-0">
                                 <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">
                                     Règlements Divers & Encaissements Libres (Aurore §4.2)
                                 </h3>
@@ -1234,9 +1236,9 @@ export default function FinancesIndex({
                             <Button
                                 onClick={() => setIsReglementDiversModalOpen(true)}
                                 size="sm"
-                                className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-8 flex items-center gap-1"
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-8 w-full sm:w-auto shrink-0 justify-center flex items-center gap-1"
                             >
-                                <Plus className="w-3.5 h-3.5" /> Nouvelle Recette Diverse
+                                <Plus className="w-3.5 h-3.5 shrink-0" /> Nouvelle Recette Diverse
                             </Button>
                         </div>
 
@@ -1244,6 +1246,7 @@ export default function FinancesIndex({
                             columns={reglementsDiversColumns}
                             data={reglementsDivers}
                             searchPlaceholder="Rechercher par référence, payeur, libellé..."
+                            showColumnVisibilityToggle
                         />
                     </div>
                 )}
@@ -1251,8 +1254,8 @@ export default function FinancesIndex({
                 {/* CONTENU ONGLET 4 : CAISSES MULTIPLES (Aurore §3.20) */}
                 {activeTab === 'caisses' && (
                     <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                            <div>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div className="min-w-0">
                                 <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">
                                     Gestion des Caisses de l'Établissement (Aurore §3.20)
                                 </h3>
@@ -1266,9 +1269,9 @@ export default function FinancesIndex({
                                     setIsCaisseModalOpen(true);
                                 }}
                                 size="sm"
-                                className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-8 flex items-center gap-1"
+                                className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-8 w-full sm:w-auto shrink-0 justify-center flex items-center gap-1"
                             >
-                                <Plus className="w-3.5 h-3.5" /> Ajouter une Caisse
+                                <Plus className="w-3.5 h-3.5 shrink-0" /> Ajouter une Caisse
                             </Button>
                         </div>
 
@@ -1282,8 +1285,8 @@ export default function FinancesIndex({
                 {/* CONTENU ONGLET 5 : BOURSES & REMISES (Aurore §3.19, §3.21, §3.25) */}
                 {activeTab === 'bourses_remises' && (
                     <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                            <div>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div className="min-w-0">
                                 <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">
                                     Catalogue des Bourses d'Études & Modèles de Remises (Aurore §3.19, §3.21, §3.25)
                                 </h3>
@@ -1297,9 +1300,9 @@ export default function FinancesIndex({
                                     setIsModeleBourseModalOpen(true);
                                 }}
                                 size="sm"
-                                className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs h-8 flex items-center gap-1"
+                                className="bg-teal-600 hover:bg-teal-700 text-white text-xs h-8 w-full sm:w-auto shrink-0 justify-center flex items-center gap-1"
                             >
-                                <Plus className="w-3.5 h-3.5" /> Nouveau Modèle
+                                <Plus className="w-3.5 h-3.5 shrink-0" /> Nouveau Modèle
                             </Button>
                         </div>
 
@@ -1315,10 +1318,10 @@ export default function FinancesIndex({
                     <div className="space-y-6">
                         {/* Carte de paramétrage de la pénalité de retard */}
                         <Card className="border-slate-200 dark:border-slate-800 bg-amber-50/40 dark:bg-amber-950/20">
-                            <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                                <div className="space-y-1">
+                            <CardContent className="p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                                <div className="space-y-1 min-w-0">
                                     <div className="flex items-center gap-2">
-                                        <Clock className="w-5 h-5 text-amber-600" />
+                                        <Clock className="w-5 h-5 text-amber-600 shrink-0" />
                                         <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">
                                             Règle de Pénalité Financière de Retard (Aurore §3.17)
                                         </h4>
@@ -1330,21 +1333,21 @@ export default function FinancesIndex({
                                         )}
                                     </p>
                                 </div>
-                                <div className="flex items-center gap-2 shrink-0">
+                                <div className="flex flex-wrap items-center gap-2 shrink-0 w-full sm:w-auto">
                                     <Button
                                         onClick={() => setIsConfigPenaliteModalOpen(true)}
                                         variant="outline"
                                         size="sm"
-                                        className="text-xs h-8"
+                                        className="text-xs h-8 flex-1 sm:flex-initial justify-center"
                                     >
                                         Configurer la Règle
                                     </Button>
                                     <Button
                                         onClick={handleAppliquerPenalites}
                                         size="sm"
-                                        className="bg-amber-600 hover:bg-amber-700 text-white text-xs h-8 flex items-center gap-1"
+                                        className="bg-amber-600 hover:bg-amber-700 text-white text-xs h-8 flex-1 sm:flex-initial justify-center flex items-center gap-1"
                                     >
-                                        <AlertCircle className="w-3.5 h-3.5" /> Calculer les Retards
+                                        <AlertCircle className="w-3.5 h-3.5 shrink-0" /> Calculer les Retards
                                     </Button>
                                 </div>
                             </CardContent>
@@ -1352,8 +1355,8 @@ export default function FinancesIndex({
 
                         {/* Modèles d'échéances calendaires */}
                         <div className="space-y-3">
-                            <div className="flex items-center justify-between">
-                                <div>
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                <div className="min-w-0">
                                     <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">
                                         Modèles d'Échéanciers de Paiement (Aurore §3.24)
                                     </h3>
@@ -1364,9 +1367,9 @@ export default function FinancesIndex({
                                 <Button
                                     onClick={() => setIsModeleEcheanceModalOpen(true)}
                                     size="sm"
-                                    className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-8 flex items-center gap-1"
+                                    className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-8 w-full sm:w-auto shrink-0 justify-center flex items-center gap-1"
                                 >
-                                    <Plus className="w-3.5 h-3.5" /> Créer un Échéancier
+                                    <Plus className="w-3.5 h-3.5 shrink-0" /> Créer un Échéancier
                                 </Button>
                             </div>
 
@@ -1382,10 +1385,10 @@ export default function FinancesIndex({
                 {activeTab === 'tarifs' && (
                     <div className="space-y-6">
                         <Card className="border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
-                            <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                                <div className="space-y-1">
+                            <CardContent className="p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                                <div className="space-y-1 min-w-0">
                                     <div className="flex items-center gap-2">
-                                        <ShieldCheck className="w-5 h-5 text-indigo-600" />
+                                        <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
                                         <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">
                                             Verrou de Solvabilité des Bulletins Scolaires (Module 11.5)
                                         </h4>
@@ -1398,7 +1401,7 @@ export default function FinancesIndex({
                                 <Button
                                     onClick={handleToggleVerrouSolvabilite}
                                     variant={currentEtablissement?.verrou_solvabilite_actif ? 'destructive' : 'default'}
-                                    className="text-xs h-9 font-semibold shrink-0"
+                                    className="text-xs h-9 font-semibold shrink-0 w-full sm:w-auto"
                                 >
                                     {currentEtablissement?.verrou_solvabilite_actif
                                         ? 'Désactiver le Verrou'
@@ -1408,8 +1411,8 @@ export default function FinancesIndex({
                         </Card>
 
                         <div className="space-y-3">
-                            <div className="flex items-center justify-between">
-                                <div>
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                <div className="min-w-0">
                                     <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">
                                         Grille Tarifaire (Niveau / Série / Tranches)
                                     </h3>
@@ -1420,9 +1423,9 @@ export default function FinancesIndex({
                                 <Button
                                     onClick={() => setIsTarifModalOpen(true)}
                                     size="sm"
-                                    className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs h-8 flex items-center gap-1"
+                                    className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-8 w-full sm:w-auto shrink-0 justify-center flex items-center gap-1"
                                 >
-                                    <Plus className="w-3.5 h-3.5" /> Ajouter un Tarif
+                                    <Plus className="w-3.5 h-3.5 shrink-0" /> Ajouter un Tarif
                                 </Button>
                             </div>
 
@@ -1437,8 +1440,8 @@ export default function FinancesIndex({
                 {/* CONTENU ONGLET 8 : JOURNAL & CLÔTURES */}
                 {activeTab === 'journal' && (
                     <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                            <div>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div className="min-w-0">
                                 <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">
                                     Historique des Clôtures Journalières de Caisse
                                 </h3>
@@ -1449,9 +1452,9 @@ export default function FinancesIndex({
                             {!journalDuJour.est_cloture && (
                                 <Button
                                     onClick={() => setIsClotureModalOpen(true)}
-                                    className="bg-amber-600 hover:bg-amber-700 text-white text-xs h-8 flex items-center gap-1"
+                                    className="bg-amber-600 hover:bg-amber-700 text-white text-xs h-8 w-full sm:w-auto shrink-0 justify-center flex items-center gap-1"
                                 >
-                                    <Lock className="w-3.5 h-3.5" /> Clôturer la Journée
+                                    <Lock className="w-3.5 h-3.5 shrink-0" /> Clôturer la Journée
                                 </Button>
                             )}
                         </div>

@@ -85,7 +85,9 @@ export type PermissionName =
     | 'statistiques.view'
     | 'deliberations.view'
     | 'deliberations.manage'
-    | 'deliberations.valider';
+    | 'deliberations.valider'
+    // Module Mise à jour Système & Versions (Super Admin)
+    | 'system.update';
 
 /**
  * Rôles administratifs et pédagogiques de base configurés dans la plateforme.
@@ -172,9 +174,10 @@ export function usePermission(): UsePermissionReturn {
 
     const user = page.props.auth?.user ?? null;
 
-    // Détermination du statut Super-Admin (par drapeau explicite, rôle ou email racine)
+    // Détermination du statut Super-Admin (par drapeau explicite, login superadmin, rôle ou email racine)
     const isSuperAdmin = Boolean(
         user?.is_super_admin ||
+        user?.login === 'superadmin' ||
         user?.email === 'admin@gmail.com' ||
         user?.roles?.includes('super-admin')
     );

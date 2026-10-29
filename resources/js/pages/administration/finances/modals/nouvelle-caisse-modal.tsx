@@ -138,9 +138,10 @@ export default function NouvelleCaisseModal({
                     <DialogTitle>{isEditing ? 'Modifier la caisse' : 'Ajouter une nouvelle caisse'}</DialogTitle>
                 </DialogHeader>
 
-                <form onSubmit={handleSubmit} className="space-y-4 py-2">
-                    <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1">
+                <form onSubmit={handleSubmit} className="space-y-4 py-2 min-w-0">
+                    {/* Champs Code et Solde empilés sur mobile, 2 colonnes dès sm */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1 min-w-0">
                             <Label htmlFor="code">Code Caisse *</Label>
                             <Input
                                 id="code"
@@ -151,7 +152,7 @@ export default function NouvelleCaisseModal({
                             />
                         </div>
 
-                        <div className="space-y-1">
+                        <div className="space-y-1 min-w-0">
                             <Label htmlFor="soldeInitial">Solde d'ouverture (FCFA)</Label>
                             <Input
                                 id="soldeInitial"
@@ -174,7 +175,7 @@ export default function NouvelleCaisseModal({
                         />
                     </div>
 
-                    <div className="space-y-1">
+                    <div className="space-y-1 min-w-0">
                         <Label htmlFor="responsable">Caissier / Responsable</Label>
                         <Select
                             value={responsableId}
@@ -203,33 +204,33 @@ export default function NouvelleCaisseModal({
                         />
                     </div>
 
-                    <div className="flex items-center space-x-4 pt-2">
-                        <label className="flex items-center space-x-2 text-sm cursor-pointer">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-3 pt-2">
+                        <label className="flex items-start gap-2 text-sm cursor-pointer">
                             <input
                                 type="checkbox"
                                 checked={isPrincipale}
                                 onChange={e => setIsPrincipale(e.target.checked)}
-                                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                className="mt-0.5 shrink-0 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                             />
-                            <span className="font-medium">Caisse principale de l'établissement</span>
+                            <span className="font-medium leading-snug">Caisse principale de l'établissement</span>
                         </label>
 
-                        <label className="flex items-center space-x-2 text-sm cursor-pointer">
+                        <label className="flex items-center gap-2 text-sm cursor-pointer">
                             <input
                                 type="checkbox"
                                 checked={isActive}
                                 onChange={e => setIsActive(e.target.checked)}
-                                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                className="shrink-0 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                             />
                             <span>Active</span>
                         </label>
                     </div>
 
                     <DialogFooter className="pt-2">
-                        <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
+                        <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={onClose} disabled={isSubmitting}>
                             Annuler
                         </Button>
-                        <Button type="submit" disabled={isSubmitting} className="bg-blue-600 hover:bg-blue-700 text-white">
+                        <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white">
                             {isSubmitting ? 'Enregistrement...' : isEditing ? 'Mettre à jour' : 'Créer la caisse'}
                         </Button>
                     </DialogFooter>

@@ -67,6 +67,8 @@ export interface ClasseRef {
                 etablissement?: {
                     id: number;
                     nom: string;
+                    code?: string;
+                    sigle?: string | null;
                 };
             };
         };

@@ -28,6 +28,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { formatDate, formatAnneeLabel } from '@/lib/utils';
 import type { BreadcrumbItem } from '@/types';
 import type {
     LigneBordereauOfficiel,
@@ -45,6 +46,7 @@ interface EtablissementOption {
 interface AnneeOption {
     id: number;
     nom: string;
+    code?: string;
 }
 
 interface ClasseOption {
@@ -127,8 +129,11 @@ const bordereauColumns: ColumnDef<LigneBordereauOfficiel>[] = [
         header: 'Date & Lieu Naissance',
         cell: ({ row }) => (
             <div className="flex flex-col text-xs">
-                <span>{row.original.date_naissance}</span>
-                <span className="text-muted-foreground">{row.original.lieu_naissance}</span>
+                {/* Formatage francophone obligatoire de la date de naissance (jj-mm-aaaa) */}
+                <span className="font-medium text-foreground">
+                    {row.original.date_naissance ? formatDate(row.original.date_naissance) : '-'}
+                </span>
+                <span className="text-muted-foreground">{row.original.lieu_naissance || '-'}</span>
             </div>
         ),
     },
@@ -182,27 +187,28 @@ export default function StatistiquesIndex({
         <>
             <Head title="Statistiques & Rapports Officiels" />
 
-            <div className="flex flex-1 flex-col gap-6 p-4 md:p-6">
-                {/* En-tête de page */}
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            {/* Conteneur principal plein écran avec espacement adaptatif et débordement maîtrisé */}
+            <div className="flex flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8 min-w-0 w-full">
+                {/* En-tête de page responsive avec wrap flexible */}
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                     <div>
-                        <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2.5">
-                            <BookOpen className="size-6 text-blue-600" />
-                            Statistiques & Rapports Ministériels
+                        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground flex items-center gap-2.5">
+                            <BookOpen className="size-5 sm:size-6 text-teal-600 shrink-0" />
+                            <span>Statistiques & Rapports Ministériels</span>
                         </h1>
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
                             Rapports de rentrée, bordereaux officiels des examens, parité et tableaux de bord réglementaires
                         </p>
                     </div>
 
-                    {/* Sélecteurs établissement & année */}
-                    <div className="flex flex-wrap items-center gap-3">
+                    {/* Sélecteurs établissement & année avec largeur adaptative */}
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
                         {etablissements.length > 1 && (
                             <Select
                                 value={currentEtablissement?.id.toString()}
                                 onValueChange={(val) => handleNavigation({ etablissement_id: val })}
                             >
-                                <SelectTrigger className="w-47.5 h-9">
+                                <SelectTrigger className="w-full sm:w-48 h-9 text-xs sm:text-sm">
                                     <SelectValue placeholder="Établissement" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -219,13 +225,13 @@ export default function StatistiquesIndex({
                             value={currentAnneeId.toString()}
                             onValueChange={(val) => handleNavigation({ annee_id: val })}
                         >
-                            <SelectTrigger className="w-35 h-9">
+                            <SelectTrigger className="w-full sm:w-36 h-9 text-xs sm:text-sm">
                                 <SelectValue placeholder="Année" />
                             </SelectTrigger>
                             <SelectContent>
                                 {annees.map((an) => (
                                     <SelectItem key={an.id} value={an.id.toString()}>
-                                        {an.nom}
+                                        {formatAnneeLabel(an.nom, an.code)}
                                     </SelectItem>
                                 ))}
                             </SelectContent>
@@ -233,13 +239,13 @@ export default function StatistiquesIndex({
                     </div>
                 </div>
 
-                {/* Onglets thématiques */}
+                {/* Onglets thématiques adaptatifs */}
                 <Tabs
                     value={activeTab}
                     onValueChange={(val: string) => handleNavigation({ tab: val })}
                     className="w-full"
                 >
-                    <TabsList className="grid grid-cols-1 sm:grid-cols-3 w-full max-w-lg mb-4 h-auto p-1 gap-1">
+                    <TabsList className="grid grid-cols-1 sm:grid-cols-3 w-full sm:max-w-xl mb-4 h-auto p-1 gap-1">
                         <TabsTrigger value="demographie" className="text-xs">
                             Démographie & Effectifs
                         </TabsTrigger>
@@ -253,11 +259,11 @@ export default function StatistiquesIndex({
 
                     {/* Onglet 1 : Démographie & Effectifs (Gesco 15.1) */}
                     <TabsContent value="demographie" className="space-y-6">
-                        {/* 4 Cartes Supérieures */}
-                        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                        {/* 4 Cartes Supérieures avec grille adaptative */}
+                        <div className="grid gap-3 sm:gap-4 grid-cols-1 min-[420px]:grid-cols-2 lg:grid-cols-4">
                             <Card className="p-4">
                                 <div className="text-xs font-medium text-muted-foreground">Effectif Total Enregistré</div>
-                                <div className="text-2xl font-bold text-foreground mt-1">{demographie.effectif_total} élèves</div>
+                                <div className="text-xl sm:text-2xl font-bold text-foreground mt-1">{demographie.effectif_total} élèves</div>
                                 {/* Affichage épuré de l'année scolaire sans préfixe redondant */}
                                 <div className="text-xs text-muted-foreground mt-1">
                                     {demographie.annee_scolaire.toLowerCase().startsWith('année')
@@ -268,7 +274,7 @@ export default function StatistiquesIndex({
 
                             <Card className="p-4">
                                 <div className="text-xs font-medium text-muted-foreground">Parité de Genre</div>
-                                <div className="text-2xl font-bold text-blue-600 mt-1">{demographie.parite.ratio_texte}</div>
+                                <div className="text-xl sm:text-2xl font-bold text-teal-600 mt-1">{demographie.parite.ratio_texte}</div>
                                 <div className="mt-2">
                                     <Progress value={demographie.parite.taux_filles} className="h-1.5" />
                                 </div>
@@ -276,7 +282,7 @@ export default function StatistiquesIndex({
 
                             <Card className="p-4">
                                 <div className="text-xs font-medium text-muted-foreground">Nouveaux vs Redoublants</div>
-                                <div className="text-2xl font-bold text-foreground mt-1">
+                                <div className="text-xl sm:text-2xl font-bold text-foreground mt-1">
                                     {demographie.repartition_statut.taux_redoublants}% redoublants
                                 </div>
                                 <div className="text-xs text-muted-foreground mt-1">
@@ -286,7 +292,7 @@ export default function StatistiquesIndex({
 
                             <Card className="p-4">
                                 <div className="text-xs font-medium text-muted-foreground">Densité Moyenne par Classe</div>
-                                <div className="text-2xl font-bold text-foreground mt-1">
+                                <div className="text-xl sm:text-2xl font-bold text-foreground mt-1">
                                     {demographie.densite.moyenne_par_classe} élèves
                                 </div>
                                 <div className="text-xs text-muted-foreground mt-1">
@@ -304,7 +310,7 @@ export default function StatistiquesIndex({
                                 </CardDescription>
                             </CardHeader>
                             <CardContent>
-                                <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+                                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                                     {demographie.densite.details.map((cls) => (
                                         <div key={cls.id} className="rounded-lg border p-3.5 space-y-2">
                                             <div className="flex items-center justify-between">
@@ -335,23 +341,23 @@ export default function StatistiquesIndex({
                     <TabsContent value="examens" className="space-y-4">
                         <Card>
                             <CardHeader className="pb-3">
-                                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                                     <div>
                                         <CardTitle className="text-base flex items-center gap-2">
-                                            <FileSpreadsheet className="size-4 text-primary" />
-                                            Bordereau Officiel des Inscriptions aux Examens
+                                            <FileSpreadsheet className="size-4 text-primary shrink-0" />
+                                            <span>Bordereau Officiel des Inscriptions aux Examens</span>
                                         </CardTitle>
                                         <CardDescription>
                                             Liste alphabétique réglementaire avec Matricule National Ministère (MINESEC / MINEDUB)
                                         </CardDescription>
                                     </div>
 
-                                    <div className="flex items-center gap-3">
+                                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
                                         <Select
                                             value={selectedClasseId ? selectedClasseId.toString() : 'all'}
                                             onValueChange={(val) => handleNavigation({ classe_id: val === 'all' ? null : val })}
                                         >
-                                            <SelectTrigger className="w-45 h-9">
+                                            <SelectTrigger className="w-full sm:w-48 h-9 text-xs sm:text-sm">
                                                 <SelectValue placeholder="Filtrer par classe" />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -365,21 +371,21 @@ export default function StatistiquesIndex({
                                         </Select>
 
                                         {currentEtablissement && (
-                                            <Button size="sm" className="gap-1.5" asChild>
+                                            <Button size="sm" className="gap-1.5 w-full sm:w-auto" asChild>
                                                 <a
                                                     href={`/administration/statistiques/bordereau?etablissement_id=${currentEtablissement.id}&annee_id=${currentAnneeId}${selectedClasseId ? `&classe_id=${selectedClasseId}` : ''}`}
                                                     target="_blank"
                                                     rel="noreferrer"
                                                 >
-                                                    <Printer className="size-4" />
-                                                    Exporter en PDF Officiel
+                                                    <Printer className="size-4 shrink-0" />
+                                                    <span>Exporter en PDF Officiel</span>
                                                 </a>
                                             </Button>
                                         )}
                                     </div>
                                 </div>
                             </CardHeader>
-                            <CardContent>
+                            <CardContent className="px-3 sm:px-6">
                                 <DataTable
                                     columns={bordereauColumns}
                                     data={listesOfficielles}
@@ -392,10 +398,10 @@ export default function StatistiquesIndex({
 
                     {/* Onglet 3 : Synthèse Financière Consolidée (Gesco 15.3) */}
                     <TabsContent value="finances" className="space-y-6">
-                        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                        <div className="grid gap-3 sm:gap-4 grid-cols-1 min-[420px]:grid-cols-2 lg:grid-cols-4">
                             <Card className="p-4">
                                 <div className="text-xs font-medium text-muted-foreground">Total Facturé Net</div>
-                                <div className="text-2xl font-bold text-foreground mt-1">
+                                <div className="text-xl sm:text-2xl font-bold text-foreground mt-1 tabular-nums break-words">
                                     {new Intl.NumberFormat('fr-FR').format(finances.total_facture)} FCFA
                                 </div>
                                 <div className="text-xs text-muted-foreground mt-1">{finances.total_comptes} comptes scolarité</div>
@@ -403,7 +409,7 @@ export default function StatistiquesIndex({
 
                             <Card className="p-4">
                                 <div className="text-xs font-medium text-muted-foreground">Total Encaissé / Recouvré</div>
-                                <div className="text-2xl font-bold text-emerald-600 mt-1">
+                                <div className="text-xl sm:text-2xl font-bold text-emerald-600 mt-1 tabular-nums break-words">
                                     {new Intl.NumberFormat('fr-FR').format(finances.total_recouvre)} FCFA
                                 </div>
                                 <div className="text-xs text-muted-foreground mt-1">{finances.nombre_soldes} comptes soldés</div>
@@ -411,7 +417,7 @@ export default function StatistiquesIndex({
 
                             <Card className="p-4">
                                 <div className="text-xs font-medium text-muted-foreground">Reste à Recouvrer (Créances)</div>
-                                <div className="text-2xl font-bold text-destructive mt-1">
+                                <div className="text-xl sm:text-2xl font-bold text-destructive mt-1 tabular-nums break-words">
                                     {new Intl.NumberFormat('fr-FR').format(finances.total_creances)} FCFA
                                 </div>
                                 <div className="text-xs text-muted-foreground mt-1">{finances.nombre_debiteurs} comptes débiteurs</div>
@@ -419,7 +425,7 @@ export default function StatistiquesIndex({
 
                             <Card className="p-4">
                                 <div className="text-xs font-medium text-muted-foreground">Taux de Recouvrement Global</div>
-                                <div className="text-2xl font-bold text-primary mt-1">{finances.taux_recouvrement}%</div>
+                                <div className="text-xl sm:text-2xl font-bold text-teal-600 mt-1 tabular-nums">{finances.taux_recouvrement}%</div>
                                 <div className="mt-2">
                                     <Progress value={finances.taux_recouvrement} className="h-1.5" />
                                 </div>

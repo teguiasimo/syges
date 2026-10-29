@@ -7,8 +7,9 @@ use App\Http\Controllers\Controller;
 use App\Models\AnneeScolaire;
 use App\Models\Classe;
 use App\Models\Eleve;
-use App\Models\Etablissement;
 use App\Models\Inscription;
+use App\Services\FinanceService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
@@ -18,6 +19,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Contrôleur gérant le Module 5 : Élèves & Inscriptions de SYGES.
@@ -31,6 +33,7 @@ use Inertia\Response;
 class EleveController extends Controller implements HasMiddleware
 {
     use ScopesEtablissement;
+
     /**
      * Définition de la matrice des middlewares d'autorisation pour le module Élèves & Inscriptions.
      *
@@ -43,7 +46,7 @@ class EleveController extends Controller implements HasMiddleware
             new Middleware('can:eleves.create|eleves.manage', only: ['create', 'store']),
             new Middleware('can:eleves.import|eleves.create|eleves.manage', only: ['importCsv']),
             new Middleware('can:eleves.edit|eleves.manage', only: ['update']),
-            new Middleware('can:eleves.delete|eleves.manage', only: ['destroy']),
+            new Middleware('can:eleves.delete', only: ['destroy']),
             new Middleware('can:inscriptions.reinscrire|inscriptions.manage', only: ['reinscrire', 'reinscrireLot', 'reinscriptionPage']),
             new Middleware('can:inscriptions.manage', only: ['updateStatut']),
             new Middleware('can:inscriptions.transfer|inscriptions.manage', only: ['transferer']),
@@ -53,7 +56,7 @@ class EleveController extends Controller implements HasMiddleware
     /**
      * Affiche le formulaire de création d'un nouvel élève avec inscription initiale.
      *
-     * @param Request $request Requête HTTP entrante
+     * @param  Request  $request  Requête HTTP entrante
      * @return Response Réponse Inertia pour la page de création
      */
     public function create(Request $request): Response
@@ -82,7 +85,7 @@ class EleveController extends Controller implements HasMiddleware
      * - La promotion collective par classe (avec choix d'année source et destination, avis du conseil, arriérés, sélection personnalisée d'élèves).
      * - La réinscription individuelle rapide avec recherche dynamique et conservation de l'historique financier.
      *
-     * @param Request $request Requête HTTP entrante avec filtres éventuels (annee_destination_id, annee_source_id)
+     * @param  Request  $request  Requête HTTP entrante avec filtres éventuels (annee_destination_id, annee_source_id)
      * @return Response Réponse Inertia vers la vue dédiée
      */
     public function reinscriptionPage(Request $request): Response
@@ -130,9 +133,6 @@ class EleveController extends Controller implements HasMiddleware
 
     /**
      * Affiche la liste des élèves avec filtrage dynamique et KPIs.
-     *
-     * @param Request $request
-     * @return Response
      */
     public function index(Request $request): Response
     {
@@ -287,9 +287,6 @@ class EleveController extends Controller implements HasMiddleware
 
     /**
      * Enregistre un nouvel élève dans la Base Élève Globale et l'inscrit dans sa classe.
-     *
-     * @param Request $request
-     * @return RedirectResponse
      */
     public function store(Request $request): RedirectResponse
     {
@@ -389,15 +386,11 @@ class EleveController extends Controller implements HasMiddleware
 
     /**
      * Met à jour les informations d'un élève dans la Base Globale.
-     *
-     * @param Request $request
-     * @param Eleve $eleve
-     * @return RedirectResponse
      */
     public function update(Request $request, Eleve $eleve): RedirectResponse
     {
         $validated = $request->validate([
-            'matricule' => ['required', 'string', 'max:50', 'unique:eleves,matricule,' . $eleve->id],
+            'matricule' => ['required', 'string', 'max:50', 'unique:eleves,matricule,'.$eleve->id],
             'matricule_national' => ['nullable', 'string', 'max:50'],
             'nom' => ['required', 'string', 'max:150'],
             'prenom' => ['nullable', 'string', 'max:150'],
@@ -429,9 +422,6 @@ class EleveController extends Controller implements HasMiddleware
 
     /**
      * Supprime un élève et ses inscriptions (ou le désactive).
-     *
-     * @param Eleve $eleve
-     * @return RedirectResponse
      */
     public function destroy(Eleve $eleve): RedirectResponse
     {
@@ -447,7 +437,7 @@ class EleveController extends Controller implements HasMiddleware
      * Initialise automatiquement son compte financier scolaire en intégrant optionnellement
      * les arriérés ou dettes antérieures reportées manuellement par le comptable ou la secrétaire.
      *
-     * @param Request $request Requête HTTP contenant les paramètres d'affectation et les arriérés.
+     * @param  Request  $request  Requête HTTP contenant les paramètres d'affectation et les arriérés.
      * @return RedirectResponse Redirection avec message de succès ou d'erreur.
      */
     public function reinscrire(Request $request): RedirectResponse
@@ -494,7 +484,7 @@ class EleveController extends Controller implements HasMiddleware
 
         // Initialisation automatique du compte financier avec report des arriérés antérieurs
         $arrieres = (float) ($validated['arrieres_anterieurs'] ?? 0);
-        app(\App\Services\FinanceService::class)->initialiserCompteEleve($inscription, 0, $arrieres);
+        app(FinanceService::class)->initialiserCompteEleve($inscription, 0, $arrieres);
 
         $eleveNom = $inscription->eleve?->nom_complet ?: 'L\'élève';
 
@@ -507,10 +497,6 @@ class EleveController extends Controller implements HasMiddleware
 
     /**
      * Met à jour le statut d'une inscription (validee, suspendue, exclu, en_attente).
-     *
-     * @param Request $request
-     * @param Inscription $inscription
-     * @return RedirectResponse
      */
     public function updateStatut(Request $request, Inscription $inscription): RedirectResponse
     {
@@ -531,9 +517,6 @@ class EleveController extends Controller implements HasMiddleware
 
     /**
      * Transfère un groupe d'élèves d'une classe source vers une classe cible (inter-classes ou intra-groupe).
-     *
-     * @param Request $request
-     * @return RedirectResponse
      */
     public function transferer(Request $request): RedirectResponse
     {
@@ -579,7 +562,7 @@ class EleveController extends Controller implements HasMiddleware
                     $oldInscription->update([
                         'classe_id' => $targetClasse->id,
                         'etablissement_id' => $targetEtablissementId,
-                        'observations' => trim(($oldInscription->observations ?? '') . "\nTransféré depuis {$oldInscription->classe?->nom} le " . now()->format('d/m/Y')),
+                        'observations' => trim(($oldInscription->observations ?? '')."\nTransféré depuis {$oldInscription->classe?->nom} le ".now()->format('d/m/Y')),
                     ]);
                 } else {
                     // Cadrage V1.1 : Transfert intra-groupe vers un autre établissement
@@ -613,9 +596,6 @@ class EleveController extends Controller implements HasMiddleware
 
     /**
      * Importe une liste d'élèves à partir d'un fichier CSV / TSV (conforme à ELEVE.csv et SAGEES).
-     *
-     * @param Request $request
-     * @return RedirectResponse
      */
     public function importCsv(Request $request): RedirectResponse
     {
@@ -635,7 +615,7 @@ class EleveController extends Controller implements HasMiddleware
         $file = $request->file('fichier');
         // Nettoyage de l'éventuel BOM UTF-8 (courant dans les fichiers générés par Excel)
         $content = preg_replace('/^\xEF\xBB\xBF/', '', $file->getContent());
-        $lines = explode("\n", str_replace("\r", "", $content));
+        $lines = explode("\n", str_replace("\r", '', $content));
 
         $imported = 0;
         $ignored = 0;
@@ -691,6 +671,7 @@ class EleveController extends Controller implements HasMiddleware
 
                 if (empty($nom)) {
                     $ignored++;
+
                     continue;
                 }
 
@@ -712,6 +693,7 @@ class EleveController extends Controller implements HasMiddleware
                 if ($matricule && Eleve::where('matricule', $matricule)->exists()) {
                     if ($ignorerDoublons) {
                         $ignored++;
+
                         continue;
                     }
                     $matricule = Eleve::generateNextMatricule($validated['annee_scolaire_id'] ?? null);
@@ -763,11 +745,8 @@ class EleveController extends Controller implements HasMiddleware
      * Recherche d'anciens élèves non encore inscrits pour une année scolaire donnée.
      * Utilisé pour la réinscription rapide via autocomplétion avec affichage ergonomique
      * de la dernière classe fréquentée, de la décision du conseil et du reliquat financier antérieur.
-     *
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
      */
-    public function searchAnciens(Request $request): \Illuminate\Http\JsonResponse
+    public function searchAnciens(Request $request): JsonResponse
     {
         $q = trim((string) $request->input('q', ''));
         $anneeId = $request->integer('annee_id');
@@ -836,8 +815,8 @@ class EleveController extends Controller implements HasMiddleware
     /**
      * Exporte la liste des élèves inscrits au format CSV standard (compatible Excel avec point-virgule et UTF-8 BOM).
      *
-     * @param Request $request Requête HTTP entrante avec filtres d'inscription.
-     * @return \Symfony\Component\HttpFoundation\StreamedResponse Téléchargement du fichier CSV.
+     * @param  Request  $request  Requête HTTP entrante avec filtres d'inscription.
+     * @return StreamedResponse Téléchargement du fichier CSV.
      */
     public function exportCsv(Request $request)
     {
@@ -894,7 +873,7 @@ class EleveController extends Controller implements HasMiddleware
 
         $annee = $selectedAnneeId ? AnneeScolaire::find($selectedAnneeId) : null;
         $anneeCode = $annee ? str_replace(['/', '\\', ' '], '_', $annee->code) : date('Y');
-        $filename = "export_eleves_{$anneeCode}_" . date('Ymd_His') . ".csv";
+        $filename = "export_eleves_{$anneeCode}_".date('Ymd_His').'.csv';
 
         return response()->streamDownload(function () use ($inscriptions) {
             $handle = fopen('php://output', 'w');
@@ -951,10 +930,10 @@ class EleveController extends Controller implements HasMiddleware
      * Indique pour chaque élève sa décision de fin d'année, son statut préconisé,
      * ses dettes antérieures, et s'il est déjà inscrit dans la nouvelle année scolaire.
      *
-     * @param Request $request Requête HTTP entrante (classe_id, annee_destination_id).
-     * @return \Illuminate\Http\JsonResponse Liste structurée des élèves de la classe source.
+     * @param  Request  $request  Requête HTTP entrante (classe_id, annee_destination_id).
+     * @return JsonResponse Liste structurée des élèves de la classe source.
      */
-    public function getClasseElevesForReinscription(Request $request): \Illuminate\Http\JsonResponse
+    public function getClasseElevesForReinscription(Request $request): JsonResponse
     {
         $classeId = $request->integer('classe_id');
         $anneeSourceId = $request->integer('annee_source_id');
@@ -1025,7 +1004,7 @@ class EleveController extends Controller implements HasMiddleware
      * Effectue la réinscription collective (en lot) d'une sélection d'élèves vers une classe cible.
      * Utilisé pour la rentrée scolaire afin de promouvoir une cohorte entière en un clic.
      *
-     * @param Request $request Requête HTTP avec la liste des élèves, la classe cible et l'année.
+     * @param  Request  $request  Requête HTTP avec la liste des élèves, la classe cible et l'année.
      * @return RedirectResponse Redirection avec message de succès ou d'erreur.
      */
     public function reinscrireLot(Request $request): RedirectResponse
@@ -1050,7 +1029,7 @@ class EleveController extends Controller implements HasMiddleware
 
         $statut = $validated['statut'] ?? 'validee';
         $count = 0;
-        $financeService = app(\App\Services\FinanceService::class);
+        $financeService = app(FinanceService::class);
 
         DB::transaction(function () use ($validated, $targetClasse, $etablissementId, $statut, $financeService, &$count) {
             foreach ($validated['eleves'] as $item) {

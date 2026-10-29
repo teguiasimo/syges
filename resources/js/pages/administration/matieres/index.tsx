@@ -1211,7 +1211,8 @@ export default function MatiereIndex({
         <>
             <Head title="Matières & Coefficients - Administration" />
 
-            <div className="flex h-full flex-1 flex-col gap-6 p-6 sm:p-8 max-w-7xl mx-auto w-full">
+            {/* Conteneur principal plein écran fluide et responsive sans contrainte artificielle de largeur */}
+            <div className="flex h-full flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8 w-full min-w-0">
                 {/* 1. EN-TÊTE DU MODULE */}
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
@@ -1270,7 +1271,7 @@ export default function MatiereIndex({
                                                 key={etab.id}
                                                 type="button"
                                                 onClick={() => handleSelectEtablissement(etab.id)}
-                                                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer border ${
+                                                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer border shrink-0 whitespace-nowrap ${
                                                     isSelected
                                                         ? 'bg-violet-600 text-white border-violet-600 shadow-xs'
                                                         : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-900'
@@ -1296,18 +1297,18 @@ export default function MatiereIndex({
                     </div>
                 )}
 
-                {/* 3. BARRE D'ONGLETS STYLISÉE (ORDRE LOGIQUE : BLOCS -> CATALOGUE -> GRILLE) */}
-                <div className="flex border-b border-border/80 gap-2">
+                {/* 3. BARRE D'ONGLETS STYLISÉE AVEC DÉFILEMENT HORIZONTAL SUR MOBILE */}
+                <div className="flex border-b border-border/80 gap-2 overflow-x-auto max-w-full scrollbar-none">
                     <button
                         type="button"
                         onClick={() => handleTabChange('groupes')}
-                        className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-all cursor-pointer ${
+                        className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-medium border-b-2 transition-all cursor-pointer shrink-0 whitespace-nowrap ${
                             activeTab === 'groupes'
                                 ? 'border-violet-600 text-violet-600 dark:text-violet-400 dark:border-violet-400 font-semibold'
                                 : 'border-transparent text-muted-foreground hover:text-foreground'
                         }`}
                     >
-                        <Layers className="size-4" />
+                        <Layers className="size-4 shrink-0" />
                         <span>Blocs Pédagogiques</span>
                         <Badge variant="secondary" className="ml-1 text-xs">
                             {groupes.length}
@@ -1317,13 +1318,13 @@ export default function MatiereIndex({
                     <button
                         type="button"
                         onClick={() => handleTabChange('catalogue')}
-                        className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-all cursor-pointer ${
+                        className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-medium border-b-2 transition-all cursor-pointer shrink-0 whitespace-nowrap ${
                             activeTab === 'catalogue'
                                 ? 'border-violet-600 text-violet-600 dark:text-violet-400 dark:border-violet-400 font-semibold'
                                 : 'border-transparent text-muted-foreground hover:text-foreground'
                         }`}
                     >
-                        <BookOpen className="size-4" />
+                        <BookOpen className="size-4 shrink-0" />
                         <span>Catalogue des Matières</span>
                         <Badge variant="secondary" className="ml-1 text-xs">
                             {matieres.length}
@@ -1333,13 +1334,13 @@ export default function MatiereIndex({
                     <button
                         type="button"
                         onClick={() => handleTabChange('coefficients')}
-                        className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-all cursor-pointer ${
+                        className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-medium border-b-2 transition-all cursor-pointer shrink-0 whitespace-nowrap ${
                             activeTab === 'coefficients'
                                 ? 'border-violet-600 text-violet-600 dark:text-violet-400 dark:border-violet-400 font-semibold'
                                 : 'border-transparent text-muted-foreground hover:text-foreground'
                         }`}
                     >
-                        <SlidersHorizontal className="size-4" />
+                        <SlidersHorizontal className="size-4 shrink-0" />
                         <span>Grille des Coefficients</span>
                         <Badge variant="secondary" className="ml-1 text-xs">
                             {coefficients.length}
@@ -1371,7 +1372,7 @@ export default function MatiereIndex({
                                     type="button"
                                     size="sm"
                                     onClick={handleOpenAddGroupe}
-                                    className="gap-2 cursor-pointer bg-indigo-600 hover:bg-indigo-700 text-white font-medium shadow-xs shrink-0"
+                                    className="gap-2 cursor-pointer bg-teal-600 hover:bg-teal-700 text-white font-medium shadow-xs shrink-0"
                                 >
                                     <Plus className="size-4" />
                                     <span>Nouveau Bloc Pédagogique</span>
@@ -1446,15 +1447,15 @@ export default function MatiereIndex({
                                     </div>
                                 )}
 
-                                {/* Filtre par Niveau scolaire */}
-                                <div className="flex items-center gap-2">
-                                    <Filter className="size-4 text-muted-foreground" />
-                                    <span className="text-xs font-semibold uppercase text-muted-foreground">Niveau :</span>
+                                {/* Filtre par Niveau scolaire adaptatif sur mobile */}
+                                <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full sm:w-auto">
+                                    <Filter className="size-4 text-muted-foreground shrink-0" />
+                                    <span className="text-xs font-semibold uppercase text-muted-foreground shrink-0">Niveau :</span>
                                     <Select
                                         value={selectedNiveau ? String(selectedNiveau.id) : ''}
                                         onValueChange={handleSelectNiveau}
                                     >
-                                        <SelectTrigger className="w-64 cursor-pointer">
+                                        <SelectTrigger className="w-full sm:w-64 cursor-pointer">
                                             <SelectValue placeholder="Sélectionner un niveau" />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -1560,9 +1561,9 @@ export default function MatiereIndex({
                             </div>
                         )}
 
-                        {/* Cartes récapitulatives / métriques d'évaluation du niveau */}
+                        {/* Cartes récapitulatives / métriques d'évaluation du niveau (grille mobile-first) */}
                         {selectedNiveau && (
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                            <div className="grid grid-cols-1 min-[420px]:grid-cols-2 lg:grid-cols-4 gap-4">
                                 <Card className="border-border/60 shadow-xs">
                                     <CardContent className="p-4 flex flex-col justify-center">
                                         <span className="text-xs font-medium text-muted-foreground uppercase">Total Matières</span>
@@ -1677,7 +1678,7 @@ export default function MatiereIndex({
             {/* MODALE 1 : CONFIGURATION COEFFICIENT / ASSOCIATION NIVEAU         */}
             {/* ================================================================= */}
             <Dialog open={isCoefficientModalOpen} onOpenChange={setIsCoefficientModalOpen}>
-                <DialogContent className="sm:max-w-xl w-full p-6 max-h-[92vh] overflow-y-auto">
+                <DialogContent className="sm:max-w-xl">
                     <DialogHeader className="pb-1">
                         <DialogTitle className="text-base sm:text-lg">
                             {editingCoefficient ? 'Modifier le Coefficient' : 'Ajouter une Matière à la Grille'}
@@ -1686,9 +1687,9 @@ export default function MatiereIndex({
 
                     <form onSubmit={(e) => submitCoefficient(e, false)} className="space-y-3 pt-1">
                         {/* Contexte discret : Niveau & Campus scolaire */}
-                        <div className="flex items-center justify-between px-3 py-1.5 rounded-lg bg-violet-50/70 dark:bg-violet-950/30 border border-violet-200/60 dark:border-violet-900/40 text-xs">
+                        <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-1.5 rounded-lg bg-violet-50/70 dark:bg-violet-950/30 border border-violet-200/60 dark:border-violet-900/40 text-xs">
                             <span className="font-semibold text-foreground flex items-center gap-1.5">
-                                <Building2 className="size-3.5 text-violet-600 dark:text-violet-400" />
+                                <Building2 className="size-3.5 text-violet-600 dark:text-violet-400 shrink-0" />
                                 Niveau : <strong className="text-violet-700 dark:text-violet-300">{selectedNiveau?.nom} ({selectedNiveau?.code})</strong>
                             </span>
                             {(getEtablissementName(selectedNiveau) || selectedEtablissement?.nom) && (
@@ -1724,8 +1725,8 @@ export default function MatiereIndex({
                             )}
                         </div>
 
-                        {/* Ligne 2 : Bloc Pédagogique et Série / Filière */}
-                        <div className="grid grid-cols-2 gap-3">
+                        {/* Ligne 2 : Bloc Pédagogique et Série / Filière (empilés sur mobile) */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
                                 <Label htmlFor="coef_groupe_id" className="text-xs font-semibold">
                                     Bloc Pédagogique <span className="text-rose-500">*</span>
@@ -1784,8 +1785,8 @@ export default function MatiereIndex({
                             </div>
                         </div>
 
-                        {/* Ligne 3 : Coefficient, Barème Max et Note Éliminatoire (Regroupés sur 1 seule ligne compacte) */}
-                        <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
+                        {/* Ligne 3 : Coefficient, Barème Max et Note Éliminatoire (empilés sur mobile, 3 colonnes dès 640px) */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
                             <div>
                                 <Label htmlFor="coef_val" className="text-xs font-semibold">
                                     Coefficient <span className="text-rose-500">*</span>
@@ -1847,8 +1848,8 @@ export default function MatiereIndex({
                             </div>
                         </div>
 
-                        {/* Ligne 4 : Options supplémentaires (Checkboxes horizontales claires et pédagogiques) */}
-                        <div className="pt-2 pb-1 border-t border-border/60 grid grid-cols-2 gap-2.5">
+                        {/* Ligne 4 : Options supplémentaires (1 colonne sur mobile, 2 colonnes dès 640px) */}
+                        <div className="pt-2 pb-1 border-t border-border/60 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                             <div className="flex items-start space-x-2">
                                 <Checkbox
                                     id="coef_facultative"
@@ -1927,7 +1928,7 @@ export default function MatiereIndex({
             {/* MODALE 2 : CATALOGUE DES MATIÈRES (CRÉATION / MODIFICATION)       */}
             {/* ================================================================= */}
             <Dialog open={isMatiereModalOpen} onOpenChange={setIsMatiereModalOpen}>
-                <DialogContent className="sm:max-w-[480px] w-full p-5 max-h-[92vh] overflow-y-auto overflow-x-hidden">
+                <DialogContent className="sm:max-w-[480px]">
                     <DialogHeader className="pb-1">
                         <DialogTitle className="text-base sm:text-lg">
                             {editingMatiere ? 'Modifier la Matière' : 'Ajouter une Discipline au Catalogue'}
@@ -1962,9 +1963,9 @@ export default function MatiereIndex({
                             </Select>
                         </div>
 
-                        {/* Ligne 1 : Code officiel & Intitulé (largeur optimisée et mieux proportionnée) */}
+                        {/* Ligne 1 : Code officiel & Intitulé (empilés sur mobile, 5/7 dès 640px) */}
                         <div className="grid grid-cols-12 gap-3">
-                            <div className="col-span-5">
+                            <div className="col-span-12 sm:col-span-5">
                                 <Label htmlFor="mat_code" className="text-xs font-semibold">
                                     Code Officiel <span className="text-rose-500">*</span>
                                 </Label>
@@ -1981,7 +1982,7 @@ export default function MatiereIndex({
                                 )}
                             </div>
 
-                            <div className="col-span-7">
+                            <div className="col-span-12 sm:col-span-7">
                                 <Label htmlFor="mat_nom" className="text-xs font-semibold">
                                     Intitulé <span className="text-rose-500">*</span>
                                 </Label>
@@ -2023,18 +2024,18 @@ export default function MatiereIndex({
                             </Label>
                         </div>
 
-                        {/* Footer : espacement compact et proportionné sans barre de défilement horizontal */}
-                        <DialogFooter className="pt-3 flex flex-row items-center justify-between w-full border-t border-border/40 mt-2">
+                        {/* Footer : empilé sur petits écrans et aligné dès 640px sans débordement */}
+                        <DialogFooter className="pt-3 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-2 w-full border-t border-border/40 mt-2">
                             <Button
                                 type="button"
                                 variant="outline"
                                 size="sm"
                                 onClick={() => setIsMatiereModalOpen(false)}
-                                className="cursor-pointer shrink-0 text-xs h-8 px-3"
+                                className="cursor-pointer shrink-0 text-xs h-8 px-3 w-full sm:w-auto"
                             >
                                 Annuler
                             </Button>
-                            <div className="flex items-center gap-2 shrink-0">
+                            <div className="flex flex-wrap items-center justify-end gap-2 w-full sm:w-auto">
                                 {!editingMatiere && (
                                     <Button
                                         type="button"
@@ -2066,7 +2067,7 @@ export default function MatiereIndex({
             {/* MODALE 3 : BLOC PÉDAGOGIQUE (CRÉATION / MODIFICATION)              */}
             {/* ================================================================= */}
             <Dialog open={isGroupeModalOpen} onOpenChange={setIsGroupeModalOpen}>
-                <DialogContent className="sm:max-w-xl w-full p-6 max-h-[92vh] overflow-y-auto">
+                <DialogContent className="sm:max-w-xl">
                     <DialogHeader className="pb-1">
                         <DialogTitle className="text-base sm:text-lg">
                             {editingGroupe ? 'Modifier le Bloc Pédagogique' : 'Nouveau Bloc Pédagogique'}
@@ -2075,9 +2076,9 @@ export default function MatiereIndex({
 
                     <form onSubmit={(e) => submitGroupe(e, false)} className="space-y-3 pt-1">
                         {/* Contexte discret : Campus scolaire */}
-                        <div className="flex items-center justify-between px-3 py-1.5 rounded-lg bg-violet-50/70 dark:bg-violet-950/30 border border-violet-200/60 dark:border-violet-900/40 text-xs">
+                        <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-1.5 rounded-lg bg-violet-50/70 dark:bg-violet-950/30 border border-violet-200/60 dark:border-violet-900/40 text-xs">
                             <span className="font-semibold text-foreground flex items-center gap-1.5">
-                                <Building2 className="size-3.5 text-violet-600 dark:text-violet-400" />
+                                <Building2 className="size-3.5 text-violet-600 dark:text-violet-400 shrink-0" />
                                 Campus : <strong className="text-violet-700 dark:text-violet-300">{selectedEtablissement ? selectedEtablissement.nom : 'Établissement par défaut'}</strong>
                             </span>
                             <span className="text-[11px] text-muted-foreground">
@@ -2085,8 +2086,8 @@ export default function MatiereIndex({
                             </span>
                         </div>
 
-                        {/* Ligne 1 : Code Bloc & Ordre sur Relevé */}
-                        <div className="grid grid-cols-2 gap-3">
+                        {/* Ligne 1 : Code Bloc & Ordre sur Relevé (empilés sur mobile) */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
                                 <Label htmlFor="grp_code" className="text-xs font-semibold">
                                     Code Bloc <span className="text-rose-500">*</span>
@@ -2142,8 +2143,8 @@ export default function MatiereIndex({
                             )}
                         </div>
 
-                        {/* Ligne 3 : Couleur d'identification */}
-                        <div className="grid grid-cols-2 gap-3">
+                        {/* Ligne 3 : Couleur d'identification (pleine largeur sur mobile) */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
                                 <Label htmlFor="grp_color" className="text-xs font-semibold">Couleur d'Identification</Label>
                                 <Select
@@ -2334,7 +2335,7 @@ export default function MatiereIndex({
                             </div>
                         </div>
 
-                        <DialogFooter className="gap-2 sm:gap-0">
+                        <DialogFooter className="gap-2">
                             <Button
                                 type="button"
                                 variant="outline"

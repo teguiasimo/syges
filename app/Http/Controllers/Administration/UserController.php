@@ -61,7 +61,7 @@ class UserController extends Controller implements HasMiddleware
     /**
      * Affiche la liste des utilisateurs avec leurs rôles et campus dans le tableau TanStack.
      *
-     * @param Request $request La requête HTTP entrante.
+     * @param  Request  $request  La requête HTTP entrante.
      * @return Response Vue Inertia avec les utilisateurs, les rôles disponibles et les droits d'action.
      */
     public function index(Request $request): Response
@@ -80,6 +80,11 @@ class UserController extends Controller implements HasMiddleware
         $query = User::with(['roles', 'etablissement'])->orderBy('name');
 
         if (! $isSuperAdmin) {
+            // Un administrateur local ne voit jamais les comptes Super Administrateur
+            $query->whereDoesntHave('roles', fn ($q) => $q->where('name', 'super-admin'))
+                ->where('login', '!=', 'superadmin')
+                ->where('email', '!=', 'admin@gmail.com');
+
             if ($scopedEtablissementId) {
                 $query->where('etablissement_id', $scopedEtablissementId);
             }
@@ -99,9 +104,9 @@ class UserController extends Controller implements HasMiddleware
                 'etablissementCode' => $user->etablissement?->code,
                 'roles' => $user->roles->pluck('name')->toArray(),
                 'rolesDisplay' => $user->roles->map(fn (Role $r) => $this->roleLabels[$r->name] ?? $r->name)->toArray(),
-                'isSuperAdmin' => $user->hasRole('super-admin') || $user->email === 'admin@gmail.com',
+                'isSuperAdmin' => $user->isSuperAdmin(),
                 'isCurrentAuth' => $user->id === Auth::id(),
-                'createdAt' => $user->created_at?->format('d/m/Y'),
+                'createdAt' => $user->created_at?->format('d-m-Y'),
             ];
         });
 
@@ -134,7 +139,7 @@ class UserController extends Controller implements HasMiddleware
     /**
      * Enregistre un nouvel utilisateur avec son login, mot de passe, rôles et établissement.
      *
-     * @param Request $request Requête HTTP contenant les informations de l'utilisateur.
+     * @param  Request  $request  Requête HTTP contenant les informations de l'utilisateur.
      * @return RedirectResponse Redirection vers la liste des utilisateurs avec confirmation.
      */
     public function store(Request $request): RedirectResponse
@@ -176,8 +181,11 @@ class UserController extends Controller implements HasMiddleware
 
         // Détermination de l'établissement de rattachement :
         // Pour un administrateur local, le compte est obligatoirement lié à son propre campus.
-        // Pour un super-administrateur, il choisit le campus ou le laisse vide si super-admin.
-        $etablissementId = ! $isSuperAdmin ? $scopedEtablissementId : ($validated['etablissement_id'] ?? null);
+        // Pour un super-administrateur, il choisit le campus ou utilise celui actif en session.
+        // Règle d'étanchéité : Tout compte utilisateur non super-admin DOIT être rattaché à un établissement.
+        $etablissementId = ! $isSuperAdmin 
+            ? $scopedEtablissementId 
+            : ($validated['etablissement_id'] ?? $request->session()->get('current_etablissement_id') ?? Etablissement::first()?->id);
 
         // Création du compte utilisateur (toujours actif par défaut)
         $user = User::create([
@@ -203,8 +211,8 @@ class UserController extends Controller implements HasMiddleware
      * Met à jour les informations de profil, identifiants et rôles d'un utilisateur existant.
      * Le statut actif/bloqué est géré exclusivement via le blocage/déblocage (toggleStatus).
      *
-     * @param Request $request Requête HTTP de mise à jour.
-     * @param User $user L'utilisateur à modifier.
+     * @param  Request  $request  Requête HTTP de mise à jour.
+     * @param  User  $user  L'utilisateur à modifier.
      * @return RedirectResponse Redirection avec message de succès.
      */
     public function update(Request $request, User $user): RedirectResponse
@@ -212,13 +220,14 @@ class UserController extends Controller implements HasMiddleware
         // Contrôle d'habilitation : modification des utilisateurs
         abort_unless($request->user()->can('users.edit'), 403, 'Accès non autorisé : vous ne disposez pas de la permission requise pour modifier un compte utilisateur.');
 
-        // Isolation SaaS Multi-Tenant : un admin local ne peut modifier que les comptes de son établissement
+        // Isolation SaaS Multi-Tenant : un admin local ne peut modifier que les comptes de son établissement et jamais le Super Admin
         $context = $this->resolveEtablissementContext($request);
         if (! $context['isSuperAdmin']) {
-            abort_if($user->etablissement_id !== null && $user->etablissement_id !== $context['etablissementId'], 403, 'Accès non autorisé : cet utilisateur n\'appartient pas à votre établissement.');
+            abort_if($user->isSuperAdmin(), 403, 'Accès non autorisé : seul le Super Administrateur peut modifier ce compte.');
+            abort_if($user->etablissement_id !== $context['etablissementId'], 403, 'Accès non autorisé : cet utilisateur n\'appartient pas à votre établissement.');
         }
 
-        $isPrimarySuperAdmin = $user->email === 'admin@gmail.com';
+        $isPrimarySuperAdmin = $user->isSuperAdmin();
 
         $validated = $request->validate([
             'login' => [
@@ -264,7 +273,11 @@ class UserController extends Controller implements HasMiddleware
         $user->email = Str::lower($validated['email']);
 
         if ($context['isSuperAdmin'] && ! $isPrimarySuperAdmin) {
-            $user->etablissement_id = $validated['etablissement_id'] ?? null;
+            // Un utilisateur non super-admin doit conserver ou recevoir un campus valide
+            $user->etablissement_id = $validated['etablissement_id'] 
+                ?? $user->etablissement_id 
+                ?? $context['etablissementId'] 
+                ?? Etablissement::first()?->id;
         }
 
         // Mise à jour du mot de passe uniquement si un nouveau est fourni
@@ -286,8 +299,8 @@ class UserController extends Controller implements HasMiddleware
     /**
      * Bascule rapidement le statut d'un utilisateur entre Actif et Bloqué/Suspendu.
      *
-     * @param Request $request La requête HTTP entrante.
-     * @param User $user L'utilisateur ciblé.
+     * @param  Request  $request  La requête HTTP entrante.
+     * @param  User  $user  L'utilisateur ciblé.
      * @return RedirectResponse Redirection avec message d'information.
      */
     public function toggleStatus(Request $request, User $user): RedirectResponse
@@ -295,15 +308,15 @@ class UserController extends Controller implements HasMiddleware
         // Contrôle d'habilitation : permission de bloquer ou débloquer un compte utilisateur
         abort_unless($request->user()->can('users.block') || $request->user()->can('users.toggle_status'), 403, 'Accès non autorisé : vous ne disposez pas de la permission requise pour bloquer ou réactiver un utilisateur.');
 
+        // Garde-fous de sécurité prioritaires : protection absolue du compte Super Administrateur
+        if ($user->isSuperAdmin()) {
+            return back()->with('error', 'Le compte Super Administrateur principal ne peut pas être bloqué.');
+        }
+
         // Isolation SaaS Multi-Tenant : un admin local ne peut bloquer que les utilisateurs de son établissement
         $context = $this->resolveEtablissementContext($request);
         if (! $context['isSuperAdmin']) {
-            abort_if($user->etablissement_id !== null && $user->etablissement_id !== $context['etablissementId'], 403, 'Accès non autorisé : cet utilisateur n\'appartient pas à votre établissement.');
-        }
-
-        // Garde-fous de sécurité
-        if ($user->email === 'admin@gmail.com') {
-            return back()->with('error', 'Le compte Super Administrateur principal ne peut pas être bloqué.');
+            abort_if($user->etablissement_id !== $context['etablissementId'], 403, 'Accès non autorisé : cet utilisateur n\'appartient pas à votre établissement.');
         }
 
         if ($user->id === Auth::id()) {

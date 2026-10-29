@@ -1,6 +1,5 @@
 import { Form, Head, usePage } from '@inertiajs/react';
 import { Link } from '@inertiajs/react';
-import { toast } from 'sonner';
 import ProfileController from '@/actions/App/Http/Controllers/Settings/ProfileController';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
@@ -41,12 +40,6 @@ export default function Profile({
                     {...ProfileController.update.form()}
                     options={{
                         preserveScroll: true,
-                    }}
-                    onSuccess={() => {
-                        toast.success('Votre profil a été mis à jour avec succès.', {
-                            position: 'top-right',
-                            className: 'bg-emerald-600 text-white border-emerald-700',
-                        });
                     }}
                     className="space-y-6"
                 >

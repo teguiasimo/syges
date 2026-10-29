@@ -195,7 +195,10 @@ export function CreateEleveModal({
         router.post('/administration/eleves', payload, {
             onSuccess: () => {
                 setLoading(false);
-                toast.success('Élève enregistré et inscrit avec succès !');
+                toast.success('Élève enregistré et inscrit avec succès !', {
+                    position: 'top-right',
+                    className: 'bg-emerald-600 text-white border-none',
+                });
                 onOpenChange(false);
                 // Réinitialisation
                 setFormData({
@@ -231,73 +234,75 @@ export function CreateEleveModal({
             onError: (errs) => {
                 setLoading(false);
                 setErrors(errs);
-                toast.error('Veuillez vérifier les erreurs du formulaire.');
+                toast.error('Veuillez vérifier les erreurs du formulaire.', {
+                    position: 'top-right',
+                });
             },
         });
     };
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2 text-xl">
-                        <GraduationCap className="size-6 text-primary" />
-                        Nouvel Élève & Inscription Scolaire
+                    <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">
+                        <GraduationCap className="size-6 text-primary shrink-0" />
+                        <span>Nouvel Élève & Inscription Scolaire</span>
                     </DialogTitle>
-                    <DialogDescription>
+                    <DialogDescription className="text-xs sm:text-sm">
                         Renseignez l'identité civile de la Base Élève Globale et affectez l'élève à sa classe.
                     </DialogDescription>
                 </DialogHeader>
 
-                {/* Onglets de navigation dans le formulaire */}
-                <div className="flex border-b border-border mt-2 gap-1">
+                {/* Onglets de navigation dans le formulaire avec défilement horizontal fluide */}
+                <div className="flex border-b border-border mt-2 gap-1 overflow-x-auto pb-1 shrink-0">
                     <button
                         type="button"
                         onClick={() => setActiveTab('identite')}
-                        className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-t-lg transition-colors border-b-2 ${
+                        className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 text-xs font-semibold rounded-t-lg transition-colors border-b-2 whitespace-nowrap shrink-0 ${
                             activeTab === 'identite'
                                 ? 'border-primary text-primary bg-primary/5'
                                 : 'border-transparent text-muted-foreground hover:text-foreground'
                         }`}
                     >
-                        <User className="size-4" />
-                        1. État Civil & Identité
+                        <User className="size-4 shrink-0" />
+                        <span>1. État Civil & Identité</span>
                     </button>
                     <button
                         type="button"
                         onClick={() => setActiveTab('parents')}
-                        className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-t-lg transition-colors border-b-2 ${
+                        className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 text-xs font-semibold rounded-t-lg transition-colors border-b-2 whitespace-nowrap shrink-0 ${
                             activeTab === 'parents'
                                 ? 'border-primary text-primary bg-primary/5'
                                 : 'border-transparent text-muted-foreground hover:text-foreground'
                         }`}
                     >
-                        <Phone className="size-4" />
-                        2. Filiation & Contacts
+                        <Phone className="size-4 shrink-0" />
+                        <span>2. Filiation & Contacts</span>
                     </button>
                     <button
                         type="button"
                         onClick={() => setActiveTab('sante')}
-                        className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-t-lg transition-colors border-b-2 ${
+                        className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 text-xs font-semibold rounded-t-lg transition-colors border-b-2 whitespace-nowrap shrink-0 ${
                             activeTab === 'sante'
                                 ? 'border-primary text-primary bg-primary/5'
                                 : 'border-transparent text-muted-foreground hover:text-foreground'
                         }`}
                     >
-                        <HeartPulse className="size-4" />
-                        3. Santé & Urgence
+                        <HeartPulse className="size-4 shrink-0" />
+                        <span>3. Santé & Urgence</span>
                     </button>
                     <button
                         type="button"
                         onClick={() => setActiveTab('scolarite')}
-                        className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-t-lg transition-colors border-b-2 ${
+                        className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 text-xs font-semibold rounded-t-lg transition-colors border-b-2 whitespace-nowrap shrink-0 ${
                             activeTab === 'scolarite'
                                 ? 'border-primary text-primary bg-primary/5'
                                 : 'border-transparent text-muted-foreground hover:text-foreground'
                         }`}
                     >
-                        <GraduationCap className="size-4" />
-                        4. Affectation Scolaire
+                        <GraduationCap className="size-4 shrink-0" />
+                        <span>4. Affectation Scolaire</span>
                     </button>
                 </div>
 
@@ -732,8 +737,9 @@ export function CreateEleveModal({
                         </div>
                     )}
 
-                    <DialogFooter className="pt-4 border-t border-border flex items-center justify-between sm:justify-between">
-                        <div className="flex gap-2">
+                    {/* Pied de dialogue responsive : navigation d'onglets et actions de soumission */}
+                    <DialogFooter className="pt-4 border-t border-border flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-2">
+                        <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start">
                             {activeTab !== 'identite' && (
                                 <Button
                                     type="button"
@@ -762,11 +768,11 @@ export function CreateEleveModal({
                             )}
                         </div>
 
-                        <div className="flex gap-2">
-                            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+                        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} className="flex-1 sm:flex-none">
                                 Annuler
                             </Button>
-                            <Button type="submit" disabled={loading} className="gap-2">
+                            <Button type="submit" disabled={loading} className="gap-2 flex-1 sm:flex-none">
                                 {loading ? 'Enregistrement...' : 'Enregistrer & Inscrire'}
                             </Button>
                         </div>

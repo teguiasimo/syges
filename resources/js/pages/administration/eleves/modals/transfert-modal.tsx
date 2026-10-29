@@ -88,12 +88,12 @@ export function TransfertModal({
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!targetClasseId) {
-            toast.error('Veuillez sélectionner la classe de destination.');
+            toast.error('Veuillez sélectionner la classe de destination.', { position: 'top-right' });
             return;
         }
 
         if (inscriptions.length === 0) {
-            toast.error('Aucun élève sélectionné.');
+            toast.error('Aucun élève sélectionné.', { position: 'top-right' });
             return;
         }
 
@@ -106,27 +106,30 @@ export function TransfertModal({
         }, {
             onSuccess: () => {
                 setLoading(false);
-                toast.success('Transfert effectué avec succès !');
+                toast.success('Transfert effectué avec succès !', {
+                    position: 'top-right',
+                    className: 'bg-emerald-600 text-white border-emerald-700',
+                });
                 onOpenChange(false);
                 setTargetClasseId('');
                 setMotifTransfert('');
             },
             onError: () => {
                 setLoading(false);
-                toast.error('Erreur lors du transfert.');
+                toast.error('Erreur lors du transfert.', { position: 'top-right' });
             },
         });
     };
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-xl">
+            <DialogContent className="w-[95vw] sm:max-w-xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
                 <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2 text-xl">
-                        <ArrowRightLeft className="size-5 text-indigo-600" />
-                        Transférer {inscriptions.length} élève(s)
+                    <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">
+                        <ArrowRightLeft className="size-5 text-teal-600 shrink-0" />
+                        <span>Transférer {inscriptions.length} élève(s)</span>
                     </DialogTitle>
-                    <DialogDescription>
+                    <DialogDescription className="text-xs sm:text-sm">
                         Déplacez un ou plusieurs élèves vers une autre classe de l'établissement ou vers un autre campus du Groupe Scolaire (Cadrage Gesco V1.1).
                     </DialogDescription>
                 </DialogHeader>
@@ -195,11 +198,12 @@ export function TransfertModal({
                         />
                     </div>
 
-                    <DialogFooter className="pt-3 border-t border-border">
-                        <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+                    {/* Pied de modal responsive */}
+                    <DialogFooter className="pt-3 border-t border-border flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
+                        <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} className="w-full sm:w-auto">
                             Annuler
                         </Button>
-                        <Button type="submit" disabled={loading || !targetClasseId} className="gap-2">
+                        <Button type="submit" disabled={loading || !targetClasseId} className="gap-2 w-full sm:w-auto">
                             {loading ? 'Transfert en cours...' : 'Exécuter le Transfert'}
                         </Button>
                     </DialogFooter>

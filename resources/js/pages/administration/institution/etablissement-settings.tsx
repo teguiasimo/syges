@@ -232,23 +232,24 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
         <>
             <Head title={`Paramètres & Règles - ${etablissement.nom}`} />
 
-            <div className="flex h-full flex-1 flex-col gap-6 p-6 sm:p-8 max-w-6xl mx-auto w-full">
+            {/* Conteneur principal plein écran fluide et responsive sans contrainte artificielle de largeur */}
+            <div className="flex h-full flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8 w-full min-w-0">
                 {/* En-tête avec navigation de retour et boutons d'action */}
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-border/70 pb-5">
-                    <div className="space-y-1.5">
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between border-b border-border/70 pb-5 min-w-0">
+                    <div className="space-y-1.5 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                             <Link
                                 href="/administration/institution"
-                                className="inline-flex items-center gap-1 hover:text-foreground transition-colors font-medium cursor-pointer"
+                                className="inline-flex items-center gap-1 hover:text-foreground transition-colors font-medium cursor-pointer shrink-0"
                             >
-                                <ArrowLeft className="size-3.5" />
+                                <ArrowLeft className="size-3.5 shrink-0" />
                                 <span>Retour à l'arborescence</span>
                             </Link>
                             <span>/</span>
-                            <span className="font-semibold text-foreground">{etablissement.nom}</span>
+                            <span className="font-semibold text-foreground truncate max-w-full">{etablissement.nom}</span>
                         </div>
 
-                        <div className="flex items-center gap-3.5">
+                        <div className="flex items-start sm:items-center gap-3.5 min-w-0">
                             <div
                                 className="size-12 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 p-1 flex items-center justify-center shadow-xs shrink-0 overflow-hidden relative"
                                 title={logoPreview ? "Logo propre à cet établissement" : "Logo hérité de l'institution (repli automatique)"}
@@ -296,8 +297,8 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
                         </div>
                     </div>
 
-                    {/* Actions de sauvegarde */}
-                    <div className="flex items-center gap-2.5 shrink-0">
+                    {/* Actions de sauvegarde adaptées mobile */}
+                    <div className="flex flex-wrap items-center gap-2.5 shrink-0">
                         <Button
                             type="button"
                             variant="outline"
@@ -314,31 +315,31 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
                             disabled={processing || !isDirty}
                             className="gap-2 cursor-pointer text-xs h-9 bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
                         >
-                            <Save className="size-4" />
+                            <Save className="size-4 shrink-0" />
                             <span>{processing ? 'Enregistrement...' : 'Enregistrer les paramètres'}</span>
                         </Button>
                     </div>
                 </div>
 
-                {/* Formulaire complet articulé par onglets */}
-                <form onSubmit={handleSubmit} className="space-y-6">
-                    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                        <TabsList className="grid grid-cols-2 md:grid-cols-4 h-11 w-full bg-muted/60 p-1 rounded-xl">
-                            <TabsTrigger value="pedagogie" className="gap-2 text-xs font-semibold">
-                                <FileText className="size-4 text-emerald-600" />
-                                <span>Bulletins & Notes</span>
+                {/* Formulaire complet articulé par onglets responsive (1 col mobile, 2 cols sm/md, 4 cols xl) */}
+                <form onSubmit={handleSubmit} className="space-y-6 min-w-0">
+                    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full min-w-0">
+                        <TabsList className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 h-auto gap-1 w-full bg-muted/60 p-1 rounded-xl">
+                            <TabsTrigger value="pedagogie" className="gap-2 py-2 text-xs font-semibold min-w-0">
+                                <FileText className="size-4 text-emerald-600 shrink-0" />
+                                <span className="truncate">Bulletins & Notes</span>
                             </TabsTrigger>
-                            <TabsTrigger value="discipline" className="gap-2 text-xs font-semibold">
-                                <ShieldAlert className="size-4 text-amber-600" />
-                                <span>Discipline & Assiduité</span>
+                            <TabsTrigger value="discipline" className="gap-2 py-2 text-xs font-semibold min-w-0">
+                                <ShieldAlert className="size-4 text-amber-600 shrink-0" />
+                                <span className="truncate">Discipline & Assiduité</span>
                             </TabsTrigger>
-                            <TabsTrigger value="finances" className="gap-2 text-xs font-semibold">
-                                <DollarSign className="size-4 text-blue-600" />
-                                <span>Caisse & Solvabilité</span>
+                            <TabsTrigger value="finances" className="gap-2 py-2 text-xs font-semibold min-w-0">
+                                <DollarSign className="size-4 text-blue-600 shrink-0" />
+                                <span className="truncate">Caisse & Solvabilité</span>
                             </TabsTrigger>
-                            <TabsTrigger value="identite" className="gap-2 text-xs font-semibold">
-                                <Building2 className="size-4 text-indigo-600" />
-                                <span>Identité du Campus</span>
+                            <TabsTrigger value="identite" className="gap-2 py-2 text-xs font-semibold min-w-0">
+                                <Building2 className="size-4 text-teal-600 shrink-0" />
+                                <span className="truncate">Identité du Campus</span>
                             </TabsTrigger>
                         </TabsList>
 
@@ -1118,7 +1119,7 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
                                                 className="hidden"
                                             />
 
-                                            <div className="flex items-center gap-4 pt-1">
+                                            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 pt-1">
                                                 {logoPreview ? (
                                                     <div className="relative group size-16 shrink-0 rounded-2xl border border-border bg-white dark:bg-slate-900 p-1 flex items-center justify-center overflow-hidden shadow-xs">
                                                         <img
@@ -1161,7 +1162,7 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
                                                 )}
 
                                                 <div className="flex flex-col gap-1.5 min-w-0">
-                                                    <div className="flex items-center gap-2">
+                                                    <div className="flex flex-wrap items-center gap-2">
                                                         <Button
                                                             type="button"
                                                             variant="outline"
@@ -1169,7 +1170,7 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
                                                             onClick={() => fileInputRef.current?.click()}
                                                             className="cursor-pointer text-xs h-8 gap-1.5 justify-start w-fit"
                                                         >
-                                                            <UploadCloud className="size-3.5" />
+                                                            <UploadCloud className="size-3.5 shrink-0" />
                                                             <span>{logoPreview ? 'Changer le logo' : 'Téléverser un logo spécifique'}</span>
                                                         </Button>
                                                         {logoPreview && (
@@ -1180,7 +1181,7 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
                                                                 onClick={handleRemoveLogo}
                                                                 className="cursor-pointer text-xs h-8 gap-1 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40"
                                                             >
-                                                                <Trash2 className="size-3.5" />
+                                                                <Trash2 className="size-3.5 shrink-0" />
                                                                 <span>Supprimer</span>
                                                             </Button>
                                                         )}
@@ -1204,13 +1205,13 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
                         </TabsContent>
                     </Tabs>
 
-                    {/* Barre d'action inférieure de validation */}
-                    <div className="flex items-center justify-end gap-3 pt-4 border-t border-border/70">
+                    {/* Barre d'action inférieure de validation empilée sur mobile */}
+                    <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5 sm:gap-3 pt-4 border-t border-border/70">
                         <Button
                             type="button"
                             variant="outline"
                             asChild
-                            className="cursor-pointer text-xs"
+                            className="w-full sm:w-auto cursor-pointer text-xs"
                         >
                             <Link href="/administration/institution">
                                 Annuler
@@ -1219,9 +1220,9 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
                         <Button
                             type="submit"
                             disabled={processing || !isDirty}
-                            className="gap-2 cursor-pointer text-xs bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
+                            className="w-full sm:w-auto gap-2 cursor-pointer text-xs bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
                         >
-                            <Save className="size-4" />
+                            <Save className="size-4 shrink-0" />
                             <span>{processing ? 'Enregistrement en cours...' : 'Enregistrer les modifications'}</span>
                         </Button>
                     </div>

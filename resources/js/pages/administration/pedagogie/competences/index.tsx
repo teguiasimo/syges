@@ -47,6 +47,7 @@ import {
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
+import { SearchableSelect, type SearchableOption } from '@/components/ui/searchable-select';
 import { formatDate } from '@/lib/utils';
 import type { CompetencePeriodiqueItem, CoteConfigurationItem, MatiereRef, PeriodeRef } from '@/types/pedagogie';
 import type { EtablissementRef, AnneeScolaireRef } from '@/types/eleve';
@@ -59,6 +60,7 @@ interface CompetencesPageProps {
     cotes: CoteConfigurationItem[];
     matieres: MatiereRef[];
     periodes: PeriodeRef[];
+    classeMatieresMap?: Record<number, number[]>;
     etablissements: EtablissementRef[];
     selectedEtabId: number;
     selectedAnneeId: number;
@@ -86,6 +88,7 @@ export default function CompetencesIndex({
     cotes = [],
     matieres = [],
     periodes = [],
+    classeMatieresMap = {},
     etablissements = [],
     selectedEtabId,
     selectedAnneeId,
@@ -97,6 +100,7 @@ export default function CompetencesIndex({
     const [selectedClasse, setSelectedClasse] = useState<string>(filters.classe_id || '');
     const [selectedMatiere, setSelectedMatiere] = useState<string>(filters.matiere_id || '');
     const [selectedPeriode, setSelectedPeriode] = useState<string>(filters.periode_id || '');
+    const [selectedEvaluation, setSelectedEvaluation] = useState<string>(filters.evaluation_id || '');
     const [searchTerm, setSearchTerm] = useState<string>(filters.search || '');
 
     // États des dialogues
@@ -155,6 +159,49 @@ export default function CompetencesIndex({
         return list;
     }, [currentEtab]);
 
+    // Matières disponibles pour le filtre principal (restreintes à la classe si sélectionnée)
+    const availableMatieresForFilter = useMemo(() => {
+        if (!selectedClasse) return matieres;
+        const allowedIds = classeMatieresMap[Number(selectedClasse)];
+        if (!allowedIds || allowedIds.length === 0) return matieres;
+        return matieres.filter((m) => allowedIds.includes(m.id));
+    }, [matieres, selectedClasse, classeMatieresMap]);
+
+    // Options formatées pour SearchableSelect dans la barre de filtre
+    const matiereFilterOptions: SearchableOption[] = useMemo(() => {
+        return availableMatieresForFilter.map((m) => ({
+            value: String(m.id),
+            label: `${m.nom} (${m.code})`,
+            group: selectedClasse ? 'Disciplines enseignées dans cette classe' : 'Toutes les disciplines',
+        }));
+    }, [availableMatieresForFilter, selectedClasse]);
+
+    // Matières disponibles pour le formulaire d'ajout (strictement restreintes à la classe choisie)
+    const availableMatieresForCreate = useMemo(() => {
+        if (!formData.classe_id) return [];
+        const allowedIds = classeMatieresMap[Number(formData.classe_id)];
+        if (!allowedIds || allowedIds.length === 0) return matieres;
+        return matieres.filter((m) => allowedIds.includes(m.id));
+    }, [matieres, formData.classe_id, classeMatieresMap]);
+
+    // Options formatées pour SearchableSelect dans le modal de création
+    const createMatiereOptions: SearchableOption[] = useMemo(() => {
+        return availableMatieresForCreate.map((m) => ({
+            value: String(m.id),
+            label: `${m.nom} (${m.code})`,
+            group: 'Disciplines au programme de cette classe',
+        }));
+    }, [availableMatieresForCreate]);
+
+    // Évaluations disponibles pour le filtre principal (selon la période active)
+    const availableEvaluationsForFilter = useMemo(() => {
+        if (!selectedPeriode) {
+            return periodes.flatMap((p) => p.evaluations || []);
+        }
+        const found = periodes.find((p) => String(p.id) === selectedPeriode);
+        return found?.evaluations || [];
+    }, [periodes, selectedPeriode]);
+
     // Filtrage dynamique
     const handleFilterChange = (params: Record<string, string | number>) => {
         router.get(
@@ -164,6 +211,7 @@ export default function CompetencesIndex({
                 classe_id: selectedClasse,
                 matiere_id: selectedMatiere,
                 periode_id: selectedPeriode,
+                evaluation_id: selectedEvaluation,
                 search: searchTerm,
                 ...params,
             },
@@ -363,7 +411,7 @@ export default function CompetencesIndex({
                 accessorKey: 'classe.nom',
                 header: 'Classe',
                 cell: ({ row }) => (
-                    <Badge variant="outline" className="font-semibold text-xs border-indigo-200 bg-indigo-50/60 text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-300">
+                    <Badge variant="outline" className="font-semibold text-xs border-teal-200 bg-teal-50/60 text-teal-700 dark:border-teal-800 dark:bg-teal-950/40 dark:text-teal-300">
                         {row.original.classe?.nom || 'N/A'}
                     </Badge>
                 ),
@@ -398,7 +446,7 @@ export default function CompetencesIndex({
                 accessorKey: 'libelle_competence',
                 header: 'Énoncé de la Compétence (APC)',
                 cell: ({ row }) => (
-                    <div className="max-w-md">
+                    <div className="max-w-md whitespace-normal">
                         <p className="text-sm font-medium text-foreground leading-snug">
                             {row.original.libelle_competence}
                         </p>
@@ -485,28 +533,116 @@ export default function CompetencesIndex({
         },
     });
 
+    /**
+     * Colonnes TanStack Table pour la grille des cotes d'acquisition APC.
+     */
+    const cotesColumns: ColumnDef<CoteConfigurationItem>[] = useMemo(
+        () => [
+            {
+                accessorKey: 'code_cote',
+                header: 'Code',
+                cell: ({ row }) => (
+                    <Badge
+                        style={{ backgroundColor: row.original.couleur }}
+                        className="text-white font-bold text-xs"
+                    >
+                        {row.original.code_cote}
+                    </Badge>
+                ),
+            },
+            {
+                accessorKey: 'libelle',
+                header: 'Libellé Français',
+                cell: ({ row }) => (
+                    <span className="font-medium text-foreground">{row.original.libelle}</span>
+                ),
+            },
+            {
+                accessorKey: 'libelle_en',
+                header: 'Libellé Anglais',
+                cell: ({ row }) => (
+                    <span className="text-muted-foreground">{row.original.libelle_en || '-'}</span>
+                ),
+            },
+            {
+                id: 'intervalle',
+                header: 'Intervalle de Note',
+                cell: ({ row }) => (
+                    <span className="font-mono font-semibold whitespace-nowrap">
+                        [{row.original.borne_minimale} - {row.original.borne_maximale}] / 20
+                    </span>
+                ),
+            },
+            {
+                accessorKey: 'couleur',
+                header: 'Couleur',
+                cell: ({ row }) => (
+                    <div className="flex items-center gap-1.5">
+                        <span
+                            className="size-3.5 shrink-0 rounded-full border border-gray-300 shadow-sm"
+                            style={{ backgroundColor: row.original.couleur }}
+                        />
+                        <span className="font-mono text-[11px] text-muted-foreground">{row.original.couleur}</span>
+                    </div>
+                ),
+            },
+            {
+                accessorKey: 'ordre',
+                header: 'Ordre',
+                cell: ({ row }) => (
+                    <span className="text-muted-foreground tabular-nums">{row.original.ordre}</span>
+                ),
+            },
+            {
+                id: 'actions',
+                header: () => <span className="block text-right">Actions</span>,
+                cell: ({ row }) => (
+                    <div className="flex justify-end">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-7 text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+                            onClick={() => handleDeleteCote(row.original)}
+                            title="Supprimer la cote"
+                        >
+                            <Trash2 className="size-3.5" />
+                        </Button>
+                    </div>
+                ),
+            },
+        ],
+        []
+    );
+
+    const cotesTable = useReactTable({
+        data: cotes,
+        columns: cotesColumns,
+        getCoreRowModel: getCoreRowModel(),
+        getRowId: (row) => String(row.id),
+    });
+
     return (
         <>
             <Head title="Pédagogie APC - Compétences & Cotes" />
 
-            <div className="flex h-full flex-1 flex-col gap-6 p-6 sm:p-8">
+            <div className="flex h-full flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8 min-w-0 w-full">
                 {/* En-tête de page & navigation */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                    <div>
+                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                    <div className="min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                             <Button variant="ghost" size="sm" asChild className="h-8 px-2 gap-1.5 text-xs text-muted-foreground hover:text-foreground">
                                 <Link href="/administration/notes">
-                                    <ArrowLeft className="size-3.5" />
+                                    <ArrowLeft className="size-3.5 shrink-0" />
                                     Retour aux Évaluations & Notes
                                 </Link>
                             </Button>
                         </div>
-                        <div className="flex items-center gap-2.5">
-                            <div className="p-2.5 rounded-xl bg-linear-to-br from-indigo-600 to-violet-700 text-white shadow-md shadow-indigo-500/20">
+                        <div className="flex items-start sm:items-center gap-2.5">
+                            <div className="p-2.5 shrink-0 rounded-xl bg-linear-to-br from-teal-600 to-emerald-700 text-white shadow-md shadow-teal-500/20">
                                 <Award className="size-6" />
                             </div>
-                            <div>
-                                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
+                            <div className="min-w-0">
+                                <h1 className="text-xl sm:text-3xl font-bold tracking-tight text-foreground">
                                     Pédagogie APC & Cotes d'Acquisition
                                 </h1>
                                 <p className="text-xs sm:text-sm text-muted-foreground">
@@ -521,58 +657,72 @@ export default function CompetencesIndex({
                         <Button
                             variant="outline"
                             onClick={() => setIsTransferOpen(true)}
-                            className="gap-2 h-9 text-xs font-semibold border-indigo-300 text-indigo-700 hover:bg-indigo-50 dark:border-indigo-800 dark:text-indigo-300"
+                            className="gap-2 h-9 text-xs font-semibold border-teal-300 text-teal-700 hover:bg-teal-50 dark:border-teal-800 dark:text-teal-300"
                         >
-                            <Copy className="size-3.5" />
+                            <Copy className="size-3.5 shrink-0" />
                             Dupliquer / Transférer
                         </Button>
                         <Button
                             onClick={() => {
+                                const defaultClasse = selectedClasse || (allClasses[0]?.id ? String(allClasses[0].id) : '');
+                                const allowedIds = defaultClasse ? (classeMatieresMap[Number(defaultClasse)] || []) : [];
+                                const defaultMatiere = (selectedMatiere && allowedIds.includes(Number(selectedMatiere)))
+                                    ? selectedMatiere
+                                    : (allowedIds[0] ? String(allowedIds[0]) : '');
                                 setFormData({
-                                    classe_id: selectedClasse || (allClasses[0]?.id ? String(allClasses[0].id) : ''),
-                                    matiere_id: selectedMatiere || (matieres[0]?.id ? String(matieres[0].id) : ''),
+                                    classe_id: defaultClasse,
+                                    matiere_id: defaultMatiere,
                                     periode_id: selectedPeriode || '',
-                                    evaluation_id: '',
+                                    evaluation_id: selectedEvaluation || '',
                                     libelle_competence: '',
                                     description: '',
                                 });
                                 setIsCreateOpen(true);
                             }}
-                            className="gap-2 h-9 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
+                            className="gap-2 h-9 text-xs font-semibold bg-teal-600 hover:bg-teal-700 text-white shadow-sm"
                         >
-                            <Plus className="size-4" />
+                            <Plus className="size-4 shrink-0" />
                             Nouvelle Compétence
                         </Button>
                     </div>
                 </div>
 
                 {/* Onglets : Compétences APC vs Cotes d'acquisition */}
-                <Tabs defaultValue="competences" className="w-full">
-                    <TabsList className="grid w-full sm:w-80 grid-cols-2">
-                        <TabsTrigger value="competences" className="text-xs font-medium">
-                            <BookOpen className="size-3.5 mr-1.5" />
+                <Tabs defaultValue="competences" className="w-full min-w-0">
+                    <TabsList className="grid w-full sm:w-auto sm:inline-grid grid-cols-1 min-[420px]:grid-cols-2 h-auto gap-1 p-1">
+                        <TabsTrigger value="competences" className="text-xs font-medium py-1.5 px-3">
+                            <BookOpen className="size-3.5 mr-1.5 shrink-0" />
                             Compétences ({competences.length})
                         </TabsTrigger>
-                        <TabsTrigger value="cotes" className="text-xs font-medium">
-                            <SlidersHorizontal className="size-3.5 mr-1.5" />
+                        <TabsTrigger value="cotes" className="text-xs font-medium py-1.5 px-3">
+                            <SlidersHorizontal className="size-3.5 mr-1.5 shrink-0" />
                             Barème des Cotes ({cotes.length})
                         </TabsTrigger>
                     </TabsList>
 
                     {/* ONGLET 1 : COMPÉTENCES */}
-                    <TabsContent value="competences" className="mt-4 space-y-4">
+                    <TabsContent value="competences" className="mt-4 space-y-4 min-w-0">
                         {/* Barre de filtres */}
                         <Card className="border-border/60 shadow-sm">
                             <CardContent className="p-4 sm:p-5">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-                                    {/* Classe */}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+                                    {/* Sélecteur de Classe avec réinitialisation intelligente de la matière si non enseignée */}
                                     <div>
                                         <label className="text-xs font-medium text-muted-foreground mb-1 block">Classe</label>
                                         <select
                                             value={selectedClasse}
                                             onChange={(e) => {
-                                                setSelectedClasse(e.target.value);
-                                                handleFilterChange({ classe_id: e.target.value });
+                                                const newClasse = e.target.value;
+                                                setSelectedClasse(newClasse);
+                                                let nextMatiere = selectedMatiere;
+                                                if (newClasse && selectedMatiere && classeMatieresMap) {
+                                                    const allowed = classeMatieresMap[Number(newClasse)];
+                                                    if (allowed && !allowed.includes(Number(selectedMatiere))) {
+                                                        nextMatiere = '';
+                                                        setSelectedMatiere('');
+                                                    }
+                                                }
+                                                handleFilterChange({ classe_id: newClasse, matiere_id: nextMatiere });
                                             }}
                                             className="w-full h-9 px-3 rounded-md border border-input bg-background text-xs focus:ring-1 focus:ring-ring"
                                         >
@@ -585,34 +735,41 @@ export default function CompetencesIndex({
                                         </select>
                                     </div>
 
-                                    {/* Matière */}
-                                    <div>
+                                    {/* Sélecteur de Matière avec champ de recherche intégré SearchableSelect */}
+                                    <div className="min-w-0">
                                         <label className="text-xs font-medium text-muted-foreground mb-1 block">Matière</label>
-                                        <select
+                                        <SearchableSelect
                                             value={selectedMatiere}
-                                            onChange={(e) => {
-                                                setSelectedMatiere(e.target.value);
-                                                handleFilterChange({ matiere_id: e.target.value });
+                                            onValueChange={(val) => {
+                                                setSelectedMatiere(val);
+                                                handleFilterChange({ matiere_id: val });
                                             }}
-                                            className="w-full h-9 px-3 rounded-md border border-input bg-background text-xs focus:ring-1 focus:ring-ring"
-                                        >
-                                            <option value="">Toutes les matières</option>
-                                            {matieres.map((m) => (
-                                                <option key={m.id} value={m.id}>
-                                                    {m.nom} ({m.code})
-                                                </option>
-                                            ))}
-                                        </select>
+                                            options={matiereFilterOptions}
+                                            placeholder={selectedClasse ? 'Disciplines de la classe' : 'Toutes les matières'}
+                                            searchPlaceholder="Rechercher une matière..."
+                                            emptyMessage="Aucune matière correspondante"
+                                            className="h-9 w-full min-w-0 text-xs font-normal"
+                                        />
                                     </div>
 
-                                    {/* Période */}
+                                    {/* Période (Trimestre) */}
                                     <div>
                                         <label className="text-xs font-medium text-muted-foreground mb-1 block">Période</label>
                                         <select
                                             value={selectedPeriode}
                                             onChange={(e) => {
-                                                setSelectedPeriode(e.target.value);
-                                                handleFilterChange({ periode_id: e.target.value });
+                                                const newPeriode = e.target.value;
+                                                setSelectedPeriode(newPeriode);
+                                                let nextEval = selectedEvaluation;
+                                                if (newPeriode && selectedEvaluation) {
+                                                    const pObj = periodes.find((p) => String(p.id) === newPeriode);
+                                                    const evIds = pObj?.evaluations?.map((ev) => String(ev.id)) || [];
+                                                    if (!evIds.includes(selectedEvaluation)) {
+                                                        nextEval = '';
+                                                        setSelectedEvaluation('');
+                                                    }
+                                                }
+                                                handleFilterChange({ periode_id: newPeriode, evaluation_id: nextEval });
                                             }}
                                             className="w-full h-9 px-3 rounded-md border border-input bg-background text-xs focus:ring-1 focus:ring-ring"
                                         >
@@ -625,13 +782,34 @@ export default function CompetencesIndex({
                                         </select>
                                     </div>
 
-                                    {/* Recherche par mot clé */}
-                                    <div className="lg:col-span-2">
+                                    {/* Évaluation / Séquence liée à la période */}
+                                    <div>
+                                        <label className="text-xs font-medium text-muted-foreground mb-1 block">Évaluation</label>
+                                        <select
+                                            value={selectedEvaluation}
+                                            onChange={(e) => {
+                                                const newEval = e.target.value;
+                                                setSelectedEvaluation(newEval);
+                                                handleFilterChange({ evaluation_id: newEval });
+                                            }}
+                                            className="w-full h-9 px-3 rounded-md border border-input bg-background text-xs focus:ring-1 focus:ring-ring"
+                                        >
+                                            <option value="">Toutes les évaluations</option>
+                                            {availableEvaluationsForFilter.map((ev) => (
+                                                <option key={ev.id} value={ev.id}>
+                                                    {ev.nom} ({ev.code})
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    {/* Recherche par mot clé dans les compétences */}
+                                    <div className="sm:col-span-2 lg:col-span-2 xl:col-span-2">
                                         <label className="text-xs font-medium text-muted-foreground mb-1 block">Recherche</label>
                                         <div className="relative">
                                             <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
                                             <Input
-                                                placeholder="Rechercher un intitulé de compétence..."
+                                                placeholder="Rechercher un intitulé..."
                                                 value={searchTerm}
                                                 onChange={(e) => setSearchTerm(e.target.value)}
                                                 onKeyDown={(e) => {
@@ -648,9 +826,9 @@ export default function CompetencesIndex({
                         </Card>
 
                         {/* Tableau TanStack Table */}
-                        <Card className="border-border/60 shadow-sm overflow-hidden">
+                        <Card className="border-border/60 shadow-sm overflow-hidden min-w-0">
                             <div className="overflow-x-auto">
-                                <table className="w-full text-left border-collapse text-sm">
+                                <table className="w-full min-w-[680px] text-left border-collapse text-sm">
                                     <thead>
                                         {table.getHeaderGroups().map((headerGroup) => (
                                             <tr key={headerGroup.id} className="border-b bg-muted/40 text-muted-foreground text-xs font-semibold">
@@ -692,7 +870,7 @@ export default function CompetencesIndex({
 
                             {/* Pagination TanStack Table */}
                             {table.getPageCount() > 1 && (
-                                <div className="flex items-center justify-between p-4 border-t text-xs text-muted-foreground">
+                                <div className="flex flex-col sm:flex-row items-center justify-between gap-2 p-4 border-t text-xs text-muted-foreground">
                                     <span>
                                         Page {table.getState().pagination.pageIndex + 1} sur {table.getPageCount()} ({competences.length} au total)
                                     </span>
@@ -740,10 +918,10 @@ export default function CompetencesIndex({
                     </TabsContent>
 
                     {/* ONGLET 2 : COTES D'ACQUISITION */}
-                    <TabsContent value="cotes" className="mt-4 space-y-4">
-                        <Card className="border-border/60 shadow-sm">
-                            <CardHeader className="flex flex-row items-center justify-between pb-3">
-                                <div>
+                    <TabsContent value="cotes" className="mt-4 space-y-4 min-w-0">
+                        <Card className="border-border/60 shadow-sm overflow-hidden min-w-0">
+                            <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3">
+                                <div className="min-w-0">
                                     <CardTitle className="text-base font-semibold">Grille des Cotes d'Acquisition APC</CardTitle>
                                     <CardDescription className="text-xs">
                                         Barème appliqué sur les bulletins officiels pour traduire les notes chiffrées en cotes qualitatives.
@@ -763,9 +941,9 @@ export default function CompetencesIndex({
                                         });
                                         setIsCoteModalOpen(true);
                                     }}
-                                    className="gap-1.5 h-8 text-xs bg-indigo-600 hover:bg-indigo-700 text-white"
+                                    className="gap-1.5 h-8 w-full sm:w-auto text-xs bg-teal-600 hover:bg-teal-700 text-white shrink-0"
                                 >
-                                    <Plus className="size-3.5" />
+                                    <Plus className="size-3.5 shrink-0" />
                                     Ajouter une Cote
                                 </Button>
                             </CardHeader>
@@ -790,54 +968,28 @@ export default function CompetencesIndex({
                                     </div>
                                 ) : (
                                     <div className="overflow-x-auto">
-                                        <table className="w-full text-left border-collapse text-xs">
+                                        <table className="w-full min-w-[640px] text-left border-collapse text-xs">
                                             <thead>
-                                                <tr className="border-b bg-muted/40 text-muted-foreground font-semibold">
-                                                    <th className="p-3">Code</th>
-                                                    <th className="p-3">Libellé Français</th>
-                                                    <th className="p-3">Libellé Anglais</th>
-                                                    <th className="p-3">Intervalle de Note</th>
-                                                    <th className="p-3">Couleur</th>
-                                                    <th className="p-3">Ordre</th>
-                                                    <th className="p-3 text-right">Actions</th>
-                                                </tr>
+                                                {cotesTable.getHeaderGroups().map((headerGroup) => (
+                                                    <tr key={headerGroup.id} className="border-b bg-muted/40 text-muted-foreground font-semibold">
+                                                        {headerGroup.headers.map((header) => (
+                                                            <th key={header.id} className="p-3">
+                                                                {header.isPlaceholder
+                                                                    ? null
+                                                                    : flexRender(header.column.columnDef.header, header.getContext())}
+                                                            </th>
+                                                        ))}
+                                                    </tr>
+                                                ))}
                                             </thead>
                                             <tbody className="divide-y divide-border/50">
-                                                {cotes.map((cote) => (
-                                                    <tr key={cote.id} className="hover:bg-muted/30">
-                                                        <td className="p-3">
-                                                            <Badge
-                                                                style={{ backgroundColor: cote.couleur }}
-                                                                className="text-white font-bold text-xs"
-                                                            >
-                                                                {cote.code_cote}
-                                                            </Badge>
-                                                        </td>
-                                                        <td className="p-3 font-medium text-foreground">{cote.libelle}</td>
-                                                        <td className="p-3 text-muted-foreground">{cote.libelle_en || '-'}</td>
-                                                        <td className="p-3 font-mono font-semibold">
-                                                            [{cote.borne_minimale} - {cote.borne_maximale}] / 20
-                                                        </td>
-                                                        <td className="p-3">
-                                                            <div className="flex items-center gap-1.5">
-                                                                <span
-                                                                    className="size-3.5 rounded-full border border-gray-300 shadow-sm"
-                                                                    style={{ backgroundColor: cote.couleur }}
-                                                                />
-                                                                <span className="font-mono text-[11px] text-muted-foreground">{cote.couleur}</span>
-                                                            </div>
-                                                        </td>
-                                                        <td className="p-3 text-muted-foreground">{cote.ordre}</td>
-                                                        <td className="p-3 text-right">
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="size-7 text-rose-600 hover:text-rose-700 hover:bg-rose-50"
-                                                                onClick={() => handleDeleteCote(cote)}
-                                                            >
-                                                                <Trash2 className="size-3.5" />
-                                                            </Button>
-                                                        </td>
+                                                {cotesTable.getRowModel().rows.map((row) => (
+                                                    <tr key={row.id} className="hover:bg-muted/30">
+                                                        {row.getVisibleCells().map((cell) => (
+                                                            <td key={cell.id} className="p-3">
+                                                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                                            </td>
+                                                        ))}
                                                     </tr>
                                                 ))}
                                             </tbody>
@@ -855,7 +1007,7 @@ export default function CompetencesIndex({
                 <DialogContent className="sm:max-w-lg">
                     <DialogHeader>
                         <DialogTitle className="text-base font-bold flex items-center gap-2">
-                            <Plus className="size-4 text-indigo-600" />
+                            <Plus className="size-4 text-teal-600" />
                             Ajouter une Compétence Périodique (APC)
                         </DialogTitle>
                         <DialogDescription className="text-xs">
@@ -864,16 +1016,29 @@ export default function CompetencesIndex({
                     </DialogHeader>
 
                     <form onSubmit={handleCreateCompetence} className="space-y-3.5 py-2">
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {/* Choix de la Classe cible avec filtrage dynamique immédiat des disciplines */}
                             <div>
                                 <label className="text-xs font-semibold text-foreground mb-1 block">Classe *</label>
                                 <select
                                     required
                                     value={formData.classe_id}
-                                    onChange={(e) => setFormData({ ...formData, classe_id: e.target.value })}
+                                    onChange={(e) => {
+                                        const newClasseId = e.target.value;
+                                        let nextMatiereId = formData.matiere_id;
+                                        if (newClasseId && nextMatiereId && classeMatieresMap) {
+                                            const allowed = classeMatieresMap[Number(newClasseId)];
+                                            if (allowed && !allowed.includes(Number(nextMatiereId))) {
+                                                nextMatiereId = '';
+                                            }
+                                        } else if (!newClasseId) {
+                                            nextMatiereId = '';
+                                        }
+                                        setFormData({ ...formData, classe_id: newClasseId, matiere_id: nextMatiereId });
+                                    }}
                                     className="w-full h-9 px-3 rounded-md border border-input bg-background text-xs"
                                 >
-                                    <option value="">Sélectionner...</option>
+                                    <option value="">Sélectionner une classe...</option>
                                     {allClasses.map((c) => (
                                         <option key={c.id} value={c.id}>
                                             {c.nom}
@@ -882,25 +1047,23 @@ export default function CompetencesIndex({
                                 </select>
                             </div>
 
-                            <div>
+                            {/* Choix de la Matière via SearchableSelect restreint exclusivement aux matières de la classe */}
+                            <div className="min-w-0">
                                 <label className="text-xs font-semibold text-foreground mb-1 block">Matière *</label>
-                                <select
-                                    required
+                                <SearchableSelect
+                                    disabled={!formData.classe_id}
                                     value={formData.matiere_id}
-                                    onChange={(e) => setFormData({ ...formData, matiere_id: e.target.value })}
-                                    className="w-full h-9 px-3 rounded-md border border-input bg-background text-xs"
-                                >
-                                    <option value="">Sélectionner...</option>
-                                    {matieres.map((m) => (
-                                        <option key={m.id} value={m.id}>
-                                            {m.nom} ({m.code})
-                                        </option>
-                                    ))}
-                                </select>
+                                    onValueChange={(val) => setFormData({ ...formData, matiere_id: val })}
+                                    options={createMatiereOptions}
+                                    placeholder={!formData.classe_id ? "Choisir d'abord une classe" : "Sélectionner la discipline..."}
+                                    searchPlaceholder="Rechercher une matière au programme..."
+                                    emptyMessage={!formData.classe_id ? "Veuillez d'abord choisir une classe" : "Aucune matière pour cette classe"}
+                                    className="h-9 w-full min-w-0 text-xs font-normal"
+                                />
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
                                 <label className="text-xs font-medium text-muted-foreground mb-1 block">Période (Trimestre)</label>
                                 <select
@@ -966,7 +1129,7 @@ export default function CompetencesIndex({
                             <Button type="button" variant="outline" size="sm" onClick={() => setIsCreateOpen(false)}>
                                 Annuler
                             </Button>
-                            <Button type="submit" size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white">
+                            <Button type="submit" size="sm" className="bg-teal-600 hover:bg-teal-700 text-white">
                                 Enregistrer
                             </Button>
                         </DialogFooter>
@@ -1022,7 +1185,7 @@ export default function CompetencesIndex({
                 <DialogContent className="sm:max-w-lg">
                     <DialogHeader>
                         <DialogTitle className="text-base font-bold flex items-center gap-2">
-                            <Copy className="size-4 text-indigo-600" />
+                            <Copy className="size-4 text-teal-600" />
                             Duplication Inter-Classes des Compétences APC
                         </DialogTitle>
                         <DialogDescription className="text-xs">
@@ -1076,7 +1239,7 @@ export default function CompetencesIndex({
                                         return (
                                             <label
                                                 key={c.id}
-                                                className="flex items-center gap-2 pt-1.5 cursor-pointer text-xs font-medium text-foreground hover:text-indigo-600"
+                                                className="flex items-center gap-2 pt-1.5 cursor-pointer text-xs font-medium text-foreground hover:text-teal-600"
                                             >
                                                 <Checkbox
                                                     checked={isChecked}
@@ -1116,7 +1279,7 @@ export default function CompetencesIndex({
                             <Button type="button" variant="outline" size="sm" onClick={() => setIsTransferOpen(false)}>
                                 Annuler
                             </Button>
-                            <Button type="submit" size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white">
+                            <Button type="submit" size="sm" className="bg-teal-600 hover:bg-teal-700 text-white">
                                 Lancer la Duplication
                             </Button>
                         </DialogFooter>
@@ -1129,7 +1292,7 @@ export default function CompetencesIndex({
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
                         <DialogTitle className="text-base font-bold flex items-center gap-2">
-                            <SlidersHorizontal className="size-4 text-indigo-600" />
+                            <SlidersHorizontal className="size-4 text-teal-600" />
                             Configurer une Cote d'Acquisition
                         </DialogTitle>
                         <DialogDescription className="text-xs">
@@ -1138,7 +1301,7 @@ export default function CompetencesIndex({
                     </DialogHeader>
 
                     <form onSubmit={handleSaveCote} className="space-y-3.5 py-2">
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
                                 <label className="text-xs font-semibold text-foreground mb-1 block">Code Cote *</label>
                                 <Input
@@ -1189,7 +1352,7 @@ export default function CompetencesIndex({
                             />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
                                 <label className="text-xs font-semibold text-foreground mb-1 block">Borne Min (Note /20) *</label>
                                 <Input
@@ -1223,7 +1386,7 @@ export default function CompetencesIndex({
                             <Button type="button" variant="outline" size="sm" onClick={() => setIsCoteModalOpen(false)}>
                                 Annuler
                             </Button>
-                            <Button type="submit" size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white">
+                            <Button type="submit" size="sm" className="bg-teal-600 hover:bg-teal-700 text-white">
                                 Sauvegarder la Cote
                             </Button>
                         </DialogFooter>

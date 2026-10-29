@@ -54,6 +54,10 @@ class EtablissementScope implements Scope
         if ($etablissementId !== null) {
             // Utilise qualifyColumn pour éviter toute ambiguïté SQL lors des jointures ('classes.etablissement_id')
             $builder->where($model->qualifyColumn('etablissement_id'), $etablissementId);
+        } else {
+            // Isolation hermétique : un utilisateur local sans affectation campus valide
+            // ne doit sous aucun prétexte accéder aux données globales. On neutralise la requête.
+            $builder->whereRaw('1 = 0');
         }
     }
 }

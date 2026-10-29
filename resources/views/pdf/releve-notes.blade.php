@@ -128,14 +128,21 @@
             <td style="width: 30%; vertical-align: middle;" class="text-center">
                 @php
                     // Résolution robuste du logo de l'établissement avec fallback sur l'institution et encodage base64 pour DomPDF
-                    $logoPath = !empty($etablissement->logo_url) ? public_path(ltrim($etablissement->logo_url, '/\\')) : null;
-                    if (!$logoPath || !file_exists($logoPath)) {
-                        $logoPath = !empty($etablissement->logo) ? public_path(ltrim($etablissement->logo, '/\\')) : null;
-                    }
-                    $logoSrc = null;
-                    if ($logoPath && file_exists($logoPath)) {
-                        $logoExt = pathinfo($logoPath, PATHINFO_EXTENSION) ?: 'png';
-                        $logoSrc = 'data:image/' . $logoExt . ';base64,' . base64_encode(file_get_contents($logoPath));
+                    $logoSrc = ($etablissement && method_exists($etablissement, 'getEffectiveLogoBase64'))
+                        ? $etablissement->getEffectiveLogoBase64()
+                        : null;
+                    if (!$logoSrc) {
+                        $logoPath = !empty($etablissement->logo_url) ? public_path(ltrim($etablissement->logo_url, '/\\')) : null;
+                        if (!$logoPath || !file_exists($logoPath)) {
+                            $logoPath = !empty($etablissement->logo) ? public_path(ltrim($etablissement->logo, '/\\')) : null;
+                        }
+                        if (!$logoPath || !file_exists($logoPath)) {
+                            $logoPath = file_exists(public_path('logo.png')) ? public_path('logo.png') : (file_exists(public_path('logo.jpg')) ? public_path('logo.jpg') : null);
+                        }
+                        if ($logoPath && file_exists($logoPath)) {
+                            $logoExt = strtolower(pathinfo($logoPath, PATHINFO_EXTENSION)) ?: 'png';
+                            $logoSrc = 'data:image/' . ($logoExt === 'jpg' ? 'jpeg' : $logoExt) . ';base64,' . base64_encode(file_get_contents($logoPath));
+                        }
                     }
                     // Nettoyage de l'année scolaire pour éviter la répétition "Année Scolaire Année Scolaire 2026-2027"
                     $sessionAnnee = $anneeScolaire->session ?? $anneeScolaire->code ?? trim(preg_replace('/^année\s*scolaire\s*/ui', '', $anneeScolaire->nom ?? ''));

@@ -132,10 +132,10 @@ export function NouvelleSeanceModal({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="sm:max-w-2xl">
                 <DialogHeader>
-                    <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
-                        <BookOpen className="w-5 h-5" />
+                    <div className="flex items-center gap-2 text-teal-600 dark:text-teal-400">
+                        <BookOpen className="w-5 h-5 shrink-0" />
                         <DialogTitle>
                             {isEdit ? 'Modifier la séance du cours' : 'Consigner une séance dans le cahier de texte'}
                         </DialogTitle>
@@ -147,8 +147,8 @@ export function NouvelleSeanceModal({
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     {/* Attribution & Période */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-1.5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-1.5 min-w-0">
                             <Label htmlFor="attribution_id" className="text-xs font-semibold">
                                 Cours & Classe <span className="text-rose-500">*</span>
                             </Label>
@@ -157,7 +157,7 @@ export function NouvelleSeanceModal({
                                 onValueChange={(val) => setData('attribution_id', val)}
                                 disabled={isEdit}
                             >
-                                <SelectTrigger id="attribution_id">
+                                <SelectTrigger id="attribution_id" className="w-full min-w-0">
                                     <SelectValue placeholder="Sélectionner un cours..." />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -173,7 +173,7 @@ export function NouvelleSeanceModal({
                             )}
                         </div>
 
-                        <div className="space-y-1.5">
+                        <div className="space-y-1.5 min-w-0">
                             <Label htmlFor="periode_id" className="text-xs font-semibold">
                                 Trimestre / Période
                             </Label>
@@ -181,7 +181,7 @@ export function NouvelleSeanceModal({
                                 value={data.periode_id}
                                 onValueChange={(val) => setData('periode_id', val)}
                             >
-                                <SelectTrigger id="periode_id">
+                                <SelectTrigger id="periode_id" className="w-full min-w-0">
                                     <SelectValue placeholder="Toutes périodes ou choisir..." />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -199,7 +199,7 @@ export function NouvelleSeanceModal({
                     </div>
 
                     {/* Date de séance & Numéro de semaine */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-1.5">
                             <Label htmlFor="date_seance" className="text-xs font-semibold">
                                 Date de la séance <span className="text-rose-500">*</span>
@@ -271,7 +271,7 @@ export function NouvelleSeanceModal({
                     </div>
 
                     {/* Volume horaire prévu & effectué & Statut */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <div className="space-y-1.5">
                             <Label htmlFor="heures_prevues" className="text-xs font-semibold">
                                 Heures prévues (h) <span className="text-rose-500">*</span>
@@ -385,7 +385,7 @@ export function NouvelleSeanceModal({
                         </Button>
                         <Button
                             type="submit"
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5"
+                            className="bg-teal-600 hover:bg-teal-700 text-white gap-1.5"
                             disabled={processing}
                         >
                             {processing ? (

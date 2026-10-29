@@ -59,17 +59,17 @@ export default function AnnulerVersementModal({ open, onOpenChange, versement }:
             <DialogContent className="max-w-md">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2 text-lg font-bold text-red-600">
-                        <AlertTriangle className="w-5 h-5" />
+                        <AlertTriangle className="w-5 h-5 shrink-0" />
                         Annuler un Versement de Caisse
                     </DialogTitle>
-                    <DialogDescription>
+                    <DialogDescription className="wrap-break-word">
                         Reçu N° <strong>{versement?.reference_recu}</strong> pour un montant de{' '}
-                        <strong>{Number(versement?.montant_total || 0).toLocaleString('fr-FR')} FCFA</strong>.
+                        <strong className="tabular-nums">{Number(versement?.montant_total || 0).toLocaleString('fr-FR')} FCFA</strong>.
                     </DialogDescription>
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="p-3 bg-red-50 dark:bg-red-950/40 rounded border border-red-200 text-xs text-red-700 dark:text-red-300">
+                    <div className="p-3 bg-red-50 dark:bg-red-950/40 rounded border border-red-200 dark:border-red-900 text-xs text-red-700 dark:text-red-300">
                         Attention : cette opération déduira le montant versé de l'ardoise de l'élève et émettra une écriture d'annulation irréversible dans le journal comptable.
                     </div>
 
@@ -86,14 +86,16 @@ export default function AnnulerVersementModal({ open, onOpenChange, versement }:
                         {errors.motif_annulation && <p className="text-xs text-red-500">{errors.motif_annulation}</p>}
                     </div>
 
+                    {/* Pied de modale empilé sur mobile, aligné à droite sur desktop */}
                     <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                        <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => onOpenChange(false)}>
                             Conserver le versement
                         </Button>
                         <Button
                             type="submit"
                             disabled={processing || data.motif_annulation.trim().length < 5}
                             variant="destructive"
+                            className="w-full sm:w-auto"
                         >
                             {processing ? 'Annulation...' : 'Confirmer l’Annulation'}
                         </Button>

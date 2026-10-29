@@ -143,22 +143,34 @@ export default function ModeleEcheanceModal({
                         />
                     </div>
 
-                    <div className="border rounded-lg p-3 bg-slate-50 space-y-3">
-                        <div className="flex items-center justify-between">
-                            <span className="text-sm font-semibold text-slate-800">Tranches d'échéances et dates butoirs</span>
-                            <Button type="button" size="sm" variant="outline" onClick={handleAddTranche} className="h-8 gap-1">
-                                <Plus className="w-3.5 h-3.5" />
+                    {/* Bloc des tranches d'échéances adapté mobile (empilé) et desktop (12 colonnes) */}
+                    <div className="border dark:border-slate-800 rounded-lg p-3 bg-slate-50 dark:bg-slate-900/60 space-y-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                            <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">Tranches d'échéances et dates butoirs</span>
+                            <Button type="button" size="sm" variant="outline" onClick={handleAddTranche} className="w-full sm:w-auto h-8 gap-1">
+                                <Plus className="w-3.5 h-3.5 shrink-0" />
                                 Ajouter une tranche
                             </Button>
                         </div>
 
                         <div className="space-y-2">
                             {tranches.map((t, idx) => (
-                                <div key={idx} className="grid grid-cols-12 gap-2 items-center bg-white p-2 rounded border border-slate-200">
-                                    <div className="col-span-1 text-xs font-bold text-center text-slate-600">
+                                <div key={idx} className="grid grid-cols-2 sm:grid-cols-12 gap-2 items-center bg-white dark:bg-slate-950 p-2.5 sm:p-2 rounded border border-slate-200 dark:border-slate-800">
+                                    <div className="col-span-1 sm:col-span-1 text-xs font-bold sm:text-center text-slate-600 dark:text-slate-300">
                                         T{t.tranche_numero}
                                     </div>
-                                    <div className="col-span-4">
+                                    <div className="col-span-1 sm:col-span-1 sm:order-last text-right">
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => handleRemoveTranche(idx)}
+                                            className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/50"
+                                        >
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                        </Button>
+                                    </div>
+                                    <div className="col-span-2 sm:col-span-4">
                                         <Input
                                             value={t.libelle}
                                             onChange={e => handleTrancheChange(idx, 'libelle', e.target.value)}
@@ -167,7 +179,7 @@ export default function ModeleEcheanceModal({
                                             required
                                         />
                                     </div>
-                                    <div className="col-span-4">
+                                    <div className="col-span-1 sm:col-span-4">
                                         <Input
                                             type="date"
                                             value={formatDateForInput(t.date_limite)}
@@ -176,7 +188,7 @@ export default function ModeleEcheanceModal({
                                             required
                                         />
                                     </div>
-                                    <div className="col-span-2">
+                                    <div className="col-span-1 sm:col-span-2">
                                         <div className="flex items-center gap-1">
                                             <Input
                                                 type="number"
@@ -184,43 +196,32 @@ export default function ModeleEcheanceModal({
                                                 max="100"
                                                 value={t.pourcentage_exigible}
                                                 onChange={e => handleTrancheChange(idx, 'pourcentage_exigible', parseFloat(e.target.value) || 0)}
-                                                className="h-8 text-xs"
+                                                className="h-8 text-xs px-2 min-w-0"
                                                 required
                                             />
-                                            <span className="text-xs text-slate-500">%</span>
+                                            <span className="text-xs text-slate-500 shrink-0">%</span>
                                         </div>
-                                    </div>
-                                    <div className="col-span-1 text-right">
-                                        <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => handleRemoveTranche(idx)}
-                                            className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                        >
-                                            <Trash2 className="w-3.5 h-3.5" />
-                                        </Button>
                                     </div>
                                 </div>
                             ))}
                         </div>
                     </div>
 
-                    <label className="flex items-center space-x-2 text-sm cursor-pointer pt-1">
+                    <label className="flex items-start gap-2.5 text-sm cursor-pointer pt-1">
                         <input
                             type="checkbox"
                             checked={isDefault}
                             onChange={e => setIsDefault(e.target.checked)}
-                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            className="mt-0.5 shrink-0 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                         />
-                        <span className="font-medium">Définir comme échéancier par défaut pour cet établissement</span>
+                        <span className="font-medium leading-snug">Définir comme échéancier par défaut pour cet établissement</span>
                     </label>
 
                     <DialogFooter className="pt-2">
-                        <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
+                        <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={onClose} disabled={isSubmitting}>
                             Annuler
                         </Button>
-                        <Button type="submit" disabled={isSubmitting} className="bg-blue-600 hover:bg-blue-700 text-white">
+                        <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white">
                             {isSubmitting ? 'Enregistrement...' : "Enregistrer l'échéancier"}
                         </Button>
                     </DialogFooter>

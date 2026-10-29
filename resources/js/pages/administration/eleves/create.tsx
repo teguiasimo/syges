@@ -294,9 +294,10 @@ export default function CreateEleve({
         <>
             <Head title="Nouvel Élève - Inscription Scolaire - SYGES" />
 
-            <div className="flex h-full flex-1 flex-col gap-6 p-6 sm:p-8 max-w-7xl mx-auto w-full pb-20">
+            {/* Conteneur principal plein écran fluide et responsive sans contrainte artificielle de largeur */}
+            <div className="flex h-full flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8 w-full min-w-0 pb-20">
                 {/* EN-TÊTE DE PAGE AVEC NAVIGATION RETOUR ET BOUTONS D'ACTION */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b pb-5">
+                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 border-b pb-5">
                     <div className="space-y-1">
                         <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
                             <Link
@@ -307,11 +308,11 @@ export default function CreateEleve({
                                 <span>Retour au registre des élèves</span>
                             </Link>
                         </div>
-                        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground flex items-center gap-2.5">
-                            <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 border border-indigo-200 dark:border-indigo-900/50">
+                        <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight text-foreground flex items-center gap-2.5">
+                            <div className="p-2 rounded-xl bg-teal-50 dark:bg-teal-950/50 text-teal-600 border border-teal-200 dark:border-teal-900/50 shrink-0">
                                 <GraduationCap className="size-6" />
                             </div>
-                            Nouvel Élève & Inscription Scolaire
+                            <span>Nouvel Élève & Inscription Scolaire</span>
                         </h1>
                         <p className="text-xs sm:text-sm text-muted-foreground">
                             Enregistrement dans la Base Globale et affectation dans la classe d'accueil pour l'année scolaire sélectionnée.
@@ -320,7 +321,7 @@ export default function CreateEleve({
 
                     {/* ACTIONS DU HAUT — hiérarchie : Annuler (ghost) | + Nouveau (outline) | Enregistrer (solid) */}
                     <TooltipProvider>
-                        <div className="flex items-center gap-2 shrink-0">
+                        <div className="flex items-center gap-2 shrink-0 flex-wrap w-full lg:w-auto">
                             {/* Annuler — retour sans sauvegarder */}
                             <Tooltip>
                                 <TooltipTrigger asChild>
@@ -342,7 +343,7 @@ export default function CreateEleve({
                             </Tooltip>
 
                             {/* Séparateur vertical */}
-                            <div className="h-6 w-px bg-border" />
+                            <div className="h-6 w-px bg-border hidden sm:block" />
 
                             {/* Enregistrer & Nouveau — inscrire et enchaîner */}
                             <Tooltip>
@@ -352,9 +353,9 @@ export default function CreateEleve({
                                         variant="outline"
                                         disabled={loading}
                                         onClick={() => submitForm('save_and_new')}
-                                        className="cursor-pointer text-xs h-9 border-indigo-500/50 text-indigo-700 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 font-medium gap-1.5"
+                                        className="cursor-pointer text-xs h-9 border-teal-500/50 text-teal-700 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-950/50 font-medium gap-1.5"
                                     >
-                                        <PlusCircle className="size-3.5 text-indigo-600" />
+                                        <PlusCircle className="size-3.5 text-teal-600" />
                                         + Nouveau
                                     </Button>
                                 </TooltipTrigger>
@@ -370,7 +371,7 @@ export default function CreateEleve({
                                         type="button"
                                         disabled={loading}
                                         onClick={() => submitForm('save_and_return')}
-                                        className="bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer font-semibold shadow-sm text-xs h-9 px-4 gap-1.5"
+                                        className="bg-teal-600 hover:bg-teal-700 text-white cursor-pointer font-semibold shadow-sm text-xs h-9 px-4 gap-1.5"
                                     >
                                         <Check className="size-3.5" />
                                         {loading ? 'Enregistrement...' : 'Enregistrer'}
@@ -395,8 +396,8 @@ export default function CreateEleve({
                     {/* BLOC 1 : ÉTAT CIVIL, IDENTITÉ & AFFECTATION SCOLAIRE */}
                     <div className="rounded-2xl border-2 border-slate-300/90 dark:border-slate-700 bg-card shadow-sm overflow-visible transition-all duration-200 hover:shadow-md hover:border-slate-400 dark:hover:border-slate-600">
                         {/* En-tête de bloc avec bannière dégradée */}
-                        <div className="rounded-t-2xl bg-linear-to-r from-slate-200/95 via-indigo-100/70 to-slate-200/80 dark:from-slate-800 dark:via-indigo-950/40 dark:to-slate-800/90 px-6 py-4 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center gap-3">
-                            <div className="flex size-9 items-center justify-center rounded-xl bg-linear-to-br from-indigo-600 to-indigo-800 text-white font-bold shadow-xs shrink-0">
+                        <div className="rounded-t-2xl bg-linear-to-r from-slate-200/95 via-teal-100/70 to-slate-200/80 dark:from-slate-800 dark:via-teal-950/40 dark:to-slate-800/90 px-6 py-4 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center gap-3">
+                            <div className="flex size-9 items-center justify-center rounded-xl bg-linear-to-br from-teal-600 to-teal-800 text-white font-bold shadow-xs shrink-0">
                                 <User className="size-4" />
                             </div>
                             <div>
@@ -863,13 +864,13 @@ export default function CreateEleve({
 
 
 
-                    {/* BARRE D'ACTIONS INFÉRIEURE */}
-                    <div className="flex items-center justify-between gap-4 pt-4 border-t flex-wrap">
+                    {/* BARRE D'ACTIONS INFÉRIEURE RESPONSIVE */}
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 pt-4 border-t">
                         <Button
                             type="button"
                             variant="outline"
                             asChild
-                            className="cursor-pointer text-xs h-10"
+                            className="cursor-pointer text-xs h-10 w-full sm:w-auto"
                         >
                             <Link href="/administration/eleves">
                                 <ArrowLeft className="size-4 mr-1.5" />
@@ -877,15 +878,15 @@ export default function CreateEleve({
                             </Link>
                         </Button>
 
-                        <div className="flex items-center gap-2.5">
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full sm:w-auto">
                             <Button
                                 type="button"
                                 variant="outline"
                                 disabled={loading}
                                 onClick={() => submitForm('save_and_new')}
-                                className="cursor-pointer text-xs h-10 border-indigo-600/40 text-indigo-700 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 font-medium"
+                                className="cursor-pointer text-xs h-10 border-teal-600/40 text-teal-700 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-950/50 font-medium w-full sm:w-auto"
                             >
-                                <PlusCircle className="size-4 mr-1.5 text-indigo-600" />
+                                <PlusCircle className="size-4 mr-1.5 text-teal-600" />
                                 Enregistrer & Nouveau
                             </Button>
 
@@ -893,7 +894,7 @@ export default function CreateEleve({
                                 type="button"
                                 disabled={loading}
                                 onClick={() => submitForm('save_and_return')}
-                                className="bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer font-semibold shadow-sm text-xs h-10 px-5"
+                                className="bg-teal-600 hover:bg-teal-700 text-white cursor-pointer font-semibold shadow-sm text-xs h-10 px-5 w-full sm:w-auto"
                             >
                                 <Check className="size-4 mr-1.5" />
                                 {loading ? 'Enregistrement...' : 'Enregistrer & Retourner'}

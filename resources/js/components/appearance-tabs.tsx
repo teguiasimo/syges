@@ -5,6 +5,9 @@ import type { Appearance } from '@/hooks/use-appearance';
 import { useAppearance } from '@/hooks/use-appearance';
 import { cn } from '@/lib/utils';
 
+/**
+ * Sélecteur d'apparence visuelle (Clair / Sombre / Système) adaptatif sur petits écrans.
+ */
 export default function AppearanceToggleTab({
     className = '',
     ...props
@@ -20,7 +23,7 @@ export default function AppearanceToggleTab({
     return (
         <div
             className={cn(
-                'inline-flex gap-1 rounded-lg bg-neutral-100 p-1 dark:bg-neutral-800',
+                'inline-flex flex-wrap max-w-full gap-1 rounded-lg bg-neutral-100 p-1 dark:bg-neutral-800',
                 className,
             )}
             {...props}

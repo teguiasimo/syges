@@ -20,6 +20,7 @@ import {
     Layers,
     MessageSquare,
     Receipt,
+    RefreshCw,
     School,
     ShieldAlert,
     ShieldCheck,
@@ -54,6 +55,7 @@ export interface NavModuleItem {
     icon: React.ElementType;
     color?: string;
     permission?: string;
+    superAdminOnly?: boolean;
     tooltip?: string;
 }
 
@@ -295,6 +297,15 @@ const MODULE_GROUPS: NavModuleGroup[] = [
                 permission: 'roles.view',
                 tooltip: 'Gestion des Rôles & Habilitations RBAC',
             },
+            {
+                title: 'Mise à jour & Versions',
+                href: '/administration/system-update',
+                icon: RefreshCw,
+                color: 'text-sky-500 dark:text-sky-400',
+                permission: 'system.update',
+                superAdminOnly: true,
+                tooltip: 'Gestionnaire de Versions SemVer & Mise à jour GitHub',
+            },
         ],
     },
     {
@@ -346,12 +357,16 @@ export function NavModules({ permissions: propPermissions, isSuperAdmin: propIsS
     const authorizedGroups = React.useMemo(() => {
         return MODULE_GROUPS.map((group) => ({
             ...group,
-            items: group.items.filter(
-                (item) =>
+            items: group.items.filter((item) => {
+                if (item.superAdminOnly) {
+                    return Boolean(isSuperAdmin);
+                }
+                return (
                     !item.permission ||
                     isSuperAdmin ||
                     (propPermissions ? propPermissions.includes(item.permission) : can(item.permission))
-            ),
+                );
+            }),
         })).filter((group) => group.items.length > 0);
     }, [propPermissions, isSuperAdmin, can]);
 

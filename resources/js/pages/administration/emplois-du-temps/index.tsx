@@ -579,16 +579,17 @@ export default function EmploiDuTempsIndex({
         <>
             <Head title="Emplois du Temps & Salles - SYGES" />
 
-            <div className="space-y-6">
+            {/* Conteneur principal plein écran fluide et responsive sans contrainte artificielle de largeur */}
+            <div className="flex flex-1 flex-col gap-4 sm:gap-6 p-4 sm:p-6 lg:p-8 w-full min-w-0">
                 {/* En-tête */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
-                    <div>
-                        <div className="flex items-center gap-2">
-                            <div className="p-2 bg-indigo-600 rounded-lg text-white">
+                    <div className="min-w-0">
+                        <div className="flex items-start sm:items-center gap-2.5">
+                            <div className="p-2 bg-teal-600 rounded-lg text-white shrink-0">
                                 <CalendarDays className="w-5 h-5" />
                             </div>
-                            <div>
-                                <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">
+                            <div className="min-w-0">
+                                <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-slate-900 dark:text-slate-100">
                                     Emplois du Temps & Gestion des Salles
                                 </h1>
                                 <p className="text-xs text-slate-500">
@@ -599,27 +600,27 @@ export default function EmploiDuTempsIndex({
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                         <Button
                             onClick={() => setIsSalleModalOpen(true)}
                             variant="outline"
-                            className="text-xs h-9 flex items-center gap-1.5"
+                            className="text-xs h-9 flex items-center gap-1.5 flex-1 sm:flex-initial"
                         >
-                            <DoorOpen className="w-4 h-4" />
+                            <DoorOpen className="w-4 h-4 shrink-0" />
                             Nouvelle Salle
                         </Button>
                         <Button
                             onClick={() => setIsSeanceModalOpen(true)}
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-1.5 shadow-sm text-xs h-9"
+                            className="bg-teal-600 hover:bg-teal-700 text-white flex items-center gap-1.5 shadow-sm text-xs h-9 flex-1 sm:flex-initial"
                         >
-                            <Plus className="w-4 h-4" />
+                            <Plus className="w-4 h-4 shrink-0" />
                             Planifier un Cours
                         </Button>
                     </div>
                 </div>
 
-                {/* Cartes KPI */}
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                {/* Cartes KPI (1 col <420px, 2 cols mobile, 3 cols tablette, 5 cols grand écran) */}
+                <div className="grid grid-cols-1 min-[420px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
                     <Card className="border-slate-200 dark:border-slate-800">
                         <CardContent className="p-3">
                             <div className="flex items-center justify-between">
@@ -687,60 +688,60 @@ export default function EmploiDuTempsIndex({
                 </div>
 
                 {/* Onglets et Filtres */}
-                <div className="space-y-4">
+                <div className="space-y-4 min-w-0">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-2">
-                        {/* Onglets */}
-                        <div className="flex items-center gap-2">
+                        {/* Onglets à défilement horizontal sur mobile/tablette */}
+                        <div className="flex items-center gap-2 overflow-x-auto max-w-full pb-1 sm:pb-0 scrollbar-none">
                             <button
                                 onClick={() => setActiveTab('grille_classe')}
-                                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors flex items-center gap-1.5 ${
+                                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
                                     activeTab === 'grille_classe'
                                         ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
                                         : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
                                 }`}
                             >
-                                <CalendarDays className="w-3.5 h-3.5" />
+                                <CalendarDays className="w-3.5 h-3.5 shrink-0" />
                                 Emploi du Temps par Classe
                             </button>
                             <button
                                 onClick={() => setActiveTab('grille_salle')}
-                                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors flex items-center gap-1.5 ${
+                                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
                                     activeTab === 'grille_salle'
                                         ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
                                         : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
                                 }`}
                             >
-                                <MapPin className="w-3.5 h-3.5" />
+                                <MapPin className="w-3.5 h-3.5 shrink-0" />
                                 Occupation des Salles
                             </button>
                             <button
                                 onClick={() => setActiveTab('salles')}
-                                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors flex items-center gap-1.5 ${
+                                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
                                     activeTab === 'salles'
                                         ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
                                         : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
                                 }`}
                             >
-                                <DoorOpen className="w-3.5 h-3.5" />
+                                <DoorOpen className="w-3.5 h-3.5 shrink-0" />
                                 Répertoire des Salles ({salles.length})
                             </button>
                             <button
                                 onClick={() => setActiveTab('decomptes_rh')}
-                                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors flex items-center gap-1.5 ${
+                                className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
                                     activeTab === 'decomptes_rh'
                                         ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
                                         : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
                                 }`}
                             >
-                                <Users className="w-3.5 h-3.5" />
+                                <Users className="w-3.5 h-3.5 shrink-0" />
                                 Décompte RH Enseignants
                             </button>
                         </div>
                     </div>
 
-                    {/* Barre de filtres contextuels */}
+                    {/* Barre de filtres contextuels (pleine largeur sur mobile) */}
                     <div className="flex flex-wrap items-center gap-3">
-                        <div className="relative flex-1 min-w-50">
+                        <div className="relative flex-1 min-w-full sm:min-w-50">
                             <Search className="w-4 h-4 absolute left-2.5 top-2.5 text-slate-400" />
                             <Input
                                 placeholder="Rechercher matière, enseignant ou salle..."
@@ -751,9 +752,9 @@ export default function EmploiDuTempsIndex({
                         </div>
 
                         {activeTab === 'grille_classe' && (
-                            <div className="w-48">
+                            <div className="w-full sm:w-48">
                                 <Select value={selectedClasseId} onValueChange={setSelectedClasseId}>
-                                    <SelectTrigger className="h-9 text-xs">
+                                    <SelectTrigger className="h-9 text-xs w-full">
                                         <SelectValue placeholder="Toutes les classes" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -769,9 +770,9 @@ export default function EmploiDuTempsIndex({
                         )}
 
                         {activeTab === 'grille_salle' && (
-                            <div className="w-48">
+                            <div className="w-full sm:w-48">
                                 <Select value={selectedSalleId} onValueChange={setSelectedSalleId}>
-                                    <SelectTrigger className="h-9 text-xs">
+                                    <SelectTrigger className="h-9 text-xs w-full">
                                         <SelectValue placeholder="Toutes les salles" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -787,9 +788,9 @@ export default function EmploiDuTempsIndex({
                         )}
 
                         {(activeTab === 'grille_classe' || activeTab === 'grille_salle') && (
-                            <div className="w-36">
+                            <div className="w-full sm:w-36">
                                 <Select value={selectedJour} onValueChange={setSelectedJour}>
-                                    <SelectTrigger className="h-9 text-xs">
+                                    <SelectTrigger className="h-9 text-xs w-full">
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>

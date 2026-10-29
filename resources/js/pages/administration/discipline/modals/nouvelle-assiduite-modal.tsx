@@ -22,6 +22,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { TypeEvenementAssiduite, StatutJustification } from '@/types/discipline';
 import { UserX, CheckCircle2 } from 'lucide-react';
+import { formatDateForInput } from '@/lib/utils';
 
 interface NouvelleAssiduiteModalProps {
     open: boolean;
@@ -44,7 +45,7 @@ export default function NouvelleAssiduiteModal({
     matieres,
     periodeId,
 }: NouvelleAssiduiteModalProps) {
-    const today = new Date().toISOString().split('T')[0];
+    const today = formatDateForInput(new Date().toISOString());
 
     const { data, setData, post, processing, reset, errors, transform } = useForm({
         inscription_id: '',
@@ -72,7 +73,7 @@ export default function NouvelleAssiduiteModal({
             onSuccess: () => {
                 toast.success('Événement d’assiduité enregistré. Synthèse du bulletin actualisée.', {
                     position: 'top-right',
-                    className: 'bg-emerald-600 text-white border-none',
+                    className: 'bg-emerald-600 text-white border-emerald-700',
                 });
                 reset();
                 onOpenChange(false);
@@ -87,26 +88,26 @@ export default function NouvelleAssiduiteModal({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-md">
+            <DialogContent className="w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2 text-lg font-bold text-slate-800 dark:text-slate-100">
-                        <UserX className="w-5 h-5 text-rose-600" />
-                        Signaler une Absence ou un Retard
+                        <UserX className="w-5 h-5 text-rose-600 shrink-0" />
+                        <span>Signaler une Absence ou un Retard</span>
                     </DialogTitle>
-                    <DialogDescription>
+                    <DialogDescription className="text-xs sm:text-sm">
                         Enregistrement quotidien répercuté automatiquement sur le bulletin scolaire.
                     </DialogDescription>
                 </DialogHeader>
 
-                <form onSubmit={handleSubmit} className="space-y-3">
+                <form onSubmit={handleSubmit} className="space-y-4">
                     {/* Élève */}
                     <div className="space-y-1">
-                        <Label htmlFor="inscr_select">Élève concerné <span className="text-red-500">*</span></Label>
+                        <Label htmlFor="inscr_select" className="text-xs sm:text-sm">Élève concerné <span className="text-red-500">*</span></Label>
                         <Select
                             value={data.inscription_id}
                             onValueChange={(val) => setData('inscription_id', val)}
                         >
-                            <SelectTrigger id="inscr_select">
+                            <SelectTrigger id="inscr_select" className="w-full">
                                 <SelectValue placeholder="Choisir un élève..." />
                             </SelectTrigger>
                             <SelectContent className="max-h-56">
@@ -121,14 +122,14 @@ export default function NouvelleAssiduiteModal({
                     </div>
 
                     {/* Type & Date */}
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 min-[420px]:grid-cols-2 gap-3">
                         <div className="space-y-1">
-                            <Label htmlFor="type_evenement">Nature de l'événement</Label>
+                            <Label htmlFor="type_evenement" className="text-xs sm:text-sm">Nature de l'événement</Label>
                             <Select
                                 value={data.type_evenement}
                                 onValueChange={(val: TypeEvenementAssiduite) => setData('type_evenement', val)}
                             >
-                                <SelectTrigger id="type_evenement">
+                                <SelectTrigger id="type_evenement" className="w-full">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -139,21 +140,22 @@ export default function NouvelleAssiduiteModal({
                         </div>
 
                         <div className="space-y-1">
-                            <Label htmlFor="date_evenement">Date de l'événement <span className="text-red-500">*</span></Label>
+                            <Label htmlFor="date_evenement" className="text-xs sm:text-sm">Date de l'événement <span className="text-red-500">*</span></Label>
                             <Input
                                 id="date_evenement"
                                 type="date"
                                 value={data.date_evenement}
                                 onChange={(e) => setData('date_evenement', e.target.value)}
                                 required
+                                className="w-full"
                             />
                         </div>
                     </div>
 
                     {/* Nombre d'heures & Matière */}
-                    <div className="grid grid-cols-3 gap-2">
-                        <div className="space-y-1">
-                            <Label htmlFor="nombre_heures">Heures (h)</Label>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div className="space-y-1 sm:col-span-1">
+                            <Label htmlFor="nombre_heures" className="text-xs sm:text-sm">Heures (h)</Label>
                             <Input
                                 id="nombre_heures"
                                 type="number"
@@ -163,16 +165,17 @@ export default function NouvelleAssiduiteModal({
                                 value={data.nombre_heures}
                                 onChange={(e) => setData('nombre_heures', e.target.value)}
                                 required
+                                className="w-full"
                             />
                         </div>
 
-                        <div className="col-span-2 space-y-1">
-                            <Label htmlFor="matiere_select">Matière concernée (optionnel)</Label>
+                        <div className="space-y-1 sm:col-span-2">
+                            <Label htmlFor="matiere_select" className="text-xs sm:text-sm">Matière concernée (optionnel)</Label>
                             <Select
                                 value={data.matiere_id}
                                 onValueChange={(val) => setData('matiere_id', val)}
                             >
-                                <SelectTrigger id="matiere_select">
+                                <SelectTrigger id="matiere_select" className="w-full">
                                     <SelectValue placeholder="Toutes ou hors cours" />
                                 </SelectTrigger>
                                 <SelectContent className="max-h-56">
@@ -188,12 +191,12 @@ export default function NouvelleAssiduiteModal({
 
                     {/* Statut de justification */}
                     <div className="space-y-1">
-                        <Label htmlFor="statut_justif">Statut initial</Label>
+                        <Label htmlFor="statut_justif" className="text-xs sm:text-sm">Statut initial</Label>
                         <Select
                             value={data.statut_justification}
                             onValueChange={(val: StatutJustification) => setData('statut_justification', val)}
                         >
-                            <SelectTrigger id="statut_justif">
+                            <SelectTrigger id="statut_justif" className="w-full">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -205,24 +208,30 @@ export default function NouvelleAssiduiteModal({
 
                     {/* Motif éventuel */}
                     <div className="space-y-1">
-                        <Label htmlFor="motif_justif">Motif / Justification</Label>
+                        <Label htmlFor="motif_justif" className="text-xs sm:text-sm">Motif / Justification</Label>
                         <Textarea
                             id="motif_justif"
                             rows={2}
                             placeholder="Motif fourni ou circonstances de l'absence..."
                             value={data.motif_justification}
                             onChange={(e) => setData('motif_justification', e.target.value)}
+                            className="w-full text-xs sm:text-sm"
                         />
                     </div>
 
-                    <DialogFooter className="pt-2">
-                        <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                    <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-3">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => onOpenChange(false)}
+                            className="w-full sm:w-auto"
+                        >
                             Annuler
                         </Button>
                         <Button
                             type="submit"
                             disabled={processing || !data.inscription_id}
-                            className="bg-rose-600 hover:bg-rose-700 text-white flex items-center gap-1"
+                            className="w-full sm:w-auto bg-rose-600 hover:bg-rose-700 text-white flex items-center justify-center gap-1"
                         >
                             <CheckCircle2 className="w-4 h-4" />
                             {processing ? 'Enregistrement...' : 'Valider le Signalement'}

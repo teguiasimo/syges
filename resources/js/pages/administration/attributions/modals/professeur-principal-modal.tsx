@@ -88,13 +88,13 @@ export function ProfesseurPrincipalModal({
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <DialogContent className="max-w-md p-6">
+            <DialogContent className="sm:max-w-md">
                 <DialogHeader className="border-b pb-4">
-                    <DialogTitle className="text-lg font-bold flex items-center gap-2 text-foreground">
-                        <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-950/50 text-amber-600 border border-amber-200 dark:border-amber-900/50">
+                    <DialogTitle className="text-base sm:text-lg font-bold flex items-center gap-2 text-foreground">
+                        <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-950/50 text-amber-600 border border-amber-200 dark:border-amber-900/50 shrink-0">
                             <Award className="size-5" />
                         </div>
-                        Professeur Principal : {classe.nom}
+                        <span>Professeur Principal : {classe.nom}</span>
                     </DialogTitle>
                     <DialogDescription className="text-xs text-muted-foreground mt-1">
                         Le Professeur Principal coordonne l'équipe pédagogique de la classe, préside les délibérations et rédige les bilans trimestriels.

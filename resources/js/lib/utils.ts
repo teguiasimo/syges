@@ -52,6 +52,34 @@ export function formatDateForInput(dateStr?: string | Date | null): string {
     }
     return dateStr.substring(0, 10);
 }
+
+/**
+ * Formate le libellé d'une année scolaire pour éliminer les tautologies (ex: "Année Scolaire 2026/2027" -> "2026/2027").
+ * Garantit un affichage uniforme et concis dans les listes déroulantes de filtres temporels.
+ *
+ * @param {string} [nom] Nom officiel complet de l'année scolaire.
+ * @param {string} [code] Code court de l'année scolaire (ex: "2026/2027").
+ * @param {string} [session] Session spécifique de l'année scolaire (ex: "2026/2027").
+ * @returns {string} Année scolaire épurée (ex: "2026/2027").
+ */
+export function formatAnneeLabel(nom?: string | null, code?: string | null, session?: string | null): string {
+    // 1. Si code, session ou nom contient le motif YYYY/YYYY ou YYYY-YYYY, extraire directement l'année scolaire concise
+    const candidates = [session, code, nom];
+    for (const c of candidates) {
+        if (!c) continue;
+        const match = c.trim().match(/\b(\d{4}[\/\-]\d{4})\b/);
+        if (match) {
+            return match[1];
+        }
+    }
+
+    // 2. Si aucun motif numérique n'est identifié, épurer les préfixes habituels
+    const raw = session || code || nom || '';
+    if (!raw) return '';
+    return raw
+        .replace(/^\s*Ann[ée]e\s+scolaire\s*[:\-]?\s*/i, '')
+        .trim();
+}
 /**
  * Tronque une chaîne de caractères si sa longueur dépasse une limite maximale définie
  * et lui accole des points de suspension (...) pour préserver l'intégrité visuelle des composants

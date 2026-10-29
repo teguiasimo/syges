@@ -1424,7 +1424,8 @@ export default function InstitutionIndex({
         <>
             <Head title="Institution & Campus - Administration" />
 
-            <div className="flex h-full flex-1 flex-col gap-6 p-6 sm:p-8 max-w-7xl mx-auto w-full">
+            {/* Conteneur principal plein écran fluide et responsive sans contrainte artificielle de largeur */}
+            <div className="flex h-full flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8 w-full min-w-0">
                 {/* 1. EN-TÊTE ET FIL D'ARIANE DYNAMIQUE (DRILL-DOWN) */}
                 <div className="flex flex-col gap-3">
                     <div className="flex flex-wrap items-center justify-between gap-4">
@@ -1506,10 +1507,10 @@ export default function InstitutionIndex({
                                 )}
                             </div>
 
-                            {/* Corps de la fiche */}
-                            <div className="p-6 bg-card">
+                            {/* Corps de la fiche (espacement et empilement adaptatifs sur mobile) */}
+                            <div className="p-4 sm:p-6 bg-card">
                                 <div className="flex flex-wrap items-start justify-between gap-4">
-                                    <div className="flex items-start gap-4 sm:gap-5 max-w-3xl">
+                                    <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-5 max-w-3xl min-w-0">
                                         {institution.logo && (
                                             <div className="size-16 sm:size-20 shrink-0 rounded-2xl border border-border/80 bg-slate-50 dark:bg-slate-900 p-1.5 shadow-xs flex items-center justify-center overflow-hidden">
                                                 <img
@@ -1556,7 +1557,7 @@ export default function InstitutionIndex({
                                             <Phone className="size-3.5 text-emerald-500" /> Contacts & Web
                                         </span>
                                         <p>Tél : {institution.telephone_1 || '—'} {institution.telephone_2 ? `/ ${institution.telephone_2}` : ''}</p>
-                                        <p>Email : {institution.email || '—'}</p>
+                                        <p className="break-all">Email : {institution.email || '—'}</p>
                                     </div>
 
                                     <div className="space-y-1.5">
@@ -1666,7 +1667,8 @@ export default function InstitutionIndex({
                                     </div>
                                 </div>
 
-                                <div className="flex items-center gap-2">
+                                {/* Actions de gestion des séries et classes avec retour à la ligne sur mobile */}
+                                <div className="flex flex-wrap items-center gap-2">
                                     {can.structures_manage && (
                                         <Button
                                             type="button"
@@ -1920,7 +1922,8 @@ export default function InstitutionIndex({
                                     </div>
                                 </div>
 
-                                <div className="flex items-center gap-2">
+                                {/* Actions de gestion des séries et classes avec retour à la ligne sur mobile */}
+                                <div className="flex flex-wrap items-center gap-2">
                                     {can.structures_manage && (
                                         <Button
                                             type="button"
@@ -1977,7 +1980,8 @@ export default function InstitutionIndex({
                                     </div>
                                 </div>
 
-                                <div className="flex items-center gap-2">
+                                {/* Actions de gestion des séries et classes avec retour à la ligne sur mobile */}
+                                <div className="flex flex-wrap items-center gap-2">
                                     <Button
                                         type="button"
                                         size="sm"
@@ -2176,7 +2180,8 @@ export default function InstitutionIndex({
                                 className="hidden"
                             />
 
-                            <div className="flex items-center gap-3 pt-1">
+                            {/* Zone d'aperçu et téléversement du logo adaptative sur petits écrans */}
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-3 pt-1">
                                 {etablissementLogoPreview ? (
                                     <div className="relative group size-14 shrink-0 rounded-xl border border-border bg-white dark:bg-slate-900 p-1 flex items-center justify-center overflow-hidden shadow-xs">
                                         <img
@@ -2219,7 +2224,8 @@ export default function InstitutionIndex({
                                 )}
 
                                 <div className="flex flex-col gap-1 min-w-0">
-                                    <div className="flex items-center gap-2">
+                                    {/* Actions de gestion des séries et classes avec retour à la ligne sur mobile */}
+                                <div className="flex flex-wrap items-center gap-2">
                                         <Button
                                             type="button"
                                             variant="outline"
@@ -2508,7 +2514,8 @@ export default function InstitutionIndex({
                     </DialogHeader>
 
                     <form onSubmit={submitClasse} className="space-y-4 pt-2">
-                        <div className="grid grid-cols-3 gap-3">
+                        {/* Grille adaptative : 1 colonne sur mobile, 3 colonnes dès 640px */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                             <div className="space-y-1">
                                 <Label className="text-xs font-semibold">Code *</Label>
                                 <Input
@@ -2521,7 +2528,7 @@ export default function InstitutionIndex({
                                     <p className="text-xs text-rose-500 font-medium">{classeForm.errors.code}</p>
                                 )}
                             </div>
-                            <div className="col-span-2 space-y-1">
+                            <div className="sm:col-span-2 space-y-1">
                                 <Label className="text-xs font-semibold">Nom de la Classe *</Label>
                                 <Input
                                     value={classeForm.data.nom}
@@ -2675,7 +2682,8 @@ export default function InstitutionIndex({
                                 )}
                             </div>
 
-                            <div className="flex items-center gap-2">
+                            {/* Champ de saisie et boutons d'action empilés sur mobile */}
+                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                                 <Input
                                     value={serieForm.data.nom}
                                     onChange={(e) => serieForm.setData('nom', e.target.value.toUpperCase())}
@@ -2722,7 +2730,8 @@ export default function InstitutionIndex({
                                             key={s.id}
                                             className="flex items-center justify-between p-2 rounded-lg bg-card border border-border/80 hover:bg-muted/30 transition-colors"
                                         >
-                                            <div className="flex items-center gap-2">
+                                            {/* Actions de gestion des séries et classes avec retour à la ligne sur mobile */}
+                                <div className="flex flex-wrap items-center gap-2">
                                                 <Badge variant="outline" className="font-mono text-xs font-bold text-primary bg-primary/10">
                                                     {s.nom}
                                                 </Badge>

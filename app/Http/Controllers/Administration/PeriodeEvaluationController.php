@@ -93,7 +93,7 @@ class PeriodeEvaluationController extends Controller implements HasMiddleware
             'periodes' => $periodes,
             'can' => [
                 'periodes_manage' => $request->user()->can('periodes.manage'),
-                'periodes_lock' => $request->user()->can('periodes.lock'),
+                'periodes_lock' => $request->user()->can('periodes.lock') || $request->user()->can('evaluations.lock') || $request->user()->hasRole('super-admin'),
             ],
         ]);
     }
@@ -489,6 +489,7 @@ class PeriodeEvaluationController extends Controller implements HasMiddleware
 
     /**
      * Bascule le verrouillage manuel de la saisie des notes pour une évaluation.
+     * Accessible aux utilisateurs disposant de la permission 'periodes.lock' ou 'evaluations.lock' (Proviseur, Censeur, Super-Admin).
      *
      * @param Request $request Requête HTTP.
      * @param Evaluation $evaluation Modèle d'évaluation.
@@ -496,7 +497,11 @@ class PeriodeEvaluationController extends Controller implements HasMiddleware
      */
     public function toggleLockEvaluation(Request $request, Evaluation $evaluation): RedirectResponse
     {
-        abort_unless($request->user()->can('periodes.lock'), 403, 'Permission requise : periodes.lock');
+        $canLock = $request->user()->can('periodes.lock')
+            || $request->user()->can('evaluations.lock')
+            || $request->user()->hasRole('super-admin');
+
+        abort_unless($canLock, 403, 'Permission requise : periodes.lock ou evaluations.lock');
 
         $context = $this->resolveEtablissementContext($request);
         if (! $context['isSuperAdmin'] && (int) $evaluation->periode?->etablissement_id !== (int) $context['etablissementId']) {

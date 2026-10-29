@@ -20,6 +20,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { TypeFrais } from '@/types/finance';
+import { formatDateForInput } from '@/lib/utils';
 import { Layers, CheckCircle2 } from 'lucide-react';
 
 interface TarifModalProps {
@@ -90,7 +91,7 @@ export default function TarifModal({
             <DialogContent className="max-w-md">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2 text-lg font-bold text-slate-800 dark:text-slate-100">
-                        <Layers className="w-5 h-5 text-indigo-600" />
+                        <Layers className="w-5 h-5 text-emerald-600 shrink-0" />
                         Ajouter un Tarif à la Matrice Scolaire
                     </DialogTitle>
                     <DialogDescription>
@@ -98,9 +99,9 @@ export default function TarifModal({
                     </DialogDescription>
                 </DialogHeader>
 
-                <form onSubmit={handleSubmit} className="space-y-3">
+                <form onSubmit={handleSubmit} className="space-y-3 min-w-0">
                     {/* Niveau */}
-                    <div className="space-y-1">
+                    <div className="space-y-1 min-w-0">
                         <Label htmlFor="tarif_niveau">Niveau Pédagogique <span className="text-red-500">*</span></Label>
                         <Select
                             value={data.niveau_id}
@@ -132,7 +133,7 @@ export default function TarifModal({
                     </div>
 
                     {/* Type de Frais */}
-                    <div className="space-y-1">
+                    <div className="space-y-1 min-w-0">
                         <Label htmlFor="tarif_type">Type de Frais <span className="text-red-500">*</span></Label>
                         <Select
                             value={data.type_frais_id}
@@ -163,9 +164,9 @@ export default function TarifModal({
                         {errors.type_frais_id && <p className="text-xs text-red-500">{errors.type_frais_id}</p>}
                     </div>
 
-                    {/* Tranche & Libellé */}
-                    <div className="grid grid-cols-3 gap-2">
-                        <div className="space-y-1">
+                    {/* Tranche & Libellé : empilé sur mobile, 1/3 + 2/3 dès sm */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                        <div className="space-y-1 min-w-0">
                             <Label htmlFor="tranche_num">Tranche N°</Label>
                             <Input
                                 id="tranche_num"
@@ -177,7 +178,7 @@ export default function TarifModal({
                                 required
                             />
                         </div>
-                        <div className="col-span-2 space-y-1">
+                        <div className="sm:col-span-2 space-y-1 min-w-0">
                             <Label htmlFor="libelle_tranche">Libellé d'échéance</Label>
                             <Input
                                 id="libelle_tranche"
@@ -188,9 +189,9 @@ export default function TarifModal({
                         </div>
                     </div>
 
-                    {/* Montant & Date limite */}
-                    <div className="grid grid-cols-2 gap-2">
-                        <div className="space-y-1">
+                    {/* Montant & Date limite : empilé sur mobile, 2 colonnes dès sm */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        <div className="space-y-1 min-w-0">
                             <Label htmlFor="tarif_montant">Montant FCFA <span className="text-red-500">*</span></Label>
                             <Input
                                 id="tarif_montant"
@@ -200,31 +201,31 @@ export default function TarifModal({
                                 value={data.montant}
                                 onChange={(e) => setData('montant', e.target.value)}
                                 required
-                                className="text-right font-semibold"
+                                className="text-right font-semibold tabular-nums"
                             />
                             {errors.montant && <p className="text-xs text-red-500">{errors.montant}</p>}
                         </div>
-                        <div className="space-y-1">
+                        <div className="space-y-1 min-w-0">
                             <Label htmlFor="tarif_echeance">Date Limite</Label>
                             <Input
                                 id="tarif_echeance"
                                 type="date"
-                                value={data.date_limite}
+                                value={formatDateForInput(data.date_limite)}
                                 onChange={(e) => setData('date_limite', e.target.value)}
                             />
                         </div>
                     </div>
 
                     <DialogFooter className="pt-2">
-                        <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                        <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => onOpenChange(false)}>
                             Annuler
                         </Button>
                         <Button
                             type="submit"
                             disabled={processing || !data.niveau_id || !data.type_frais_id || Number(data.montant) <= 0}
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-1"
+                            className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center gap-1"
                         >
-                            <CheckCircle2 className="w-4 h-4" />
+                            <CheckCircle2 className="w-4 h-4 shrink-0" />
                             {processing ? 'Enregistrement...' : 'Ajouter le Tarif'}
                         </Button>
                     </DialogFooter>

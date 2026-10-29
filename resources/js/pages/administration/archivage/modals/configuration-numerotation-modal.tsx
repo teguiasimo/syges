@@ -71,7 +71,7 @@ export function ConfigurationNumerotationModal({
             onSuccess: () => {
                 toast.success('Masque de numérotation mis à jour avec succès', {
                     position: 'top-right',
-                    className: 'bg-emerald-600 text-white font-medium border-none shadow-lg',
+                    className: 'bg-emerald-600 text-white font-medium border-emerald-700 shadow-lg',
                 });
                 onOpenChange(false);
             },
@@ -104,24 +104,24 @@ export function ConfigurationNumerotationModal({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-lg">
+            <DialogContent className="w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto p-4 sm:p-6">
                 <DialogHeader>
-                    <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
-                        <Binary className="w-5 h-5" />
-                        <DialogTitle>Configurer la numérotation : {getTypeLabel(configuration.type_document)}</DialogTitle>
+                    <div className="flex items-center gap-2 text-teal-600 dark:text-teal-400">
+                        <Binary className="w-5 h-5 shrink-0" />
+                        <DialogTitle className="text-base sm:text-lg">Configurer la numérotation : {getTypeLabel(configuration.type_document)}</DialogTitle>
                     </div>
-                    <DialogDescription>
+                    <DialogDescription className="text-xs sm:text-sm">
                         Personnalisez le préfixe radical, la souche et le format séquentiel automatique.
                     </DialogDescription>
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     {/* Prévisualisation dynamique */}
-                    <div className="rounded-lg border bg-indigo-50/60 dark:bg-indigo-950/40 p-3 text-center border-indigo-200 dark:border-indigo-900">
-                        <span className="text-[11px] font-bold text-indigo-700 dark:text-indigo-300 uppercase tracking-wider block">
+                    <div className="rounded-lg border bg-teal-50/60 dark:bg-teal-950/40 p-3 text-center border-teal-200 dark:border-teal-900">
+                        <span className="text-[11px] font-bold text-teal-700 dark:text-teal-300 uppercase tracking-wider block">
                             Aperçu du prochain numéro généré
                         </span>
-                        <div className="text-xl font-black font-mono tracking-wider text-indigo-900 dark:text-indigo-100 mt-1">
+                        <div className="text-lg sm:text-xl font-black font-mono tracking-wider text-teal-900 dark:text-teal-100 mt-1">
                             {previewNumber()}
                         </div>
                     </div>
@@ -171,7 +171,7 @@ export function ConfigurationNumerotationModal({
                             required
                         />
                         <p className="text-[11px] text-slate-500">
-                            Variables disponibles : <code className="text-indigo-600 font-mono">{"{PREFIX}"}</code>, <code className="text-indigo-600 font-mono">{"{ANNEE}"}</code>, <code className="text-indigo-600 font-mono">{"{NUM:4}"}</code> (0001) ou <code className="text-indigo-600 font-mono">{"{NUM:5}"}</code> (00001).
+                            Variables disponibles : <code className="text-teal-600 font-mono">{"{PREFIX}"}</code>, <code className="text-teal-600 font-mono">{"{ANNEE}"}</code>, <code className="text-teal-600 font-mono">{"{NUM:4}"}</code> (0001) ou <code className="text-teal-600 font-mono">{"{NUM:5}"}</code> (00001).
                         </p>
                         {errors.format_masque && (
                             <p className="text-xs text-rose-500">{errors.format_masque}</p>
@@ -195,18 +195,19 @@ export function ConfigurationNumerotationModal({
                         />
                     </div>
 
-                    <DialogFooter className="pt-2">
+                    <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-3">
                         <Button
                             type="button"
                             variant="outline"
                             onClick={() => onOpenChange(false)}
                             disabled={processing}
+                            className="w-full sm:w-auto"
                         >
                             Annuler
                         </Button>
                         <Button
                             type="submit"
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5"
+                            className="w-full sm:w-auto bg-teal-600 hover:bg-teal-700 text-white gap-1.5"
                             disabled={processing}
                         >
                             {processing ? (

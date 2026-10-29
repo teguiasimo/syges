@@ -161,7 +161,7 @@ export default function ProgressionPedagogiqueIndex({
                     return (
                         <div className="flex flex-col">
                             <span className="font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
-                                <Calendar className="w-3.5 h-3.5 text-indigo-500" />
+                                <Calendar className="w-3.5 h-3.5 shrink-0 text-teal-600" />
                                 {formatDate(seance.date_seance)}
                             </span>
                             {seance.semaine_numero && (
@@ -184,7 +184,7 @@ export default function ProgressionPedagogiqueIndex({
                             <span className="font-medium text-slate-900 dark:text-slate-100">
                                 {attr?.classe?.nom ?? 'N/A'}
                             </span>
-                            <span className="text-xs text-indigo-600 dark:text-indigo-400 font-semibold">
+                            <span className="text-xs text-teal-600 dark:text-teal-400 font-semibold">
                                 {attr?.matiere?.nom ?? 'N/A'}
                             </span>
                         </div>
@@ -209,7 +209,7 @@ export default function ProgressionPedagogiqueIndex({
                 cell: ({ row }) => {
                     const seance = row.original;
                     return (
-                        <div className="flex flex-col max-w-md">
+                        <div className="flex flex-col max-w-md whitespace-normal">
                             <span className="text-xs font-bold text-slate-900 dark:text-slate-100">
                                 {seance.chapitre}
                             </span>
@@ -233,7 +233,7 @@ export default function ProgressionPedagogiqueIndex({
                     return (
                         <div className="flex items-center gap-1 text-xs">
                             <Clock className="w-3.5 h-3.5 text-slate-400" />
-                            <span className="font-bold text-indigo-600 dark:text-indigo-400">
+                            <span className="font-bold text-teal-600 dark:text-teal-400">
                                 {seance.heures_effectuees}h
                             </span>
                             <span className="text-slate-400">/ {seance.heures_prevues}h</span>
@@ -308,7 +308,7 @@ export default function ProgressionPedagogiqueIndex({
                                 className={`h-8 w-8 p-0 ${
                                     seance.visa_censeur
                                         ? 'text-emerald-600 hover:bg-emerald-50'
-                                        : 'text-indigo-600 hover:bg-indigo-50'
+                                        : 'text-teal-600 hover:bg-teal-50'
                                 }`}
                                 onClick={() => {
                                     setTargetSeanceVisa(seance);
@@ -365,13 +365,14 @@ export default function ProgressionPedagogiqueIndex({
         <>
             <Head title="Cahier de Texte & Progression Pédagogique" />
 
-            <div className="container mx-auto p-4 sm:p-6 space-y-6 max-w-7xl">
+            {/* Conteneur principal plein écran fluide et responsive sans contrainte artificielle de largeur */}
+            <div className="flex flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8 w-full min-w-0">
                 {/* En-tête de page & Actions */}
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                    <div>
-                        <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2.5">
-                            <BookOpen className="w-7 h-7 text-indigo-600 dark:text-indigo-400" />
-                            Cahier de Texte & Progression Pédagogique
+                <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+                    <div className="min-w-0">
+                        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-start sm:items-center gap-2.5">
+                            <BookOpen className="w-7 h-7 shrink-0 text-teal-600 dark:text-teal-400 mt-0.5 sm:mt-0" />
+                            <span>Cahier de Texte & Progression Pédagogique</span>
                         </h1>
                         <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
                             Suivi didactique des séances dispensées, contrôle horaire ministériel et visa hiérarchique du censeur (Aurore §5.1.8).
@@ -382,32 +383,32 @@ export default function ProgressionPedagogiqueIndex({
                         {currentAttributionId && (
                             <Button
                                 variant="outline"
-                                className="gap-1.5 text-slate-700 dark:text-slate-200 border-indigo-200 hover:bg-indigo-50"
+                                className="gap-1.5 text-slate-700 dark:text-slate-200 border-teal-200 hover:bg-teal-50"
                                 onClick={() => {
                                     window.open(`/administration/progression-pedagogique/imprimer/${currentAttributionId}`, '_blank');
                                 }}
                             >
-                                <Printer className="w-4 h-4 text-indigo-600" />
+                                <Printer className="w-4 h-4 shrink-0 text-teal-600" />
                                 Fiche d'Inspection PDF
                             </Button>
                         )}
 
                         <Button
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5 shadow"
+                            className="bg-teal-600 hover:bg-teal-700 text-white gap-1.5 shadow"
                             onClick={() => {
                                 setEditingSeance(null);
                                 setNouvelleSeanceModalOpen(true);
                             }}
                         >
-                            <Plus className="w-4 h-4" />
+                            <Plus className="w-4 h-4 shrink-0" />
                             Consigner une Séance
                         </Button>
                     </div>
                 </div>
 
                 {/* Cartes KPI & Progression globale */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <Card className="border-l-4 border-l-indigo-500 shadow-sm">
+                <div className="grid grid-cols-1 min-[420px]:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <Card className="border-l-4 border-l-teal-500 shadow-sm">
                         <CardHeader className="pb-2">
                             <CardDescription className="text-xs uppercase font-bold tracking-wider">
                                 Séances Consignées
@@ -481,10 +482,10 @@ export default function ProgressionPedagogiqueIndex({
 
                 {/* Barre de filtres de recherche */}
                 <Card className="shadow-sm">
-                    <CardContent className="pt-5 space-y-4">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                    <CardContent className="p-4 sm:p-5 space-y-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-3">
                             {/* Recherche textuelle */}
-                            <div className="space-y-1 lg:col-span-2">
+                            <div className="space-y-1 sm:col-span-2 xl:col-span-2 min-w-0">
                                 <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">
                                     Recherche (Leçon, Chapitre...)
                                 </label>
@@ -625,9 +626,9 @@ export default function ProgressionPedagogiqueIndex({
                 </Card>
 
                 {/* Tableau TanStack Table */}
-                <Card className="shadow-sm overflow-hidden">
+                <Card className="shadow-sm overflow-hidden min-w-0">
                     <div className="overflow-x-auto">
-                        <Table>
+                        <Table className="min-w-[820px]">
                             <TableHeader>
                                 {table.getHeaderGroups().map((headerGroup) => (
                                     <TableRow key={headerGroup.id} className="bg-slate-50 dark:bg-slate-800/50">
@@ -676,20 +677,20 @@ export default function ProgressionPedagogiqueIndex({
                         </Table>
                     </div>
 
-                    {/* Pagination Inertia */}
+                    {/* Pagination Inertia avec retour à la ligne sur petits écrans */}
                     {fiches.last_page > 1 && (
-                        <div className="flex items-center justify-between px-4 py-3 border-t bg-slate-50 dark:bg-slate-800/40 text-xs">
-                            <span className="text-slate-500">
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-4 py-3 border-t bg-slate-50 dark:bg-slate-800/40 text-xs">
+                            <span className="text-slate-500 text-center sm:text-left">
                                 Affichage de {fiches.data.length} sur {fiches.total} séances consignées
                             </span>
-                            <div className="flex items-center gap-1">
+                            <div className="flex flex-wrap items-center justify-center gap-1">
                                 {fiches.links.map((link, idx) => (
                                     <Button
                                         key={idx}
                                         variant={link.active ? 'default' : 'outline'}
                                         size="sm"
                                         disabled={!link.url}
-                                        className={`h-7 px-2.5 text-xs ${link.active ? 'bg-indigo-600 text-white' : ''}`}
+                                        className={`h-7 px-2.5 text-xs ${link.active ? 'bg-teal-600 text-white' : ''}`}
                                         onClick={() => link.url && router.get(link.url, {}, { preserveScroll: true, preserveState: true })}
                                         dangerouslySetInnerHTML={{ __html: link.label }}
                                     />

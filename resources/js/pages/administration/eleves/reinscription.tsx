@@ -537,11 +537,12 @@ export default function ReinscriptionPage({
         <>
             <Head title="Réinscription & Promotion des Anciens Élèves | SYGES" />
 
-            <div className="container mx-auto py-8 px-4 sm:px-6 space-y-6 max-w-7xl">
+            {/* Conteneur principal plein écran fluide et responsive sans contrainte artificielle de largeur */}
+            <div className="flex h-full flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8 w-full min-w-0">
                 {/* ───────────────────────────────────────────────────────────── */}
                 {/* EN-TÊTE PRINCIPAL & NAVIGATION */}
                 {/* ───────────────────────────────────────────────────────────── */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-border">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-border">
                     <div className="space-y-1">
                         <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
                             <Link
@@ -552,9 +553,9 @@ export default function ReinscriptionPage({
                                 <span>Retour au registre des élèves</span>
                             </Link>
                         </div>
-                        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground flex items-center gap-3">
-                            <div className="p-2.5 rounded-2xl bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                                <UserCheck className="size-7" />
+                        <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight text-foreground flex items-center gap-2.5 sm:gap-3">
+                            <div className="p-2 rounded-xl sm:p-2.5 sm:rounded-2xl bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shrink-0">
+                                <UserCheck className="size-6 sm:size-7" />
                             </div>
                             <span>Réinscription & Promotion des Anciens Élèves</span>
                         </h1>
@@ -565,7 +566,7 @@ export default function ReinscriptionPage({
                     </div>
 
                     {/* Cadre de référence temporel : Année Destination & Année Source */}
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 p-3 rounded-2xl bg-muted/40 border border-border shadow-2xs">
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 p-3 rounded-2xl bg-muted/40 border border-border shadow-2xs w-full lg:w-auto">
                         <div className="space-y-1">
                             <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
                                 <Calendar className="size-3 text-emerald-600" />
@@ -591,7 +592,7 @@ export default function ReinscriptionPage({
 
                         <div className="space-y-1">
                             <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                                <Clock className="size-3 text-indigo-600" />
+                                <Clock className="size-3 text-teal-600" />
                                 Année Source (Origine)
                             </Label>
                             <Select value={srcAnneeId} onValueChange={setSrcAnneeId}>
@@ -613,17 +614,17 @@ export default function ReinscriptionPage({
                 {/* ───────────────────────────────────────────────────────────── */}
                 {/* SÉLECTEUR DE MODE (ONGLETS MAJEURS) */}
                 {/* ───────────────────────────────────────────────────────────── */}
-                <div className="flex border-b border-border gap-2">
+                <div className="flex border-b border-border gap-2 overflow-x-auto pb-1 -mb-1 w-full shrink-0">
                     <button
                         type="button"
                         onClick={() => setActiveTab('lot')}
-                        className={`flex items-center gap-2.5 px-5 py-3 text-sm font-semibold border-b-2 transition-all cursor-pointer ${
+                        className={`flex items-center gap-2.5 px-4 sm:px-5 py-3 text-xs sm:text-sm font-semibold border-b-2 transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                             activeTab === 'lot'
                                 ? 'border-emerald-600 text-emerald-700 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-950/20 rounded-t-xl'
                                 : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/30 rounded-t-xl'
                         }`}
                     >
-                        <Users className="size-4" />
+                        <Users className="size-4 shrink-0" />
                         <span>1. Promotion Collective par Classe (En lot)</span>
                         <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200">
                             Recommandé Rentrée
@@ -633,13 +634,13 @@ export default function ReinscriptionPage({
                     <button
                         type="button"
                         onClick={() => setActiveTab('individuel')}
-                        className={`flex items-center gap-2.5 px-5 py-3 text-sm font-semibold border-b-2 transition-all cursor-pointer ${
+                        className={`flex items-center gap-2.5 px-4 sm:px-5 py-3 text-xs sm:text-sm font-semibold border-b-2 transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                             activeTab === 'individuel'
-                                ? 'border-indigo-600 text-indigo-700 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-950/20 rounded-t-xl'
+                                ? 'border-teal-600 text-teal-700 dark:text-teal-400 bg-teal-50/50 dark:bg-teal-950/20 rounded-t-xl'
                                 : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/30 rounded-t-xl'
                         }`}
                     >
-                        <User className="size-4" />
+                        <User className="size-4 shrink-0" />
                         <span>2. Réinscription Individuelle</span>
                     </button>
                 </div>
@@ -813,10 +814,10 @@ export default function ReinscriptionPage({
                                     />
                                 </div>
 
-                                {/* TABLEAU DES ÉLÈVES DE LA CLASSE */}
-                                <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-xs">
-                                    <div className="overflow-x-auto">
-                                        <table className="w-full text-left border-collapse text-xs">
+                                {/* TABLEAU DES ÉLÈVES DE LA CLASSE AVEC DÉBORDEMENT MAÎTRISÉ */}
+                                <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-xs min-w-0">
+                                    <div className="overflow-x-auto min-w-0">
+                                        <table className="w-full text-left border-collapse text-xs min-w-[750px]">
                                             <thead>
                                                 <tr className="border-b border-border bg-muted/50 font-semibold text-muted-foreground uppercase text-[11px] tracking-wider">
                                                     <th className="p-3 w-12 text-center">

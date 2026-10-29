@@ -15,6 +15,7 @@ export default defineConfig({
             fonts: [
                 bunny('Instrument Sans', {
                     weights: [400, 500, 600],
+                    optimizedFallbacks: false,
                 }),
             ],
         }),
@@ -66,6 +67,9 @@ export default defineConfig({
         ignorePatterns: [
             '.github/**',
             'composer.json',
+            'public/**',
+            'vendor/**',
+            'storage/**',
             'resources/js/components/ui/*',
             'resources/views/mail/*',
         ],

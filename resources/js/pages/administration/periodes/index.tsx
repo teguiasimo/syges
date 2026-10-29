@@ -555,7 +555,8 @@ export default function PeriodesIndex({
         <>
             <Head title="Années & Périodes d'Évaluation - Administration" />
 
-            <div className="flex h-full flex-1 flex-col gap-6 p-6 sm:p-8 max-w-7xl mx-auto w-full">
+            {/* Conteneur principal plein écran fluide et responsive sans contrainte artificielle de largeur */}
+            <div className="flex h-full flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8 w-full min-w-0">
                 {/* 1. EN-TÊTE DU MODULE */}
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
@@ -627,7 +628,7 @@ export default function PeriodesIndex({
                                                 key={etab.id}
                                                 type="button"
                                                 onClick={() => handleSelectEtablissement(etab.id)}
-                                                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer border ${
+                                                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer border shrink-0 whitespace-nowrap ${
                                                     isSelected
                                                         ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
                                                         : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-900'
@@ -657,8 +658,8 @@ export default function PeriodesIndex({
                 <div className="rounded-2xl border-2 border-slate-300/90 dark:border-slate-700 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400 dark:hover:border-slate-600">
                     {/* En-tête contrasté et foncé contenant la ligne des codes d'années et les actions */}
                     <div className="bg-linear-to-r from-slate-200/95 via-sky-100/70 to-slate-200/80 dark:from-slate-800 dark:via-sky-950/40 dark:to-slate-800/90 px-6 py-4 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
-                        <div className="flex items-center gap-3">
-                            <div className="flex size-9 items-center justify-center rounded-xl bg-linear-to-br from-sky-600 to-indigo-600 text-white font-bold shadow-xs shrink-0">
+                        <div className="flex items-center gap-3 min-w-0 max-w-full">
+                            <div className="flex size-9 items-center justify-center rounded-xl bg-linear-to-br from-sky-600 to-teal-600 text-white font-bold shadow-xs shrink-0">
                                 <Calendar className="size-4" />
                             </div>
 
@@ -670,7 +671,7 @@ export default function PeriodesIndex({
                                             key={annee.id}
                                             type="button"
                                             onClick={() => handleSelectAnnee(annee.id)}
-                                            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer border ${
+                                            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer border shrink-0 whitespace-nowrap ${
                                                 isSelected
                                                     ? 'bg-sky-600 text-white border-sky-700 shadow-xs'
                                                     : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900'
@@ -690,7 +691,7 @@ export default function PeriodesIndex({
                         </div>
 
                         {selectedAnnee && (
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                                 {!selectedAnnee.is_current && can.periodes_manage && (
                                     <Button
                                         type="button"
@@ -788,16 +789,16 @@ export default function PeriodesIndex({
                                     </p>
                                 </div>
 
-                                <div className="flex items-center gap-2.5">
+                                <div className="flex flex-wrap items-center gap-2.5">
                                     {periodes.length === 0 && can.periodes_manage && (
                                         <Button
                                             type="button"
                                             variant="outline"
                                             size="sm"
                                             onClick={handleGenerateStandardStructure}
-                                            className="gap-2 cursor-pointer text-xs h-9 text-emerald-600 border-emerald-200 hover:bg-emerald-50 dark:border-emerald-800"
+                                            className="gap-2 cursor-pointer text-xs h-auto min-h-9 py-2 whitespace-normal text-left text-emerald-600 border-emerald-200 hover:bg-emerald-50 dark:border-emerald-800"
                                         >
-                                            <CalendarRange className="size-3.5" />
+                                            <CalendarRange className="size-3.5 shrink-0" />
                                             <span>Initialiser le standard officiel (3 Trimestres / 6 Évaluations)</span>
                                         </Button>
                                     )}
@@ -843,9 +844,9 @@ export default function PeriodesIndex({
                                         <Button
                                             type="button"
                                             onClick={handleGenerateStandardStructure}
-                                            className="mt-4 gap-2 cursor-pointer text-xs bg-emerald-600 text-white hover:bg-emerald-700"
+                                            className="mt-4 gap-2 cursor-pointer text-xs h-auto py-2 whitespace-normal text-center bg-emerald-600 text-white hover:bg-emerald-700"
                                         >
-                                            <CalendarRange className="size-3.5" />
+                                            <CalendarRange className="size-3.5 shrink-0" />
                                             <span>Initialiser le standard officiel pour cet établissement</span>
                                         </Button>
                                     )}
@@ -934,7 +935,7 @@ export default function PeriodesIndex({
                                                         )}
 
                                                         {can.periodes_manage && (
-                                                            <div className="flex items-center gap-1.5">
+                                                            <div className="flex flex-wrap items-center gap-1.5">
                                                                 <Button
                                                                     type="button"
                                                                     size="sm"
@@ -1014,8 +1015,8 @@ export default function PeriodesIndex({
                                                 {/* =========================================================================
                                                  * CORPS DU TRIMESTRE (Tableau des Évaluations & Séquences)
                                                  * ========================================================================= */}
-                                                <div className="p-5 bg-card space-y-3">
-                                                    <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+                                                <div className="p-4 sm:p-5 bg-card space-y-3">
+                                                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground px-1">
                                                         <span className="font-semibold uppercase tracking-wider text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
                                                             <Calendar className="size-3.5 text-sky-600 dark:text-sky-400" />
                                                             Évaluations du {periode.nom}

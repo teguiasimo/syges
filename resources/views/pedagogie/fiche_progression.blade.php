@@ -216,8 +216,13 @@
                 DÉLÉGATION RÉGIONALE DU CENTRE
             </td>
             <td class="header-center">
-                @if($etablissement && $etablissement->logo_url)
-                    <img src="{{ public_path($etablissement->logo_url) }}" alt="Logo" style="max-height: 48px; max-width: 60px;">
+                @php
+                    $logoSrc = ($etablissement && method_exists($etablissement, 'getEffectiveLogoBase64'))
+                        ? $etablissement->getEffectiveLogoBase64()
+                        : (file_exists(public_path('logo.png')) ? 'data:image/png;base64,' . base64_encode(file_get_contents(public_path('logo.png'))) : null);
+                @endphp
+                @if($logoSrc)
+                    <img src="{{ $logoSrc }}" alt="Logo" style="max-height: 48px; max-width: 60px; object-fit: contain;">
                 @else
                     <div style="font-size: 22pt; font-weight: bold; color: #1e3a8a;">SYGES</div>
                 @endif

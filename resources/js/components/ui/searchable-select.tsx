@@ -227,7 +227,7 @@ export function SearchableSelect({
             {isOpen && (
                 <div
                     className={cn(
-                        'absolute left-0 w-full min-w-70 max-w-[calc(100vw-2rem)] z-50 rounded-lg border border-border bg-popover text-popover-foreground shadow-2xl animate-in fade-in-0 zoom-in-95 overflow-hidden flex flex-col max-h-72',
+                        'absolute left-0 w-full min-w-0 sm:min-w-70 max-w-[calc(100vw-2rem)] z-50 rounded-lg border border-border bg-popover text-popover-foreground shadow-2xl animate-in fade-in-0 zoom-in-95 overflow-hidden flex flex-col max-h-72',
                         placeAbove ? 'bottom-full mb-1' : 'top-full mt-1'
                     )}
                 >
@@ -285,10 +285,12 @@ export function SearchableSelect({
                         ) : (
                             groupedOptions.map(({ group, items }) => (
                                 <div key={group} className="space-y-0.5">
-                                    {/* En-tête de catégorie / groupe */}
-                                    <div className="px-2 py-1 text-[11px] font-bold text-muted-foreground uppercase tracking-wider bg-muted/50 rounded-sm">
-                                        {group}
-                                    </div>
+                                    {/* En-tête de catégorie / groupe (affiché uniquement s'il y a plusieurs groupes ou un intitulé explicite) */}
+                                    {(groupedOptions.length > 1 || (group && group !== 'Général')) && (
+                                        <div className="px-2 py-1 text-[11px] font-bold text-muted-foreground uppercase tracking-wider bg-muted/50 rounded-sm">
+                                            {group}
+                                        </div>
+                                    )}
 
                                     {/* Éléments du groupe */}
                                     {items.map((item) => {

@@ -147,10 +147,10 @@ export default function NouveauVersementModal({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-2xl">
                 <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2 text-xl font-bold text-slate-800 dark:text-slate-100">
-                        <DollarSign className="w-6 h-6 text-emerald-600" />
+                    <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-100">
+                        <DollarSign className="w-6 h-6 text-emerald-600 shrink-0" />
                         Guichet Caisse : Enregistrer un Versement
                     </DialogTitle>
                     <DialogDescription>
@@ -158,9 +158,9 @@ export default function NouveauVersementModal({
                     </DialogDescription>
                 </DialogHeader>
 
-                <form onSubmit={handleSubmit} className="space-y-4">
+                <form onSubmit={handleSubmit} className="space-y-4 min-w-0">
                     {/* Sélection de l'élève */}
-                    <div className="space-y-1.5">
+                    <div className="space-y-1.5 min-w-0">
                         <Label htmlFor="compte_select">Élève bénéficiaire <span className="text-red-500">*</span></Label>
                         <Select
                             value={selectedCompteId}
@@ -183,33 +183,33 @@ export default function NouveauVersementModal({
                         {errors.compte_financier_id && <p className="text-xs text-red-500">{errors.compte_financier_id}</p>}
                     </div>
 
-                    {/* Aperçu du compte élève sélectionné */}
+                    {/* Aperçu du compte élève sélectionné : 1 colonne sur mobile, 3 colonnes dès sm */}
                     {activeCompte && (
-                        <div className="p-3 bg-slate-50 dark:bg-slate-900/60 rounded-lg border border-slate-200 dark:border-slate-800 grid grid-cols-3 gap-2 text-xs">
-                            <div>
+                        <div className="p-3 bg-slate-50 dark:bg-slate-900/60 rounded-lg border border-slate-200 dark:border-slate-800 grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+                            <div className="flex sm:block justify-between items-center">
                                 <span className="text-slate-500 block">Total Exigible</span>
-                                <span className="font-semibold text-slate-800 dark:text-slate-200">
+                                <span className="font-semibold text-slate-800 dark:text-slate-200 tabular-nums">
                                     {Number(activeCompte.montant_net_exigible).toLocaleString('fr-FR')} FCFA
                                 </span>
                             </div>
-                            <div>
+                            <div className="flex sm:block justify-between items-center">
                                 <span className="text-slate-500 block">Déjà Payé</span>
-                                <span className="font-semibold text-emerald-600">
+                                <span className="font-semibold text-emerald-600 tabular-nums">
                                     {Number(activeCompte.total_paye).toLocaleString('fr-FR')} FCFA
                                 </span>
                             </div>
-                            <div>
+                            <div className="flex sm:block justify-between items-center pt-1.5 sm:pt-0 border-t sm:border-t-0 border-slate-200 dark:border-slate-800">
                                 <span className="text-slate-500 block">Solde Restant Dû</span>
-                                <span className="font-bold text-red-600 text-sm">
+                                <span className="font-bold text-red-600 text-sm tabular-nums">
                                     {Number(activeCompte.solde_restant).toLocaleString('fr-FR')} FCFA
                                 </span>
                             </div>
                         </div>
                     )}
 
-                    {/* Lignes de ventilation */}
+                    {/* Lignes de ventilation adaptées aux petits écrans */}
                     <div className="space-y-2">
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
                             <Label className="text-sm font-semibold">Ventilation des frais à encaisser</Label>
                             <Button
                                 type="button"
@@ -218,55 +218,57 @@ export default function NouveauVersementModal({
                                 onClick={addVentilation}
                                 className="h-7 text-xs flex items-center gap-1"
                             >
-                                <Plus className="w-3.5 h-3.5" /> Ajouter une rubrique
+                                <Plus className="w-3.5 h-3.5 shrink-0" /> Ajouter une rubrique
                             </Button>
                         </div>
 
                         <div className="space-y-2">
                             {ventilations.map((vent, idx) => (
-                                <div key={idx} className="flex items-center gap-2">
+                                <div key={idx} className="flex flex-col sm:flex-row sm:items-center gap-2 p-2 sm:p-0 rounded-md border sm:border-0 border-slate-200 dark:border-slate-800">
                                     <Input
                                         placeholder="Rubrique (ex: Scolarité Tranche 1)"
                                         value={vent.libelle}
                                         onChange={(e) => updateVentilation(idx, 'libelle', e.target.value)}
-                                        className="flex-1"
+                                        className="flex-1 min-w-0"
                                         required
                                     />
-                                    <Input
-                                        type="number"
-                                        placeholder="Montant FCFA"
-                                        value={vent.montant || ''}
-                                        onChange={(e) => updateVentilation(idx, 'montant', e.target.value)}
-                                        className="w-36 text-right font-medium"
-                                        required
-                                        min={1}
-                                    />
-                                    {ventilations.length > 1 && (
-                                        <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="icon"
-                                            onClick={() => removeVentilation(idx)}
-                                            className="text-red-500 hover:text-red-700 h-9 w-9"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </Button>
-                                    )}
+                                    <div className="flex items-center gap-2">
+                                        <Input
+                                            type="number"
+                                            placeholder="Montant FCFA"
+                                            value={vent.montant || ''}
+                                            onChange={(e) => updateVentilation(idx, 'montant', e.target.value)}
+                                            className="flex-1 sm:w-36 sm:flex-none text-right font-medium tabular-nums"
+                                            required
+                                            min={1}
+                                        />
+                                        {ventilations.length > 1 && (
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                onClick={() => removeVentilation(idx)}
+                                                className="text-red-500 hover:text-red-700 h-9 w-9 shrink-0"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </Button>
+                                        )}
+                                    </div>
                                 </div>
                             ))}
                         </div>
 
-                        <div className="flex justify-end items-center gap-2 pt-1">
+                        <div className="flex flex-wrap justify-end items-center gap-2 pt-1">
                             <span className="text-xs text-slate-500 uppercase font-semibold">Montant Total Encaissé :</span>
-                            <span className="text-base font-bold text-emerald-600">
+                            <span className="text-base font-bold text-emerald-600 tabular-nums">
                                 {Number(data.montant_total || 0).toLocaleString('fr-FR')} FCFA
                             </span>
                         </div>
                     </div>
 
                     {/* Mode de règlement et référence */}
-                    <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1 min-w-0">
                             <Label htmlFor="mode_paiement">Mode de Paiement <span className="text-red-500">*</span></Label>
                             <Select
                                 value={data.mode_paiement}
@@ -284,7 +286,7 @@ export default function NouveauVersementModal({
                             </Select>
                         </div>
 
-                        <div className="space-y-1">
+                        <div className="space-y-1 min-w-0">
                             <Label htmlFor="reference_paiement">Réf. Transaction / N° Chèque</Label>
                             <Input
                                 id="reference_paiement"
@@ -296,8 +298,8 @@ export default function NouveauVersementModal({
                     </div>
 
                     {/* Informations du payeur */}
-                    <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1 min-w-0">
                             <Label htmlFor="payeur_nom">Nom du Payeur / Parent</Label>
                             <Input
                                 id="payeur_nom"
@@ -306,7 +308,7 @@ export default function NouveauVersementModal({
                                 onChange={(e) => setData('payeur_nom', e.target.value)}
                             />
                         </div>
-                        <div className="space-y-1">
+                        <div className="space-y-1 min-w-0">
                             <Label htmlFor="payeur_telephone">Téléphone du Payeur</Label>
                             <Input
                                 id="payeur_telephone"
@@ -330,15 +332,15 @@ export default function NouveauVersementModal({
                     </div>
 
                     <DialogFooter className="pt-2">
-                        <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                        <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => onOpenChange(false)}>
                             Annuler
                         </Button>
                         <Button
                             type="submit"
                             disabled={processing || !selectedCompteId || Number(data.montant_total) <= 0}
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5"
+                            className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center gap-1.5"
                         >
-                            <CheckCircle2 className="w-4 h-4" />
+                            <CheckCircle2 className="w-4 h-4 shrink-0" />
                             {processing ? 'Encaissement en cours...' : 'Valider & Émettre le Reçu'}
                         </Button>
                     </DialogFooter>

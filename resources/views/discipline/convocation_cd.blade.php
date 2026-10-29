@@ -143,6 +143,14 @@
                 {{ $institution->delegation_departementale ?? 'DÉLÉGATION DÉPARTEMENTALE DU MFOUNDI' }}
             </td>
             <td class="header-center">
+                @php
+                    $logoSrc = ($etablissement && method_exists($etablissement, 'getEffectiveLogoBase64'))
+                        ? $etablissement->getEffectiveLogoBase64()
+                        : (file_exists(public_path('logo.png')) ? 'data:image/png;base64,' . base64_encode(file_get_contents(public_path('logo.png'))) : null);
+                @endphp
+                @if($logoSrc)
+                    <img src="{{ $logoSrc }}" alt="Logo" style="max-height: 48px; max-width: 65px; object-fit: contain; margin-bottom: 2px;"><br>
+                @endif
                 <div class="school-name">{{ $etablissement->nom }}</div>
                 <div class="school-sub">{{ $etablissement->devise ?? 'Discipline - Travail - Succès' }}</div>
                 <div class="school-sub">{{ $etablissement->adresse ?? '' }} - Tél: {{ $etablissement->telephone_1 ?? '' }}</div>

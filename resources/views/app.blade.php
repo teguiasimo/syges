@@ -8,7 +8,7 @@
         {{-- Script en ligne sécurisé pour détecter la préférence du mode sombre et l'appliquer immédiatement sans blocage JS --}}
         <script>
             (function() {
-                const appearance = {{ json_encode(in_array($appearance ?? 'system', ['light', 'dark', 'system'], true) ? $appearance : 'system') }};
+                const appearance = '{{ (isset($appearance) && in_array($appearance, ["light", "dark", "system"], true)) ? $appearance : "system" }}';
 
                 if (appearance === 'system') {
                     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;

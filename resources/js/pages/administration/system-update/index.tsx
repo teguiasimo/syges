@@ -430,11 +430,11 @@ export default function SystemUpdateIndex({
             } else {
                 if (data.backups) setBackups(data.backups);
                 if (data.history) setHistory(data.history);
-                toast.error(data.message || 'La mise à jour n’a pas pu aboutir.');
+                toast.error(data.message || "La mise à jour n'a pas pu aboutir.");
             }
         } catch {
             toast.error(
-                'La communication avec le serveur a été interrompue pendant l’opération. Veuillez actualiser la page.',
+                "La communication avec le serveur a été interrompue pendant l'opération. Veuillez actualiser la page.",
             );
         } finally {
             setIsUpdating(false);
@@ -630,6 +630,8 @@ export default function SystemUpdateIndex({
                         <a
                             href={`/administration/system-update/backups/${encodeURIComponent(row.original.filename)}`}
                             download={row.original.filename}
+                            target="_blank"
+                            rel="noopener noreferrer"
                         >
                             <Download className="size-3.5" />
                             <span>Télécharger .SQL</span>
@@ -1129,7 +1131,7 @@ export default function SystemUpdateIndex({
                         <div className="text-xs space-y-0.5">
                             <p className="font-bold text-foreground">Version Mineure (v0.X.0)</p>
                             <p className="text-muted-foreground">
-                                Ajout de nouvelles fonctionnalités métier demandées par l’établissement.
+                                Ajout de nouvelles fonctionnalités métier demandées par l'établissement.
                             </p>
                         </div>
                     </div>
@@ -1261,7 +1263,7 @@ export default function SystemUpdateIndex({
                                     <code className="font-mono">optimize:clear</code> puis{' '}
                                     <code className="font-mono">optimize</code>).
                                 </li>
-                                <li>Réouverture immédiate de l’application.</li>
+                                <li>Réouverture immédiate de l'application.</li>
                             </ol>
                         </div>
                     </div>

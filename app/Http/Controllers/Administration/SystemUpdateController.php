@@ -165,7 +165,8 @@ class SystemUpdateController extends Controller
         abort_if($validPath === null, 404, 'Fichier de sauvegarde SQL introuvable ou nom invalide.');
 
         return response()->download($validPath, $filename, [
-            'Content-Type' => 'application/sql',
+            'Content-Type' => 'application/octet-stream',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
         ]);
     }
 }

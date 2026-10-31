@@ -94,7 +94,10 @@ class DatabaseBackupService
                 'message' => "Pilote de base de données non pris en charge pour l'export SQL : {$driver}.",
             ];
         } catch (\Throwable $e) {
-            Log::error('Échec de la sauvegarde SQL SYGES : '.$e->getMessage(), [
+            $rawMsg = (string) $e->getMessage();
+            $safeMsg = mb_convert_encoding($rawMsg, 'UTF-8', ['UTF-8', 'Windows-1252', 'ISO-8859-1']);
+
+            Log::error('Échec de la sauvegarde SQL SYGES : '.$safeMsg, [
                 'exception' => $e,
             ]);
 
@@ -108,7 +111,7 @@ class DatabaseBackupService
                 'filename' => null,
                 'size' => 0,
                 'size_formatted' => '0 octets',
-                'message' => 'Erreur lors de la génération de la sauvegarde SQL : '.$e->getMessage(),
+                'message' => 'Erreur lors de la génération de la sauvegarde SQL : '.$safeMsg,
             ];
         }
     }
@@ -177,12 +180,25 @@ class DatabaseBackupService
                 'message' => "Copie de sauvegarde transmise par email à {$developerEmail}.",
             ];
         } catch (\Throwable $e) {
-            Log::warning("Envoi email de la sauvegarde SQL vers {$developerEmail} non abouti : ".$e->getMessage());
+            $rawMsg = (string) $e->getMessage();
+            $safeMsg = mb_convert_encoding($rawMsg, 'UTF-8', ['UTF-8', 'Windows-1252', 'ISO-8859-1']);
+
+            Log::warning("Envoi email de la sauvegarde SQL vers {$developerEmail} non abouti : {$safeMsg}");
+
+            // Diagnostic précis et propre pour le mode hors-ligne sans pollution par les erreurs de sockets brutes
+            $isOfflineOrNetwork = preg_match(
+                '/Connection could not be established|stream_socket_client|php_network_getaddresses|timed out|timeout|Network is unreachable|refused/i',
+                $rawMsg
+            ) === 1;
+
+            $diagnostic = $isOfflineOrNetwork
+                ? 'envoi email ignoré car aucune connexion Internet active pour joindre le serveur de messagerie'
+                : 'envoi email non abouti : ' . mb_substr($safeMsg, 0, 160);
 
             return [
                 'sent' => false,
                 'recipient' => $developerEmail,
-                'message' => "Sauvegarde enregistrée sur le serveur (envoi email non abouti : {$e->getMessage()}).",
+                'message' => "Sauvegarde enregistrée sur le serveur local ({$diagnostic}).",
             ];
         }
     }

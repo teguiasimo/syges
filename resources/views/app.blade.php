@@ -5,10 +5,10 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
 
-        {{-- Inline script to detect system dark mode preference and apply it immediately --}}
+        {{-- Script en ligne sécurisé pour détecter la préférence du mode sombre et l'appliquer immédiatement sans blocage JS --}}
         <script>
             (function() {
-                const appearance = '{{ $appearance ?? "system" }}';
+                const appearance = {{ json_encode(in_array($appearance ?? 'system', ['light', 'dark', 'system'], true) ? $appearance : 'system') }};
 
                 if (appearance === 'system') {
                     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;

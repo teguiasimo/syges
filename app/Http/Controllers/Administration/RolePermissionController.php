@@ -1003,6 +1003,11 @@ class RolePermissionController extends Controller implements HasMiddleware
             'label' => 'Dupliquer les compétences inter-classes',
             'description' => 'Propager en un clic les compétences d\'une classe source vers d\'autres classes cibles.',
         ],
+        'competences_apc.programmer_niveau' => [
+            'module' => 'competences_apc',
+            'label' => 'Programmer les compétences par niveau',
+            'description' => 'Programmer et déployer des compétences APC pour l\'ensemble des classes d\'un même niveau (réservé Directeur des Études / Chef de Département).',
+        ],
         'cotes_apc.manage' => [
             'module' => 'competences_apc',
             'label' => 'Configurer la matrice des cotes ministérielles',

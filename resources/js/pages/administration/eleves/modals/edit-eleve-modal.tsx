@@ -22,7 +22,7 @@ import type { Eleve } from '@/types/eleve';
 interface EditEleveModalProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    eleve: Eleve | null;
+    eleve: (Eleve & { is_redoublant?: boolean; inscription_id?: number }) | null;
 }
 
 /**
@@ -34,7 +34,7 @@ interface EditEleveModalProps {
 export function EditEleveModal({ open, onOpenChange, eleve }: EditEleveModalProps) {
     const [loading, setLoading] = useState(false);
     const [activeTab, setActiveTab] = useState<'identite' | 'parents'>('identite');
-    const [formData, setFormData] = useState<Partial<Eleve>>({});
+    const [formData, setFormData] = useState<Partial<Eleve> & { is_redoublant?: boolean; inscription_id?: number }>({});
 
     useEffect(() => {
         if (eleve) {
@@ -47,6 +47,8 @@ export function EditEleveModal({ open, onOpenChange, eleve }: EditEleveModalProp
                 date_naissance: eleve.date_naissance || '',
                 lieu_naissance: eleve.lieu_naissance || '',
                 nationalite: eleve.nationalite || 'CAMEROUNAISE',
+                is_redoublant: Boolean(eleve.is_redoublant),
+                inscription_id: eleve.inscription_id,
                 nom_pere: eleve.nom_pere || '',
                 nom_mere: eleve.nom_mere || '',
                 nom_tuteur: eleve.nom_tuteur || '',
@@ -212,6 +214,19 @@ export function EditEleveModal({ open, onOpenChange, eleve }: EditEleveModalProp
                                     onChange={(e) => setFormData({ ...formData, nationalite: e.target.value })}
                                     className="mt-1"
                                 />
+                            </div>
+
+                            <div className="sm:col-span-2">
+                                <Label htmlFor="edit_is_redoublant">Régime d'Admission (Statut scolaire)</Label>
+                                <select
+                                    id="edit_is_redoublant"
+                                    value={formData.is_redoublant ? '1' : '0'}
+                                    onChange={(e) => setFormData({ ...formData, is_redoublant: e.target.value === '1' })}
+                                    className="w-full mt-1 h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                                >
+                                    <option value="0">Nouvel élève / Promu (Non redoublant)</option>
+                                    <option value="1">Redoublant de la classe</option>
+                                </select>
                             </div>
                         </div>
                     )}

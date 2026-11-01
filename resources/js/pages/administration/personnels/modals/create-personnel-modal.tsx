@@ -63,12 +63,16 @@ interface CreatePersonnelModalProps {
  * Fonctions types prédéfinies pour le personnel scolaire.
  */
 const FONCTIONS_PREDEFINIES = [
-    'Enseignant',
+    'Directeur',
+    'Proviseur',
+    'Principal',
+    'Chef d\'établissement',
     'Directeur des Études',
     'Censeur',
     'Surveillant Général',
     'Économe / Comptable',
     'Secrétaire',
+    'Enseignant',
     'Documentaliste / Bibliothécaire',
     'Infirmier(ère)',
     'Psychologue scolaire',

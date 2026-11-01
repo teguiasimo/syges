@@ -14,15 +14,17 @@ use App\Models\Note;
 use App\Models\Periode;
 use App\Models\Personnel;
 use App\Services\BulletinCalculationService;
+use App\Services\FinanceService;
 use App\Services\QrCodeService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 
 /**
  * Contrôleur de la Bibliothèque d'États Imprimables & Documents Officiels (Aurore §6.1 & Gesco V1.1).
- * 
+ *
  * Génère les documents administratifs normalisés infalsifiables :
  * 1. Certificats de scolarité officiels avec QR Code d'authenticité.
  * 2. Certificats de radiation / transfert avec quitus financier.
@@ -33,11 +35,6 @@ class DocumentOfficielController extends Controller
 {
     /**
      * Génère et télécharge le Certificat de Scolarité officiel (Aurore §6.1).
-     *
-     * @param Request $request
-     * @param Inscription $inscription
-     * @param QrCodeService $qrCodeService
-     * @return Response
      */
     public function certificatScolarite(
         Request $request,
@@ -64,7 +61,7 @@ class DocumentOfficielController extends Controller
 
         // Données d'intégrité pour le QR Code anti-fraude
         $qrData = sprintf(
-            "SYGES-CERT-SCO|ETAB:%d|MAT:%s|NOM:%s|CLASSE:%s|ANNEE:%s|NUM:%s",
+            'SYGES-CERT-SCO|ETAB:%d|MAT:%s|NOM:%s|CLASSE:%s|ANNEE:%s|NUM:%s',
             $etablissement->id,
             $eleve->matricule,
             $eleve->nom,
@@ -97,11 +94,6 @@ class DocumentOfficielController extends Controller
 
     /**
      * Génère et télécharge le Certificat de Radiation / Transfert officiel (Aurore §6.1).
-     *
-     * @param Request $request
-     * @param Inscription $inscription
-     * @param QrCodeService $qrCodeService
-     * @return Response
      */
     public function certificatRadiation(
         Request $request,
@@ -129,7 +121,7 @@ class DocumentOfficielController extends Controller
 
         // Données d'intégrité pour le QR Code
         $qrData = sprintf(
-            "SYGES-CERT-RAD|ETAB:%d|MAT:%s|NOM:%s|NUM:%s",
+            'SYGES-CERT-RAD|ETAB:%d|MAT:%s|NOM:%s|NUM:%s',
             $etablissement->id,
             $eleve->matricule,
             $eleve->nom,
@@ -167,12 +159,6 @@ class DocumentOfficielController extends Controller
 
     /**
      * Génère et télécharge la Fiche Officielle de Babillard des Notes (Aurore §6.1).
-     *
-     * @param Request $request
-     * @param Classe $classe
-     * @param Periode|null $periode
-     * @param BulletinCalculationService $calculationService
-     * @return Response
      */
     public function babillard(
         Request $request,
@@ -223,7 +209,7 @@ class DocumentOfficielController extends Controller
         }
 
         // Tri décroissant pour classement
-        usort($resultats, fn($a, $b) => $b['moyenne'] <=> $a['moyenne']);
+        usort($resultats, fn ($a, $b) => $b['moyenne'] <=> $a['moyenne']);
 
         // Attribution des rangs
         foreach ($resultats as $idx => &$res) {
@@ -233,12 +219,12 @@ class DocumentOfficielController extends Controller
 
         // Statistiques globales de classe
         $nbEleves = count($resultats);
-        $nbAdmis = count(array_filter($resultats, fn($r) => $r['moyenne'] >= 10));
+        $nbAdmis = count(array_filter($resultats, fn ($r) => $r['moyenne'] >= 10));
         $tauxReussite = $nbEleves > 0 ? round(($nbAdmis / $nbEleves) * 100, 1) : 0;
         $moyennesList = array_column($resultats, 'moyenne');
         $moyenneClasse = $nbEleves > 0 ? round(array_sum($moyennesList) / $nbEleves, 2) : 0;
-        $maxMoyenne = !empty($moyennesList) ? max($moyennesList) : 0;
-        $minMoyenne = !empty($moyennesList) ? min($moyennesList) : 0;
+        $maxMoyenne = ! empty($moyennesList) ? max($moyennesList) : 0;
+        $minMoyenne = ! empty($moyennesList) ? min($moyennesList) : 0;
 
         $pdf = Pdf::loadView('documents.babillard_classe', [
             'classe' => $classe,
@@ -267,10 +253,6 @@ class DocumentOfficielController extends Controller
 
     /**
      * Génère et télécharge la Fiche de Situation Financière Individuelle de l'élève (Aurore §6.1).
-     *
-     * @param Request $request
-     * @param Inscription $inscription
-     * @return Response
      */
     public function situationFinanciereEleve(Request $request, Inscription $inscription): Response
     {
@@ -286,9 +268,9 @@ class DocumentOfficielController extends Controller
         ]);
 
         $compte = $inscription->compteFinancier;
-        if (!$compte) {
-            /** @var \App\Services\FinanceService $financeService */
-            $financeService = app(\App\Services\FinanceService::class);
+        if (! $compte) {
+            /** @var FinanceService $financeService */
+            $financeService = app(FinanceService::class);
             $compte = $financeService->initialiserCompteEleve($inscription);
             $compte->load([
                 'versements.caisse',
@@ -326,9 +308,6 @@ class DocumentOfficielController extends Controller
 
     /**
      * Renvoie la mention officielle selon la moyenne obtenue (/20).
-     *
-     * @param float $moyenne
-     * @return string
      */
     private static function getMention(float $moyenne): string
     {
@@ -346,10 +325,6 @@ class DocumentOfficielController extends Controller
 
     /**
      * Génère et télécharge la Fiche d'Appel officielle de la classe (A4 Paysage).
-     *
-     * @param Request $request
-     * @param Classe $classe
-     * @return Response
      */
     public function ficheAppel(Request $request, Classe $classe): Response
     {
@@ -372,7 +347,7 @@ class DocumentOfficielController extends Controller
         }
 
         $inscriptions = $inscriptionsQuery->get()
-            ->sortBy(fn($i) => mb_strtoupper($i->eleve->nom . ' ' . $i->eleve->prenom))
+            ->sortBy(fn ($i) => mb_strtoupper($i->eleve->nom.' '.$i->eleve->prenom))
             ->values();
 
         $annee = $anneeId ? AnneeScolaire::find($anneeId) : ($classe->inscriptions()->latest()->first()?->anneeScolaire ?? AnneeScolaire::where('is_current', true)->first());
@@ -397,10 +372,6 @@ class DocumentOfficielController extends Controller
 
     /**
      * Génère et télécharge la Liste des Élèves de la classe (Provisoire / Définitive) (A4 Portrait).
-     *
-     * @param Request $request
-     * @param Classe $classe
-     * @return Response
      */
     public function listeEleves(Request $request, Classe $classe): Response
     {
@@ -427,16 +398,16 @@ class DocumentOfficielController extends Controller
         }
 
         $inscriptions = $inscriptionsQuery->get()
-            ->sortBy(fn($i) => mb_strtoupper($i->eleve->nom . ' ' . $i->eleve->prenom))
+            ->sortBy(fn ($i) => mb_strtoupper($i->eleve->nom.' '.$i->eleve->prenom))
             ->values();
 
         $annee = $anneeId ? AnneeScolaire::find($anneeId) : ($classe->inscriptions()->latest()->first()?->anneeScolaire ?? AnneeScolaire::where('is_current', true)->first());
 
         $total = $inscriptions->count();
-        $filles = $inscriptions->filter(fn($i) => $i->eleve->sexe === 'F')->count();
-        $garcons = $inscriptions->filter(fn($i) => $i->eleve->sexe === 'M')->count();
-        $nouveaux = $inscriptions->filter(fn($i) => !$i->is_redoublant)->count();
-        $redoublants = $inscriptions->filter(fn($i) => (bool) $i->is_redoublant)->count();
+        $filles = $inscriptions->filter(fn ($i) => $i->eleve->sexe === 'F')->count();
+        $garcons = $inscriptions->filter(fn ($i) => $i->eleve->sexe === 'M')->count();
+        $nouveaux = $inscriptions->filter(fn ($i) => ! $i->is_redoublant)->count();
+        $redoublants = $inscriptions->filter(fn ($i) => (bool) $i->is_redoublant)->count();
 
         $pdf = Pdf::loadView('documents.liste_eleves', [
             'classe' => $classe,
@@ -468,8 +439,8 @@ class DocumentOfficielController extends Controller
     /**
      * Génère et télécharge la Liste Officielle des Élèves pour l'ensemble d'un Niveau scolaire (A4 Portrait).
      *
-     * @param Request $request Requête HTTP avec filtres type (definitive/provisoire) et annee_id.
-     * @param Niveau $niveau Niveau scolaire sélectionné (ex: 6e, 5e, 4e, 3e).
+     * @param  Request  $request  Requête HTTP avec filtres type (definitive/provisoire) et annee_id.
+     * @param  Niveau  $niveau  Niveau scolaire sélectionné (ex: 6e, 5e, 4e, 3e).
      * @return Response Document PDF en flux de téléchargement.
      */
     public function listeElevesNiveau(Request $request, Niveau $niveau): Response
@@ -503,7 +474,7 @@ class DocumentOfficielController extends Controller
 
         $inscriptions = $inscriptionsQuery->get()
             ->sortBy(function ($i) {
-                return ($i->classe?->nom ?? '') . ' ' . mb_strtoupper(($i->eleve?->nom ?? '') . ' ' . ($i->eleve?->prenom ?? ''));
+                return ($i->classe?->nom ?? '').' '.mb_strtoupper(($i->eleve?->nom ?? '').' '.($i->eleve?->prenom ?? ''));
             })
             ->values();
 
@@ -520,6 +491,7 @@ class DocumentOfficielController extends Controller
         // Répartition par classe du niveau
         $classesStats = $niveau->classes->map(function ($cls) use ($inscriptions) {
             $count = $inscriptions->where('classe_id', $cls->id)->count();
+
             return [
                 'nom' => $cls->nom,
                 'total' => $count,
@@ -547,7 +519,7 @@ class DocumentOfficielController extends Controller
         $fileName = sprintf(
             'Liste_Eleves_Niveau_%s_%s_%s.pdf',
             ucfirst($type),
-            \Illuminate\Support\Str::slug($niveau->nom),
+            Str::slug($niveau->nom),
             now()->format('Ymd')
         );
 
@@ -556,9 +528,6 @@ class DocumentOfficielController extends Controller
 
     /**
      * Génère et télécharge la Liste Officielle des Classes de l'Établissement (A4 Portrait).
-     *
-     * @param Request $request
-     * @return Response
      */
     public function listeClasses(Request $request): Response
     {
@@ -608,7 +577,7 @@ class DocumentOfficielController extends Controller
     /**
      * Génère et télécharge la Liste Officielle du Personnel de l'Établissement (A4 Paysage).
      *
-     * @param Request $request Requête HTTP contenant optionnellement un etablissement_id.
+     * @param  Request  $request  Requête HTTP contenant optionnellement un etablissement_id.
      * @return Response Fichier PDF streamé.
      */
     public function listePersonnel(Request $request): Response
@@ -623,16 +592,29 @@ class DocumentOfficielController extends Controller
             $personnelsQuery->where('etablissement_id', $etablissement->id);
         }
 
+        $dirList = "'Directeur', 'Le Directeur', 'Proviseur', 'Le Proviseur', 'Principal', 'Le Principal', 'Chef d\'établissement'";
+        $admList = "'Directeur des Études', 'Directeur Adjoint', 'Censeur', 'Surveillant Général', 'Intendant', 'Économe', 'Économe / Comptable', 'Secrétaire', 'Secrétaire Principale', 'Comptable'";
+        $appuList = "'Documentaliste / Bibliothécaire', 'Infirmier(ère)', 'Psychologue scolaire', 'Agent d\'entretien', 'Gardien / Sécurité', 'Chauffeur', 'Autre'";
+
         $personnels = $personnelsQuery
             ->with(['departement', 'user'])
+            ->orderByRaw("
+                CASE 
+                    WHEN fonction_principale IN ({$dirList}) THEN 1
+                    WHEN fonction_principale IN ({$admList}) THEN 2
+                    WHEN is_enseignant = 1 OR fonction_principale = 'Enseignant' THEN 3
+                    WHEN fonction_principale IN ({$appuList}) THEN 4
+                    ELSE 3
+                END ASC
+            ")
             ->orderBy('nom')
             ->orderBy('prenom')
             ->get();
 
         $total = $personnels->count();
-        $hommes = $personnels->filter(fn($p) => $p->sexe === 'M')->count();
-        $femmes = $personnels->filter(fn($p) => $p->sexe === 'F')->count();
-        $enseignants = $personnels->filter(fn($p) => (bool) $p->is_enseignant)->count();
+        $hommes = $personnels->filter(fn ($p) => $p->sexe === 'M')->count();
+        $femmes = $personnels->filter(fn ($p) => $p->sexe === 'F')->count();
+        $enseignants = $personnels->filter(fn ($p) => (bool) $p->is_enseignant)->count();
         $administratifs = $total - $enseignants;
 
         $pdf = Pdf::loadView('documents.liste_personnel', [
@@ -658,4 +640,3 @@ class DocumentOfficielController extends Controller
         return $pdf->stream($fileName);
     }
 }
-

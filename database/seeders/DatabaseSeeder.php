@@ -243,6 +243,7 @@ class DatabaseSeeder extends Seeder
             'competences_apc.edit' => 'web',
             'competences_apc.delete' => 'web',
             'competences_apc.duplicate' => 'web',
+            'competences_apc.programmer_niveau' => 'web',
             'cotes_apc.manage' => 'web',
 
             // ==========================================
@@ -393,7 +394,7 @@ class DatabaseSeeder extends Seeder
             'consignes.view', 'consignes.pointage',
             // Dispenses, Compétences & Progression
             'dispenses.view', 'dispenses.create', 'dispenses.edit', 'dispenses.homologuer', 'dispenses.print_pv',
-            'competences_apc.view', 'competences_apc.create', 'competences_apc.edit', 'competences_apc.duplicate', 'cotes_apc.manage',
+            'competences_apc.view', 'competences_apc.create', 'competences_apc.edit', 'competences_apc.duplicate', 'competences_apc.programmer_niveau', 'competences_apc.programmer_niveau', 'cotes_apc.manage',
             'progression.view', 'progression.viser', 'progression.print',
             // Emplois du temps & Communication
             'emplois_du_temps.view', 'emplois_du_temps.create', 'emplois_du_temps.edit', 'emplois_du_temps.manage', 'salles.view',
@@ -417,7 +418,7 @@ class DatabaseSeeder extends Seeder
             'conseil_discipline.view', 'conseil_discipline.create', 'conseil_discipline.edit', 'conseil_discipline.print',
             'consignes.view', 'consignes.pointage',
             'dispenses.view', 'dispenses.create', 'dispenses.edit', 'dispenses.homologuer', 'dispenses.print_pv',
-            'competences_apc.view', 'competences_apc.create', 'competences_apc.edit', 'competences_apc.duplicate',
+            'competences_apc.view', 'competences_apc.create', 'competences_apc.edit', 'competences_apc.duplicate', 'competences_apc.programmer_niveau',
             'progression.view', 'progression.viser', 'progression.print',
             'emplois_du_temps.view', 'emplois_du_temps.create', 'emplois_du_temps.edit', 'salles.view',
             'statistiques.view', 'deliberations.view', 'deliberations.saisir', 'deliberations.valider',

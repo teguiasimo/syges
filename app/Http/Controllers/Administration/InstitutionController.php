@@ -66,10 +66,11 @@ class InstitutionController extends Controller implements HasMiddleware
             new Middleware('can:classes.delete|classes.manage', only: ['destroyClasse']),
         ];
     }
+
     /**
      * Affiche la vue principale du module avec le palier actif et son fil d'Ariane.
      *
-     * @param Request $request Requête HTTP contenant les paramètres de navigation (Drill-Down).
+     * @param  Request  $request  Requête HTTP contenant les paramètres de navigation (Drill-Down).
      * @return Response Vue Inertia avec les données du niveau sélectionné.
      */
     public function index(Request $request): Response
@@ -251,7 +252,7 @@ class InstitutionController extends Controller implements HasMiddleware
      * Offre un environnement spacieux et ergonomique pour renseigner la multitude de champs
      * (identité bilingue, tutelles ministérielles, découpages géographiques, contacts officiels).
      *
-     * @param Request $request Requête HTTP entrante.
+     * @param  Request  $request  Requête HTTP entrante.
      * @return Response Vue Inertia dédiée du formulaire institution.
      */
     public function editInstitution(Request $request): Response
@@ -276,7 +277,7 @@ class InstitutionController extends Controller implements HasMiddleware
     /**
      * Enregistre ou met à jour les informations globales de l'institution.
      *
-     * @param Request $request Requête HTTP avec données validées.
+     * @param  Request  $request  Requête HTTP avec données validées.
      * @return RedirectResponse Redirection vers la vue d'ensemble avec message de confirmation.
      */
     public function updateInstitution(Request $request): RedirectResponse
@@ -315,12 +316,12 @@ class InstitutionController extends Controller implements HasMiddleware
 
         // Conservation du code technique existant ou auto-génération intelligente
         if (empty($validated['code'])) {
-            if ($institution && !empty($institution->code)) {
+            if ($institution && ! empty($institution->code)) {
                 $validated['code'] = $institution->code;
             } else {
-                $base = !empty($validated['sigle']) ? $validated['sigle'] : substr($validated['nom'], 0, 6);
+                $base = ! empty($validated['sigle']) ? $validated['sigle'] : substr($validated['nom'], 0, 6);
                 $cleanBase = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $base));
-                $validated['code'] = !empty($cleanBase) ? $cleanBase : 'INST-' . rand(100, 999);
+                $validated['code'] = ! empty($cleanBase) ? $cleanBase : 'INST-'.rand(100, 999);
             }
         }
 
@@ -389,7 +390,7 @@ class InstitutionController extends Controller implements HasMiddleware
         $validated['montant_bonus_anticipe'] = 3000;
         Etablissement::create($validated);
 
-        return back()->with('success', 'L\'établissement « ' . $validated['nom'] . ' » a été créé avec succès.');
+        return back()->with('success', 'L\'établissement « '.$validated['nom'].' » a été créé avec succès.');
     }
 
     /**
@@ -433,7 +434,10 @@ class InstitutionController extends Controller implements HasMiddleware
 
         $etablissement->update($validated);
 
-        return back()->with('success', 'L\'établissement « ' . $etablissement->nom . ' » a été mis à jour avec succès.');
+        // Synchronisation automatique de la fiche personnel du Chef d'Établissement (Directeur / Proviseur)
+        app(PersonnelController::class)->ensureChefEtablissementPersonnelExists($etablissement->id);
+
+        return back()->with('success', 'L\'établissement « '.$etablissement->nom.' » a été mis à jour avec succès.');
     }
 
     /**
@@ -442,8 +446,8 @@ class InstitutionController extends Controller implements HasMiddleware
      * Offre une interface ergonomique pour régler le format des bulletins (standard sans compétences par défaut / APC),
      * les règles de calcul des moyennes, les seuils d'absences disciplinaires et les verrous de solvabilité financière.
      *
-     * @param Request $request Requête HTTP entrante.
-     * @param Etablissement $etablissement Établissement scolaire ciblé.
+     * @param  Request  $request  Requête HTTP entrante.
+     * @param  Etablissement  $etablissement  Établissement scolaire ciblé.
      * @return Response Vue Inertia des paramètres avancés.
      */
     public function editEtablissementSettings(Request $request, Etablissement $etablissement): Response
@@ -465,8 +469,8 @@ class InstitutionController extends Controller implements HasMiddleware
     /**
      * Enregistre l'ensemble des paramètres pédagogiques, disciplinaires et financiers de l'établissement.
      *
-     * @param Request $request Requête HTTP avec données validées.
-     * @param Etablissement $etablissement Établissement scolaire à mettre à jour.
+     * @param  Request  $request  Requête HTTP avec données validées.
+     * @param  Etablissement  $etablissement  Établissement scolaire à mettre à jour.
      * @return RedirectResponse Redirection vers la même vue avec confirmation visuelle.
      */
     public function updateEtablissementSettings(Request $request, Etablissement $etablissement): RedirectResponse
@@ -524,7 +528,7 @@ class InstitutionController extends Controller implements HasMiddleware
 
         $etablissement->update($validated);
 
-        return back()->with('success', 'Les paramètres et règles de l\'établissement « ' . $etablissement->nom . ' » ont été enregistrés avec succès.');
+        return back()->with('success', 'Les paramètres et règles de l\'établissement « '.$etablissement->nom.' » ont été enregistrés avec succès.');
     }
 
     /**
@@ -606,10 +610,10 @@ class InstitutionController extends Controller implements HasMiddleware
                 $baseCode = 'COM';
             } else {
                 $words = array_filter(explode(' ', $validated['nom']));
-                $nonCommon = array_filter($words, fn($w) => !in_array(mb_strtolower($w), ['section', 'de', 'la', 'le', 'l', 'd', 'et', 'en']));
-                $first = !empty($nonCommon) ? reset($nonCommon) : reset($words);
-                $clean = Str::upper(substr(preg_replace('/[^A-Za-z0-9]/', '', (string)$first), 0, 4));
-                $baseCode = !empty($clean) ? $clean : Str::upper($validated['langue']);
+                $nonCommon = array_filter($words, fn ($w) => ! in_array(mb_strtolower($w), ['section', 'de', 'la', 'le', 'l', 'd', 'et', 'en']));
+                $first = ! empty($nonCommon) ? reset($nonCommon) : reset($words);
+                $clean = Str::upper(substr(preg_replace('/[^A-Za-z0-9]/', '', (string) $first), 0, 4));
+                $baseCode = ! empty($clean) ? $clean : Str::upper($validated['langue']);
             }
 
             $codeCandidate = $baseCode;
@@ -617,7 +621,7 @@ class InstitutionController extends Controller implements HasMiddleware
 
             while (Section::where('etablissement_id', $validated['etablissement_id'])->where('code', $codeCandidate)->exists()) {
                 $counter++;
-                $codeCandidate = $baseCode . '-' . $counter;
+                $codeCandidate = $baseCode.'-'.$counter;
             }
             $validated['code'] = $codeCandidate;
         } else {
@@ -633,7 +637,7 @@ class InstitutionController extends Controller implements HasMiddleware
 
         Section::create($validated);
 
-        return back()->with('success', 'La section « ' . $validated['nom'] . ' » a été ajoutée avec succès.');
+        return back()->with('success', 'La section « '.$validated['nom'].' » a été ajoutée avec succès.');
     }
 
     /**
@@ -693,7 +697,7 @@ class InstitutionController extends Controller implements HasMiddleware
 
         $section->update($validated);
 
-        return back()->with('success', 'La section « ' . $section->nom . ' » a été modifiée avec succès.');
+        return back()->with('success', 'La section « '.$section->nom.' » a été modifiée avec succès.');
     }
 
     /**
@@ -724,7 +728,7 @@ class InstitutionController extends Controller implements HasMiddleware
      * Enregistre un nouveau cycle pédagogique.
      * Le code technique est auto-généré si non spécifié, et le nom du cycle doit être unique par établissement.
      *
-     * @param Request $request Requête HTTP avec données validées.
+     * @param  Request  $request  Requête HTTP avec données validées.
      * @return RedirectResponse Redirection avec notification toast de confirmation.
      */
     public function storeCycle(Request $request): RedirectResponse
@@ -769,12 +773,12 @@ class InstitutionController extends Controller implements HasMiddleware
 
         // Auto-génération transparente du code technique
         if (empty($validated['code'])) {
-            $baseCode = 'CYC' . $validated['ordre'];
+            $baseCode = 'CYC'.$validated['ordre'];
             $codeCandidate = $baseCode;
             $counter = 1;
             while (Cycle::where('section_id', $validated['section_id'])->where('code', $codeCandidate)->exists()) {
                 $counter++;
-                $codeCandidate = $baseCode . '-' . $counter;
+                $codeCandidate = $baseCode.'-'.$counter;
             }
             $validated['code'] = $codeCandidate;
         } else {
@@ -788,14 +792,14 @@ class InstitutionController extends Controller implements HasMiddleware
 
         Cycle::create($validated);
 
-        return back()->with('success', 'Le cycle « ' . $validated['nom'] . ' » a été créé avec succès.');
+        return back()->with('success', 'Le cycle « '.$validated['nom'].' » a été créé avec succès.');
     }
 
     /**
      * Modifie un cycle pédagogique existant.
      *
-     * @param Request $request Requête HTTP avec données validées.
-     * @param Cycle $cycle Cycle d'enseignement à modifier.
+     * @param  Request  $request  Requête HTTP avec données validées.
+     * @param  Cycle  $cycle  Cycle d'enseignement à modifier.
      * @return RedirectResponse Redirection avec notification toast.
      */
     public function updateCycle(Request $request, Cycle $cycle): RedirectResponse
@@ -852,7 +856,7 @@ class InstitutionController extends Controller implements HasMiddleware
 
         $cycle->update($validated);
 
-        return back()->with('success', 'Le cycle « ' . $cycle->nom . ' » a été mis à jour avec succès.');
+        return back()->with('success', 'Le cycle « '.$cycle->nom.' » a été mis à jour avec succès.');
     }
 
     /**
@@ -880,7 +884,7 @@ class InstitutionController extends Controller implements HasMiddleware
      * Enregistre un nouveau niveau d'étude.
      * Le code technique est auto-généré si omis, et le nom du niveau doit être unique par établissement.
      *
-     * @param Request $request Requête HTTP avec données validées.
+     * @param  Request  $request  Requête HTTP avec données validées.
      * @return RedirectResponse Redirection avec notification toast de confirmation.
      */
     public function storeNiveau(Request $request): RedirectResponse
@@ -940,21 +944,21 @@ class InstitutionController extends Controller implements HasMiddleware
             } elseif (Str::contains($nomLower, 'termin') || Str::contains($nomLower, 'tle')) {
                 $baseCode = 'TLE';
             } elseif (preg_match('/form\s*(\d+)/i', $validated['nom'], $matches)) {
-                $baseCode = 'F' . $matches[1];
+                $baseCode = 'F'.$matches[1];
             } elseif (preg_match('/class\s*(\d+)/i', $validated['nom'], $matches)) {
-                $baseCode = 'CL' . $matches[1];
+                $baseCode = 'CL'.$matches[1];
             } elseif (in_array(Str::upper($validated['nom']), ['SIL', 'CP', 'CE1', 'CE2', 'CM1', 'CM2'])) {
                 $baseCode = Str::upper($validated['nom']);
             } else {
-                $clean = Str::upper(substr(preg_replace('/[^A-Za-z0-9]/', '', (string)$validated['nom']), 0, 4));
-                $baseCode = !empty($clean) ? $clean : 'NIV' . $validated['ordre'];
+                $clean = Str::upper(substr(preg_replace('/[^A-Za-z0-9]/', '', (string) $validated['nom']), 0, 4));
+                $baseCode = ! empty($clean) ? $clean : 'NIV'.$validated['ordre'];
             }
 
             $codeCandidate = $baseCode;
             $counter = 1;
             while (Niveau::where('cycle_id', $validated['cycle_id'])->where('code', $codeCandidate)->exists()) {
                 $counter++;
-                $codeCandidate = $baseCode . '-' . $counter;
+                $codeCandidate = $baseCode.'-'.$counter;
             }
             $validated['code'] = $codeCandidate;
         } else {
@@ -963,14 +967,14 @@ class InstitutionController extends Controller implements HasMiddleware
 
         Niveau::create($validated);
 
-        return back()->with('success', 'Le niveau « ' . $validated['nom'] . ' » a été créé avec succès.');
+        return back()->with('success', 'Le niveau « '.$validated['nom'].' » a été créé avec succès.');
     }
 
     /**
      * Modifie un niveau d'étude existant.
      *
-     * @param Request $request Requête HTTP avec données validées.
-     * @param Niveau $niveau Niveau d'étude à modifier.
+     * @param  Request  $request  Requête HTTP avec données validées.
+     * @param  Niveau  $niveau  Niveau d'étude à modifier.
      * @return RedirectResponse Redirection avec notification toast.
      */
     public function updateNiveau(Request $request, Niveau $niveau): RedirectResponse
@@ -1021,7 +1025,7 @@ class InstitutionController extends Controller implements HasMiddleware
 
         $niveau->update($validated);
 
-        return back()->with('success', 'Le niveau « ' . $niveau->nom . ' » a été mis à jour avec succès.');
+        return back()->with('success', 'Le niveau « '.$niveau->nom.' » a été mis à jour avec succès.');
     }
 
     /**
@@ -1050,7 +1054,7 @@ class InstitutionController extends Controller implements HasMiddleware
     /**
      * Enregistre une nouvelle série pédagogique pour l'établissement.
      *
-     * @param Request $request Requête HTTP contenant les données de la série.
+     * @param  Request  $request  Requête HTTP contenant les données de la série.
      * @return RedirectResponse Redirection avec message toast.
      */
     public function storeSerie(Request $request): RedirectResponse
@@ -1082,8 +1086,8 @@ class InstitutionController extends Controller implements HasMiddleware
     /**
      * Met à jour une série pédagogique existante.
      *
-     * @param Request $request Requête HTTP contenant les modifications.
-     * @param Serie $serie Série ciblée.
+     * @param  Request  $request  Requête HTTP contenant les modifications.
+     * @param  Serie  $serie  Série ciblée.
      * @return RedirectResponse Redirection avec message toast.
      */
     public function updateSerie(Request $request, Serie $serie): RedirectResponse
@@ -1116,8 +1120,8 @@ class InstitutionController extends Controller implements HasMiddleware
     /**
      * Supprime une série pédagogique si elle n'est pas utilisée par des classes.
      *
-     * @param Request $request Requête HTTP.
-     * @param Serie $serie Série ciblée.
+     * @param  Request  $request  Requête HTTP.
+     * @param  Serie  $serie  Série ciblée.
      * @return RedirectResponse Redirection avec message toast explicite.
      */
     public function destroySerie(Request $request, Serie $serie): RedirectResponse
@@ -1146,7 +1150,7 @@ class InstitutionController extends Controller implements HasMiddleware
      * Le code technique de la classe doit être unique au sein de l'établissement scolaire concerné.
      * L'établissement est déduit des données soumises ou du niveau parent.
      *
-     * @param Request $request Requête HTTP contenant les attributs de la classe.
+     * @param  Request  $request  Requête HTTP contenant les attributs de la classe.
      * @return RedirectResponse Redirection vers la page précédente avec toast de confirmation ou message d'erreur.
      */
     public function storeClasse(Request $request): RedirectResponse
@@ -1180,15 +1184,15 @@ class InstitutionController extends Controller implements HasMiddleware
         $validated['is_active'] = true;
         Classe::create($validated);
 
-        return back()->with('success', 'La classe « ' . $validated['nom'] . ' » a été créée avec succès.');
+        return back()->with('success', 'La classe « '.$validated['nom'].' » a été créée avec succès.');
     }
 
     /**
      * Modifie une classe existante.
      * Le code technique doit demeurer unique au sein de l'établissement rattaché.
      *
-     * @param Request $request Requête HTTP contenant les modifications.
-     * @param Classe $classe Modèle de la classe à mettre à jour.
+     * @param  Request  $request  Requête HTTP contenant les modifications.
+     * @param  Classe  $classe  Modèle de la classe à mettre à jour.
      * @return RedirectResponse Redirection avec notification de confirmation.
      */
     public function updateClasse(Request $request, Classe $classe): RedirectResponse
@@ -1219,7 +1223,7 @@ class InstitutionController extends Controller implements HasMiddleware
         }
         $classe->update($validated);
 
-        return back()->with('success', 'La classe « ' . $classe->nom . ' » a été mise à jour avec succès.');
+        return back()->with('success', 'La classe « '.$classe->nom.' » a été mise à jour avec succès.');
     }
 
     /**
@@ -1230,8 +1234,8 @@ class InstitutionController extends Controller implements HasMiddleware
      * aucune inscription d'élève, aucun cours programmé ni délibération de conseil.
      * Si des dépendances actives existent, la suppression est bloquée et l'utilisateur est invité à la désactiver.
      *
-     * @param Request $request Requête HTTP validée.
-     * @param Classe $classe Classe ciblée.
+     * @param  Request  $request  Requête HTTP validée.
+     * @param  Classe  $classe  Classe ciblée.
      * @return RedirectResponse Redirection avec message toast explicite.
      */
     public function destroyClasse(Request $request, Classe $classe): RedirectResponse
@@ -1248,19 +1252,19 @@ class InstitutionController extends Controller implements HasMiddleware
         if (! empty($blockers)) {
             $details = [];
             if (isset($blockers['attributions'])) {
-                $details[] = $blockers['attributions'] . ' attribution(s) de matière(s)/enseignant(s)';
+                $details[] = $blockers['attributions'].' attribution(s) de matière(s)/enseignant(s)';
             }
             if (isset($blockers['inscriptions'])) {
-                $details[] = $blockers['inscriptions'] . ' élève(s) inscrit(s)';
+                $details[] = $blockers['inscriptions'].' élève(s) inscrit(s)';
             }
             if (isset($blockers['seances'])) {
-                $details[] = $blockers['seances'] . ' cours à l’emploi du temps';
+                $details[] = $blockers['seances'].' cours à l’emploi du temps';
             }
             if (isset($blockers['deliberations'])) {
-                $details[] = $blockers['deliberations'] . ' délibération(s) de conseil';
+                $details[] = $blockers['deliberations'].' délibération(s) de conseil';
             }
 
-            return back()->with('error', "Suppression impossible : la classe « {$nom} » possède des données pédagogiques actives (" . implode(', ', $details) . "). Pour préserver l'intégrité du cursus et l'historique scolaire, veuillez la désactiver plutôt que de la supprimer.");
+            return back()->with('error', "Suppression impossible : la classe « {$nom} » possède des données pédagogiques actives (".implode(', ', $details)."). Pour préserver l'intégrité du cursus et l'historique scolaire, veuillez la désactiver plutôt que de la supprimer.");
         }
 
         $classe->delete();

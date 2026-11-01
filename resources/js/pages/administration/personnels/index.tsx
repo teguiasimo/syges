@@ -159,10 +159,48 @@ export default function PersonnelsIndex({
     const [filterStatut, setFilterStatut] = useState<string>(initialFilters?.statut || 'all');
 
     /**
-     * Application des filtres côté client pour une réactivité instantanée.
+     * Rang hiérarchique protocolaire pour l'ordonnancement du registre du personnel :
+     * 1. Chef d'Établissement (Directeur, Proviseur, Principal)
+     * 2. Administration (Directeur des Études, Censeur, Surveillant Général, Intendant, Économe, Secrétaire...)
+     * 3. Corps enseignant (Professeurs / Enseignants)
+     * 4. Personnel d'appui et services (Documentaliste, Infirmière, Gardien, Agent d'entretien...)
+     */
+    const getHierarchyRank = (fonction: string, isEnseignant: boolean): number => {
+        const f = (fonction || '').toLowerCase().trim();
+        if (
+            (f.includes('directeur') && !f.includes('études') && !f.includes('etudes') && !f.includes('adjoint')) ||
+            f.includes('proviseur') ||
+            f.includes('principal') ||
+            f.includes('chef d\'établissement') ||
+            f.includes('chef d’établissement')
+        ) {
+            return 1;
+        }
+        if (
+            f.includes('études') ||
+            f.includes('etudes') ||
+            f.includes('censeur') ||
+            f.includes('surveillant') ||
+            f.includes('intendant') ||
+            f.includes('économe') ||
+            f.includes('econome') ||
+            f.includes('secrétaire') ||
+            f.includes('secretaire') ||
+            f.includes('comptable')
+        ) {
+            return 2;
+        }
+        if (isEnseignant || f.includes('enseignant') || f.includes('professeur')) {
+            return 3;
+        }
+        return 4;
+    };
+
+    /**
+     * Application des filtres côté client pour une réactivité instantanée avec respect strict de l'ordre hiérarchique.
      */
     const filteredPersonnels = useMemo(() => {
-        return personnels.filter((p) => {
+        const list = personnels.filter((p) => {
             if (filterEtablissement !== 'all' && String(p.etablissement_id) !== filterEtablissement) {
                 return false;
             }
@@ -180,6 +218,13 @@ export default function PersonnelsIndex({
                 return false;
             }
             return true;
+        });
+
+        return list.slice().sort((a, b) => {
+            const rankA = getHierarchyRank(a.fonction_principale, Boolean(a.is_enseignant));
+            const rankB = getHierarchyRank(b.fonction_principale, Boolean(b.is_enseignant));
+            if (rankA !== rankB) return rankA - rankB;
+            return a.nom.localeCompare(b.nom, 'fr', { sensitivity: 'base' });
         });
     }, [personnels, filterEtablissement, filterDepartement, filterFonction, filterContrat, filterStatut]);
 

@@ -24,7 +24,7 @@ use Spatie\Permission\Models\Role;
 /**
  * Contrôleur de gestion du Module 8 : Personnel & Ressources Humaines (RH).
  * Conforme au Cahier des Charges Gesco V1.1 (Sections 8.1, 8.2, 8.3).
- * 
+ *
  * Assure le cycle de vie complet des employés, la gestion des départements pédagogiques,
  * la qualification des enseignants (charge horaire, vacation) et la création / liaison fluide
  * avec les comptes d'accès utilisateurs (`users`).
@@ -32,6 +32,7 @@ use Spatie\Permission\Models\Role;
 class PersonnelController extends Controller implements HasMiddleware
 {
     use ScopesEtablissement;
+
     /**
      * Définition de la matrice des middlewares d'autorisation pour le module Personnel & RH.
      *
@@ -53,9 +54,6 @@ class PersonnelController extends Controller implements HasMiddleware
 
     /**
      * Affiche la liste du personnel et des départements pédagogiques avec filtres avancés.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Inertia\Response
      */
     public function index(Request $request): Response
     {
@@ -88,7 +86,24 @@ class PersonnelController extends Controller implements HasMiddleware
         $statut = $request->input('statut');
         $search = $request->input('search');
 
-        // 2. Requête filtrée sur le personnel
+        // 2. Synchronisation et présence garantie du Chef d'Établissement (Directeur / Proviseur / Principal)
+        if ($filterEtabId) {
+            $this->ensureChefEtablissementPersonnelExists((int) $filterEtabId);
+        } else {
+            foreach ($context['etablissements'] as $etabOption) {
+                $this->ensureChefEtablissementPersonnelExists((int) $etabOption->id);
+            }
+        }
+
+        // 3. Requête filtrée sur le personnel avec tri hiérarchique :
+        // 1: Directeur / Proviseur / Principal (en tête absolue)
+        // 2: Autres membres de l'administration (Censeur, Directeur des Études, Surveillant Général, Intendant, Secrétaire...)
+        // 3: Corps enseignant (Professeurs / Enseignants)
+        // 4: Personnel d'appui et services (Documentaliste, Infirmier, Gardien, etc.)
+        $dirList = "'Directeur', 'Le Directeur', 'Proviseur', 'Le Proviseur', 'Principal', 'Le Principal', 'Chef d\'établissement'";
+        $admList = "'Directeur des Études', 'Directeur Adjoint', 'Censeur', 'Surveillant Général', 'Intendant', 'Économe', 'Économe / Comptable', 'Secrétaire', 'Secrétaire Principale', 'Comptable'";
+        $appuList = "'Documentaliste / Bibliothécaire', 'Infirmier(ère)', 'Psychologue scolaire', 'Agent d\'entretien', 'Gardien / Sécurité', 'Chauffeur', 'Autre'";
+
         $personnelsQuery = Personnel::with([
             'etablissement:id,nom,code',
             'departement:id,nom,code',
@@ -114,6 +129,15 @@ class PersonnelController extends Controller implements HasMiddleware
                         ->orWhere('email', 'like', "%{$search}%");
                 });
             })
+            ->orderByRaw("
+                CASE 
+                    WHEN fonction_principale IN ({$dirList}) THEN 1
+                    WHEN fonction_principale IN ({$admList}) THEN 2
+                    WHEN is_enseignant = 1 OR fonction_principale = 'Enseignant' THEN 3
+                    WHEN fonction_principale IN ({$appuList}) THEN 4
+                    ELSE 3
+                END ASC
+            ")
             ->orderBy('nom')
             ->orderBy('prenom');
 
@@ -184,9 +208,6 @@ class PersonnelController extends Controller implements HasMiddleware
 
     /**
      * Affiche le formulaire dédié de création d'un nouveau membre du personnel.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Inertia\Response
      */
     public function create(Request $request): Response
     {
@@ -221,9 +242,6 @@ class PersonnelController extends Controller implements HasMiddleware
 
     /**
      * Enregistre un nouveau membre du personnel, avec création optionnelle de son compte utilisateur.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\RedirectResponse
      */
     public function store(Request $request): RedirectResponse
     {
@@ -275,7 +293,7 @@ class PersonnelController extends Controller implements HasMiddleware
             'create_another' => ['nullable', 'boolean'],
         ]);
 
-        DB::transaction(function () use ($validated, $request) {
+        DB::transaction(function () use ($validated) {
             $userId = $validated['user_id'] ?? null;
 
             // 1. Génération du matricule séquentiel officiel en premier (ex: 26PLYCEXC0001)
@@ -283,7 +301,7 @@ class PersonnelController extends Controller implements HasMiddleware
 
             // 2. Création automatique du compte utilisateur si demandée (Gesco 7 & 8 unifiés)
             if (! empty($validated['create_user_account'])) {
-                $fullName = trim($validated['nom'] . ' ' . ($validated['prenom'] ?? ''));
+                $fullName = trim($validated['nom'].' '.($validated['prenom'] ?? ''));
 
                 // Login par défaut : matricule officiel unique (évite toute collision ou doublon)
                 $login = ! empty($validated['user_login'])
@@ -298,7 +316,7 @@ class PersonnelController extends Controller implements HasMiddleware
                 // Si aucun email spécifié, utilise l'email de contact ou en génère un interne
                 $userEmail = ! empty($validated['user_email'])
                     ? $validated['user_email']
-                    : (! empty($validated['email']) ? $validated['email'] : strtolower($matricule) . '@syges.local');
+                    : (! empty($validated['email']) ? $validated['email'] : strtolower($matricule).'@syges.local');
 
                 $newUser = User::create([
                     'name' => $fullName,
@@ -371,10 +389,6 @@ class PersonnelController extends Controller implements HasMiddleware
 
     /**
      * Met à jour la fiche administrative d'un membre du personnel.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  \App\Models\Personnel  $personnel
-     * @return \Illuminate\Http\RedirectResponse
      */
     public function update(Request $request, Personnel $personnel): RedirectResponse
     {
@@ -431,9 +445,6 @@ class PersonnelController extends Controller implements HasMiddleware
 
     /**
      * Supprime un membre du personnel (Soft Delete) avec conservation de l'intégrité référentielle.
-     *
-     * @param  \App\Models\Personnel  $personnel
-     * @return \Illuminate\Http\RedirectResponse
      */
     public function destroy(Personnel $personnel): RedirectResponse
     {
@@ -455,10 +466,6 @@ class PersonnelController extends Controller implements HasMiddleware
 
     /**
      * Bascule rapidement le statut d'un personnel (ex: Actif, En congé, Suspendu).
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  \App\Models\Personnel  $personnel
-     * @return \Illuminate\Http\RedirectResponse
      */
     public function toggleStatus(Request $request, Personnel $personnel): RedirectResponse
     {
@@ -480,9 +487,6 @@ class PersonnelController extends Controller implements HasMiddleware
 
     /**
      * Enregistre un nouveau département pédagogique.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\RedirectResponse
      */
     public function storeDepartement(Request $request): RedirectResponse
     {
@@ -518,10 +522,6 @@ class PersonnelController extends Controller implements HasMiddleware
 
     /**
      * Met à jour un département pédagogique.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  \App\Models\Departement  $departement
-     * @return \Illuminate\Http\RedirectResponse
      */
     public function updateDepartement(Request $request, Departement $departement): RedirectResponse
     {
@@ -546,9 +546,6 @@ class PersonnelController extends Controller implements HasMiddleware
 
     /**
      * Supprime un département pédagogique.
-     *
-     * @param  \App\Models\Departement  $departement
-     * @return \Illuminate\Http\RedirectResponse
      */
     public function destroyDepartement(Departement $departement): RedirectResponse
     {
@@ -564,5 +561,71 @@ class PersonnelController extends Controller implements HasMiddleware
         $departement->delete();
 
         return back()->with('success', 'Département pédagogique supprimé.');
+    }
+
+    /**
+     * Garantit qu'une fiche administrative de personnel existe pour le Chef d'Établissement (Directeur / Proviseur / Principal).
+     * Synchronise automatiquement les informations civiles et contractuelles du chef selon la configuration de l'établissement.
+     *
+     * @param  int  $etablissementId  Identifiant de l'établissement scolaire cible.
+     */
+    public function ensureChefEtablissementPersonnelExists(int $etablissementId): void
+    {
+        $etab = Etablissement::find($etablissementId);
+        if (! $etab || empty(trim($etab->nom_chef_etablissement ?? ''))) {
+            return;
+        }
+
+        $titreChef = $etab->titre_chef ?: 'Le Directeur';
+        $directeurFonctions = [
+            'Directeur',
+            'Le Directeur',
+            'Proviseur',
+            'Le Proviseur',
+            'Principal',
+            'Le Principal',
+            'Chef d\'établissement',
+        ];
+
+        $existingPersonnel = Personnel::where('etablissement_id', $etablissementId)
+            ->where(function ($q) use ($directeurFonctions) {
+                $q->whereIn('fonction_principale', $directeurFonctions)
+                    ->orWhere('matricule', 'like', 'DIR-%');
+            })
+            ->first();
+
+        $fullName = trim($etab->nom_chef_etablissement);
+        $parts = explode(' ', $fullName, 2);
+        $nom = strtoupper($parts[0]);
+        $prenom = $parts[1] ?? '';
+
+        if (! $existingPersonnel) {
+            Personnel::create([
+                'etablissement_id' => $etablissementId,
+                'matricule' => 'DIR-'.str_pad((string) $etablissementId, 3, '0', STR_PAD_LEFT),
+                'nom' => $nom,
+                'prenom' => $prenom,
+                'sexe' => 'M',
+                'telephone' => $etab->telephone_1 ?: '600000000',
+                'email' => $etab->email ?: null,
+                'adresse' => $etab->adresse ?: null,
+                'fonction_principale' => $titreChef,
+                'type_contrat' => 'Permanent',
+                'date_embauche' => now()->startOfYear(),
+                'statut' => 'Actif',
+                'is_enseignant' => false,
+                'volume_horaire_hebdo' => 0,
+            ]);
+        } else {
+            // Maintien automatique de la cohérence si le nom du chef a été mis à jour dans l'institution
+            $currentFullName = trim($existingPersonnel->nom.' '.($existingPersonnel->prenom ?? ''));
+            if (str_starts_with($existingPersonnel->matricule, 'DIR-') && strcasecmp($fullName, $currentFullName) !== 0) {
+                $existingPersonnel->update([
+                    'nom' => $nom,
+                    'prenom' => $prenom,
+                    'fonction_principale' => $titreChef,
+                ]);
+            }
+        }
     }
 }

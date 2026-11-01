@@ -4,11 +4,15 @@ namespace App\Http\Controllers\Administration;
 
 use App\Http\Controllers\Controller;
 use App\Models\AnneeScolaire;
+use App\Models\Attribution;
 use App\Models\Classe;
 use App\Models\DisciplineBulletin;
+use App\Models\Etablissement;
 use App\Models\Evaluation;
 use App\Models\Inscription;
 use App\Models\Periode;
+use App\Models\Personnel;
+use App\Models\User;
 use App\Services\BulletinCalculationService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Contracts\View\View;
@@ -68,11 +72,12 @@ class BulletinController extends Controller implements HasMiddleware
         $anneeActive = AnneeScolaire::current() ?? $annees->first();
         $anneeId = $request->query('annee_id', $anneeActive?->id);
 
+        /** @var User|null $user */
         $user = $request->user();
         $isSuperAdmin = $user ? ($user->hasRole('super-admin') || $user->email === 'admin@gmail.com') : false;
-        $userPersonnel = $user?->personnel ?? ($user?->email ? \App\Models\Personnel::where('email', $user->email)->first() : null);
+        $userPersonnel = $user?->personnel ?? ($user?->email ? Personnel::where('email', $user->email)->first() : null);
 
-        $allEtablissements = \App\Models\Etablissement::select('id', 'nom', 'code', 'ordre_enseignement')->orderBy('nom')->get();
+        $allEtablissements = Etablissement::select('id', 'nom', 'code', 'ordre_enseignement', 'mode_bulletin_defaut')->orderBy('nom')->get();
 
         if (! $isSuperAdmin && $userPersonnel?->etablissement_id) {
             $etablissementId = (int) $userPersonnel->etablissement_id;
@@ -99,7 +104,7 @@ class BulletinController extends Controller implements HasMiddleware
 
         // Pour un enseignant (non-gestionnaire) : restreindre aux classes où il a des attributions
         if (! $isSuperAdmin && $userPersonnel && $user->hasRole('enseignant') && ! $user->hasRole(['directeur-etudes', 'admin', 'censeur'])) {
-            $classesEnseignantIds = \App\Models\Attribution::where('personnel_id', $userPersonnel->id)
+            $classesEnseignantIds = Attribution::where('personnel_id', $userPersonnel->id)
                 ->where('annee_scolaire_id', $anneeId)
                 ->pluck('classe_id');
             $classesQuery->whereIn('id', $classesEnseignantIds);
@@ -112,7 +117,9 @@ class BulletinController extends Controller implements HasMiddleware
         $classeId = $request->query('classe_id');
         $periodeId = $request->query('periode_id');
         $evaluationId = $request->query('evaluation_id');
-        $modeBulletin = $request->query('mode_bulletin');
+        // Résolution du format officiel par défaut de l'établissement sélectionné (dès le 1er chargement)
+        $currentEtablissement = $allEtablissements->firstWhere('id', $etablissementId);
+        $modeBulletin = $request->query('mode_bulletin') ?: ($currentEtablissement?->mode_bulletin_defaut ?? 'sans_competences');
 
         // Pré-sélection logique de la 1ère séquence (Évaluation 1) ou du 1er trimestre si non spécifié
         if ($typeBulletin === 'sequentiel' && ! $evaluationId) {
@@ -131,7 +138,7 @@ class BulletinController extends Controller implements HasMiddleware
 
             // Le format officiel du bulletin est strictement dicté par la configuration globale de l'établissement
             $etablissement = $classe->etablissement ?? $classe->niveau?->cycle?->section?->etablissement;
-            $modeBulletin = $etablissement?->mode_bulletin_defaut ?? 'sans_competences';
+            $modeBulletin = $etablissement?->mode_bulletin_defaut ?? $modeBulletin;
 
             if ($typeBulletin === 'sequentiel' && $evaluationId) {
                 $evaluation = Evaluation::with('periode.anneeScolaire')->findOrFail($evaluationId);

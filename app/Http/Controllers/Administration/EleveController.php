@@ -405,6 +405,8 @@ class EleveController extends Controller implements HasMiddleware
             'telephone_parent' => ['required', 'string', 'max:50'],
             'email_parent' => ['nullable', 'email', 'max:150'],
             'adresse' => ['nullable', 'string', 'max:255'],
+            'is_redoublant' => ['nullable'],
+            'inscription_id' => ['nullable', 'integer', 'exists:inscriptions,id'],
         ]);
 
         if ($request->hasFile('photo')) {
@@ -414,6 +416,29 @@ class EleveController extends Controller implements HasMiddleware
 
         $validated['nom'] = strtoupper(trim($validated['nom']));
         $validated['prenom'] = $validated['prenom'] ? trim($validated['prenom']) : null;
+
+        // Mise à jour éventuelle du statut / régime scolaire (redoublant / nouveau) sur l'inscription
+        if ($request->has('is_redoublant')) {
+            $isRedoublant = filter_var($request->input('is_redoublant'), FILTER_VALIDATE_BOOLEAN);
+            $inscription = null;
+
+            if ($request->filled('inscription_id')) {
+                $inscription = Inscription::where('id', $request->input('inscription_id'))
+                    ->where('eleve_id', $eleve->id)
+                    ->first();
+            }
+
+            if (! $inscription) {
+                $inscription = $eleve->inscriptions()->latest('id')->first();
+            }
+
+            if ($inscription) {
+                $inscription->update(['is_redoublant' => $isRedoublant]);
+            }
+        }
+
+        // Nettoyer les champs spécifiques à l'inscription avant la sauvegarde sur le modèle Eleve
+        unset($validated['is_redoublant'], $validated['inscription_id']);
 
         $eleve->update($validated);
 

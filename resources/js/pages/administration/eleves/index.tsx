@@ -124,7 +124,7 @@ export default function ElevesIndex({
     can,
 }: ElevesPageProps) {
     const [editModalOpen, setEditModalOpen] = useState(false);
-    const [selectedEleveForEdit, setSelectedEleveForEdit] = useState<Eleve | null>(null);
+    const [selectedEleveForEdit, setSelectedEleveForEdit] = useState<(Eleve & { is_redoublant?: boolean; inscription_id?: number }) | null>(null);
 
     const [reinscriptionModalOpen, setReinscriptionModalOpen] = useState(false);
     const [transfertModalOpen, setTransfertModalOpen] = useState(false);
@@ -411,7 +411,11 @@ export default function ElevesIndex({
                                 size="icon"
                                 className="size-8"
                                 onClick={() => {
-                                    setSelectedEleveForEdit(el);
+                                    setSelectedEleveForEdit({
+                                        ...el,
+                                        is_redoublant: Boolean(insc.is_redoublant),
+                                        inscription_id: insc.id,
+                                    });
                                     setEditModalOpen(true);
                                 }}
                                 title="Modifier"
@@ -1207,7 +1211,11 @@ export default function ElevesIndex({
                 onOpenChange={setDetailDrawerOpen}
                 inscription={selectedInscriptionForDetail}
                 onEdit={(el) => {
-                    setSelectedEleveForEdit(el);
+                    setSelectedEleveForEdit({
+                        ...el,
+                        is_redoublant: Boolean(selectedInscriptionForDetail?.is_redoublant),
+                        inscription_id: selectedInscriptionForDetail?.id,
+                    });
                     setEditModalOpen(true);
                 }}
             />

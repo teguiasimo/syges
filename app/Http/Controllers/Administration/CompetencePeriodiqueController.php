@@ -11,6 +11,7 @@ use App\Models\CoteConfiguration;
 use App\Models\Etablissement;
 use App\Models\Matiere;
 use App\Models\MatiereNiveau;
+use App\Models\Niveau;
 use App\Models\Periode;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
@@ -40,18 +41,16 @@ class CompetencePeriodiqueController extends Controller implements HasMiddleware
     {
         return [
             new Middleware('can:competences_apc.view|evaluations.view', only: ['index']),
-            new Middleware('can:competences_apc.create|evaluations.manage', only: ['store']),
+            new Middleware('can:competences_apc.create|competences_apc.programmer_niveau|evaluations.manage', only: ['store']),
             new Middleware('can:competences_apc.edit|evaluations.manage', only: ['update']),
             new Middleware('can:competences_apc.delete|evaluations.manage', only: ['destroy']),
             new Middleware('can:competences_apc.duplicate|evaluations.manage', only: ['transferer']),
             new Middleware('can:cotes_apc.manage|evaluations.manage', only: ['storeCote', 'destroyCote']),
         ];
     }
+
     /**
      * Affiche l'écran de paramétrage des compétences périodiques et des cotes d'acquisition.
-     *
-     * @param Request $request
-     * @return Response
      */
     public function index(Request $request): Response
     {
@@ -87,7 +86,7 @@ class CompetencePeriodiqueController extends Controller implements HasMiddleware
             'periode',
             'evaluation',
         ])
-        ->where('etablissement_id', $selectedEtabId);
+            ->where('etablissement_id', $selectedEtabId);
 
         if ($classeId) {
             $competencesQuery->where('classe_id', $classeId);
@@ -108,7 +107,7 @@ class CompetencePeriodiqueController extends Controller implements HasMiddleware
         if ($search) {
             $competencesQuery->where(function ($q) use ($search) {
                 $q->where('libelle_competence', 'like', "%{$search}%")
-                  ->orWhere('description', 'like', "%{$search}%");
+                    ->orWhere('description', 'like', "%{$search}%");
             });
         }
 
@@ -163,12 +162,25 @@ class CompetencePeriodiqueController extends Controller implements HasMiddleware
             $classeMatieresMap[$cls->id] = array_values(array_unique(array_merge($fromAttr, $fromNiveau)));
         }
 
+        // Récupération des niveaux pédagogiques et de leurs matières pour programmation par niveau
+        $niveaux = Niveau::whereHas('cycle.section', fn ($q) => $q->where('etablissement_id', $selectedEtabId))
+            ->with(['classes' => fn ($q) => $q->where('is_active', true)->select('id', 'nom', 'code', 'niveau_id')->orderBy('nom')])
+            ->orderBy('ordre')
+            ->get(['id', 'nom', 'code']);
+
+        $niveauMatieresMap = [];
+        foreach ($matieresNiveauParNiveau as $nivId => $items) {
+            $niveauMatieresMap[$nivId] = $items->pluck('matiere_id')->unique()->values()->toArray();
+        }
+
         return Inertia::render('administration/pedagogie/competences/index', [
             'competences' => $competences,
             'cotes' => $cotes,
             'matieres' => $matieres,
             'periodes' => $periodes,
             'classeMatieresMap' => $classeMatieresMap,
+            'niveauMatieresMap' => $niveauMatieresMap,
+            'niveaux' => $niveaux,
             'etablissements' => $etablissements,
             'selectedEtabId' => $selectedEtabId,
             'selectedAnneeId' => $selectedAnneeId,
@@ -187,19 +199,76 @@ class CompetencePeriodiqueController extends Controller implements HasMiddleware
                 'edit' => $isSuperAdmin || $user?->can('competences_apc.edit') || $user?->can('evaluations.manage'),
                 'delete' => $isSuperAdmin || $user?->can('competences_apc.delete'),
                 'duplicate' => $isSuperAdmin || $user?->can('competences_apc.duplicate') || $user?->can('evaluations.manage'),
+                'programmer_niveau' => $isSuperAdmin || $user?->can('competences_apc.programmer_niveau') || $user?->hasRole(['directeur-des-etudes', 'directeur-etudes', 'chef-de-departement', 'censeur', 'admin']),
                 'cotes_manage' => $isSuperAdmin || $user?->can('cotes_apc.manage') || $user?->can('evaluations.manage'),
             ],
         ]);
     }
 
     /**
-     * Enregistre une nouvelle compétence périodique officielle.
-     *
-     * @param Request $request
-     * @return RedirectResponse
+     * Enregistre une nouvelle compétence périodique officielle (par classe individuelle ou par niveau d'enseignement).
      */
     public function store(Request $request): RedirectResponse
     {
+        /** @var User|null $user */
+        $user = Auth::user();
+        $isSuperAdmin = $user ? ($user->hasRole('super-admin') || $user->email === 'admin@gmail.com') : false;
+        $canProgrammerNiveau = $isSuperAdmin
+            || $user?->can('competences_apc.programmer_niveau')
+            || $user?->hasRole(['directeur-des-etudes', 'directeur-etudes', 'chef-de-departement', 'censeur', 'admin']);
+
+        $mode = $request->input('mode', 'classe');
+
+        // Programmation par niveau d'enseignement (réservée Directeur des Études / Chef de Département)
+        if ($mode === 'niveau' || $request->filled('niveau_id')) {
+            abort_unless(
+                $canProgrammerNiveau,
+                403,
+                'Action non autorisée : la programmation par niveau est réservée à la Direction des Études et aux Chefs de Département.'
+            );
+
+            $validated = $request->validate([
+                'etablissement_id' => ['required', 'exists:etablissements,id'],
+                'niveau_id' => ['required', 'exists:niveaux,id'],
+                'matiere_id' => ['required', 'exists:matieres,id'],
+                'periode_id' => ['nullable', 'exists:periodes,id'],
+                'evaluation_id' => ['nullable', 'exists:evaluations,id'],
+                'libelle_competence' => ['required', 'string', 'max:500'],
+                'description' => ['nullable', 'string', 'max:1000'],
+            ]);
+
+            $classes = Classe::where('niveau_id', $validated['niveau_id'])
+                ->where('etablissement_id', $validated['etablissement_id'])
+                ->where('is_active', true)
+                ->get();
+
+            if ($classes->isEmpty()) {
+                return back()->with('error', 'Aucune classe active trouvée pour ce niveau dans cet établissement.');
+            }
+
+            $count = 0;
+            foreach ($classes as $classe) {
+                CompetencePeriodique::updateOrCreate(
+                    [
+                        'etablissement_id' => $validated['etablissement_id'],
+                        'classe_id' => $classe->id,
+                        'matiere_id' => $validated['matiere_id'],
+                        'periode_id' => $validated['periode_id'] ?: null,
+                        'evaluation_id' => $validated['evaluation_id'] ?: null,
+                        'libelle_competence' => trim($validated['libelle_competence']),
+                    ],
+                    [
+                        'description' => $validated['description'] ?: null,
+                        'is_active' => true,
+                    ]
+                );
+                $count++;
+            }
+
+            return back()->with('success', "Compétence périodique programmée et déployée avec succès sur les {$count} classe(s) du niveau.");
+        }
+
+        // Programmation standard par classe spécifique
         $validated = $request->validate([
             'etablissement_id' => ['required', 'exists:etablissements,id'],
             'classe_id' => ['required', 'exists:classes,id'],
@@ -217,10 +286,6 @@ class CompetencePeriodiqueController extends Controller implements HasMiddleware
 
     /**
      * Met à jour une compétence périodique existante.
-     *
-     * @param Request $request
-     * @param CompetencePeriodique $competence
-     * @return RedirectResponse
      */
     public function update(Request $request, CompetencePeriodique $competence): RedirectResponse
     {
@@ -237,9 +302,6 @@ class CompetencePeriodiqueController extends Controller implements HasMiddleware
 
     /**
      * Supprime une compétence périodique.
-     *
-     * @param CompetencePeriodique $competence
-     * @return RedirectResponse
      */
     public function destroy(CompetencePeriodique $competence): RedirectResponse
     {
@@ -250,9 +312,6 @@ class CompetencePeriodiqueController extends Controller implements HasMiddleware
 
     /**
      * Outil exclusif : Transfère et duplique les compétences d'une classe source vers des classes parallèles.
-     *
-     * @param Request $request
-     * @return RedirectResponse
      */
     public function transferer(Request $request): RedirectResponse
     {
@@ -314,14 +373,11 @@ class CompetencePeriodiqueController extends Controller implements HasMiddleware
             }
         }
 
-        return back()->with('success', "Transfert réussi : {$totalCopies} compétence(s) dupliquée(s) vers " . count($classesCibles) . " classe(s).");
+        return back()->with('success', "Transfert réussi : {$totalCopies} compétence(s) dupliquée(s) vers ".count($classesCibles).' classe(s).');
     }
 
     /**
      * Enregistre ou modifie une cote d'acquisition personnalisée.
-     *
-     * @param Request $request
-     * @return RedirectResponse
      */
     public function storeCote(Request $request): RedirectResponse
     {
@@ -349,9 +405,6 @@ class CompetencePeriodiqueController extends Controller implements HasMiddleware
 
     /**
      * Supprime une cote d'acquisition personnalisée.
-     *
-     * @param CoteConfiguration $cote
-     * @return RedirectResponse
      */
     public function destroyCote(CoteConfiguration $cote): RedirectResponse
     {

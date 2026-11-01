@@ -53,6 +53,16 @@ import type { CompetencePeriodiqueItem, CoteConfigurationItem, MatiereRef, Perio
 import type { EtablissementRef, AnneeScolaireRef } from '@/types/eleve';
 
 /**
+ * Référence d'un Niveau scolaire et de ses classes.
+ */
+interface NiveauRef {
+    id: number;
+    nom: string;
+    code?: string;
+    classes?: Array<{ id: number; nom: string; code?: string; niveau_id: number }>;
+}
+
+/**
  * Interface des propriétés passées par le contrôleur CompetencePeriodiqueController.
  */
 interface CompetencesPageProps {
@@ -61,6 +71,8 @@ interface CompetencesPageProps {
     matieres: MatiereRef[];
     periodes: PeriodeRef[];
     classeMatieresMap?: Record<number, number[]>;
+    niveauMatieresMap?: Record<number, number[]>;
+    niveaux?: NiveauRef[];
     etablissements: EtablissementRef[];
     selectedEtabId: number;
     selectedAnneeId: number;
@@ -73,13 +85,22 @@ interface CompetencesPageProps {
         evaluation_id?: string;
         search?: string;
     };
+    can?: {
+        view?: boolean;
+        create?: boolean;
+        edit?: boolean;
+        delete?: boolean;
+        duplicate?: boolean;
+        programmer_niveau?: boolean;
+        cotes_manage?: boolean;
+    };
 }
 
 /**
  * Page principale de gestion de la Pédagogie par Compétences (APC) et Cotes d'Acquisition.
  *
  * Fonctionnalités :
- * - Banque de compétences périodiques officielles par classe, matière et période.
+ * - Banque de compétences périodiques officielles par classe ou par niveau d'enseignement, matière et période.
  * - Duplication et transfert en masse des compétences vers des classes parallèles.
  * - Paramétrage des cotes d'acquisition personnalisées (A/B/C/D ou CTBA/CBA).
  */
@@ -89,11 +110,14 @@ export default function CompetencesIndex({
     matieres = [],
     periodes = [],
     classeMatieresMap = {},
+    niveauMatieresMap = {},
+    niveaux = [],
     etablissements = [],
     selectedEtabId,
     selectedAnneeId,
     anneesScolaires = [],
     filters = {},
+    can = {},
 }: CompetencesPageProps) {
     // États de filtrage
     const [selectedEtab, setSelectedEtab] = useState<number>(selectedEtabId);
@@ -112,6 +136,8 @@ export default function CompetencesIndex({
 
     // Formulaire d'ajout / édition de compétence
     const [formData, setFormData] = useState({
+        mode: 'classe' as 'classe' | 'niveau',
+        niveau_id: '',
         classe_id: '',
         matiere_id: '',
         periode_id: '',
@@ -176,22 +202,32 @@ export default function CompetencesIndex({
         }));
     }, [availableMatieresForFilter, selectedClasse]);
 
-    // Matières disponibles pour le formulaire d'ajout (strictement restreintes à la classe choisie)
+    // Matières disponibles pour le formulaire d'ajout (restreintes au niveau ou à la classe choisie)
     const availableMatieresForCreate = useMemo(() => {
+        if (formData.mode === 'niveau') {
+            if (!formData.niveau_id) return [];
+            const allowedIds = (niveauMatieresMap && niveauMatieresMap[Number(formData.niveau_id)]) || [];
+            if (!allowedIds || allowedIds.length === 0) return matieres;
+            return matieres.filter((m) => allowedIds.includes(m.id));
+        }
+
         if (!formData.classe_id) return [];
         const allowedIds = classeMatieresMap[Number(formData.classe_id)];
         if (!allowedIds || allowedIds.length === 0) return matieres;
         return matieres.filter((m) => allowedIds.includes(m.id));
-    }, [matieres, formData.classe_id, classeMatieresMap]);
+    }, [matieres, formData.mode, formData.niveau_id, formData.classe_id, classeMatieresMap, niveauMatieresMap]);
 
     // Options formatées pour SearchableSelect dans le modal de création
     const createMatiereOptions: SearchableOption[] = useMemo(() => {
+        const groupLabel = formData.mode === 'niveau'
+            ? 'Disciplines au programme du niveau'
+            : 'Disciplines au programme de cette classe';
         return availableMatieresForCreate.map((m) => ({
             value: String(m.id),
             label: `${m.nom} (${m.code})`,
-            group: 'Disciplines au programme de cette classe',
+            group: groupLabel,
         }));
-    }, [availableMatieresForCreate]);
+    }, [availableMatieresForCreate, formData.mode]);
 
     // Évaluations disponibles pour le filtre principal (selon la période active)
     const availableEvaluationsForFilter = useMemo(() => {
@@ -223,15 +259,17 @@ export default function CompetencesIndex({
     };
 
     /**
-     * Enregistre une nouvelle compétence.
+     * Enregistre une nouvelle compétence (par classe spécifique ou par niveau d'enseignement).
      */
     const handleCreateCompetence = (e: React.FormEvent) => {
         e.preventDefault();
         router.post(
             '/administration/pedagogie/competences',
             {
+                mode: formData.mode,
                 etablissement_id: selectedEtab,
-                classe_id: formData.classe_id,
+                niveau_id: formData.mode === 'niveau' ? formData.niveau_id : null,
+                classe_id: formData.mode === 'classe' ? formData.classe_id : null,
                 matiere_id: formData.matiere_id,
                 periode_id: formData.periode_id || null,
                 evaluation_id: formData.evaluation_id || null,
@@ -242,6 +280,8 @@ export default function CompetencesIndex({
                 onSuccess: () => {
                     setIsCreateOpen(false);
                     setFormData({
+                        mode: 'classe',
+                        niveau_id: '',
                         classe_id: '',
                         matiere_id: '',
                         periode_id: '',
@@ -249,7 +289,7 @@ export default function CompetencesIndex({
                         libelle_competence: '',
                         description: '',
                     });
-                    toast.success('Compétence périodique ajoutée au référentiel.', {
+                    toast.success('Compétence périodique enregistrée avec succès.', {
                         position: 'top-right',
                     });
                 },
@@ -486,6 +526,8 @@ export default function CompetencesIndex({
                             onClick={() => {
                                 setEditingCompetence(row.original);
                                 setFormData({
+                                    mode: 'classe',
+                                    niveau_id: '',
                                     classe_id: String(row.original.classe_id),
                                     matiere_id: String(row.original.matiere_id),
                                     periode_id: row.original.periode_id ? String(row.original.periode_id) : '',
@@ -670,6 +712,8 @@ export default function CompetencesIndex({
                                     ? selectedMatiere
                                     : (allowedIds[0] ? String(allowedIds[0]) : '');
                                 setFormData({
+                                    mode: 'classe',
+                                    niveau_id: '',
                                     classe_id: defaultClasse,
                                     matiere_id: defaultMatiere,
                                     periode_id: selectedPeriode || '',
@@ -1016,48 +1060,122 @@ export default function CompetencesIndex({
                     </DialogHeader>
 
                     <form onSubmit={handleCreateCompetence} className="space-y-3.5 py-2">
+                        {/* Sélecteur de mode d'affectation si habilité (Directeur des Études / Chef de Département) */}
+                        {can?.programmer_niveau && (
+                            <div className="bg-muted/40 p-1.5 rounded-lg border border-border/60">
+                                <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block mb-1">
+                                    Périmètre de programmation
+                                </label>
+                                <div className="grid grid-cols-2 gap-1.5">
+                                    <button
+                                        type="button"
+                                        onClick={() => setFormData({ ...formData, mode: 'classe', niveau_id: '', matiere_id: '' })}
+                                        className={`py-1.5 px-2 rounded-md text-xs font-semibold transition-all ${
+                                            formData.mode === 'classe'
+                                                ? 'bg-background text-foreground shadow-sm'
+                                                : 'text-muted-foreground hover:text-foreground'
+                                        }`}
+                                    >
+                                        Par classe spécifique
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setFormData({ ...formData, mode: 'niveau', classe_id: '', matiere_id: '' })}
+                                        className={`py-1.5 px-2 rounded-md text-xs font-semibold transition-all ${
+                                            formData.mode === 'niveau'
+                                                ? 'bg-teal-600 text-white shadow-sm'
+                                                : 'text-muted-foreground hover:text-foreground'
+                                        }`}
+                                    >
+                                        Par niveau (Toutes les classes)
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            {/* Choix de la Classe cible avec filtrage dynamique immédiat des disciplines */}
-                            <div>
-                                <label className="text-xs font-semibold text-foreground mb-1 block">Classe *</label>
-                                <select
-                                    required
-                                    value={formData.classe_id}
-                                    onChange={(e) => {
-                                        const newClasseId = e.target.value;
-                                        let nextMatiereId = formData.matiere_id;
-                                        if (newClasseId && nextMatiereId && classeMatieresMap) {
-                                            const allowed = classeMatieresMap[Number(newClasseId)];
-                                            if (allowed && !allowed.includes(Number(nextMatiereId))) {
+                            {/* Choix de la Cible (Niveau ou Classe) */}
+                            {formData.mode === 'niveau' ? (
+                                <div>
+                                    <label className="text-xs font-semibold text-foreground mb-1 block">
+                                        Niveau d'enseignement *
+                                    </label>
+                                    <select
+                                        required
+                                        value={formData.niveau_id}
+                                        onChange={(e) => {
+                                            const newNivId = e.target.value;
+                                            setFormData({ ...formData, niveau_id: newNivId, matiere_id: '' });
+                                        }}
+                                        className="w-full h-9 px-3 rounded-md border border-input bg-background text-xs"
+                                    >
+                                        <option value="">Sélectionner un niveau...</option>
+                                        {niveaux.map((n) => {
+                                            const nbClasses = n.classes?.length ?? 0;
+                                            return (
+                                                <option key={n.id} value={n.id}>
+                                                    {n.nom} ({nbClasses} classe{nbClasses > 1 ? 's' : ''})
+                                                </option>
+                                            );
+                                        })}
+                                    </select>
+                                    {formData.niveau_id && (
+                                        <p className="text-[10px] text-teal-700 dark:text-teal-400 mt-1">
+                                            S'appliquera à :{' '}
+                                            {niveaux.find((n) => String(n.id) === formData.niveau_id)?.classes?.map((c) => c.nom).join(', ') || 'aucune classe'}
+                                        </p>
+                                    )}
+                                </div>
+                            ) : (
+                                <div>
+                                    <label className="text-xs font-semibold text-foreground mb-1 block">Classe *</label>
+                                    <select
+                                        required
+                                        value={formData.classe_id}
+                                        onChange={(e) => {
+                                            const newClasseId = e.target.value;
+                                            let nextMatiereId = formData.matiere_id;
+                                            if (newClasseId && nextMatiereId && classeMatieresMap) {
+                                                const allowed = classeMatieresMap[Number(newClasseId)];
+                                                if (allowed && !allowed.includes(Number(nextMatiereId))) {
+                                                    nextMatiereId = '';
+                                                }
+                                            } else if (!newClasseId) {
                                                 nextMatiereId = '';
                                             }
-                                        } else if (!newClasseId) {
-                                            nextMatiereId = '';
-                                        }
-                                        setFormData({ ...formData, classe_id: newClasseId, matiere_id: nextMatiereId });
-                                    }}
-                                    className="w-full h-9 px-3 rounded-md border border-input bg-background text-xs"
-                                >
-                                    <option value="">Sélectionner une classe...</option>
-                                    {allClasses.map((c) => (
-                                        <option key={c.id} value={c.id}>
-                                            {c.nom}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
+                                            setFormData({ ...formData, classe_id: newClasseId, matiere_id: nextMatiereId });
+                                        }}
+                                        className="w-full h-9 px-3 rounded-md border border-input bg-background text-xs"
+                                    >
+                                        <option value="">Sélectionner une classe...</option>
+                                        {allClasses.map((c) => (
+                                            <option key={c.id} value={c.id}>
+                                                {c.nom}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
 
-                            {/* Choix de la Matière via SearchableSelect restreint exclusivement aux matières de la classe */}
+                            {/* Choix de la Matière via SearchableSelect */}
                             <div className="min-w-0">
                                 <label className="text-xs font-semibold text-foreground mb-1 block">Matière *</label>
                                 <SearchableSelect
-                                    disabled={!formData.classe_id}
+                                    disabled={formData.mode === 'niveau' ? !formData.niveau_id : !formData.classe_id}
                                     value={formData.matiere_id}
                                     onValueChange={(val) => setFormData({ ...formData, matiere_id: val })}
                                     options={createMatiereOptions}
-                                    placeholder={!formData.classe_id ? "Choisir d'abord une classe" : "Sélectionner la discipline..."}
+                                    placeholder={
+                                        formData.mode === 'niveau'
+                                            ? (!formData.niveau_id ? "Choisir d'abord un niveau" : "Sélectionner la discipline...")
+                                            : (!formData.classe_id ? "Choisir d'abord une classe" : "Sélectionner la discipline...")
+                                    }
                                     searchPlaceholder="Rechercher une matière au programme..."
-                                    emptyMessage={!formData.classe_id ? "Veuillez d'abord choisir une classe" : "Aucune matière pour cette classe"}
+                                    emptyMessage={
+                                        formData.mode === 'niveau'
+                                            ? (!formData.niveau_id ? "Veuillez d'abord choisir un niveau" : "Aucune matière pour ce niveau")
+                                            : (!formData.classe_id ? "Veuillez d'abord choisir une classe" : "Aucune matière pour cette classe")
+                                    }
                                     className="h-9 w-full min-w-0 text-xs font-normal"
                                 />
                             </div>

@@ -29,6 +29,15 @@ export default defineConfig({
             formVariants: true,
         }),
     ]),
+    /**
+     * Configuration de compilation des assets (JS/CSS)
+     * On cible 'es2020' pour transpiler les Class Static Blocks (ES2022 `static { ... }`)
+     * et garantir une compatibilité totale sur les navigateurs clients (Chrome 80+, Edge 80+),
+     * évitant ainsi les erreurs `Uncaught SyntaxError: Unexpected token '{'` sur les postes non mis à jour.
+     */
+    build: {
+        target: 'es2020',
+    },
     server: {
         watch: {
             ignored: [

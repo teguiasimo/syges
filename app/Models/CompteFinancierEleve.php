@@ -140,6 +140,96 @@ class CompteFinancierEleve extends Model
     }
 
     /**
+     * Relation vers les souscriptions aux prestations et frais optionnels (bus, cantine, internat).
+     *
+     * @return HasMany<SouscriptionFraisOptionnel>
+     */
+    public function souscriptionsOptionnelles(): HasMany
+    {
+        return $this->hasMany(SouscriptionFraisOptionnel::class, 'compte_financier_id');
+    }
+
+    /**
+     * Calcule le montant des frais obligatoires et souscriptions arrivés à échéance mais non encore réglés.
+     *
+     * Règle de gestion :
+     * Compare le cumul des tranches échues (date_limite <= date de référence) au total déjà versé par l'élève.
+     *
+     * @param \Carbon\Carbon|null $dateReference Date d'évaluation (par défaut aujourd'hui)
+     * @return float Montant en FCFA de la dette échue (0 si à jour ou en avance)
+     */
+    public function montantEchuEnRetard(?\Carbon\Carbon $dateReference = null): float
+    {
+        $dateRef = $dateReference ?? \Carbon\Carbon::today();
+        $classe = $this->inscription?->classe;
+        $niveauId = $classe?->niveau_id;
+        $serie = $classe?->serie;
+
+        if (! $niveauId) {
+            return 0.0;
+        }
+
+        // 1. Recherche des frais obligatoires échus pour ce niveau
+        $fraisObligatoiresEchus = FraisScolaire::where('annee_scolaire_id', $this->annee_scolaire_id)
+            ->where('etablissement_id', $this->etablissement_id)
+            ->where('niveau_id', $niveauId)
+            ->where(function ($q) use ($serie) {
+                if ($serie) {
+                    $q->where('serie', $serie)->orWhereNull('serie');
+                } else {
+                    $q->whereNull('serie');
+                }
+            })
+            ->whereHas('typeFrais', fn ($q) => $q->where('obligatoire', true))
+            ->whereNotNull('date_limite')
+            ->whereDate('date_limite', '<=', $dateRef)
+            ->sum('montant');
+
+        // 2. Frais optionnels souscrits actifs échus
+        $optionsEchues = $this->souscriptionsOptionnelles()
+            ->where('statut', 'actif')
+            ->whereHas('fraisScolaire', function ($q) use ($dateRef) {
+                $q->whereNotNull('date_limite')->whereDate('date_limite', '<=', $dateRef);
+            })
+            ->sum('montant');
+
+        // Arriérés antérieurs toujours considérés comme échus dès la rentrée
+        $arrieres = (float) ($this->arrieres_anterieurs ?? 0);
+        $totalExigibleEchu = (float) $fraisObligatoiresEchus + (float) $optionsEchues + $arrieres;
+
+        // Déduction de la remise/bourse au prorata
+        $netExigibleEchu = max(0, $totalExigibleEchu - (float) ($this->remise_bourse ?? 0));
+
+        // Comparaison avec les versements effectifs
+        $paye = (float) ($this->total_paye ?? 0);
+
+        return max(0, $netExigibleEchu - $paye);
+    }
+
+    /**
+     * Détermine le statut financier global de l'élève selon le cumul versé et les tranches (Gesco V1.1).
+     *
+     * @return string 'solde', 'insolvable', 'en_regle_tranche_1', ou 'en_regle_tranche_2'
+     */
+    public function determinerStatutFinancier(): string
+    {
+        if ($this->solde_restant <= 0 && $this->montant_net_exigible > 0) {
+            return 'solde';
+        }
+
+        if ($this->total_paye <= 0) {
+            return 'insolvable';
+        }
+
+        $taux = $this->montant_net_exigible > 0 ? ($this->total_paye / $this->montant_net_exigible) : 1;
+        if ($taux >= 0.6) {
+            return 'en_regle_tranche_2';
+        }
+
+        return 'en_regle_tranche_1';
+    }
+
+    /**
      * Recalcule et persiste instantanément les soldes et statuts du compte élève.
      *
      * @return void
@@ -152,37 +242,30 @@ class CompteFinancierEleve extends Model
             $this->remise_bourse = $totalBoursesRemises;
         }
 
-        // 2. Cumul des pénalités actives (non annulées)
+        // 2. Cumul des prestations optionnelles actives souscrites par l'élève (Bus, Cantine, Activités...)
+        $totalOptions = (float) $this->souscriptionsOptionnelles()
+            ->where('statut', 'actif')
+            ->sum('montant');
+
+        // 3. Cumul des pénalités actives (non annulées)
         $totalPenalites = (float) $this->penalites()
             ->where('statut', '!=', 'annule')
             ->sum('montant');
 
-        // 3. Calcul du montant net exigible (débit initial + arriérés + pénalités - remises/bourses)
-        $debitTotal = (float) $this->debit_initial + (float) ($this->arrieres_anterieurs ?? 0) + $totalPenalites;
+        // 4. Calcul du montant net exigible (débit initial obligatoire + options + arriérés + pénalités - remises/bourses)
+        $debitTotal = (float) $this->debit_initial + $totalOptions + (float) ($this->arrieres_anterieurs ?? 0) + $totalPenalites;
         $this->montant_net_exigible = max(0, $debitTotal - (float) $this->remise_bourse);
 
-        // 4. Cumul des versements au statut 'valide'
+        // 5. Cumul des versements au statut 'valide'
         $this->total_paye = (float) $this->versements()
             ->where('statut', 'valide')
             ->sum('montant_total');
 
-        // 5. Calcul du solde restant dû
+        // 6. Calcul du solde restant dû
         $this->solde_restant = max(0, $this->montant_net_exigible - $this->total_paye);
 
-        // 6. Détermination du statut financier
-        if ($this->solde_restant <= 0 && $this->montant_net_exigible > 0) {
-            $this->statut_financier = 'solde';
-        } elseif ($this->total_paye <= 0) {
-            $this->statut_financier = 'insolvable';
-        } else {
-            // Statut intermédiaire selon le prorata payé
-            $tauxPaiement = $this->montant_net_exigible > 0 ? ($this->total_paye / $this->montant_net_exigible) : 1;
-            if ($tauxPaiement >= 0.6) {
-                $this->statut_financier = 'en_regle_tranche_2';
-            } else {
-                $this->statut_financier = 'en_regle_tranche_1';
-            }
-        }
+        // 7. Détermination du statut financier (calcul temporel sur dates d'échéances)
+        $this->statut_financier = $this->determinerStatutFinancier();
 
         $this->save();
     }

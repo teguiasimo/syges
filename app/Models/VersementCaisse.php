@@ -22,7 +22,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property int $etablissement_id Établissement
  * @property int|null $personnel_id Caissier / Économe ayant encaissé
  * @property int|null $cloture_caisse_id Clôture journalière rattachée
- * @property string $date_versement Date et heure précises du versement
+ * @property \Carbon\Carbon $date_versement Date et heure précises du versement
  * @property float $montant_total Montant total versé en FCFA
  * @property string $mode_paiement Mode ('especes', 'cheque', 'virement', 'mobile_money_manuel')
  * @property string|null $reference_paiement Numéro du chèque, bordereau ou identifiant MoMo
@@ -32,7 +32,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string $statut Statut du versement ('valide', 'annule')
  * @property string|null $motif_annulation Motif en cas d'annulation administrative
  * @property int|null $annule_par Utilisateur ayant autorisé l'annulation
- * @property string|null $annule_le Horodatage de l'annulation
+ * @property \Carbon\Carbon|null $annule_le Horodatage de l'annulation
  * @property string|null $observations Remarques ou précisions
  */
 class VersementCaisse extends Model

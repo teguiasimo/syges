@@ -111,7 +111,22 @@ export interface CompteFinancierEleve {
     eleve?: Eleve;
     inscription?: Inscription;
     bourses_remises?: EleveBourseRemise[];
+    souscriptions_optionnelles?: SouscriptionFraisOptionnel[];
     penalites?: PenaliteEleve[];
+}
+
+/**
+ * Souscription d'un élève à un frais optionnel (Bus, Cantine, Internat, etc.).
+ */
+export interface SouscriptionFraisOptionnel {
+    id: number;
+    compte_financier_id: number;
+    frais_scolaire_id: number;
+    montant: number;
+    date_souscription: string;
+    statut: 'actif' | 'annule';
+    observations: string | null;
+    frais_scolaire?: FraisScolaire;
 }
 
 /**

@@ -20,12 +20,14 @@ use App\Models\PenaliteConfiguration;
 use App\Models\PenaliteEleve;
 use App\Models\Personnel;
 use App\Models\ReglementDivers;
+use App\Models\SouscriptionFraisOptionnel;
 use App\Models\TypeFrais;
 use App\Models\VersementCaisse;
 use App\Services\FinanceService;
 use App\Services\QrCodeService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -59,7 +61,17 @@ class FinanceController extends Controller implements HasMiddleware
     public static function middleware(): array
     {
         return [
-            new Middleware('can:finances.view', only: ['index', 'imprimerRecu', 'imprimerRecuDivers']),
+            new Middleware('can:finances.view', only: [
+                'index',
+                'imprimerRecu',
+                'imprimerRecuDivers',
+                'dossierFinancierEleve',
+                'imprimerFicheCompte',
+                'imprimerJournalDetaille',
+                'imprimerJournalSynthetique',
+                'imprimerListeInsolvables',
+                'imprimerListeEnRegle',
+            ]),
             new Middleware('can:versements.create|finances.manage', only: ['storeVersement', 'storeReglementDivers']),
             new Middleware('can:versements.cancel|finances.annuler|finances.manage', only: ['annulerVersement', 'annulerReglementDivers']),
             new Middleware('can:caisses.cloture|finances.cloture|finances.manage', only: ['cloturerJournee']),
@@ -74,6 +86,8 @@ class FinanceController extends Controller implements HasMiddleware
                 'storeTarif',
                 'destroyTarif',
                 'toggleVerrouSolvabilite',
+                'storeSouscriptionOptionnelle',
+                'destroySouscriptionOptionnelle',
             ]),
         ];
     }
@@ -134,9 +148,11 @@ class FinanceController extends Controller implements HasMiddleware
         // 2. Liste des comptes financiers des élèves
         $comptesQuery = CompteFinancierEleve::with([
             'eleve',
-            'inscription.classe',
+            'inscription.classe.niveau',
             'boursesRemises.bourseRemise',
+            'souscriptionsOptionnelles.fraisScolaire.typeFrais',
             'penalites',
+            'versements',
         ])
             ->where('etablissement_id', $etablissementId)
             ->where('annee_scolaire_id', $anneeId);
@@ -260,11 +276,19 @@ class FinanceController extends Controller implements HasMiddleware
             ->orderBy('nom')
             ->get();
 
+        // 13. Frais scolaires optionnels paramétrés pour l'année en cours (bus, cantine, activités...)
+        $fraisOptionnels = FraisScolaire::with(['typeFrais', 'niveau'])
+            ->where('etablissement_id', $etablissementId)
+            ->where('annee_scolaire_id', $anneeId)
+            ->whereHas('typeFrais', fn ($q) => $q->where('obligatoire', false))
+            ->get();
+
         return Inertia::render('administration/finances/index', [
             'versements' => $versements,
             'comptes' => $comptes,
             'typesFrais' => $typesFrais,
             'tarifs' => $tarifs,
+            'fraisOptionnels' => $fraisOptionnels,
             'caisses' => $caisses,
             'reglementsDivers' => $reglementsDivers,
             'boursesRemises' => $boursesRemises,
@@ -363,10 +387,14 @@ class FinanceController extends Controller implements HasMiddleware
         $etablissement = $versement->etablissement;
 
         // Données d'intégrité encodées dans le QR code
+        $dateVersement = $versement->date_versement instanceof Carbon
+            ? $versement->date_versement->format('d/m/Y H:i')
+            : Carbon::parse($versement->date_versement)->format('d/m/Y H:i');
+
         $qrData = sprintf(
             "SYGES-REC:%s|DATE:%s|ELEVE:%s (MAT:%s)|MONTANT:%s FCFA|MODE:%s|SOLDE:%s FCFA",
             $versement->reference_recu,
-            $versement->date_versement->format('d/m/Y H:i'),
+            $dateVersement,
             $eleve->nom . ' ' . ($eleve->prenom ?? ''),
             $eleve->matricule,
             number_format($versement->montant_total, 0, ',', ' '),
@@ -720,10 +748,14 @@ class FinanceController extends Controller implements HasMiddleware
         $reglement->load(['caisse', 'caissier', 'etablissement']);
         $etablissement = $reglement->etablissement;
 
+        $dateReglement = $reglement->date_reglement instanceof Carbon
+            ? $reglement->date_reglement->format('d/m/Y H:i')
+            : Carbon::parse($reglement->date_reglement)->format('d/m/Y H:i');
+
         $qrData = sprintf(
             "SYGES-REC-DIV:%s|DATE:%s|PAYEUR:%s|MONTANT:%s FCFA|MOTIF:%s|MODE:%s",
             $reglement->reference_recu,
-            $reglement->date_reglement->format('d/m/Y H:i'),
+            $dateReglement,
             $reglement->payeur_nom,
             number_format($reglement->montant, 0, ',', ' '),
             $reglement->libelle,
@@ -968,5 +1000,244 @@ class FinanceController extends Controller implements HasMiddleware
         $financeService->annulerPenalite($penalite);
 
         return back()->with('success', "Pénalité de retard annulée avec succès.");
+    }
+
+    /**
+     * Enregistre une souscription à un frais optionnel (bus, cantine, internat) pour un élève.
+     *
+     * @param Request $request
+     * @param FinanceService $financeService
+     * @return RedirectResponse
+     */
+    public function storeSouscriptionOptionnelle(Request $request, FinanceService $financeService): RedirectResponse
+    {
+        abort_if(! $request->user()?->can('finances.manage') && ! $request->user()?->hasRole('super-admin'), 403);
+
+        $validated = $request->validate([
+            'compte_financier_id' => 'required|exists:comptes_financiers_eleves,id',
+            'frais_scolaire_id' => 'required|exists:frais_scolaires,id',
+            'montant' => 'nullable|numeric|min:0',
+            'observations' => 'nullable|string|max:255',
+        ]);
+
+        try {
+            $financeService->souscrireFraisOptionnel(
+                $validated['compte_financier_id'],
+                $validated['frais_scolaire_id'],
+                isset($validated['montant']) && $validated['montant'] !== '' ? (float) $validated['montant'] : null,
+                $validated['observations'] ?? null
+            );
+
+            return back()->with('success', 'Souscription au service optionnel enregistrée avec succès. Le compte élève a été réactualisé.');
+        } catch (InvalidArgumentException $e) {
+            return back()->withErrors(['error' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Annule une souscription à un frais optionnel.
+     *
+     * @param SouscriptionFraisOptionnel $souscription
+     * @param FinanceService $financeService
+     * @return RedirectResponse
+     */
+    public function destroySouscriptionOptionnelle(SouscriptionFraisOptionnel $souscription, FinanceService $financeService): RedirectResponse
+    {
+        abort_if(! request()->user()?->can('finances.manage') && ! request()->user()?->hasRole('super-admin'), 403);
+
+        $financeService->annulerSouscriptionOptionnelle($souscription);
+
+        return back()->with('success', 'Souscription au service optionnel annulée avec succès. Le compte élève a été réactualisé.');
+    }
+
+    /**
+     * Retourne l'échéancier prévisionnel complet et le dossier financier d'un élève (API JSON).
+     *
+     * @param CompteFinancierEleve $compte
+     * @param FinanceService $financeService
+     * @return JsonResponse
+     */
+    public function dossierFinancierEleve(CompteFinancierEleve $compte, FinanceService $financeService): JsonResponse
+    {
+        abort_if(! request()->user()?->can('finances.view') && ! request()->user()?->hasRole('super-admin'), 403);
+
+        $donnees = $financeService->obtenirEcheancierEleve($compte);
+
+        return response()->json($donnees);
+    }
+
+    /**
+     * Génère et télécharge la Fiche Individuelle de Situation Financière de l'Élève (PDF A4 Portrait).
+     *
+     * @param CompteFinancierEleve $compte
+     * @param FinanceService $financeService
+     * @param QrCodeService $qrCodeService
+     * @return Response
+     */
+    public function imprimerFicheCompte(CompteFinancierEleve $compte, FinanceService $financeService, QrCodeService $qrCodeService): Response
+    {
+        abort_if(! request()->user()?->can('finances.view') && ! request()->user()?->hasRole('super-admin'), 403);
+
+        $echeancier = $financeService->obtenirEcheancierEleve($compte);
+        $compte->loadMissing(['eleve', 'inscription.classe.niveau', 'anneeScolaire', 'etablissement', 'versements.ventilations', 'boursesRemises.bourseRemise']);
+
+        $eleve = $compte->eleve;
+        $etablissement = $compte->etablissement;
+        $annee = $compte->anneeScolaire;
+
+        $qrData = sprintf(
+            "SYGES-COMPTE-ELEVE|MAT:%s|NOM:%s|CLASSE:%s|EXIGIBLE:%s|PAYE:%s|SOLDE:%s|STATUT:%s",
+            $eleve->matricule,
+            $eleve->nom . ' ' . ($eleve->prenom ?? ''),
+            $compte->inscription?->classe?->nom ?? 'N/A',
+            number_format($compte->montant_net_exigible, 0, ',', ' '),
+            number_format($compte->total_paye, 0, ',', ' '),
+            number_format($compte->solde_restant, 0, ',', ' '),
+            strtoupper($compte->statut_financier)
+        );
+
+        $qrCodeBase64 = $qrCodeService->generateBase64Svg($qrData, 95);
+
+        $pdf = Pdf::loadView('finances.fiche_compte_eleve', compact('compte', 'echeancier', 'eleve', 'etablissement', 'annee', 'qrCodeBase64'))
+            ->setPaper('a4', 'portrait');
+
+        return $pdf->stream("Situation_Financiere_{$eleve->matricule}.pdf");
+    }
+
+    /**
+     * Génère le Journal Détaillé des Encaissements (PDF A4 Paysage).
+     *
+     * @param Request $request
+     * @param FinanceService $financeService
+     * @return Response
+     */
+    public function imprimerJournalDetaille(Request $request, FinanceService $financeService): Response
+    {
+        abort_if(! $request->user()?->can('finances.view') && ! $request->user()?->hasRole('super-admin'), 403);
+
+        $context = $this->resolveEtablissementContext($request);
+        $etablissement = $context['selectedEtablissement'];
+        $etablissementId = $etablissement?->id ?? 0;
+
+        $data = $financeService->obtenirJournalDetaille(
+            $etablissementId,
+            $request->input('date_debut'),
+            $request->input('date_fin'),
+            $request->filled('caisse_id') ? $request->integer('caisse_id') : null,
+            $request->input('mode_paiement')
+        );
+
+        $annee = AnneeScolaire::where('is_current', true)->first() ?? AnneeScolaire::latest()->first();
+
+        $pdf = Pdf::loadView('finances.journal_detaille', array_merge($data, [
+            'etablissement' => $etablissement,
+            'annee' => $annee,
+        ]))->setPaper('a4', 'landscape');
+
+        return $pdf->stream("Journal_Detaille_Encaissements.pdf");
+    }
+
+    /**
+     * Génère le Journal Synthétique de Caisse (PDF A4 Portrait).
+     *
+     * @param Request $request
+     * @param FinanceService $financeService
+     * @return Response
+     */
+    public function imprimerJournalSynthetique(Request $request, FinanceService $financeService): Response
+    {
+        abort_if(! $request->user()?->can('finances.view') && ! $request->user()?->hasRole('super-admin'), 403);
+
+        $context = $this->resolveEtablissementContext($request);
+        $etablissement = $context['selectedEtablissement'];
+        $etablissementId = $etablissement?->id ?? 0;
+
+        $data = $financeService->obtenirJournalSynthetique(
+            $etablissementId,
+            $request->input('date_debut'),
+            $request->input('date_fin'),
+            $request->filled('caisse_id') ? $request->integer('caisse_id') : null
+        );
+
+        $annee = AnneeScolaire::where('is_current', true)->first() ?? AnneeScolaire::latest()->first();
+
+        $pdf = Pdf::loadView('finances.journal_synthetique', array_merge($data, [
+            'etablissement' => $etablissement,
+            'annee' => $annee,
+        ]))->setPaper('a4', 'portrait');
+
+        return $pdf->stream("Journal_Synthetique_Caisse.pdf");
+    }
+
+    /**
+     * Génère la Liste des Élèves Insolvables (PDF A4 Paysage).
+     *
+     * @param Request $request
+     * @param FinanceService $financeService
+     * @return Response
+     */
+    public function imprimerListeInsolvables(Request $request, FinanceService $financeService): Response
+    {
+        abort_if(! $request->user()?->can('finances.view') && ! $request->user()?->hasRole('super-admin'), 403);
+
+        $context = $this->resolveEtablissementContext($request);
+        $etablissement = $context['selectedEtablissement'];
+        $etablissementId = $etablissement?->id ?? 0;
+        $annee = AnneeScolaire::where('is_current', true)->first() ?? AnneeScolaire::latest()->first();
+
+        $data = $financeService->obtenirListeInsolvables(
+            $etablissementId,
+            $annee?->id ?? 0,
+            $request->filled('classe_id') ? $request->integer('classe_id') : null,
+            $request->filled('niveau_id') ? $request->integer('niveau_id') : null
+        );
+
+        $classe = $request->filled('classe_id') ? Classe::find($request->integer('classe_id')) : null;
+        $niveau = $request->filled('niveau_id') ? Niveau::find($request->integer('niveau_id')) : null;
+
+        $pdf = Pdf::loadView('finances.liste_insolvables', array_merge($data, [
+            'etablissement' => $etablissement,
+            'annee' => $annee,
+            'classe' => $classe,
+            'niveau' => $niveau,
+        ]))->setPaper('a4', 'landscape');
+
+        return $pdf->stream("Liste_Eleves_Insolvables.pdf");
+    }
+
+    /**
+     * Génère la Liste des Élèves en Règle (PDF A4 Portrait).
+     *
+     * @param Request $request
+     * @param FinanceService $financeService
+     * @return Response
+     */
+    public function imprimerListeEnRegle(Request $request, FinanceService $financeService): Response
+    {
+        abort_if(! $request->user()?->can('finances.view') && ! $request->user()?->hasRole('super-admin'), 403);
+
+        $context = $this->resolveEtablissementContext($request);
+        $etablissement = $context['selectedEtablissement'];
+        $etablissementId = $etablissement?->id ?? 0;
+        $annee = AnneeScolaire::where('is_current', true)->first() ?? AnneeScolaire::latest()->first();
+
+        $data = $financeService->obtenirListeEnRegle(
+            $etablissementId,
+            $annee?->id ?? 0,
+            $request->filled('classe_id') ? $request->integer('classe_id') : null,
+            $request->filled('niveau_id') ? $request->integer('niveau_id') : null
+        );
+
+        $classe = $request->filled('classe_id') ? Classe::find($request->integer('classe_id')) : null;
+        $niveau = $request->filled('niveau_id') ? Niveau::find($request->integer('niveau_id')) : null;
+
+        $pdf = Pdf::loadView('finances.liste_en_regle', array_merge($data, [
+            'etablissement' => $etablissement,
+            'annee' => $annee,
+            'classe' => $classe,
+            'niveau' => $niveau,
+        ]))->setPaper('a4', 'portrait');
+
+        return $pdf->stream("Liste_Eleves_En_Regle.pdf");
     }
 }

@@ -55,7 +55,7 @@ class FinanceCaisseTest extends TestCase
             Permission::firstOrCreate(['name' => $perm, 'guard_name' => 'web']);
         }
 
-        $adminRole = Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
+        $adminRole = Role::firstOrCreate(['name' => 'super-admin', 'guard_name' => 'web']);
         $adminRole->syncPermissions(Permission::all());
 
         $this->adminUser = User::factory()->create(['is_active' => true]);
@@ -79,6 +79,8 @@ class FinanceCaisseTest extends TestCase
                 'verrou_solvabilite_actif' => true,
             ]
         );
+
+        $this->adminUser->update(['etablissement_id' => $this->etablissement->id]);
 
         $section = Section::firstOrCreate(
             ['code' => 'SEC-FR-FIN', 'etablissement_id' => $this->etablissement->id],

@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    {{-- Identité visuelle & Favicons officiels SYGES --}}
+    <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}?v=syges3">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('favicon-32x32.png') }}?v=syges3">
+    <link rel="shortcut icon" href="{{ asset('favicon.ico') }}?v=syges3">
+    <meta charset="UTF-8">
+    <title>Journal Détaillé des Encaissements - {{ $date_debut }} au {{ $date_fin }}</title>
+    <style>
+        @page {
+            size: A4 landscape;
+            margin: 8mm 10mm;
+        }
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-size: 8pt;
+            color: #0f172a;
+            line-height: 1.25;
+            margin: 0;
+            padding: 0;
+        }
+        .header-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 8px;
+        }
+        .header-table td {
+            vertical-align: top;
+        }
+        .header-left, .header-right {
+            width: 32%;
+            font-size: 7pt;
+            text-align: center;
+            line-height: 1.2;
+        }
+        .header-center {
+            width: 36%;
+            text-align: center;
+        }
+        .school-name {
+            font-size: 11pt;
+            font-weight: bold;
+            color: #1e3a8a;
+            text-transform: uppercase;
+        }
+        .school-sub {
+            font-size: 7.5pt;
+            color: #475569;
+        }
+        .doc-banner {
+            border: 1.5px solid #0f172a;
+            background-color: #f8fafc;
+            border-radius: 4px;
+            padding: 6px;
+            margin: 6px 0 10px 0;
+            text-align: center;
+        }
+        .doc-title {
+            font-size: 11pt;
+            font-weight: bold;
+            text-transform: uppercase;
+            color: #0f172a;
+        }
+        .doc-subtitle {
+            font-size: 7.5pt;
+            color: #475569;
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 10px;
+        }
+        .data-table th, .data-table td {
+            border: 1px solid #cbd5e1;
+            padding: 4px 5px;
+            font-size: 7.5pt;
+        }
+        .data-table th {
+            background-color: #f1f5f9;
+            font-weight: bold;
+            color: #1e293b;
+            text-align: left;
+        }
+        .text-right { text-align: right; }
+        .text-center { text-align: center; }
+        .font-bold { font-weight: bold; }
+        .total-box {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 6px;
+            margin-bottom: 15px;
+        }
+        .total-box td {
+            padding: 6px 8px;
+            border: 1px solid #cbd5e1;
+            font-size: 8pt;
+        }
+        .signatures-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        .signatures-table td {
+            width: 50%;
+            text-align: center;
+            vertical-align: top;
+            font-size: 8pt;
+        }
+        .sign-title {
+            font-weight: bold;
+            margin-bottom: 35px;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+
+    <table class="header-table">
+        <tr>
+            <td class="header-left">
+                RÉPUBLIQUE DU CAMEROUN<br>
+                <em>Paix - Travail - Patrie</em><br>
+                MINISTÈRE DES ENSEIGNEMENTS SECONDAIRES
+            </td>
+            <td class="header-center">
+                <div class="school-name">{{ $etablissement->nom ?? 'SYGES COMPLEXE SCOLAIRE' }}</div>
+                <div class="school-sub">Service de l'Intendance & Comptabilité Scolaire</div>
+                <div class="school-sub">Année Scolaire : {{ $annee->code ?? '2026-2027' }}</div>
+            </td>
+            <td class="header-right">
+                REPUBLIC OF CAMEROON<br>
+                <em>Peace - Work - Fatherland</em><br>
+                MINISTRY OF SECONDARY EDUCATION
+            </td>
+        </tr>
+    </table>
+
+    <div class="doc-banner">
+        <div class="doc-title">Grand Journal Détaillé des Encaissements de Caisse</div>
+        <div class="doc-subtitle">Période du {{ $date_debut }} au {{ $date_fin }} • {{ $nombre_versements }} transaction(s) enregistrée(s)</div>
+    </div>
+
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th style="width: 3%;" class="text-center">#</th>
+                <th style="width: 10%;">Date & Heure</th>
+                <th style="width: 11%;">N° Reçu</th>
+                <th style="width: 7%;">Matricule</th>
+                <th style="width: 14%;">Élève</th>
+                <th style="width: 6%;">Classe</th>
+                <th style="width: 12%;">Payeur</th>
+                <th style="width: 8%;">Mode</th>
+                <th style="width: 17%;">Rubriques Ventilées</th>
+                <th style="width: 12%;" class="text-right">Montant</th>
+            </tr>
+        </thead>
+        <tbody>
+            @forelse($versements as $idx => $v)
+                <tr>
+                    <td class="text-center">{{ $idx + 1 }}</td>
+                    <td>{{ \Carbon\Carbon::parse($v->date_versement)->format('d-m-Y H:i') }}</td>
+                    <td class="font-bold" style="font-family: monospace;">{{ $v->reference_recu }}</td>
+                    <td>{{ $v->compteFinancier?->eleve?->matricule ?? 'N/A' }}</td>
+                    <td class="font-bold">{{ $v->compteFinancier?->eleve?->nom }} {{ $v->compteFinancier?->eleve?->prenom }}</td>
+                    <td>{{ $v->inscription?->classe?->nom ?? 'N/A' }}</td>
+                    <td>{{ $v->payeur_nom ?? 'Élève / Parent' }}</td>
+                    <td style="text-transform: uppercase;">{{ str_replace('_', ' ', $v->mode_paiement) }}</td>
+                    <td style="font-size: 7pt; color: #475569;">
+                        @foreach($v->ventilations as $vent)
+                            {{ $vent->libelle }} ({{ number_format($vent->montant, 0, ',', ' ') }})@if(!$loop->last), @endif
+                        @endforeach
+                    </td>
+                    <td class="text-right font-bold" style="color: #047857;">
+                        {{ number_format($v->montant_total, 0, ',', ' ') }} FCFA
+                    </td>
+                </tr>
+            @empty
+                <tr>
+                    <td colspan="10" class="text-center" style="color: #64748b; padding: 15px;">
+                        Aucun encaissement validé sur la période sélectionnée.
+                    </td>
+                </tr>
+            @endforelse
+        </tbody>
+    </table>
+
+    {{-- Synthèse des Règlements --}}
+    <table class="total-box">
+        <tr style="background-color: #f8fafc; font-weight: bold;">
+            <td style="width: 25%;">Total Espèces : <span style="color: #0f172a;">{{ number_format($totaux_par_mode['especes'], 0, ',', ' ') }} FCFA</span></td>
+            <td style="width: 25%;">Total Mobile Money : <span style="color: #0f172a;">{{ number_format($totaux_par_mode['mobile_money_manuel'], 0, ',', ' ') }} FCFA</span></td>
+            <td style="width: 25%;">Total Chèque / Virement : <span style="color: #0f172a;">{{ number_format($totaux_par_mode['cheque'] + $totaux_par_mode['virement'], 0, ',', ' ') }} FCFA</span></td>
+            <td style="width: 25%; text-align: right; background-color: #ecfdf5; color: #065f46; font-size: 9pt;">
+                TOTAL GÉNÉRAL : {{ number_format($total_general, 0, ',', ' ') }} FCFA
+            </td>
+        </tr>
+    </table>
+
+    <table class="signatures-table">
+        <tr>
+            <td>
+                <div class="sign-title">Le Responsable de la Caisse / Intendant</div>
+                <div style="font-size: 7.5pt; color: #64748b;">(Visa et arrêté d'écritures)</div>
+            </td>
+            <td>
+                <div class="sign-title">Le Chef d'Établissement</div>
+                <div style="font-size: 7.5pt; color: #64748b;">(Pour vérification et approbation)</div>
+            </td>
+        </tr>
+    </table>
+
+</body>
+</html>
+

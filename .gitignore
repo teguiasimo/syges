@@ -39,6 +39,7 @@ yarn-error.log
 /docs/Logo app et favicon.png
 /docs/ces/
 /docs/WhatsApp*/
+/docs/extracted/
 /docs/*.zip
 /docs/*.pdf
 *.rar

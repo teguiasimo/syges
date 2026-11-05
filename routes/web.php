@@ -35,6 +35,24 @@ use Illuminate\Support\Facades\Route;
 Route::redirect('/', 'login')->name('home');
 
 /**
+ * Routes directes de distribution des favicons officiels SYGES avec cache navigateur.
+ * Garantit l'affichage du logo SYGES sur les onglets de prévisualisation et états PDF (Gesco & Aurore).
+ */
+Route::get('favicon.ico', function () {
+    return response()->file(public_path('favicon.ico'), [
+        'Content-Type' => 'image/x-icon',
+        'Cache-Control' => 'public, max-age=604800',
+    ]);
+});
+
+Route::get('favicon.svg', function () {
+    return response()->file(public_path('favicon.svg'), [
+        'Content-Type' => 'image/svg+xml',
+        'Cache-Control' => 'public, max-age=604800',
+    ]);
+});
+
+/**
  * Route publique de contrôle d'authenticité des cartes scolaires par scan QR code.
  */
 Route::get('cartes-scolaires/verifier/{matricule}', [CarteScolaireController::class, 'verifier'])
@@ -290,6 +308,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('finances/penalites-configurations', [FinanceController::class, 'storePenaliteConfiguration'])->name('finances.penalites-configurations.store');
         Route::post('finances/penalites/appliquer-echeances', [FinanceController::class, 'appliquerPenalitesRetard'])->name('finances.penalites.appliquer-echeances');
         Route::post('finances/penalites/{penalite}/annuler', [FinanceController::class, 'annulerPenaliteEleve'])->name('finances.penalites.annuler');
+
+        // Souscriptions aux Frais Optionnels (Bus, Cantine, Internat)
+        Route::post('finances/souscriptions-optionnelles', [FinanceController::class, 'storeSouscriptionOptionnelle'])->name('finances.souscriptions-optionnelles.store');
+        Route::delete('finances/souscriptions-optionnelles/{souscription}', [FinanceController::class, 'destroySouscriptionOptionnelle'])->name('finances.souscriptions-optionnelles.destroy');
+
+        // Dossier financier et échéancier de l'élève (API JSON)
+        Route::get('finances/comptes/{compte}/dossier', [FinanceController::class, 'dossierFinancierEleve'])->name('finances.comptes.dossier');
+
+        // Éditions et États PDF Officiels (Journaux, Insolvables, En règle, Fiche élève)
+        Route::get('finances/comptes/{compte}/fiche-pdf', [FinanceController::class, 'imprimerFicheCompte'])->name('finances.comptes.fiche-pdf');
+        Route::get('finances/etats/journal-detaille-pdf', [FinanceController::class, 'imprimerJournalDetaille'])->name('finances.etats.journal-detaille-pdf');
+        Route::get('finances/etats/journal-synthetique-pdf', [FinanceController::class, 'imprimerJournalSynthetique'])->name('finances.etats.journal-synthetique-pdf');
+        Route::get('finances/etats/insolvables-pdf', [FinanceController::class, 'imprimerListeInsolvables'])->name('finances.etats.insolvables-pdf');
+        Route::get('finances/etats/en-regle-pdf', [FinanceController::class, 'imprimerListeEnRegle'])->name('finances.etats.en-regle-pdf');
 
         // Module Dépenses, Fiches de Décharge & Bilan Financier (Phase 1)
         Route::get('finances/depenses', [DepenseController::class, 'index'])->name('finances.depenses.index');

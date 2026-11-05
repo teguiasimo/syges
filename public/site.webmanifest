@@ -4,17 +4,22 @@
     "description": "Plateforme moderne de gestion scolaire, pédagogique et financière",
     "icons": [
         {
-            "src": "/favicon-32x32.png?v=syges2",
+            "src": "/favicon.svg?v=syges3",
+            "sizes": "any",
+            "type": "image/svg+xml"
+        },
+        {
+            "src": "/favicon-32x32.png?v=syges3",
             "sizes": "32x32",
             "type": "image/png"
         },
         {
-            "src": "/android-chrome-192x192.png?v=syges2",
+            "src": "/android-chrome-192x192.png?v=syges3",
             "sizes": "192x192",
             "type": "image/png"
         },
         {
-            "src": "/android-chrome-512x512.png?v=syges2",
+            "src": "/android-chrome-512x512.png?v=syges3",
             "sizes": "512x512",
             "type": "image/png"
         }

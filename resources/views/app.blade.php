@@ -33,14 +33,15 @@
 
         {{-- 
             Identité visuelle & Favicons personnalisés SYGES
-            Configuration multi-formats (PNG 32x32, PNG 16x16, ICO universel, Apple Touch Icon)
-            Utilisation d'un paramètre de version ?v=syges2 pour forcer l'invalidation du cache navigateur (Favicons cache)
+            Configuration multi-formats (SVG vectoriel, PNG 32x32, PNG 16x16, ICO universel, Apple Touch Icon)
+            Utilisation d'un paramètre de version ?v=syges3 pour forcer l'invalidation du cache navigateur (Favicons cache)
         --}}
-        <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=syges2">
-        <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=syges2">
-        <link rel="shortcut icon" href="/favicon.ico?v=syges2">
-        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=syges2">
-        <link rel="manifest" href="/site.webmanifest?v=syges2">
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=syges3">
+        <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=syges3">
+        <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=syges3">
+        <link rel="shortcut icon" href="/favicon.ico?v=syges3">
+        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=syges3">
+        <link rel="manifest" href="/site.webmanifest?v=syges3">
 
         @fonts
 

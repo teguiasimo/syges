@@ -15,6 +15,7 @@ use App\Models\PenaliteConfiguration;
 use App\Models\PenaliteEleve;
 use App\Models\Personnel;
 use App\Models\ReglementDivers;
+use App\Models\SouscriptionFraisOptionnel;
 use App\Models\User;
 use App\Models\VentilationVersement;
 use App\Models\VersementCaisse;
@@ -664,6 +665,462 @@ class FinanceService
         return [
             'penalites_appliquees' => $nbAppliquees,
             'total_montant' => $totalMontant,
+        ];
+    }
+
+    /**
+     * Enregistre une souscription à un frais optionnel (bus, cantine, internat) pour un élève.
+     * Recalcule instantanément l'ardoise financière de l'élève.
+     *
+     * @param int $compteId Identifiant du compte financier élève
+     * @param int $fraisScolaireId Identifiant du frais optionnel dans la grille tarifaire
+     * @param float|null $montant Montant personnalisé éventuel (prend le montant du frais si null)
+     * @param string|null $observations Observations éventuelles
+     * @return SouscriptionFraisOptionnel
+     *
+     * @throws InvalidArgumentException Si le frais n'est pas optionnel ou si l'élève est déjà souscrit
+     */
+    public function souscrireFraisOptionnel(
+        int $compteId,
+        int $fraisScolaireId,
+        ?float $montant = null,
+        ?string $observations = null
+    ): SouscriptionFraisOptionnel {
+        $compte = CompteFinancierEleve::findOrFail($compteId);
+        $frais = FraisScolaire::with('typeFrais')->findOrFail($fraisScolaireId);
+
+        if ($frais->typeFrais?->obligatoire) {
+            throw new InvalidArgumentException("Ce frais est déjà obligatoire dans la grille tarifaire de la classe.");
+        }
+
+        $existant = SouscriptionFraisOptionnel::where('compte_financier_id', $compteId)
+            ->where('frais_scolaire_id', $fraisScolaireId)
+            ->first();
+
+        if ($existant && $existant->statut === 'actif') {
+            throw new InvalidArgumentException("Cet élève bénéficie déjà d'une souscription active à ce service optionnel.");
+        }
+
+        $montantFinal = $montant !== null && $montant > 0 ? $montant : (float) $frais->montant;
+
+        if ($existant) {
+            $existant->update([
+                'montant' => $montantFinal,
+                'statut' => 'actif',
+                'observations' => $observations,
+                'date_souscription' => Carbon::today(),
+            ]);
+            $souscription = $existant;
+        } else {
+            $souscription = SouscriptionFraisOptionnel::create([
+                'compte_financier_id' => $compteId,
+                'frais_scolaire_id' => $fraisScolaireId,
+                'montant' => $montantFinal,
+                'date_souscription' => Carbon::today(),
+                'statut' => 'actif',
+                'observations' => $observations,
+            ]);
+        }
+
+        $compte->actualiserSolde();
+
+        return $souscription;
+    }
+
+    /**
+     * Annule une souscription active à un frais optionnel et réajuste immédiatement le compte élève.
+     *
+     * @param SouscriptionFraisOptionnel $souscription
+     * @return bool
+     */
+    public function annulerSouscriptionOptionnelle(SouscriptionFraisOptionnel $souscription): bool
+    {
+        $souscription->update(['statut' => 'annule']);
+        $compte = $souscription->compteFinancier;
+        if ($compte) {
+            $compte->actualiserSolde();
+        }
+
+        return true;
+    }
+
+    /**
+     * Construit l'échéancier prévisionnel complet d'un élève (frais obligatoires + options actives).
+     *
+     * @param CompteFinancierEleve $compte
+     * @return array<string, mixed>
+     */
+    public function obtenirEcheancierEleve(CompteFinancierEleve $compte): array
+    {
+        $compte->loadMissing(['inscription.classe.niveau', 'eleve', 'boursesRemises.bourseRemise', 'souscriptionsOptionnelles.fraisScolaire.typeFrais', 'versements.ventilations']);
+        $classe = $compte->inscription?->classe;
+        $niveauId = $classe?->niveau_id;
+        $serie = $classe?->serie;
+        $today = Carbon::today();
+
+        // 1. Frais obligatoires du niveau
+        $fraisObligatoires = FraisScolaire::with('typeFrais')
+            ->where('annee_scolaire_id', $compte->annee_scolaire_id)
+            ->where('etablissement_id', $compte->etablissement_id)
+            ->where('niveau_id', $niveauId)
+            ->where(function ($q) use ($serie) {
+                if ($serie) {
+                    $q->where('serie', $serie)->orWhereNull('serie');
+                } else {
+                    $q->whereNull('serie');
+                }
+            })
+            ->whereHas('typeFrais', fn ($q) => $q->where('obligatoire', true))
+            ->orderBy('tranche_numero')
+            ->get();
+
+        $lignes = [];
+        $totalVerse = (float) $compte->total_paye;
+        $reliquatPaiement = $totalVerse;
+
+        foreach ($fraisObligatoires as $frais) {
+            $estEchu = $frais->date_limite ? Carbon::parse($frais->date_limite)->lte($today) : false;
+            $montantLigne = (float) $frais->montant;
+
+            $payeSurLigne = min($reliquatPaiement, $montantLigne);
+            $reliquatPaiement = max(0, $reliquatPaiement - $payeSurLigne);
+            $resteSurLigne = max(0, $montantLigne - $payeSurLigne);
+
+            $lignes[] = [
+                'type' => 'obligatoire',
+                'id' => $frais->id,
+                'libelle' => $frais->libelle_tranche ?? ($frais->typeFrais?->libelle . ' - Tranche ' . $frais->tranche_numero),
+                'categorie' => $frais->typeFrais?->libelle ?? 'Scolarité',
+                'montant' => $montantLigne,
+                'date_limite' => $frais->date_limite ? Carbon::parse($frais->date_limite)->format('d-m-Y') : null,
+                'est_echu' => $estEchu,
+                'montant_paye' => $payeSurLigne,
+                'montant_restant' => $resteSurLigne,
+                'statut' => $resteSurLigne == 0 ? 'solde' : ($estEchu ? 'en_retard' : 'a_choir'),
+            ];
+        }
+
+        // 2. Frais optionnels souscrits
+        foreach ($compte->souscriptionsOptionnelles as $souscription) {
+            if ($souscription->statut !== 'actif') {
+                continue;
+            }
+            $fraisOpt = $souscription->fraisScolaire;
+            $estEchu = $fraisOpt?->date_limite ? Carbon::parse($fraisOpt->date_limite)->lte($today) : false;
+            $montantLigne = (float) $souscription->montant;
+
+            $payeSurLigne = min($reliquatPaiement, $montantLigne);
+            $reliquatPaiement = max(0, $reliquatPaiement - $payeSurLigne);
+            $resteSurLigne = max(0, $montantLigne - $payeSurLigne);
+
+            $lignes[] = [
+                'type' => 'optionnel',
+                'souscription_id' => $souscription->id,
+                'libelle' => ($fraisOpt?->typeFrais?->libelle ?? 'Option') . ($souscription->observations ? " ({$souscription->observations})" : ''),
+                'categorie' => 'Option / Annexe',
+                'montant' => $montantLigne,
+                'date_limite' => $fraisOpt?->date_limite ? Carbon::parse($fraisOpt->date_limite)->format('d-m-Y') : null,
+                'est_echu' => $estEchu,
+                'montant_paye' => $payeSurLigne,
+                'montant_restant' => $resteSurLigne,
+                'statut' => $resteSurLigne == 0 ? 'solde' : ($estEchu ? 'en_retard' : 'a_choir'),
+            ];
+        }
+
+        return [
+            'compte' => $compte,
+            'eleve' => $compte->eleve,
+            'classe' => $classe,
+            'lignes' => $lignes,
+            'total_exigible' => (float) $compte->montant_net_exigible,
+            'total_paye' => (float) $compte->total_paye,
+            'solde_restant' => (float) $compte->solde_restant,
+            'montant_echu_en_retard' => $compte->montantEchuEnRetard(),
+            'statut_financier' => $compte->statut_financier,
+        ];
+    }
+
+    /**
+     * Récupère les données pour le Journal Détaillé des Encaissements.
+     *
+     * @param int $etablissementId
+     * @param string|null $dateDebut
+     * @param string|null $dateFin
+     * @param int|null $caisseId
+     * @param string|null $modePaiement
+     * @return array<string, mixed>
+     */
+    public function obtenirJournalDetaille(
+        int $etablissementId,
+        ?string $dateDebut = null,
+        ?string $dateFin = null,
+        ?int $caisseId = null,
+        ?string $modePaiement = null
+    ): array {
+        $debut = $dateDebut ? Carbon::parse($dateDebut)->startOfDay() : Carbon::today()->startOfMonth();
+        $fin = $dateFin ? Carbon::parse($dateFin)->endOfDay() : Carbon::today()->endOfDay();
+
+        $query = VersementCaisse::with([
+            'compteFinancier.eleve',
+            'inscription.classe',
+            'caisse',
+            'caissier',
+            'ventilations',
+        ])
+            ->where('etablissement_id', $etablissementId)
+            ->where('statut', 'valide')
+            ->whereBetween('date_versement', [$debut, $fin])
+            ->orderBy('date_versement', 'asc');
+
+        if ($caisseId) {
+            $query->where('caisse_id', $caisseId);
+        }
+
+        if ($modePaiement) {
+            $query->where('mode_paiement', $modePaiement);
+        }
+
+        $versements = $query->get();
+
+        $totauxParMode = [
+            'especes' => 0.0,
+            'cheque' => 0.0,
+            'virement' => 0.0,
+            'mobile_money_manuel' => 0.0,
+        ];
+
+        $totalGeneral = 0.0;
+        foreach ($versements as $v) {
+            $m = (float) $v->montant_total;
+            $totalGeneral += $m;
+            $mode = $v->mode_paiement;
+            if (isset($totauxParMode[$mode])) {
+                $totauxParMode[$mode] += $m;
+            }
+        }
+
+        return [
+            'date_debut' => $debut->format('d-m-Y'),
+            'date_fin' => $fin->format('d-m-Y'),
+            'versements' => $versements,
+            'total_general' => $totalGeneral,
+            'totaux_par_mode' => $totauxParMode,
+            'nombre_versements' => $versements->count(),
+        ];
+    }
+
+    /**
+     * Récupère les données pour le Journal Synthétique de Caisse (Totaux par jour, par caisse, par mode).
+     *
+     * @param int $etablissementId
+     * @param string|null $dateDebut
+     * @param string|null $dateFin
+     * @param int|null $caisseId
+     * @return array<string, mixed>
+     */
+    public function obtenirJournalSynthetique(
+        int $etablissementId,
+        ?string $dateDebut = null,
+        ?string $dateFin = null,
+        ?int $caisseId = null
+    ): array {
+        $debut = $dateDebut ? Carbon::parse($dateDebut)->startOfDay() : Carbon::today()->startOfMonth();
+        $fin = $dateFin ? Carbon::parse($dateFin)->endOfDay() : Carbon::today()->endOfDay();
+
+        $versementsQuery = VersementCaisse::where('etablissement_id', $etablissementId)
+            ->where('statut', 'valide')
+            ->whereBetween('date_versement', [$debut, $fin]);
+
+        if ($caisseId) {
+            $versementsQuery->where('caisse_id', $caisseId);
+        }
+
+        $versements = $versementsQuery->get();
+
+        // 1. Synthèse par Jour
+        $parJour = [];
+        foreach ($versements as $v) {
+            $jour = Carbon::parse($v->date_versement)->format('d-m-Y');
+            if (! isset($parJour[$jour])) {
+                $parJour[$jour] = [
+                    'date' => $jour,
+                    'nombre' => 0,
+                    'especes' => 0.0,
+                    'momo' => 0.0,
+                    'cheque' => 0.0,
+                    'virement' => 0.0,
+                    'total' => 0.0,
+                ];
+            }
+            $m = (float) $v->montant_total;
+            $parJour[$jour]['nombre']++;
+            $parJour[$jour]['total'] += $m;
+            if ($v->mode_paiement === 'especes') $parJour[$jour]['especes'] += $m;
+            elseif ($v->mode_paiement === 'mobile_money_manuel') $parJour[$jour]['momo'] += $m;
+            elseif ($v->mode_paiement === 'cheque') $parJour[$jour]['cheque'] += $m;
+            elseif ($v->mode_paiement === 'virement') $parJour[$jour]['virement'] += $m;
+        }
+
+        // 2. Synthèse par Caisse
+        $caisses = Caisse::where('etablissement_id', $etablissementId)->get();
+        $parCaisse = [];
+        foreach ($caisses as $c) {
+            $totCaisse = (float) $versements->where('caisse_id', $c->id)->sum('montant_total');
+            $nbCaisse = $versements->where('caisse_id', $c->id)->count();
+            $parCaisse[] = [
+                'caisse' => $c->nom,
+                'code' => $c->code,
+                'nombre' => $nbCaisse,
+                'total' => $totCaisse,
+            ];
+        }
+
+        // 3. Synthèse par Rubrique (Ventilations)
+        $ventilations = VentilationVersement::whereIn('versement_id', $versements->pluck('id'))
+            ->select('libelle', DB::raw('SUM(montant) as total_montant'), DB::raw('COUNT(*) as total_occurrences'))
+            ->groupBy('libelle')
+            ->orderByDesc('total_montant')
+            ->get();
+
+        return [
+            'date_debut' => $debut->format('d-m-Y'),
+            'date_fin' => $fin->format('d-m-Y'),
+            'synthese_jours' => array_values($parJour),
+            'synthese_caisses' => $parCaisse,
+            'synthese_rubriques' => $ventilations,
+            'total_general' => (float) $versements->sum('montant_total'),
+            'nombre_total' => $versements->count(),
+        ];
+    }
+
+    /**
+     * Récupère la liste des élèves insolvables (dette échue > 0) par classe ou niveau.
+     *
+     * @param int $etablissementId
+     * @param int $anneeId
+     * @param int|null $classeId
+     * @param int|null $niveauId
+     * @param Carbon|null $dateRef
+     * @return array<string, mixed>
+     */
+    public function obtenirListeInsolvables(
+        int $etablissementId,
+        int $anneeId,
+        ?int $classeId = null,
+        ?int $niveauId = null,
+        ?Carbon $dateRef = null
+    ): array {
+        $reference = $dateRef ?? Carbon::today();
+
+        $query = CompteFinancierEleve::with([
+            'eleve',
+            'inscription.classe.niveau',
+        ])
+            ->where('etablissement_id', $etablissementId)
+            ->where('annee_scolaire_id', $anneeId);
+
+        if ($classeId) {
+            $query->whereHas('inscription', fn ($q) => $q->where('classe_id', $classeId));
+        } elseif ($niveauId) {
+            $query->whereHas('inscription.classe', fn ($q) => $q->where('niveau_id', $niveauId));
+        }
+
+        $comptes = $query->get();
+        $insolvables = [];
+        $totalDetteEchue = 0.0;
+        $totalSoldeRestant = 0.0;
+
+        foreach ($comptes as $compte) {
+            $detteEchue = $compte->montantEchuEnRetard($reference);
+            if ($detteEchue > 0 || ($compte->solde_restant > 0 && $compte->total_paye == 0)) {
+                $retard = $detteEchue > 0 ? $detteEchue : (float) $compte->montant_net_exigible;
+                $insolvables[] = [
+                    'compte_id' => $compte->id,
+                    'matricule' => $compte->eleve?->matricule,
+                    'nom_complet' => $compte->eleve?->nom . ' ' . ($compte->eleve?->prenom ?? ''),
+                    'sexe' => $compte->eleve?->sexe,
+                    'classe' => $compte->inscription?->classe?->nom ?? 'N/A',
+                    'contact_parent' => $compte->eleve?->telephone_tuteur ?? $compte->eleve?->telephone ?? 'N/A',
+                    'montant_net_exigible' => (float) $compte->montant_net_exigible,
+                    'total_paye' => (float) $compte->total_paye,
+                    'montant_echu_en_retard' => $retard,
+                    'solde_restant' => (float) $compte->solde_restant,
+                ];
+                $totalDetteEchue += $retard;
+                $totalSoldeRestant += (float) $compte->solde_restant;
+            }
+        }
+
+        // Tri par dette échue décroissante
+        usort($insolvables, fn ($a, $b) => $b['montant_echu_en_retard'] <=> $a['montant_echu_en_retard']);
+
+        return [
+            'date_reference' => $reference->format('d-m-Y'),
+            'eleves' => $insolvables,
+            'nombre_insolvables' => count($insolvables),
+            'total_dette_echue' => $totalDetteEchue,
+            'total_solde_restant' => $totalSoldeRestant,
+        ];
+    }
+
+    /**
+     * Récupère la liste des élèves en règle (aucune dette échue ou scolarité 100% soldée).
+     *
+     * @param int $etablissementId
+     * @param int $anneeId
+     * @param int|null $classeId
+     * @param int|null $niveauId
+     * @return array<string, mixed>
+     */
+    public function obtenirListeEnRegle(
+        int $etablissementId,
+        int $anneeId,
+        ?int $classeId = null,
+        ?int $niveauId = null
+    ): array {
+        $reference = Carbon::today();
+
+        $query = CompteFinancierEleve::with([
+            'eleve',
+            'inscription.classe.niveau',
+        ])
+            ->where('etablissement_id', $etablissementId)
+            ->where('annee_scolaire_id', $anneeId);
+
+        if ($classeId) {
+            $query->whereHas('inscription', fn ($q) => $q->where('classe_id', $classeId));
+        } elseif ($niveauId) {
+            $query->whereHas('inscription.classe', fn ($q) => $q->where('niveau_id', $niveauId));
+        }
+
+        $comptes = $query->get();
+        $enRegle = [];
+        $totalPaye = 0.0;
+
+        foreach ($comptes as $compte) {
+            $detteEchue = $compte->montantEchuEnRetard($reference);
+            if ($detteEchue <= 0 && $compte->total_paye > 0) {
+                $estSolde = $compte->solde_restant <= 0;
+                $enRegle[] = [
+                    'compte_id' => $compte->id,
+                    'matricule' => $compte->eleve?->matricule,
+                    'nom_complet' => $compte->eleve?->nom . ' ' . ($compte->eleve?->prenom ?? ''),
+                    'sexe' => $compte->eleve?->sexe,
+                    'classe' => $compte->inscription?->classe?->nom ?? 'N/A',
+                    'montant_net_exigible' => (float) $compte->montant_net_exigible,
+                    'total_paye' => (float) $compte->total_paye,
+                    'solde_restant' => (float) $compte->solde_restant,
+                    'statut' => $estSolde ? 'Soldé (100%)' : 'À jour de l\'échéance',
+                ];
+                $totalPaye += (float) $compte->total_paye;
+            }
+        }
+
+        return [
+            'date_reference' => $reference->format('d-m-Y'),
+            'eleves' => $enRegle,
+            'nombre_en_regle' => count($enRegle),
+            'total_paye' => $totalPaye,
         ];
     }
 }

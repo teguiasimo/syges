@@ -1,6 +1,10 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
+    {{-- Identité visuelle & Favicons officiels SYGES --}}
+    <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}?v=syges3">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('favicon-32x32.png') }}?v=syges3">
+    <link rel="shortcut icon" href="{{ asset('favicon.ico') }}?v=syges3">
     <meta charset="UTF-8">
     <title>Fiche de Progression - {{ $attribution->classe->nom }} - {{ $attribution->matiere->nom }}</title>
     <style>

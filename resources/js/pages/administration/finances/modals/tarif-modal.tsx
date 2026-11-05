@@ -30,6 +30,7 @@ interface TarifModalProps {
     typesFrais: TypeFrais[];
     anneeId: number;
     etablissementId: number;
+    onOpenCreateTypeFrais?: () => void;
 }
 
 /**
@@ -45,6 +46,7 @@ export default function TarifModal({
     typesFrais,
     anneeId,
     etablissementId,
+    onOpenCreateTypeFrais,
 }: TarifModalProps) {
     const { data, setData, post, processing, reset, errors, transform } = useForm({
         annee_scolaire_id: anneeId,
@@ -134,33 +136,68 @@ export default function TarifModal({
 
                     {/* Type de Frais */}
                     <div className="space-y-1 min-w-0">
-                        <Label htmlFor="tarif_type">Type de Frais <span className="text-red-500">*</span></Label>
-                        <Select
-                            value={data.type_frais_id}
-                            onValueChange={(val) => {
-                                setData('type_frais_id', val);
-                                const selected = typesFrais.find((tf) => String(tf.id) === val);
-                                if (selected && !data.libelle_tranche) {
-                                    setData((prev) => ({
-                                        ...prev,
-                                        type_frais_id: val,
-                                        libelle_tranche: selected.libelle,
-                                        montant: selected.montant_defaut > 0 ? String(selected.montant_defaut) : prev.montant,
-                                    }));
-                                }
-                            }}
-                        >
-                            <SelectTrigger id="tarif_type">
-                                <SelectValue placeholder="Choisir le type de frais..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {typesFrais.map((tf) => (
-                                    <SelectItem key={tf.id} value={String(tf.id)}>
-                                        {tf.libelle} ({tf.obligatoire ? 'Obligatoire' : 'Optionnel'})
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                        <div className="flex items-center justify-between">
+                            <Label htmlFor="tarif_type">Type de Frais <span className="text-red-500">*</span></Label>
+                            {onOpenCreateTypeFrais && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        onOpenChange(false);
+                                        onOpenCreateTypeFrais();
+                                    }}
+                                    className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline font-semibold"
+                                >
+                                    + Nouveau Type
+                                </button>
+                            )}
+                        </div>
+
+                        {typesFrais.length === 0 ? (
+                            <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-lg text-xs text-amber-800 dark:text-amber-200 space-y-2">
+                                <p>Aucun type de frais configuré (ex: Scolarité, Inscription, APEE).</p>
+                                {onOpenCreateTypeFrais && (
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-7 text-xs border-amber-300 text-amber-900 dark:text-amber-100 hover:bg-amber-100"
+                                        onClick={() => {
+                                            onOpenChange(false);
+                                            onOpenCreateTypeFrais();
+                                        }}
+                                    >
+                                        Créer un Type de Frais
+                                    </Button>
+                                )}
+                            </div>
+                        ) : (
+                            <Select
+                                value={data.type_frais_id}
+                                onValueChange={(val) => {
+                                    setData('type_frais_id', val);
+                                    const selected = typesFrais.find((tf) => String(tf.id) === val);
+                                    if (selected && !data.libelle_tranche) {
+                                        setData((prev) => ({
+                                            ...prev,
+                                            type_frais_id: val,
+                                            libelle_tranche: selected.libelle,
+                                            montant: selected.montant_defaut > 0 ? String(selected.montant_defaut) : prev.montant,
+                                        }));
+                                    }
+                                }}
+                            >
+                                <SelectTrigger id="tarif_type">
+                                    <SelectValue placeholder="Choisir le type de frais..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {typesFrais.map((tf) => (
+                                        <SelectItem key={tf.id} value={String(tf.id)}>
+                                            {tf.libelle} ({tf.obligatoire ? 'Obligatoire' : 'Optionnel'})
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        )}
                         {errors.type_frais_id && <p className="text-xs text-red-500">{errors.type_frais_id}</p>}
                     </div>
 

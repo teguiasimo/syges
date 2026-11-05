@@ -26,6 +26,11 @@ import {
     AlertCircle,
     CheckCircle2,
     Percent,
+    Bus,
+    FileText,
+    FileSpreadsheet,
+    ChevronDown,
+    Compass,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDate } from '@/lib/utils';
@@ -42,6 +47,14 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
     CompteFinancierEleve,
     FraisScolaire,
@@ -60,18 +73,22 @@ import RemiseBourseModal from './modals/remise-bourse-modal';
 import AnnulerVersementModal from './modals/annuler-versement-modal';
 import ClotureCaisseModal from './modals/cloture-caisse-modal';
 import TarifModal from './modals/tarif-modal';
+import TypeFraisModal from './modals/type-frais-modal';
 import NouveauReglementDiversModal from './modals/nouveau-reglement-divers-modal';
 import NouvelleCaisseModal from './modals/nouvelle-caisse-modal';
 import ModeleBourseModal from './modals/modele-bourse-modal';
 import AttribuerBourseModal from './modals/attribuer-bourse-modal';
 import ModeleEcheanceModal from './modals/modele-echeance-modal';
 import ConfigurationPenaliteModal from './modals/configuration-penalite-modal';
+import SouscriptionOptionModal from './modals/souscription-option-modal';
+import DossierFinancierModal from './modals/dossier-financier-modal';
 
 interface FinancesIndexProps {
     versements: VersementCaisse[];
     comptes: CompteFinancierEleve[];
     typesFrais: TypeFrais[];
     tarifs: FraisScolaire[];
+    fraisOptionnels?: FraisScolaire[];
     caisses: Caisse[];
     reglementsDivers: ReglementDivers[];
     boursesRemises: BourseRemise[];
@@ -102,6 +119,7 @@ export default function FinancesIndex({
     comptes,
     typesFrais,
     tarifs,
+    fraisOptionnels = [],
     caisses,
     reglementsDivers,
     boursesRemises,
@@ -118,8 +136,8 @@ export default function FinancesIndex({
     filters,
 }: FinancesIndexProps) {
     const [activeTab, setActiveTab] = useState<
-        'versements' | 'comptes' | 'reglements_divers' | 'caisses' | 'bourses_remises' | 'echeances_penalites' | 'tarifs' | 'journal'
-    >((filters.tab as any) || 'versements');
+        'types_frais' | 'tarifs' | 'echeances_penalites' | 'bourses_remises' | 'caisses' | 'comptes' | 'versements' | 'reglements_divers' | 'journal'
+    >((filters.tab as any) || 'types_frais');
 
     // Boîte de dialogue unifiée de confirmation de suppression
     const { confirmDelete, ConfirmDialog } = useConfirmDelete();
@@ -131,6 +149,8 @@ export default function FinancesIndex({
     const [versementToCancel, setVersementToCancel] = useState<VersementCaisse | null>(null);
     const [isClotureModalOpen, setIsClotureModalOpen] = useState(false);
     const [isTarifModalOpen, setIsTarifModalOpen] = useState(false);
+    const [isTypeFraisModalOpen, setIsTypeFraisModalOpen] = useState(false);
+    const [typeFraisToEdit, setTypeFraisToEdit] = useState<TypeFrais | null>(null);
 
     // États des nouvelles modales Aurore
     const [isReglementDiversModalOpen, setIsReglementDiversModalOpen] = useState(false);
@@ -142,6 +162,12 @@ export default function FinancesIndex({
     const [compteForBourseAttribution, setCompteForBourseAttribution] = useState<CompteFinancierEleve | null>(null);
     const [isModeleEcheanceModalOpen, setIsModeleEcheanceModalOpen] = useState(false);
     const [isConfigPenaliteModalOpen, setIsConfigPenaliteModalOpen] = useState(false);
+
+    // États pour le Dossier Financier et les Souscriptions Optionnelles
+    const [selectedCompteForDossier, setSelectedCompteForDossier] = useState<CompteFinancierEleve | null>(null);
+    const [isDossierModalOpen, setIsDossierModalOpen] = useState(false);
+    const [selectedCompteForOption, setSelectedCompteForOption] = useState<CompteFinancierEleve | null>(null);
+    const [isOptionModalOpen, setIsOptionModalOpen] = useState(false);
 
     // Filtres locaux
     const [searchCompte, setSearchCompte] = useState(filters.search_compte || '');
@@ -341,6 +367,30 @@ export default function FinancesIndex({
                         <Button
                             variant="outline"
                             size="sm"
+                            className="h-7 text-xs flex items-center gap-1 text-blue-700 hover:bg-blue-50 border-blue-200"
+                            onClick={() => {
+                                setSelectedCompteForDossier(c);
+                                setIsDossierModalOpen(true);
+                            }}
+                            title="Consulter l'échéancier et le dossier financier"
+                        >
+                            <Layers className="w-3.5 h-3.5" /> Échéancier
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-xs flex items-center gap-1 text-purple-700 hover:bg-purple-50"
+                            onClick={() => {
+                                setSelectedCompteForOption(c);
+                                setIsOptionModalOpen(true);
+                            }}
+                            title="Souscriptions aux options (Bus, Cantine...)"
+                        >
+                            <Bus className="w-3.5 h-3.5" /> Options
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
                             className="h-7 text-xs flex items-center gap-1 text-emerald-700 hover:bg-emerald-50"
                             onClick={() => {
                                 setSelectedCompteForPayment(c.id);
@@ -348,6 +398,15 @@ export default function FinancesIndex({
                             }}
                         >
                             <DollarSign className="w-3.5 h-3.5" /> Encaisser
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-xs flex items-center gap-1 text-slate-600 hover:text-slate-900"
+                            onClick={() => window.open(`/administration/finances/comptes/${c.id}/fiche-pdf`, '_blank')}
+                            title="Imprimer le relevé financier officiel pour les parents"
+                        >
+                            <Printer className="w-3.5 h-3.5" /> Fiche
                         </Button>
                         <Button
                             variant="ghost"
@@ -790,7 +849,116 @@ export default function FinancesIndex({
         },
     ], []);
 
-    // 7. Colonnes TanStack Table pour la Matrice Tarifaire
+    // 7. Colonnes TanStack Table pour la Nomenclature des Types de Frais
+    const typesFraisColumns = useMemo<ColumnDef<TypeFrais>[]>(() => [
+        {
+            accessorKey: 'code',
+            header: 'Code',
+            cell: ({ row }) => (
+                <Badge variant="outline" className="font-mono text-[11px] font-semibold bg-slate-100 dark:bg-slate-800">
+                    {row.original.code}
+                </Badge>
+            ),
+        },
+        {
+            accessorKey: 'libelle',
+            header: 'Libellé de la Nature du Frais',
+            cell: ({ row }) => (
+                <div>
+                    <div className="font-semibold text-xs text-slate-800 dark:text-slate-200">
+                        {row.original.libelle}
+                    </div>
+                    {row.original.description && (
+                        <div className="text-[11px] text-slate-500 line-clamp-1">
+                            {row.original.description}
+                        </div>
+                    )}
+                </div>
+            ),
+        },
+        {
+            accessorKey: 'obligatoire',
+            header: 'Caractère',
+            cell: ({ row }) => (
+                row.original.obligatoire ? (
+                    <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-300 text-[10px] font-medium">
+                        Obligatoire
+                    </Badge>
+                ) : (
+                    <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 border-blue-300 text-[10px] font-medium">
+                        Optionnel
+                    </Badge>
+                )
+            ),
+        },
+        {
+            accessorKey: 'periodicite',
+            header: 'Périodicité',
+            cell: ({ row }) => (
+                <span className="capitalize text-xs text-slate-600 dark:text-slate-400">
+                    {row.original.periodicite}
+                </span>
+            ),
+        },
+        {
+            accessorKey: 'montant_defaut',
+            header: () => <div className="text-right">Montant Indicatif</div>,
+            cell: ({ row }) => (
+                <div className="text-right text-xs font-semibold text-slate-900 dark:text-slate-100">
+                    {row.original.montant_defaut > 0
+                        ? `${Number(row.original.montant_defaut).toLocaleString('fr-FR')} FCFA`
+                        : <span className="text-slate-400 italic">Selon niveau</span>
+                    }
+                </div>
+            ),
+        },
+        {
+            id: 'actions',
+            header: () => <div className="text-right">Actions</div>,
+            cell: ({ row }) => (
+                <div className="text-right flex items-center justify-end gap-1">
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                        title="Modifier le type de frais"
+                        onClick={() => {
+                            setTypeFraisToEdit(row.original);
+                            setIsTypeFraisModalOpen(true);
+                        }}
+                    >
+                        <Edit className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
+                        title="Supprimer le type de frais"
+                        onClick={() => {
+                            confirmDelete({
+                                title: 'Supprimer ce type de frais',
+                                itemType: 'le type de frais',
+                                itemName: row.original.libelle,
+                                description: 'Attention : supprimer ce type de frais retirera cette catégorie.',
+                                onConfirm: () => {
+                                    router.delete(`/administration/finances/types-frais/${row.original.id}`, {
+                                        onSuccess: () => toast.success('Type de frais supprimé avec succès.', {
+                                            position: 'top-right',
+                                            className: 'bg-emerald-600 text-white border-none',
+                                        }),
+                                    });
+                                },
+                            });
+                        }}
+                    >
+                        <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                </div>
+            ),
+        },
+    ], [confirmDelete]);
+
+    // 8. Colonnes TanStack Table pour la Matrice Tarifaire
     const tarifsColumns = useMemo<ColumnDef<FraisScolaire>[]>(() => [
         {
             accessorKey: 'type_frais.libelle',
@@ -975,6 +1143,59 @@ export default function FinancesIndex({
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                        {/* Menu d'éditions et rapports financiers officiels */}
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    className="text-xs h-9 font-semibold flex items-center gap-1.5 border-blue-300 text-blue-800 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-300"
+                                >
+                                    <Printer className="w-4 h-4 shrink-0 text-blue-600" />
+                                    <span>États & Rapports (PDF)</span>
+                                    <ChevronDown className="w-3.5 h-3.5 opacity-60" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-60">
+                                <DropdownMenuLabel className="text-xs text-slate-500">Rapports Financiers & Caisse</DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                    className="text-xs flex items-center gap-2 cursor-pointer"
+                                    onClick={() => window.open('/administration/finances/etats/journal-detaille-pdf', '_blank')}
+                                >
+                                    <FileText className="w-3.5 h-3.5 text-blue-600" />
+                                    <span>Journal Détaillé (PDF)</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                    className="text-xs flex items-center gap-2 cursor-pointer"
+                                    onClick={() => window.open('/administration/finances/etats/journal-synthetique-pdf', '_blank')}
+                                >
+                                    <FileSpreadsheet className="w-3.5 h-3.5 text-indigo-600" />
+                                    <span>Journal Synthétique (PDF)</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                    className="text-xs flex items-center gap-2 cursor-pointer text-red-600 dark:text-red-400 font-medium"
+                                    onClick={() => {
+                                        const query = selectedClasse !== 'all' ? `?classe_id=${selectedClasse}` : '';
+                                        window.open(`/administration/finances/etats/insolvables-pdf${query}`, '_blank');
+                                    }}
+                                >
+                                    <AlertCircle className="w-3.5 h-3.5 text-red-600" />
+                                    <span>Liste des Insolvables (PDF)</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                    className="text-xs flex items-center gap-2 cursor-pointer text-emerald-600 dark:text-emerald-400 font-medium"
+                                    onClick={() => {
+                                        const query = selectedClasse !== 'all' ? `?classe_id=${selectedClasse}` : '';
+                                        window.open(`/administration/finances/etats/en-regle-pdf${query}`, '_blank');
+                                    }}
+                                >
+                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                    <span>Élèves en Règle (PDF)</span>
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+
                         <Button
                             onClick={() => {
                                 setSelectedCompteForPayment(null);
@@ -1070,112 +1291,425 @@ export default function FinancesIndex({
                     </Card>
                 </div>
 
-                {/* Onglets de navigation complets (8 onglets) : défilement horizontal fluide sur mobile/tablette/laptop */}
+                {/* Guide du cycle de configuration avec filigrane discret */}
+                <div className="p-3 bg-gradient-to-r from-slate-50 via-white to-slate-50 dark:from-slate-900/80 dark:via-slate-900/40 dark:to-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+                    <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
+                        <Compass className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span className="font-bold text-slate-900 dark:text-slate-100">Cycle de Configuration & Gestion Financière :</span>
+                        <span className="hidden xl:inline text-slate-500">Ordre chronologique recommandé pour démarrer et exploiter les finances</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5 text-[11px] font-medium">
+                        <div className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shrink-0">
+                            <span className="w-4 h-4 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] font-bold">1</span>
+                            <span>Paramétrage Initial (1 à 5)</span>
+                        </div>
+                        <span className="text-slate-400 font-bold">→</span>
+                        <div className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-blue-50 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800 shrink-0">
+                            <span className="w-4 h-4 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px] font-bold">2</span>
+                            <span>Exploitation & Guichet (6 à 8)</span>
+                        </div>
+                        <span className="text-slate-400 font-bold">→</span>
+                        <div className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-purple-50 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-800 shrink-0">
+                            <span className="w-4 h-4 rounded-full bg-purple-600 text-white flex items-center justify-center text-[10px] font-bold">3</span>
+                            <span>Audit & Clôture (9)</span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Onglets de navigation complets ordonnés selon le cycle chronologique de configuration */}
                 <div className="flex items-center overflow-x-auto overscroll-x-contain border-b border-slate-200 dark:border-slate-800 gap-1 sm:gap-2 text-xs sm:text-sm font-medium max-w-full scrollbar-none">
                     <button
-                        onClick={() => setActiveTab('versements')}
-                        className={`pb-2.5 px-2.5 whitespace-nowrap shrink-0 flex items-center gap-1.5 border-b-2 transition-colors cursor-pointer ${
-                            activeTab === 'versements'
-                                ? 'border-emerald-600 text-emerald-600 font-bold'
-                                : 'border-transparent text-slate-500 hover:text-slate-800'
-                        }`}
-                    >
-                        <Receipt className="w-4 h-4 shrink-0" />
-                        Versements Scolarité ({versements.length})
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('comptes')}
-                        className={`pb-2.5 px-2.5 whitespace-nowrap shrink-0 flex items-center gap-1.5 border-b-2 transition-colors cursor-pointer ${
-                            activeTab === 'comptes'
-                                ? 'border-emerald-600 text-emerald-600 font-bold'
-                                : 'border-transparent text-slate-500 hover:text-slate-800'
-                        }`}
-                    >
-                        <Users className="w-4 h-4 shrink-0" />
-                        Comptes Élèves ({comptes.length})
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('reglements_divers')}
-                        className={`pb-2.5 px-2.5 whitespace-nowrap shrink-0 flex items-center gap-1.5 border-b-2 transition-colors cursor-pointer ${
-                            activeTab === 'reglements_divers'
-                                ? 'border-emerald-600 text-emerald-600 font-bold'
-                                : 'border-transparent text-slate-500 hover:text-slate-800'
-                        }`}
+                        onClick={() => setActiveTab('types_frais')}
+                        className={`pb-2.5 px-2.5 whitespace-nowrap shrink-0 flex items-center gap-1.5 border-b-2 transition-colors cursor-pointer ${activeTab === 'types_frais'
+                            ? 'border-emerald-600 text-emerald-600 font-bold'
+                            : 'border-transparent text-slate-500 hover:text-slate-800'
+                            }`}
                     >
                         <Tag className="w-4 h-4 shrink-0" />
-                        Règlements Divers ({reglementsDivers.length})
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('caisses')}
-                        className={`pb-2.5 px-2.5 whitespace-nowrap shrink-0 flex items-center gap-1.5 border-b-2 transition-colors cursor-pointer ${
-                            activeTab === 'caisses'
-                                ? 'border-emerald-600 text-emerald-600 font-bold'
-                                : 'border-transparent text-slate-500 hover:text-slate-800'
-                        }`}
-                    >
-                        <Building2 className="w-4 h-4 shrink-0" />
-                        Caisses Multiples ({caisses.length})
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('bourses_remises')}
-                        className={`pb-2.5 px-2.5 whitespace-nowrap shrink-0 flex items-center gap-1.5 border-b-2 transition-colors cursor-pointer ${
-                            activeTab === 'bourses_remises'
-                                ? 'border-emerald-600 text-emerald-600 font-bold'
-                                : 'border-transparent text-slate-500 hover:text-slate-800'
-                        }`}
-                    >
-                        <Award className="w-4 h-4 shrink-0" />
-                        Bourses & Remises ({boursesRemises.length})
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('echeances_penalites')}
-                        className={`pb-2.5 px-2.5 whitespace-nowrap shrink-0 flex items-center gap-1.5 border-b-2 transition-colors cursor-pointer ${
-                            activeTab === 'echeances_penalites'
-                                ? 'border-emerald-600 text-emerald-600 font-bold'
-                                : 'border-transparent text-slate-500 hover:text-slate-800'
-                        }`}
-                    >
-                        <CalendarClock className="w-4 h-4 shrink-0" />
-                        Échéanciers & Pénalités
+                        1. Types de Frais ({typesFrais.length})
                     </button>
                     <button
                         onClick={() => setActiveTab('tarifs')}
-                        className={`pb-2.5 px-2.5 whitespace-nowrap shrink-0 flex items-center gap-1.5 border-b-2 transition-colors cursor-pointer ${
-                            activeTab === 'tarifs'
-                                ? 'border-emerald-600 text-emerald-600 font-bold'
-                                : 'border-transparent text-slate-500 hover:text-slate-800'
-                        }`}
+                        className={`pb-2.5 px-2.5 whitespace-nowrap shrink-0 flex items-center gap-1.5 border-b-2 transition-colors cursor-pointer ${activeTab === 'tarifs'
+                            ? 'border-emerald-600 text-emerald-600 font-bold'
+                            : 'border-transparent text-slate-500 hover:text-slate-800'
+                            }`}
                     >
                         <Layers className="w-4 h-4 shrink-0" />
-                        Grille Tarifaire & Verrou
+                        2. Grille Tarifaire ({tarifs.length})
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('echeances_penalites')}
+                        className={`pb-2.5 px-2.5 whitespace-nowrap shrink-0 flex items-center gap-1.5 border-b-2 transition-colors cursor-pointer ${activeTab === 'echeances_penalites'
+                            ? 'border-emerald-600 text-emerald-600 font-bold'
+                            : 'border-transparent text-slate-500 hover:text-slate-800'
+                            }`}
+                    >
+                        <CalendarClock className="w-4 h-4 shrink-0" />
+                        3. Échéanciers & Pénalités
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('bourses_remises')}
+                        className={`pb-2.5 px-2.5 whitespace-nowrap shrink-0 flex items-center gap-1.5 border-b-2 transition-colors cursor-pointer ${activeTab === 'bourses_remises'
+                            ? 'border-emerald-600 text-emerald-600 font-bold'
+                            : 'border-transparent text-slate-500 hover:text-slate-800'
+                            }`}
+                    >
+                        <Award className="w-4 h-4 shrink-0" />
+                        4. Bourses & Remises ({boursesRemises.length})
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('caisses')}
+                        className={`pb-2.5 px-2.5 whitespace-nowrap shrink-0 flex items-center gap-1.5 border-b-2 transition-colors cursor-pointer ${activeTab === 'caisses'
+                            ? 'border-emerald-600 text-emerald-600 font-bold'
+                            : 'border-transparent text-slate-500 hover:text-slate-800'
+                            }`}
+                    >
+                        <Building2 className="w-4 h-4 shrink-0" />
+                        5. Caisses & Guichets ({caisses.length})
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('comptes')}
+                        className={`pb-2.5 px-2.5 whitespace-nowrap shrink-0 flex items-center gap-1.5 border-b-2 transition-colors cursor-pointer ${activeTab === 'comptes'
+                            ? 'border-emerald-600 text-emerald-600 font-bold'
+                            : 'border-transparent text-slate-500 hover:text-slate-800'
+                            }`}
+                    >
+                        <Users className="w-4 h-4 shrink-0" />
+                        6. Comptes Élèves ({comptes.length})
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('versements')}
+                        className={`pb-2.5 px-2.5 whitespace-nowrap shrink-0 flex items-center gap-1.5 border-b-2 transition-colors cursor-pointer ${activeTab === 'versements'
+                            ? 'border-emerald-600 text-emerald-600 font-bold'
+                            : 'border-transparent text-slate-500 hover:text-slate-800'
+                            }`}
+                    >
+                        <Receipt className="w-4 h-4 shrink-0" />
+                        7. Versements Scolarité ({versements.length})
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('reglements_divers')}
+                        className={`pb-2.5 px-2.5 whitespace-nowrap shrink-0 flex items-center gap-1.5 border-b-2 transition-colors cursor-pointer ${activeTab === 'reglements_divers'
+                            ? 'border-emerald-600 text-emerald-600 font-bold'
+                            : 'border-transparent text-slate-500 hover:text-slate-800'
+                            }`}
+                    >
+                        <Tag className="w-4 h-4 shrink-0" />
+                        8. Règlements Divers ({reglementsDivers.length})
                     </button>
                     <button
                         onClick={() => setActiveTab('journal')}
-                        className={`pb-2.5 px-2.5 whitespace-nowrap shrink-0 flex items-center gap-1.5 border-b-2 transition-colors cursor-pointer ${
-                            activeTab === 'journal'
-                                ? 'border-emerald-600 text-emerald-600 font-bold'
-                                : 'border-transparent text-slate-500 hover:text-slate-800'
-                        }`}
+                        className={`pb-2.5 px-2.5 whitespace-nowrap shrink-0 flex items-center gap-1.5 border-b-2 transition-colors cursor-pointer ${activeTab === 'journal'
+                            ? 'border-emerald-600 text-emerald-600 font-bold'
+                            : 'border-transparent text-slate-500 hover:text-slate-800'
+                            }`}
                     >
                         <Calendar className="w-4 h-4 shrink-0" />
-                        Journal & Clôtures ({historiqueClotures.length})
+                        9. Journal & Clôtures ({historiqueClotures.length})
                     </button>
                 </div>
 
-                {/* CONTENU ONGLET 1 : VERSEMENTS */}
-                {activeTab === 'versements' && (
+                {/* CONTENU ONGLET 1 : TYPES DE FRAIS (NOMENCLATURE) */}
+                {activeTab === 'types_frais' && (
                     <div className="space-y-4">
+                        <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-emerald-50/70 via-white to-emerald-50/30 dark:from-emerald-950/30 dark:via-slate-900 dark:to-emerald-950/20 border border-emerald-200/80 dark:border-emerald-800/40 p-4 sm:p-5 shadow-sm">
+                            <div className="absolute right-4 -top-3 text-7xl sm:text-8xl font-black text-emerald-900/10 dark:text-emerald-300/5 select-none pointer-events-none font-mono">
+                                01
+                            </div>
+                            <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                <div className="min-w-0">
+                                    <div className="flex items-center gap-2">
+                                        <Badge className="bg-emerald-600 text-white text-[10px] font-bold uppercase tracking-wider">
+                                            Étape 1 sur 9 • Priorité Configuration
+                                        </Badge>
+                                        <span className="text-xs text-slate-500 font-medium hidden sm:inline">Socle financier</span>
+                                    </div>
+                                    <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100 mt-1 flex items-center gap-2">
+                                        <Tag className="w-5 h-5 text-emerald-600 shrink-0" />
+                                        Nomenclature des Types de Frais ({typesFrais.length})
+                                    </h3>
+                                    <p className="text-xs text-slate-600 dark:text-slate-400 max-w-3xl mt-0.5">
+                                        Première étape obligatoire : définissez ici toutes les catégories de frais de l'établissement (Scolarité, Droits d'inscription, APEE, Transport, Cantine, Uniformes) avant de leur affecter des montants par niveau.
+                                    </p>
+                                </div>
+                                <Button
+                                    onClick={() => {
+                                        setTypeFraisToEdit(null);
+                                        setIsTypeFraisModalOpen(true);
+                                    }}
+                                    className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-9 shrink-0 flex items-center gap-1.5 shadow-sm"
+                                >
+                                    <Plus className="w-4 h-4 shrink-0" /> Nouveau Type de Frais
+                                </Button>
+                            </div>
+                        </div>
+
                         <DataTable
-                            columns={versementsColumns}
-                            data={versements}
-                            searchPlaceholder="Rechercher par référence reçu, élève, caissier..."
+                            columns={typesFraisColumns}
+                            data={typesFrais}
+                            searchPlaceholder="Rechercher par code, libellé de frais..."
                         />
                     </div>
                 )}
 
-                {/* CONTENU ONGLET 2 : COMPTES ÉLÈVES */}
+                {/* CONTENU ONGLET 2 : GRILLE TARIFAIRE & VERROU */}
+                {activeTab === 'tarifs' && (
+                    <div className="space-y-6">
+                        <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-emerald-50/70 via-white to-emerald-50/30 dark:from-emerald-950/30 dark:via-slate-900 dark:to-emerald-950/20 border border-emerald-200/80 dark:border-emerald-800/40 p-4 sm:p-5 shadow-sm">
+                            <div className="absolute right-4 -top-3 text-7xl sm:text-8xl font-black text-emerald-900/10 dark:text-emerald-300/5 select-none pointer-events-none font-mono">
+                                02
+                            </div>
+                            <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                <div className="min-w-0">
+                                    <div className="flex items-center gap-2">
+                                        <Badge className="bg-emerald-600 text-white text-[10px] font-bold uppercase tracking-wider">
+                                            Étape 2 sur 9 • Priorité Configuration
+                                        </Badge>
+                                        <span className="text-xs text-slate-500 font-medium hidden sm:inline">Tarification & Exigibilité</span>
+                                    </div>
+                                    <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100 mt-1 flex items-center gap-2">
+                                        <Layers className="w-5 h-5 text-emerald-600 shrink-0" />
+                                        Grille Tarifaire par Niveau & Échéances ({tarifs.length})
+                                    </h3>
+                                    <p className="text-xs text-slate-600 dark:text-slate-400 max-w-3xl mt-0.5">
+                                        Deuxième étape : fixez les montants exigibles pour chaque niveau académique, répartis par tranche avec les dates limites d'exigibilité et verrou de solvabilité.
+                                    </p>
+                                </div>
+                                <Button
+                                    onClick={() => setIsTarifModalOpen(true)}
+                                    className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-9 shrink-0 flex items-center gap-1.5 shadow-sm"
+                                >
+                                    <Plus className="w-4 h-4 shrink-0" /> Ajouter un Tarif
+                                </Button>
+                            </div>
+                        </div>
+
+                        {/* Verrou de solvabilité */}
+                        <Card className="border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
+                            <CardContent className="p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                                <div className="space-y-1 min-w-0">
+                                    <div className="flex items-center gap-2">
+                                        <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
+                                        <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                                            Verrou de Solvabilité des Bulletins Scolaires
+                                        </h4>
+                                    </div>
+                                    <p className="text-xs text-slate-500 max-w-2xl">
+                                        Lorsque ce verrou est activé, le téléchargement des bulletins scolaires sur les portails parents/élèves
+                                        est automatiquement bloqué tant qu'un solde financier reste exigible à la date limite.
+                                    </p>
+                                </div>
+                                <Button
+                                    onClick={handleToggleVerrouSolvabilite}
+                                    variant={currentEtablissement?.verrou_solvabilite_actif ? 'destructive' : 'default'}
+                                    className="text-xs h-9 font-semibold shrink-0 w-full sm:w-auto"
+                                >
+                                    {currentEtablissement?.verrou_solvabilite_actif
+                                        ? 'Désactiver le Verrou'
+                                        : 'Activer le Verrou de Solvabilité'}
+                                </Button>
+                            </CardContent>
+                        </Card>
+
+                        <DataTable
+                            columns={tarifsColumns}
+                            data={tarifs}
+                            searchPlaceholder="Filtrer par niveau, type de frais..."
+                        />
+                    </div>
+                )}
+
+                {/* CONTENU ONGLET 3 : ÉCHÉANCIERS & PÉNALITÉS */}
+                {activeTab === 'echeances_penalites' && (
+                    <div className="space-y-6">
+                        <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-amber-50/70 via-white to-amber-50/30 dark:from-amber-950/30 dark:via-slate-900 dark:to-amber-950/20 border border-amber-200/80 dark:border-amber-800/40 p-4 sm:p-5 shadow-sm">
+                            <div className="absolute right-4 -top-3 text-7xl sm:text-8xl font-black text-amber-900/10 dark:text-amber-300/5 select-none pointer-events-none font-mono">
+                                03
+                            </div>
+                            <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                <div className="min-w-0">
+                                    <div className="flex items-center gap-2">
+                                        <Badge className="bg-amber-600 text-white text-[10px] font-bold uppercase tracking-wider">
+                                            Étape 3 sur 9 • Priorité Configuration
+                                        </Badge>
+                                        <span className="text-xs text-slate-500 font-medium hidden sm:inline">Règles de Retard & Modèles</span>
+                                    </div>
+                                    <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100 mt-1 flex items-center gap-2">
+                                        <CalendarClock className="w-5 h-5 text-amber-600 shrink-0" />
+                                        Échéanciers de Paiement & Majorations de Retard
+                                    </h3>
+                                    <p className="text-xs text-slate-600 dark:text-slate-400 max-w-3xl mt-0.5">
+                                        Troisième étape : configurez les modèles d'échéances et activez la politique de pénalités applicables automatiquement aux élèves en retard de paiement.
+                                    </p>
+                                </div>
+                                <Button
+                                    onClick={() => setIsModeleEcheanceModalOpen(true)}
+                                    className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-9 shrink-0 flex items-center gap-1.5 shadow-sm"
+                                >
+                                    <Plus className="w-4 h-4 shrink-0" /> Créer un Échéancier
+                                </Button>
+                            </div>
+                        </div>
+
+                        {/* Carte de paramétrage de la pénalité de retard */}
+                        <Card className="border-slate-200 dark:border-slate-800 bg-amber-50/40 dark:bg-amber-950/20">
+                            <CardContent className="p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                                <div className="space-y-1 min-w-0">
+                                    <div className="flex items-center gap-2">
+                                        <Clock className="w-5 h-5 text-amber-600 shrink-0" />
+                                        <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                                            Règle de Pénalité Financière de Retard
+                                        </h4>
+                                    </div>
+                                    <p className="text-xs text-slate-600 max-w-2xl">
+                                        Règle active : <strong>{activePenaliteConfig ? activePenaliteConfig.nom : 'Aucune règle configurée'}</strong>
+                                        {activePenaliteConfig && (
+                                            <> — {activePenaliteConfig.mode_calcul === 'pourcentage' ? `${activePenaliteConfig.valeur}%` : `${Number(activePenaliteConfig.valeur).toLocaleString('fr-FR')} FCFA`} de majoration après {activePenaliteConfig.jours_grace} jours de grâce.</>
+                                        )}
+                                    </p>
+                                </div>
+                                <div className="flex flex-wrap items-center gap-2 shrink-0 w-full sm:w-auto">
+                                    <Button
+                                        onClick={() => setIsConfigPenaliteModalOpen(true)}
+                                        variant="outline"
+                                        size="sm"
+                                        className="text-xs h-8 flex-1 sm:flex-initial justify-center"
+                                    >
+                                        Configurer la Règle
+                                    </Button>
+                                    <Button
+                                        onClick={handleAppliquerPenalites}
+                                        size="sm"
+                                        className="bg-amber-600 hover:bg-amber-700 text-white text-xs h-8 flex-1 sm:flex-initial justify-center flex items-center gap-1"
+                                    >
+                                        <AlertCircle className="w-3.5 h-3.5 shrink-0" /> Calculer les Retards
+                                    </Button>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Modèles d'échéances calendaires */}
+                        <div className="space-y-3">
+                            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">Modèles d'Échéanciers Types</h4>
+                            <DataTable
+                                columns={modelesEcheancesColumns}
+                                data={modelesEcheances}
+                            />
+                        </div>
+                    </div>
+                )}
+
+                {/* CONTENU ONGLET 4 : BOURSES & REMISES */}
+                {activeTab === 'bourses_remises' && (
+                    <div className="space-y-4">
+                        <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-teal-50/70 via-white to-teal-50/30 dark:from-teal-950/30 dark:via-slate-900 dark:to-teal-950/20 border border-teal-200/80 dark:border-teal-800/40 p-4 sm:p-5 shadow-sm">
+                            <div className="absolute right-4 -top-3 text-7xl sm:text-8xl font-black text-teal-900/10 dark:text-teal-300/5 select-none pointer-events-none font-mono">
+                                04
+                            </div>
+                            <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                <div className="min-w-0">
+                                    <div className="flex items-center gap-2">
+                                        <Badge className="bg-teal-600 text-white text-[10px] font-bold uppercase tracking-wider">
+                                            Étape 4 sur 9 • Priorité Configuration
+                                        </Badge>
+                                        <span className="text-xs text-slate-500 font-medium hidden sm:inline">Politiques d'Aide</span>
+                                    </div>
+                                    <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100 mt-1 flex items-center gap-2">
+                                        <Award className="w-5 h-5 text-teal-600 shrink-0" />
+                                        Catalogue des Bourses d'Études & Modèles de Remises ({boursesRemises.length})
+                                    </h3>
+                                    <p className="text-xs text-slate-600 dark:text-slate-400 max-w-3xl mt-0.5">
+                                        Quatrième étape : paramétrez les réductions tarifaires par profil familial (fratrie), mérite scolaire (excellence) ou critères sociaux (% ou montant fixe).
+                                    </p>
+                                </div>
+                                <Button
+                                    onClick={() => {
+                                        setBourseToEdit(null);
+                                        setIsModeleBourseModalOpen(true);
+                                    }}
+                                    className="bg-teal-600 hover:bg-teal-700 text-white text-xs h-9 shrink-0 flex items-center gap-1.5 shadow-sm"
+                                >
+                                    <Plus className="w-4 h-4 shrink-0" /> Nouveau Modèle de Bourse
+                                </Button>
+                            </div>
+                        </div>
+
+                        <DataTable
+                            columns={boursesRemisesColumns}
+                            data={boursesRemises}
+                        />
+                    </div>
+                )}
+
+                {/* CONTENU ONGLET 5 : CAISSES MULTIPLES */}
+                {activeTab === 'caisses' && (
+                    <div className="space-y-4">
+                        <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-blue-50/70 via-white to-blue-50/30 dark:from-blue-950/30 dark:via-slate-900 dark:to-blue-950/20 border border-blue-200/80 dark:border-blue-800/40 p-4 sm:p-5 shadow-sm">
+                            <div className="absolute right-4 -top-3 text-7xl sm:text-8xl font-black text-blue-900/10 dark:text-blue-300/5 select-none pointer-events-none font-mono">
+                                05
+                            </div>
+                            <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                <div className="min-w-0">
+                                    <div className="flex items-center gap-2">
+                                        <Badge className="bg-blue-600 text-white text-[10px] font-bold uppercase tracking-wider">
+                                            Étape 5 sur 9 • Infrastructure de Caisse
+                                        </Badge>
+                                        <span className="text-xs text-slate-500 font-medium hidden sm:inline">Guichets d'encaissement</span>
+                                    </div>
+                                    <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100 mt-1 flex items-center gap-2">
+                                        <Building2 className="w-5 h-5 text-blue-600 shrink-0" />
+                                        Caisses & Guichets d'Encaissement ({caisses.length})
+                                    </h3>
+                                    <p className="text-xs text-slate-600 dark:text-slate-400 max-w-3xl mt-0.5">
+                                        Cinquième étape : configurez les caisses physiques (Caisse Principale, Guichet Maternelle, Guichet Primaire, Collège) et affectez les caissiers autorisés.
+                                    </p>
+                                </div>
+                                <Button
+                                    onClick={() => {
+                                        setCaisseToEdit(null);
+                                        setIsCaisseModalOpen(true);
+                                    }}
+                                    className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-9 shrink-0 flex items-center gap-1.5 shadow-sm"
+                                >
+                                    <Plus className="w-4 h-4 shrink-0" /> Ajouter une Caisse
+                                </Button>
+                            </div>
+                        </div>
+
+                        <DataTable
+                            columns={caissesColumns}
+                            data={caisses}
+                        />
+                    </div>
+                )}
+
+                {/* CONTENU ONGLET 6 : COMPTES ÉLÈVES */}
                 {activeTab === 'comptes' && (
                     <div className="space-y-4">
+                        <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-indigo-50/70 via-white to-indigo-50/30 dark:from-indigo-950/30 dark:via-slate-900 dark:to-indigo-950/20 border border-indigo-200/80 dark:border-indigo-800/40 p-4 sm:p-5 shadow-sm">
+                            <div className="absolute right-4 -top-3 text-7xl sm:text-8xl font-black text-indigo-900/10 dark:text-indigo-300/5 select-none pointer-events-none font-mono">
+                                06
+                            </div>
+                            <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                <div className="min-w-0">
+                                    <div className="flex items-center gap-2">
+                                        <Badge className="bg-indigo-600 text-white text-[10px] font-bold uppercase tracking-wider">
+                                            Étape 6 sur 9 • Exploitation & Dossiers
+                                        </Badge>
+                                        <span className="text-xs text-slate-500 font-medium hidden sm:inline">Portefeuille Élèves</span>
+                                    </div>
+                                    <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100 mt-1 flex items-center gap-2">
+                                        <Users className="w-5 h-5 text-indigo-600 shrink-0" />
+                                        Comptes Financiers des Élèves ({comptes.length})
+                                    </h3>
+                                    <p className="text-xs text-slate-600 dark:text-slate-400 max-w-3xl mt-0.5">
+                                        Consultez le solde de chaque élève, souscrivez des services optionnels (bus, cantine), attribuez des bourses et imprimez les fiches individuelles de scolarité.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
                         <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3">
                             <div className="relative w-full sm:w-64 lg:w-72">
                                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
@@ -1221,242 +1755,121 @@ export default function FinancesIndex({
                     </div>
                 )}
 
-                {/* CONTENU ONGLET 3 : RÈGLEMENTS DIVERS (Aurore §4.2) */}
+                {/* CONTENU ONGLET 7 : VERSEMENTS SCOLARITÉ */}
+                {activeTab === 'versements' && (
+                    <div className="space-y-4">
+                        <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-emerald-50/70 via-white to-emerald-50/30 dark:from-emerald-950/30 dark:via-slate-900 dark:to-emerald-950/20 border border-emerald-200/80 dark:border-emerald-800/40 p-4 sm:p-5 shadow-sm">
+                            <div className="absolute right-4 -top-3 text-7xl sm:text-8xl font-black text-emerald-900/10 dark:text-emerald-300/5 select-none pointer-events-none font-mono">
+                                07
+                            </div>
+                            <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                <div className="min-w-0">
+                                    <div className="flex items-center gap-2">
+                                        <Badge className="bg-emerald-600 text-white text-[10px] font-bold uppercase tracking-wider">
+                                            Étape 7 sur 9 • Guichet d'Encaissement
+                                        </Badge>
+                                        <span className="text-xs text-slate-500 font-medium hidden sm:inline">Paiements Directs</span>
+                                    </div>
+                                    <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100 mt-1 flex items-center gap-2">
+                                        <Receipt className="w-5 h-5 text-emerald-600 shrink-0" />
+                                        Versements Scolarité & Reçus Sécurisés ({versements.length})
+                                    </h3>
+                                    <p className="text-xs text-slate-600 dark:text-slate-400 max-w-3xl mt-0.5">
+                                        Encaissez les frais de scolarité au guichet, ventilez automatiquement le paiement sur les tranches échues et générez instantanément le reçu officiel infalsifiable.
+                                    </p>
+                                </div>
+                                <Button
+                                    onClick={() => {
+                                        setSelectedCompteForPayment(null);
+                                        setIsVersementModalOpen(true);
+                                    }}
+                                    className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-9 shrink-0 flex items-center gap-1.5 shadow-sm"
+                                >
+                                    <Plus className="w-4 h-4 shrink-0" /> Nouveau Versement
+                                </Button>
+                            </div>
+                        </div>
+
+                        <DataTable
+                            columns={versementsColumns}
+                            data={versements}
+                            searchPlaceholder="Rechercher par référence reçu, élève, caissier..."
+                        />
+                    </div>
+                )}
+
+                {/* CONTENU ONGLET 8 : RÈGLEMENTS DIVERS */}
                 {activeTab === 'reglements_divers' && (
                     <div className="space-y-4">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                            <div className="min-w-0">
-                                <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">
-                                    Règlements Divers & Encaissements Libres (Aurore §4.2)
-                                </h3>
-                                <p className="text-xs text-slate-500">
-                                    Enregistrement des recettes exceptionnelles et annexes non rattachées à la scolarité des élèves (uniformes, repas visiteurs, dons, locations).
-                                </p>
+                        <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-blue-50/70 via-white to-blue-50/30 dark:from-blue-950/30 dark:via-slate-900 dark:to-blue-950/20 border border-blue-200/80 dark:border-blue-800/40 p-4 sm:p-5 shadow-sm">
+                            <div className="absolute right-4 -top-3 text-7xl sm:text-8xl font-black text-blue-900/10 dark:text-blue-300/5 select-none pointer-events-none font-mono">
+                                08
                             </div>
-                            <Button
-                                onClick={() => setIsReglementDiversModalOpen(true)}
-                                size="sm"
-                                className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-8 w-full sm:w-auto shrink-0 justify-center flex items-center gap-1"
-                            >
-                                <Plus className="w-3.5 h-3.5 shrink-0" /> Nouvelle Recette Diverse
-                            </Button>
+                            <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                <div className="min-w-0">
+                                    <div className="flex items-center gap-2">
+                                        <Badge className="bg-blue-600 text-white text-[10px] font-bold uppercase tracking-wider">
+                                            Étape 8 sur 9 • Recettes Annexes
+                                        </Badge>
+                                        <span className="text-xs text-slate-500 font-medium hidden sm:inline">Hors Scolarité</span>
+                                    </div>
+                                    <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100 mt-1 flex items-center gap-2">
+                                        <Tag className="w-5 h-5 text-blue-600 shrink-0" />
+                                        Règlements Divers & Encaissements Libres ({reglementsDivers.length})
+                                    </h3>
+                                    <p className="text-xs text-slate-600 dark:text-slate-400 max-w-3xl mt-0.5">
+                                        Enregistrement des recettes exceptionnelles et annexes non rattachées à la scolarité des élèves (uniformes, macarons, repas occasionnels, dons, duplicatas).
+                                    </p>
+                                </div>
+                                <Button
+                                    onClick={() => setIsReglementDiversModalOpen(true)}
+                                    className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-9 shrink-0 flex items-center gap-1.5 shadow-sm"
+                                >
+                                    <Plus className="w-4 h-4 shrink-0" /> Nouvelle Recette Diverse
+                                </Button>
+                            </div>
                         </div>
 
                         <DataTable
                             columns={reglementsDiversColumns}
                             data={reglementsDivers}
                             searchPlaceholder="Rechercher par référence, payeur, libellé..."
-                            showColumnVisibilityToggle
                         />
                     </div>
                 )}
 
-                {/* CONTENU ONGLET 4 : CAISSES MULTIPLES (Aurore §3.20) */}
-                {activeTab === 'caisses' && (
-                    <div className="space-y-4">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                            <div className="min-w-0">
-                                <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">
-                                    Gestion des Caisses de l'Établissement (Aurore §3.20)
-                                </h3>
-                                <p className="text-xs text-slate-500">
-                                    Configurez les caisses principales et annexes (cantine, activités, guichets secondaires).
-                                </p>
-                            </div>
-                            <Button
-                                onClick={() => {
-                                    setCaisseToEdit(null);
-                                    setIsCaisseModalOpen(true);
-                                }}
-                                size="sm"
-                                className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-8 w-full sm:w-auto shrink-0 justify-center flex items-center gap-1"
-                            >
-                                <Plus className="w-3.5 h-3.5 shrink-0" /> Ajouter une Caisse
-                            </Button>
-                        </div>
-
-                        <DataTable
-                            columns={caissesColumns}
-                            data={caisses}
-                        />
-                    </div>
-                )}
-
-                {/* CONTENU ONGLET 5 : BOURSES & REMISES (Aurore §3.19, §3.21, §3.25) */}
-                {activeTab === 'bourses_remises' && (
-                    <div className="space-y-4">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                            <div className="min-w-0">
-                                <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">
-                                    Catalogue des Bourses d'Études & Modèles de Remises (Aurore §3.19, §3.21, §3.25)
-                                </h3>
-                                <p className="text-xs text-slate-500">
-                                    Paramétrez les réductions tarifaires par profil familial (fratrie), mérite scolaire (excellence) ou critères sociaux.
-                                </p>
-                            </div>
-                            <Button
-                                onClick={() => {
-                                    setBourseToEdit(null);
-                                    setIsModeleBourseModalOpen(true);
-                                }}
-                                size="sm"
-                                className="bg-teal-600 hover:bg-teal-700 text-white text-xs h-8 w-full sm:w-auto shrink-0 justify-center flex items-center gap-1"
-                            >
-                                <Plus className="w-3.5 h-3.5 shrink-0" /> Nouveau Modèle
-                            </Button>
-                        </div>
-
-                        <DataTable
-                            columns={boursesRemisesColumns}
-                            data={boursesRemises}
-                        />
-                    </div>
-                )}
-
-                {/* CONTENU ONGLET 6 : ÉCHÉANCIERS & PÉNALITÉS (Aurore §3.17, §3.24) */}
-                {activeTab === 'echeances_penalites' && (
-                    <div className="space-y-6">
-                        {/* Carte de paramétrage de la pénalité de retard */}
-                        <Card className="border-slate-200 dark:border-slate-800 bg-amber-50/40 dark:bg-amber-950/20">
-                            <CardContent className="p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                                <div className="space-y-1 min-w-0">
-                                    <div className="flex items-center gap-2">
-                                        <Clock className="w-5 h-5 text-amber-600 shrink-0" />
-                                        <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                                            Règle de Pénalité Financière de Retard (Aurore §3.17)
-                                        </h4>
-                                    </div>
-                                    <p className="text-xs text-slate-600 max-w-2xl">
-                                        Règle active : <strong>{activePenaliteConfig ? activePenaliteConfig.nom : 'Aucune règle configurée'}</strong>
-                                        {activePenaliteConfig && (
-                                            <> — {activePenaliteConfig.mode_calcul === 'pourcentage' ? `${activePenaliteConfig.valeur}%` : `${Number(activePenaliteConfig.valeur).toLocaleString('fr-FR')} FCFA`} de majoration après {activePenaliteConfig.jours_grace} jours de grâce.</>
-                                        )}
-                                    </p>
-                                </div>
-                                <div className="flex flex-wrap items-center gap-2 shrink-0 w-full sm:w-auto">
-                                    <Button
-                                        onClick={() => setIsConfigPenaliteModalOpen(true)}
-                                        variant="outline"
-                                        size="sm"
-                                        className="text-xs h-8 flex-1 sm:flex-initial justify-center"
-                                    >
-                                        Configurer la Règle
-                                    </Button>
-                                    <Button
-                                        onClick={handleAppliquerPenalites}
-                                        size="sm"
-                                        className="bg-amber-600 hover:bg-amber-700 text-white text-xs h-8 flex-1 sm:flex-initial justify-center flex items-center gap-1"
-                                    >
-                                        <AlertCircle className="w-3.5 h-3.5 shrink-0" /> Calculer les Retards
-                                    </Button>
-                                </div>
-                            </CardContent>
-                        </Card>
-
-                        {/* Modèles d'échéances calendaires */}
-                        <div className="space-y-3">
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                                <div className="min-w-0">
-                                    <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">
-                                        Modèles d'Échéanciers de Paiement (Aurore §3.24)
-                                    </h3>
-                                    <p className="text-xs text-slate-500">
-                                        Calendrier des tranches avec dates limites et pourcentages exigibles.
-                                    </p>
-                                </div>
-                                <Button
-                                    onClick={() => setIsModeleEcheanceModalOpen(true)}
-                                    size="sm"
-                                    className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-8 w-full sm:w-auto shrink-0 justify-center flex items-center gap-1"
-                                >
-                                    <Plus className="w-3.5 h-3.5 shrink-0" /> Créer un Échéancier
-                                </Button>
-                            </div>
-
-                            <DataTable
-                                columns={modelesEcheancesColumns}
-                                data={modelesEcheances}
-                            />
-                        </div>
-                    </div>
-                )}
-
-                {/* CONTENU ONGLET 7 : MATRICE TARIFAIRE & VERROU */}
-                {activeTab === 'tarifs' && (
-                    <div className="space-y-6">
-                        <Card className="border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
-                            <CardContent className="p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                                <div className="space-y-1 min-w-0">
-                                    <div className="flex items-center gap-2">
-                                        <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
-                                        <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                                            Verrou de Solvabilité des Bulletins Scolaires (Module 11.5)
-                                        </h4>
-                                    </div>
-                                    <p className="text-xs text-slate-500 max-w-2xl">
-                                        Lorsque ce verrou est activé, le téléchargement des bulletins scolaires sur les portails parents/élèves
-                                        est automatiquement bloqué tant qu'un solde financier reste exigible à la date limite.
-                                    </p>
-                                </div>
-                                <Button
-                                    onClick={handleToggleVerrouSolvabilite}
-                                    variant={currentEtablissement?.verrou_solvabilite_actif ? 'destructive' : 'default'}
-                                    className="text-xs h-9 font-semibold shrink-0 w-full sm:w-auto"
-                                >
-                                    {currentEtablissement?.verrou_solvabilite_actif
-                                        ? 'Désactiver le Verrou'
-                                        : 'Activer le Verrou de Solvabilité'}
-                                </Button>
-                            </CardContent>
-                        </Card>
-
-                        <div className="space-y-3">
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                                <div className="min-w-0">
-                                    <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">
-                                        Grille Tarifaire (Niveau / Série / Tranches)
-                                    </h3>
-                                    <p className="text-xs text-slate-500">
-                                        Définit les frais exigibles appliqués automatiquement aux nouveaux élèves inscrits.
-                                    </p>
-                                </div>
-                                <Button
-                                    onClick={() => setIsTarifModalOpen(true)}
-                                    size="sm"
-                                    className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-8 w-full sm:w-auto shrink-0 justify-center flex items-center gap-1"
-                                >
-                                    <Plus className="w-3.5 h-3.5 shrink-0" /> Ajouter un Tarif
-                                </Button>
-                            </div>
-
-                            <DataTable
-                                columns={tarifsColumns}
-                                data={tarifs}
-                            />
-                        </div>
-                    </div>
-                )}
-
-                {/* CONTENU ONGLET 8 : JOURNAL & CLÔTURES */}
+                {/* CONTENU ONGLET 9 : JOURNAL & CLÔTURES */}
                 {activeTab === 'journal' && (
                     <div className="space-y-4">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                            <div className="min-w-0">
-                                <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">
-                                    Historique des Clôtures Journalières de Caisse
-                                </h3>
-                                <p className="text-xs text-slate-500">
-                                    Chaque clôture fige les écritures comptables et garantit l'intégrité de la caisse.
-                                </p>
+                        <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-purple-50/70 via-white to-purple-50/30 dark:from-purple-950/30 dark:via-slate-900 dark:to-purple-950/20 border border-purple-200/80 dark:border-purple-800/40 p-4 sm:p-5 shadow-sm">
+                            <div className="absolute right-4 -top-3 text-7xl sm:text-8xl font-black text-purple-900/10 dark:text-purple-300/5 select-none pointer-events-none font-mono">
+                                09
                             </div>
-                            {!journalDuJour.est_cloture && (
-                                <Button
-                                    onClick={() => setIsClotureModalOpen(true)}
-                                    className="bg-amber-600 hover:bg-amber-700 text-white text-xs h-8 w-full sm:w-auto shrink-0 justify-center flex items-center gap-1"
-                                >
-                                    <Lock className="w-3.5 h-3.5 shrink-0" /> Clôturer la Journée
-                                </Button>
-                            )}
+                            <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                <div className="min-w-0">
+                                    <div className="flex items-center gap-2">
+                                        <Badge className="bg-purple-600 text-white text-[10px] font-bold uppercase tracking-wider">
+                                            Étape 9 sur 9 • Contrôle, Audit & Clôture
+                                        </Badge>
+                                        <span className="text-xs text-slate-500 font-medium hidden sm:inline">Arrêtés comptables</span>
+                                    </div>
+                                    <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100 mt-1 flex items-center gap-2">
+                                        <Calendar className="w-5 h-5 text-purple-600 shrink-0" />
+                                        Historique des Clôtures Journalières de Caisse ({historiqueClotures.length})
+                                    </h3>
+                                    <p className="text-xs text-slate-600 dark:text-slate-400 max-w-3xl mt-0.5">
+                                        Chaque clôture fige les écritures comptables, vérifie le solde réel par rapport au théorique et garantit l'intégrité de la caisse.
+                                    </p>
+                                </div>
+                                {!journalDuJour.est_cloture && (
+                                    <Button
+                                        onClick={() => setIsClotureModalOpen(true)}
+                                        className="bg-amber-600 hover:bg-amber-700 text-white text-xs h-9 shrink-0 flex items-center gap-1.5 shadow-sm"
+                                    >
+                                        <Lock className="w-4 h-4 shrink-0" /> Clôturer la Journée
+                                    </Button>
+                                )}
+                            </div>
                         </div>
 
                         <DataTable
@@ -1503,6 +1916,20 @@ export default function FinancesIndex({
                 typesFrais={typesFrais}
                 anneeId={currentAnnee?.id ?? 0}
                 etablissementId={currentEtablissement?.id ?? 0}
+                onOpenCreateTypeFrais={() => {
+                    setTypeFraisToEdit(null);
+                    setIsTypeFraisModalOpen(true);
+                }}
+            />
+
+            <TypeFraisModal
+                open={isTypeFraisModalOpen}
+                onOpenChange={(open) => {
+                    setIsTypeFraisModalOpen(open);
+                    if (!open) setTypeFraisToEdit(null);
+                }}
+                etablissementId={currentEtablissement?.id ?? 0}
+                typeFraisToEdit={typeFraisToEdit}
             />
 
             {/* Nouvelles modales Aurore */}
@@ -1559,6 +1986,31 @@ export default function FinancesIndex({
                 onClose={() => setIsConfigPenaliteModalOpen(false)}
                 etablissementId={currentEtablissement?.id ?? 0}
                 config={activePenaliteConfig}
+            />
+
+            {/* Modal de consultation du Dossier Financier & Échéancier complet de l'élève */}
+            <DossierFinancierModal
+                isOpen={isDossierModalOpen}
+                onClose={() => {
+                    setIsDossierModalOpen(false);
+                    setSelectedCompteForDossier(null);
+                }}
+                compte={selectedCompteForDossier}
+                onNouveauVersement={(c) => {
+                    setSelectedCompteForPayment(c.id);
+                    setIsVersementModalOpen(true);
+                }}
+            />
+
+            {/* Modal de souscription aux prestations optionnelles (Bus scolaire, Cantine, Internat...) */}
+            <SouscriptionOptionModal
+                isOpen={isOptionModalOpen}
+                onClose={() => {
+                    setIsOptionModalOpen(false);
+                    setSelectedCompteForOption(null);
+                }}
+                compte={selectedCompteForOption}
+                fraisOptionnels={fraisOptionnels || []}
             />
 
             {/* Dialogue de confirmation de suppression unifié */}

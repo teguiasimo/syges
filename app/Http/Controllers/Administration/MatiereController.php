@@ -9,6 +9,7 @@ use App\Models\GroupeMatiere;
 use App\Models\Matiere;
 use App\Models\MatiereNiveau;
 use App\Models\Niveau;
+use App\Models\Note;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
@@ -29,6 +30,7 @@ use Inertia\Response;
 class MatiereController extends Controller implements HasMiddleware
 {
     use ScopesEtablissement;
+
     /**
      * Définition de la matrice des middlewares d'autorisation pour le module Matières & Coefficients.
      *
@@ -48,11 +50,12 @@ class MatiereController extends Controller implements HasMiddleware
             new Middleware('can:coefficients.duplicate|coefficients.edit|matieres.manage', only: ['duplicateCoefficients']),
         ];
     }
+
     /**
      * Affiche l'interface de gestion des matières, groupes et coefficients.
      * Permet le filtrage contextuel par Établissement scolaire maître et Niveau d'étude.
      *
-     * @param Request $request Requête HTTP entrante avec filtres optionnels (etablissement_id, niveau_id, serie).
+     * @param  Request  $request  Requête HTTP entrante avec filtres optionnels (etablissement_id, niveau_id, serie).
      * @return Response Vue Inertia avec les données du catalogue et de la grille.
      */
     public function index(Request $request): Response
@@ -126,10 +129,10 @@ class MatiereController extends Controller implements HasMiddleware
 
             // Liste des termes considérés comme synonymes du tronc commun sans filière différenciée
             $genericSeries = ['GENERAL', 'Général', 'General', 'TRONC COMMUN', 'Tronc Commun', 'TC', 'Toutes', 'TOUTES', ''];
-            
+
             // Extraction des véritables filières spécialisées (ex: 'C', 'D', 'A4', 'TI'...)
             $distinctSeries = $seriesFromClasses->merge($seriesFromCoefficients)
-                ->reject(fn($s) => in_array(trim((string) $s), $genericSeries, true))
+                ->reject(fn ($s) => in_array(trim((string) $s), $genericSeries, true))
                 ->unique()
                 ->values();
 
@@ -163,6 +166,7 @@ class MatiereController extends Controller implements HasMiddleware
                 if ($ordreA === $ordreB) {
                     return strcmp($a->matiere?->code ?? '', $b->matiere?->code ?? '');
                 }
+
                 return $ordreA <=> $ordreB;
             })->values();
         }
@@ -207,7 +211,7 @@ class MatiereController extends Controller implements HasMiddleware
      * Enregistre un nouveau groupe de matières (bloc pédagogique).
      * Associe le bloc à l'établissement actif ou en paramètre avec unicité locale.
      *
-     * @param Request $request Requête HTTP avec données validées.
+     * @param  Request  $request  Requête HTTP avec données validées.
      * @return RedirectResponse Redirection avec message de confirmation.
      */
     public function storeGroupe(Request $request): RedirectResponse
@@ -238,8 +242,8 @@ class MatiereController extends Controller implements HasMiddleware
     /**
      * Met à jour un groupe de matières existant.
      *
-     * @param Request $request Requête HTTP avec données validées.
-     * @param GroupeMatiere $groupe Instance du groupe à modifier.
+     * @param  Request  $request  Requête HTTP avec données validées.
+     * @param  GroupeMatiere  $groupe  Instance du groupe à modifier.
      * @return RedirectResponse Redirection avec message de confirmation.
      */
     public function updateGroupe(Request $request, GroupeMatiere $groupe): RedirectResponse
@@ -272,8 +276,8 @@ class MatiereController extends Controller implements HasMiddleware
     /**
      * Supprime un groupe de matières s'il n'est rattaché à aucun coefficient.
      *
-     * @param Request $request Requête HTTP.
-     * @param GroupeMatiere $groupe Instance du groupe à supprimer.
+     * @param  Request  $request  Requête HTTP.
+     * @param  GroupeMatiere  $groupe  Instance du groupe à supprimer.
      * @return RedirectResponse Redirection avec statut de l'opération.
      */
     public function destroyGroupe(Request $request, GroupeMatiere $groupe): RedirectResponse
@@ -296,7 +300,7 @@ class MatiereController extends Controller implements HasMiddleware
     /**
      * Enregistre une nouvelle discipline dans le catalogue général (spécifique ou tronc commun).
      *
-     * @param Request $request Requête HTTP avec données validées.
+     * @param  Request  $request  Requête HTTP avec données validées.
      * @return RedirectResponse Redirection avec message de confirmation.
      */
     public function storeMatiere(Request $request): RedirectResponse
@@ -336,8 +340,8 @@ class MatiereController extends Controller implements HasMiddleware
     /**
      * Met à jour les informations d'une discipline du catalogue.
      *
-     * @param Request $request Requête HTTP avec données validées.
-     * @param Matiere $matiere Instance de la matière à modifier.
+     * @param  Request  $request  Requête HTTP avec données validées.
+     * @param  Matiere  $matiere  Instance de la matière à modifier.
      * @return RedirectResponse Redirection avec message de confirmation.
      */
     public function updateMatiere(Request $request, Matiere $matiere): RedirectResponse
@@ -379,8 +383,8 @@ class MatiereController extends Controller implements HasMiddleware
     /**
      * Supprime une matière du catalogue si elle n'est configurée dans aucun niveau.
      *
-     * @param Request $request Requête HTTP.
-     * @param Matiere $matiere Instance de la matière à supprimer.
+     * @param  Request  $request  Requête HTTP.
+     * @param  Matiere  $matiere  Instance de la matière à supprimer.
      * @return RedirectResponse Redirection avec statut de l'opération.
      */
     public function destroyMatiere(Request $request, Matiere $matiere): RedirectResponse
@@ -406,7 +410,7 @@ class MatiereController extends Controller implements HasMiddleware
      * Conserve fidèlement et sans écrasement les matières et pondérations déjà configurées pour le niveau cible,
      * et insère uniquement les matières présentes dans le niveau source qui n'existent pas encore dans le niveau cible.
      *
-     * @param Request $request Requête HTTP contenant source_niveau_id, target_niveau_id, target_serie et scope.
+     * @param  Request  $request  Requête HTTP contenant source_niveau_id, target_niveau_id, target_serie et scope.
      * @return RedirectResponse Redirection avec message récapitulatif de l'opération.
      */
     public function duplicateCoefficients(Request $request): RedirectResponse
@@ -466,7 +470,7 @@ class MatiereController extends Controller implements HasMiddleware
             // Filtrer les matières source spécifiques à la filière active ou issues du tronc commun universel ('Toutes')
             $sourceQuery->where(function ($q) use ($normalizedTargetSerie) {
                 $q->where('serie', $normalizedTargetSerie)
-                  ->orWhere('serie', 'Toutes');
+                    ->orWhere('serie', 'Toutes');
             });
         }
 
@@ -503,6 +507,7 @@ class MatiereController extends Controller implements HasMiddleware
                 if ($exists) {
                     // Option 1 (Recommandée) : Ne jamais écraser l'existant, on conserve intact
                     $retainedCount++;
+
                     continue;
                 }
 
@@ -540,7 +545,7 @@ class MatiereController extends Controller implements HasMiddleware
     /**
      * Associe une matière à un niveau avec son coefficient et ses paramètres d'évaluation.
      *
-     * @param Request $request Requête HTTP avec données validées.
+     * @param  Request  $request  Requête HTTP avec données validées.
      * @return RedirectResponse Redirection avec message de confirmation.
      */
     public function storeCoefficient(Request $request): RedirectResponse
@@ -593,8 +598,8 @@ class MatiereController extends Controller implements HasMiddleware
     /**
      * Met à jour les coefficients et règles d'évaluation d'une matière dans un niveau.
      *
-     * @param Request $request Requête HTTP avec données validées.
-     * @param MatiereNiveau $coefficient Instance de l'association à modifier.
+     * @param  Request  $request  Requête HTTP avec données validées.
+     * @param  MatiereNiveau  $coefficient  Instance de l'association à modifier.
      * @return RedirectResponse Redirection avec message de confirmation.
      */
     public function updateCoefficient(Request $request, MatiereNiveau $coefficient): RedirectResponse
@@ -635,8 +640,8 @@ class MatiereController extends Controller implements HasMiddleware
     /**
      * Supprime une matière de la grille d'évaluation d'un niveau.
      *
-     * @param Request $request Requête HTTP.
-     * @param MatiereNiveau $coefficient Instance de l'association à supprimer.
+     * @param  Request  $request  Requête HTTP.
+     * @param  MatiereNiveau  $coefficient  Instance de l'association à supprimer.
      * @return RedirectResponse Redirection avec message de confirmation.
      */
     public function destroyCoefficient(Request $request, MatiereNiveau $coefficient): RedirectResponse
@@ -654,6 +659,17 @@ class MatiereController extends Controller implements HasMiddleware
             abort(403, 'Accès non autorisé : vous ne pouvez modifier que les coefficients de votre propre établissement scolaire.');
         }
 
+        $notesExistantes = Note::whereHas('attribution', function ($q) use ($coefficient) {
+            $q->where('matiere_id', $coefficient->matiere_id)
+                ->whereHas('classe', fn ($cq) => $cq->where('niveau_id', $coefficient->niveau_id));
+        })->exists();
+
+        if ($notesExistantes) {
+            $message = "Suppression impossible : des notes d'élèves sont déjà enregistrées pour cette matière dans les classes de ce niveau.";
+
+            return back()->with('error', $message)->withErrors(['error' => $message]);
+        }
+
         $coefficient->delete();
 
         return back()->with('success', 'Matière retirée de la grille d\'évaluation.');
@@ -662,7 +678,7 @@ class MatiereController extends Controller implements HasMiddleware
     /**
      * Initialise les matières et blocs standards officiels adaptés à l'établissement.
      *
-     * @param Request $request Requête HTTP.
+     * @param  Request  $request  Requête HTTP.
      * @return RedirectResponse Redirection avec message de succès.
      */
     public function seedStandards(Request $request): RedirectResponse

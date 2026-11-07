@@ -14,8 +14,9 @@ export function toUrl(url: NonNullable<InertiaLinkProps['href']>): string {
 /**
  * Formate une date au format francophone standard jj-mm-aaaa (ex: 01-09-2026).
  * Règle globale SYGES : toutes les dates affichées doivent respecter ce format.
+ * Gère de façon idempotente aussi bien les chaînes ISO (YYYY-MM-DD) que les chaînes déjà au format DD-MM-YYYY.
  *
- * @param dateStr Chaîne de date (YYYY-MM-DD ou ISO) ou instance Date.
+ * @param dateStr Chaîne de date (YYYY-MM-DD, DD-MM-YYYY ou ISO) ou instance Date.
  * @param separator Séparateur (défaut '-').
  * @returns Date formatée au format jj-mm-aaaa ou chaîne vide si non définie.
  */
@@ -28,10 +29,16 @@ export function formatDate(dateStr?: string | Date | null, separator: '-' | '/' 
         return `${d}${separator}${m}${separator}${y}`;
     }
     const cleanDate = dateStr.substring(0, 10);
-    const parts = cleanDate.split('-');
+    const parts = cleanDate.split(/[-/]/);
     if (parts.length === 3) {
-        const [year, month, day] = parts;
-        return `${day}${separator}${month}${separator}${year}`;
+        if (parts[0].length === 4) {
+            const [year, month, day] = parts;
+            return `${day.padStart(2, '0')}${separator}${month.padStart(2, '0')}${separator}${year}`;
+        }
+        if (parts[2].length === 4) {
+            const [day, month, year] = parts;
+            return `${day.padStart(2, '0')}${separator}${month.padStart(2, '0')}${separator}${year}`;
+        }
     }
     return cleanDate;
 }

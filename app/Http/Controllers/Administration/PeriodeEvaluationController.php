@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Administration;
 use App\Concerns\ScopesEtablissement;
 use App\Http\Controllers\Controller;
 use App\Models\AnneeScolaire;
+use App\Models\CompetencePeriodique;
 use App\Models\Etablissement;
 use App\Models\Evaluation;
+use App\Models\Note;
 use App\Models\Periode;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -27,6 +29,7 @@ use Inertia\Response;
 class PeriodeEvaluationController extends Controller implements HasMiddleware
 {
     use ScopesEtablissement;
+
     /**
      * Définition de la matrice des middlewares d'autorisation pour le module Périodes & Évaluations.
      *
@@ -52,7 +55,7 @@ class PeriodeEvaluationController extends Controller implements HasMiddleware
     /**
      * Affiche l'interface de gestion des périodes et évaluations par établissement.
      *
-     * @param Request $request Requête HTTP entrante.
+     * @param  Request  $request  Requête HTTP entrante.
      * @return Response Vue Inertia avec les établissements, années, trimestres et séquences.
      */
     public function index(Request $request): Response
@@ -101,7 +104,7 @@ class PeriodeEvaluationController extends Controller implements HasMiddleware
     /**
      * Enregistre une nouvelle année scolaire.
      *
-     * @param Request $request Requête HTTP avec données validées.
+     * @param  Request  $request  Requête HTTP avec données validées.
      * @return RedirectResponse Redirection vers la vue avec message de succès.
      */
     public function storeAnnee(Request $request): RedirectResponse
@@ -157,8 +160,8 @@ class PeriodeEvaluationController extends Controller implements HasMiddleware
     /**
      * Met à jour une année scolaire existante.
      *
-     * @param Request $request Requête HTTP.
-     * @param AnneeScolaire $anneeScolaire Modèle d'année scolaire.
+     * @param  Request  $request  Requête HTTP.
+     * @param  AnneeScolaire  $anneeScolaire  Modèle d'année scolaire.
      * @return RedirectResponse Redirection.
      */
     public function updateAnnee(Request $request, AnneeScolaire $anneeScolaire): RedirectResponse
@@ -199,8 +202,8 @@ class PeriodeEvaluationController extends Controller implements HasMiddleware
     /**
      * Définit une année scolaire comme l'année active courante du système.
      *
-     * @param Request $request Requête HTTP.
-     * @param AnneeScolaire $anneeScolaire Modèle à activer.
+     * @param  Request  $request  Requête HTTP.
+     * @param  AnneeScolaire  $anneeScolaire  Modèle à activer.
      * @return RedirectResponse Redirection.
      */
     public function setCurrentAnnee(Request $request, AnneeScolaire $anneeScolaire): RedirectResponse
@@ -217,8 +220,8 @@ class PeriodeEvaluationController extends Controller implements HasMiddleware
     /**
      * Met à jour le mode de calcul de la moyenne trimestrielle de l'année scolaire.
      *
-     * @param Request $request Requête HTTP.
-     * @param AnneeScolaire $anneeScolaire Modèle d'année scolaire.
+     * @param  Request  $request  Requête HTTP.
+     * @param  AnneeScolaire  $anneeScolaire  Modèle d'année scolaire.
      * @return RedirectResponse Redirection.
      */
     public function updateModeCalcul(Request $request, AnneeScolaire $anneeScolaire): RedirectResponse
@@ -242,8 +245,8 @@ class PeriodeEvaluationController extends Controller implements HasMiddleware
     /**
      * Génère la structure officielle camerounaise (3 trimestres, 6 séquences) pour un établissement et une année cible.
      *
-     * @param Request $request Requête HTTP.
-     * @param AnneeScolaire $anneeScolaire Année cible.
+     * @param  Request  $request  Requête HTTP.
+     * @param  AnneeScolaire  $anneeScolaire  Année cible.
      * @return RedirectResponse Redirection.
      */
     public function generateStandardStructure(Request $request, AnneeScolaire $anneeScolaire): RedirectResponse
@@ -271,7 +274,7 @@ class PeriodeEvaluationController extends Controller implements HasMiddleware
     /**
      * Enregistre un nouveau trimestre pour un établissement donné.
      *
-     * @param Request $request Requête HTTP.
+     * @param  Request  $request  Requête HTTP.
      * @return RedirectResponse Redirection.
      */
     public function storeTrimestre(Request $request): RedirectResponse
@@ -313,8 +316,8 @@ class PeriodeEvaluationController extends Controller implements HasMiddleware
     /**
      * Modifie un trimestre existant.
      *
-     * @param Request $request Requête HTTP.
-     * @param Periode $periode Modèle de période.
+     * @param  Request  $request  Requête HTTP.
+     * @param  Periode  $periode  Modèle de période.
      * @return RedirectResponse Redirection.
      */
     public function updateTrimestre(Request $request, Periode $periode): RedirectResponse
@@ -352,8 +355,8 @@ class PeriodeEvaluationController extends Controller implements HasMiddleware
     /**
      * Supprime un trimestre s'il ne contient pas d'évaluations.
      *
-     * @param Request $request Requête HTTP.
-     * @param Periode $periode Modèle à supprimer.
+     * @param  Request  $request  Requête HTTP.
+     * @param  Periode  $periode  Modèle à supprimer.
      * @return RedirectResponse Redirection.
      */
     public function destroyTrimestre(Request $request, Periode $periode): RedirectResponse
@@ -378,7 +381,7 @@ class PeriodeEvaluationController extends Controller implements HasMiddleware
     /**
      * Enregistre une nouvelle évaluation / séquence.
      *
-     * @param Request $request Requête HTTP.
+     * @param  Request  $request  Requête HTTP.
      * @return RedirectResponse Redirection.
      */
     public function storeEvaluation(Request $request): RedirectResponse
@@ -404,7 +407,7 @@ class PeriodeEvaluationController extends Controller implements HasMiddleware
             abort(403, 'Accès non autorisé : vous ne pouvez ajouter des évaluations que pour votre établissement.');
         }
 
-        if (!isset($validated['ponderation']) || $validated['ponderation'] === null) {
+        if (! isset($validated['ponderation']) || $validated['ponderation'] === null) {
             $validated['ponderation'] = 50.0;
         }
 
@@ -424,8 +427,8 @@ class PeriodeEvaluationController extends Controller implements HasMiddleware
     /**
      * Modifie une évaluation existante.
      *
-     * @param Request $request Requête HTTP.
-     * @param Evaluation $evaluation Modèle d'évaluation.
+     * @param  Request  $request  Requête HTTP.
+     * @param  Evaluation  $evaluation  Modèle d'évaluation.
      * @return RedirectResponse Redirection.
      */
     public function updateEvaluation(Request $request, Evaluation $evaluation): RedirectResponse
@@ -456,7 +459,7 @@ class PeriodeEvaluationController extends Controller implements HasMiddleware
             'statut' => ['required', 'string', 'in:a_venir,ouverte,verrouillee,cloturee'],
         ]);
 
-        if (!isset($validated['ponderation']) || $validated['ponderation'] === null) {
+        if (! isset($validated['ponderation']) || $validated['ponderation'] === null) {
             $validated['ponderation'] = $evaluation->ponderation ?? 50.0;
         }
 
@@ -466,10 +469,10 @@ class PeriodeEvaluationController extends Controller implements HasMiddleware
     }
 
     /**
-     * Supprime une évaluation / séquence.
+     * Supprime une évaluation / séquence uniquement si aucune note ou compétence n'y est déjà enregistrée.
      *
-     * @param Request $request Requête HTTP.
-     * @param Evaluation $evaluation Modèle à supprimer.
+     * @param  Request  $request  Requête HTTP.
+     * @param  Evaluation  $evaluation  Modèle à supprimer.
      * @return RedirectResponse Redirection.
      */
     public function destroyEvaluation(Request $request, Evaluation $evaluation): RedirectResponse
@@ -479,6 +482,19 @@ class PeriodeEvaluationController extends Controller implements HasMiddleware
         $context = $this->resolveEtablissementContext($request);
         if (! $context['isSuperAdmin'] && (int) $evaluation->periode?->etablissement_id !== (int) $context['etablissementId']) {
             abort(403, 'Accès non autorisé : vous ne pouvez supprimer que les évaluations de votre établissement.');
+        }
+
+        $nbNotes = Note::where('evaluation_id', $evaluation->id)->count();
+        if ($nbNotes > 0) {
+            $message = "Suppression impossible : l'évaluation « {$evaluation->nom} » contient déjà {$nbNotes} note(s) ou cote(s) enregistrée(s).";
+
+            return back()->with('error', $message)->withErrors(['error' => $message]);
+        }
+
+        if (CompetencePeriodique::withoutGlobalScopes()->where('evaluation_id', $evaluation->id)->exists()) {
+            $message = "Suppression impossible : des compétences périodiques sont déjà rattachées à « {$evaluation->nom} ».";
+
+            return back()->with('error', $message)->withErrors(['error' => $message]);
         }
 
         $nom = $evaluation->nom;
@@ -491,8 +507,8 @@ class PeriodeEvaluationController extends Controller implements HasMiddleware
      * Bascule le verrouillage manuel de la saisie des notes pour une évaluation.
      * Accessible aux utilisateurs disposant de la permission 'periodes.lock' ou 'evaluations.lock' (Proviseur, Censeur, Super-Admin).
      *
-     * @param Request $request Requête HTTP.
-     * @param Evaluation $evaluation Modèle d'évaluation.
+     * @param  Request  $request  Requête HTTP.
+     * @param  Evaluation  $evaluation  Modèle d'évaluation.
      * @return RedirectResponse Redirection.
      */
     public function toggleLockEvaluation(Request $request, Evaluation $evaluation): RedirectResponse
@@ -524,8 +540,8 @@ class PeriodeEvaluationController extends Controller implements HasMiddleware
     /**
      * Méthode d'aide privée : Génère 3 trimestres et 6 séquences standards pour un établissement.
      *
-     * @param AnneeScolaire $annee L'année scolaire cible.
-     * @param int|null $etablissementId Identifiant de l'établissement cible.
+     * @param  AnneeScolaire  $annee  L'année scolaire cible.
+     * @param  int|null  $etablissementId  Identifiant de l'établissement cible.
      */
     private function seedStandardPeriodes(AnneeScolaire $annee, ?int $etablissementId = null): void
     {

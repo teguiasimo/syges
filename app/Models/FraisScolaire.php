@@ -21,13 +21,14 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string|null $serie Série/Filière spécifique (null = Toutes les séries)
  * @property int $type_frais_id Type de frais associé
  * @property int $tranche_numero Numéro de tranche (1, 2, 3...)
+ * @property int|null $ordre_priorite Ordre de priorité spécifique sur cette ligne (null = hérite du TypeFrais)
  * @property string|null $libelle_tranche Libellé d'affichage de l'échéance
  * @property float $montant Montant exigible en FCFA
  * @property string|null $date_limite Date limite d'exigibilité
  */
 class FraisScolaire extends Model
 {
-    use HasFactory, BelongsToEtablissement;
+    use BelongsToEtablissement, HasFactory;
 
     /**
      * Nom de la table associée dans la base de données.
@@ -48,6 +49,7 @@ class FraisScolaire extends Model
         'serie',
         'type_frais_id',
         'tranche_numero',
+        'ordre_priorite',
         'libelle_tranche',
         'montant',
         'date_limite',
@@ -60,6 +62,7 @@ class FraisScolaire extends Model
      */
     protected $casts = [
         'tranche_numero' => 'integer',
+        'ordre_priorite' => 'integer',
         'montant' => 'float',
         'date_limite' => 'date',
     ];
@@ -73,7 +76,6 @@ class FraisScolaire extends Model
     {
         return $this->belongsTo(AnneeScolaire::class);
     }
-
 
     /**
      * Relation vers le niveau académique.

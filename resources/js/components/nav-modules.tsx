@@ -155,12 +155,20 @@ const MODULE_GROUPS: NavModuleGroup[] = [
             },
 
             {
-                title: 'Caisse & Scolarités',
-                href: '/administration/finances',
-                icon: Wallet,
+                title: 'Guichet & Scolarités',
+                href: '/administration/finances/scolarites',
+                icon: CreditCard,
                 color: 'text-emerald-600 dark:text-emerald-400',
                 permission: 'finances.view',
-                tooltip: 'Encaissements, Reçus & Caisse (Gesco 11)',
+                tooltip: 'Encaissement par classe & Dossiers Financiers Élèves',
+            },
+            {
+                title: 'Finances & Tarifs',
+                href: '/administration/finances',
+                icon: Wallet,
+                color: 'text-teal-600 dark:text-teal-400',
+                permission: 'finances.view',
+                tooltip: 'Types de frais, Grille tarifaire, Remises & Journal (Gesco 11)',
             },
             {
                 title: 'Dépenses & Charges',

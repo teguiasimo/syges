@@ -25,6 +25,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $categorie ('excellence', 'sociale', 'fratrie', 'personnel', 'autre')
  * @property string $mode_calcul ('pourcentage', 'montant_fixe')
  * @property float $valeur Pourcentage ou montant fixe en FCFA
+ * @property string $cible_imputation Tranche cible par défaut ('derniere_tranche', 'tranche_1', 'tranche_2', 'tranche_3', 'proportionnelle')
  * @property int|null $niveau_id Niveau cible (si spécifique)
  * @property int|null $type_frais_id Type de frais cible (si spécifique)
  * @property string|null $description
@@ -32,7 +33,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class BourseRemise extends Model
 {
-    use HasFactory, BelongsToEtablissement;
+    use BelongsToEtablissement, HasFactory;
 
     /**
      * Nom de la table.
@@ -55,6 +56,7 @@ class BourseRemise extends Model
         'categorie',
         'mode_calcul',
         'valeur',
+        'cible_imputation',
         'niveau_id',
         'type_frais_id',
         'description',
@@ -70,7 +72,6 @@ class BourseRemise extends Model
         'valeur' => 'float',
         'is_active' => 'boolean',
     ];
-
 
     /**
      * Année scolaire.

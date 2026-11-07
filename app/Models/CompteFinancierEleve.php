@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Concerns\BelongsToEtablissement;
+use App\Services\FinanceService;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -25,6 +27,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int $etablissement_id Établissement
  * @property int $annee_scolaire_id Année scolaire
  * @property float $debit_initial Montant total initial dû
+ * @property float $total_dispense Cumul des dispenses financières (ex: arrivée au 2ème trimestre)
  * @property float $arrieres_anterieurs Arriérés ou dettes reportées de l'année précédente
  * @property float $remise_bourse Réduction financière ou bourse accordée
  * @property float $montant_net_exigible Montant net dû après remise
@@ -35,7 +38,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class CompteFinancierEleve extends Model
 {
-    use HasFactory, BelongsToEtablissement;
+    use BelongsToEtablissement, HasFactory;
 
     /**
      * Nom de la table associée dans la base de données.
@@ -55,6 +58,7 @@ class CompteFinancierEleve extends Model
         'etablissement_id',
         'annee_scolaire_id',
         'debit_initial',
+        'total_dispense',
         'arrieres_anterieurs',
         'remise_bourse',
         'montant_net_exigible',
@@ -71,6 +75,7 @@ class CompteFinancierEleve extends Model
      */
     protected $casts = [
         'debit_initial' => 'float',
+        'total_dispense' => 'float',
         'arrieres_anterieurs' => 'float',
         'remise_bourse' => 'float',
         'montant_net_exigible' => 'float',
@@ -97,7 +102,6 @@ class CompteFinancierEleve extends Model
     {
         return $this->belongsTo(Eleve::class);
     }
-
 
     /**
      * Relation vers l'année scolaire.
@@ -150,60 +154,29 @@ class CompteFinancierEleve extends Model
     }
 
     /**
+     * Relation vers les dispenses financières accordées par tranche (ex: arrivée au 2ème trimestre).
+     *
+     * @return HasMany<DispenseFinanciere>
+     */
+    public function dispensesFinancieres(): HasMany
+    {
+        return $this->hasMany(DispenseFinanciere::class, 'compte_financier_id');
+    }
+
+    /**
      * Calcule le montant des frais obligatoires et souscriptions arrivés à échéance mais non encore réglés.
      *
-     * Règle de gestion :
-     * Compare le cumul des tranches échues (date_limite <= date de référence) au total déjà versé par l'élève.
+     * Délègue au moteur central de FinanceService afin de prendre en compte exactement :
+     * - Les dispenses financières par tranche (totales ou partielles),
+     * - La cible d'imputation configurée pour chaque bourse/remise,
+     * - Les ventilations ciblées et l'ordre de priorité propre à l'établissement.
      *
-     * @param \Carbon\Carbon|null $dateReference Date d'évaluation (par défaut aujourd'hui)
+     * @param  Carbon|null  $dateReference  Date d'évaluation (par défaut aujourd'hui)
      * @return float Montant en FCFA de la dette échue (0 si à jour ou en avance)
      */
-    public function montantEchuEnRetard(?\Carbon\Carbon $dateReference = null): float
+    public function montantEchuEnRetard(?Carbon $dateReference = null): float
     {
-        $dateRef = $dateReference ?? \Carbon\Carbon::today();
-        $classe = $this->inscription?->classe;
-        $niveauId = $classe?->niveau_id;
-        $serie = $classe?->serie;
-
-        if (! $niveauId) {
-            return 0.0;
-        }
-
-        // 1. Recherche des frais obligatoires échus pour ce niveau
-        $fraisObligatoiresEchus = FraisScolaire::where('annee_scolaire_id', $this->annee_scolaire_id)
-            ->where('etablissement_id', $this->etablissement_id)
-            ->where('niveau_id', $niveauId)
-            ->where(function ($q) use ($serie) {
-                if ($serie) {
-                    $q->where('serie', $serie)->orWhereNull('serie');
-                } else {
-                    $q->whereNull('serie');
-                }
-            })
-            ->whereHas('typeFrais', fn ($q) => $q->where('obligatoire', true))
-            ->whereNotNull('date_limite')
-            ->whereDate('date_limite', '<=', $dateRef)
-            ->sum('montant');
-
-        // 2. Frais optionnels souscrits actifs échus
-        $optionsEchues = $this->souscriptionsOptionnelles()
-            ->where('statut', 'actif')
-            ->whereHas('fraisScolaire', function ($q) use ($dateRef) {
-                $q->whereNotNull('date_limite')->whereDate('date_limite', '<=', $dateRef);
-            })
-            ->sum('montant');
-
-        // Arriérés antérieurs toujours considérés comme échus dès la rentrée
-        $arrieres = (float) ($this->arrieres_anterieurs ?? 0);
-        $totalExigibleEchu = (float) $fraisObligatoiresEchus + (float) $optionsEchues + $arrieres;
-
-        // Déduction de la remise/bourse au prorata
-        $netExigibleEchu = max(0, $totalExigibleEchu - (float) ($this->remise_bourse ?? 0));
-
-        // Comparaison avec les versements effectifs
-        $paye = (float) ($this->total_paye ?? 0);
-
-        return max(0, $netExigibleEchu - $paye);
+        return app(FinanceService::class)->calculerMontantEchuEnRetard($this, $dateReference);
     }
 
     /**
@@ -213,7 +186,7 @@ class CompteFinancierEleve extends Model
      */
     public function determinerStatutFinancier(): string
     {
-        if ($this->solde_restant <= 0 && $this->montant_net_exigible > 0) {
+        if ($this->solde_restant <= 0 && ($this->montant_net_exigible > 0 || $this->debit_initial > 0)) {
             return 'solde';
         }
 
@@ -230,41 +203,77 @@ class CompteFinancierEleve extends Model
     }
 
     /**
-     * Recalcule et persiste instantanément les soldes et statuts du compte élève.
-     *
-     * @return void
+     * Recalcule et persiste instantanément les soldes et statuts du compte élève,
+     * en intégrant les dispenses par tranche, les bourses/remises, les options et les pénalités.
      */
     public function actualiserSolde(): void
     {
-        // 1. Prise en compte automatique des bourses et remises attribuées
-        $totalBoursesRemises = (float) $this->boursesRemises()->sum('montant_calcule');
-        if ($totalBoursesRemises > 0) {
-            $this->remise_bourse = $totalBoursesRemises;
+        // 1. Calcul des dispenses financières par tranche (ex: arrivée au 2ème trimestre)
+        $dispenses = $this->dispensesFinancieres()->with('fraisScolaire')->get();
+        $sommeDispenses = 0.0;
+        foreach ($dispenses as $dispense) {
+            $plafondFrais = $dispense->fraisScolaire
+                ? (float) $dispense->fraisScolaire->montant
+                : (float) $dispense->montant_dispense;
+            $sommeDispenses += min((float) $dispense->montant_dispense, $plafondFrais);
+        }
+        $this->total_dispense = min((float) $this->debit_initial, $sommeDispenses);
+        $baseObligatoireApresDispense = max(0.0, (float) $this->debit_initial - $this->total_dispense);
+
+        // 2. Prise en compte et réajustement automatique des bourses et remises attribuées
+        $attributions = $this->boursesRemises()->with('bourseRemise')->get();
+        if ($attributions->isNotEmpty()) {
+            $cumulBourses = 0.0;
+            foreach ($attributions as $attr) {
+                $modele = $attr->bourseRemise;
+                if ($modele) {
+                    $plafondCible = $baseObligatoireApresDispense;
+                    if ($attr->frais_scolaire_id) {
+                        $fraisCible = FraisScolaire::find($attr->frais_scolaire_id);
+                        if ($fraisCible) {
+                            $dispenseSurCible = (float) ($dispenses->firstWhere('frais_scolaire_id', $fraisCible->id)?->montant_dispense ?? 0);
+                            $plafondCible = max(0.0, (float) $fraisCible->montant - $dispenseSurCible);
+                        }
+                    }
+
+                    $nouveauMontant = $modele->mode_calcul === 'pourcentage'
+                        ? round(($plafondCible * (float) $modele->valeur) / 100)
+                        : min($baseObligatoireApresDispense, (float) $modele->valeur);
+
+                    if (abs((float) $attr->montant_calcule - $nouveauMontant) > 0.01) {
+                        $attr->update(['montant_calcule' => $nouveauMontant]);
+                    }
+                    $cumulBourses += $nouveauMontant;
+                } else {
+                    $cumulBourses += (float) $attr->montant_calcule;
+                }
+            }
+            $this->remise_bourse = min($baseObligatoireApresDispense, $cumulBourses);
         }
 
-        // 2. Cumul des prestations optionnelles actives souscrites par l'élève (Bus, Cantine, Activités...)
+        // 3. Cumul des prestations optionnelles actives souscrites par l'élève (Bus, Cantine, Activités...)
         $totalOptions = (float) $this->souscriptionsOptionnelles()
             ->where('statut', 'actif')
             ->sum('montant');
 
-        // 3. Cumul des pénalités actives (non annulées)
+        // 4. Cumul des pénalités actives (non annulées)
         $totalPenalites = (float) $this->penalites()
             ->where('statut', '!=', 'annule')
             ->sum('montant');
 
-        // 4. Calcul du montant net exigible (débit initial obligatoire + options + arriérés + pénalités - remises/bourses)
-        $debitTotal = (float) $this->debit_initial + $totalOptions + (float) ($this->arrieres_anterieurs ?? 0) + $totalPenalites;
+        // 5. Calcul du montant net exigible (obligatoire après dispense + options + arriérés + pénalités - remises/bourses)
+        $debitTotal = $baseObligatoireApresDispense + $totalOptions + (float) ($this->arrieres_anterieurs ?? 0) + $totalPenalites;
         $this->montant_net_exigible = max(0, $debitTotal - (float) $this->remise_bourse);
 
-        // 5. Cumul des versements au statut 'valide'
+        // 6. Cumul des versements au statut 'valide'
         $this->total_paye = (float) $this->versements()
             ->where('statut', 'valide')
             ->sum('montant_total');
 
-        // 6. Calcul du solde restant dû
+        // 7. Calcul du solde restant dû
         $this->solde_restant = max(0, $this->montant_net_exigible - $this->total_paye);
 
-        // 7. Détermination du statut financier (calcul temporel sur dates d'échéances)
+        // 8. Détermination du statut financier
         $this->statut_financier = $this->determinerStatutFinancier();
 
         $this->save();

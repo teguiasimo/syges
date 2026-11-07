@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -34,9 +35,8 @@ use Illuminate\Support\Carbon;
  * @property bool $is_active
  * @property Carbon $created_at
  * @property Carbon $updated_at
- *
  * @property-read string $nom_complet
- * @property-read \Illuminate\Database\Eloquent\Collection<int, Inscription> $inscriptions
+ * @property-read Collection<int, Inscription> $inscriptions
  */
 class Eleve extends Model
 {
@@ -87,18 +87,14 @@ class Eleve extends Model
 
     /**
      * Accesseur retournant le nom complet formaté de l'élève.
-     *
-     * @return string
      */
     public function getNomCompletAttribute(): string
     {
-        return trim($this->nom . ' ' . ($this->prenom ?? ''));
+        return trim($this->nom.' '.($this->prenom ?? ''));
     }
 
     /**
      * Relation vers toutes les inscriptions scolaires de l'élève au fil des années.
-     *
-     * @return HasMany
      */
     public function inscriptions(): HasMany
     {
@@ -107,8 +103,6 @@ class Eleve extends Model
 
     /**
      * Inscription la plus récente de l'élève.
-     *
-     * @return HasOne
      */
     public function latestInscription(): HasOne
     {
@@ -117,8 +111,6 @@ class Eleve extends Model
 
     /**
      * Classes fréquentées par l'élève à travers ses inscriptions.
-     *
-     * @return BelongsToMany
      */
     public function classes(): BelongsToMany
     {
@@ -128,11 +120,109 @@ class Eleve extends Model
     }
 
     /**
-     * Scope pour rechercher des élèves par nom, prénom, matricule ou téléphone.
+     * Relation vers tous les comptes financiers scolaires rattachés à l'élève.
      *
-     * @param Builder $query
-     * @param string|null $search
-     * @return Builder
+     * @return HasMany<CompteFinancierEleve>
+     */
+    public function comptesFinanciers(): HasMany
+    {
+        return $this->hasMany(CompteFinancierEleve::class, 'eleve_id');
+    }
+
+    /**
+     * Vérifie si l'élève possède des données liées (financières, pédagogiques ou disciplinaires)
+     * qui interdisent sa suppression physique afin de préserver l'intégrité référentielle et comptable.
+     *
+     * @return array<int, string> Liste lisible des dépendances bloquantes détectées (vide si supprimable)
+     */
+    public function getDeletionBlockers(): array
+    {
+        $inscriptionIds = Inscription::withoutGlobalScopes()
+            ->where('eleve_id', $this->id)
+            ->pluck('id');
+
+        $compteIds = CompteFinancierEleve::withoutGlobalScopes()
+            ->where('eleve_id', $this->id)
+            ->pluck('id');
+
+        $blockers = [];
+
+        // 1. Contrôle financier : versements, bourses/remises, dispenses financières, souscriptions optionnelles
+        $nbVersements = VersementCaisse::withoutGlobalScopes()
+            ->where(function (Builder $q) use ($inscriptionIds, $compteIds) {
+                if ($inscriptionIds->isNotEmpty()) {
+                    $q->whereIn('inscription_id', $inscriptionIds);
+                }
+                if ($compteIds->isNotEmpty()) {
+                    $q->orWhereIn('compte_financier_id', $compteIds);
+                }
+            })
+            ->when($inscriptionIds->isEmpty() && $compteIds->isEmpty(), fn (Builder $q) => $q->whereRaw('1 = 0'))
+            ->count();
+
+        if ($nbVersements > 0) {
+            $blockers[] = "{$nbVersements} versement(s) financier(s)";
+        }
+
+        if ($compteIds->isNotEmpty()) {
+            $nbBourses = EleveBourseRemise::whereIn('compte_financier_id', $compteIds)->count();
+            if ($nbBourses > 0) {
+                $blockers[] = "{$nbBourses} bourse(s) ou remise(s) accordée(s)";
+            }
+
+            $nbDispensesFin = DispenseFinanciere::withoutGlobalScopes()
+                ->whereIn('compte_financier_id', $compteIds)
+                ->count();
+            if ($nbDispensesFin > 0) {
+                $blockers[] = "{$nbDispensesFin} dispense(s) financière(s)";
+            }
+
+            $nbOptions = SouscriptionFraisOptionnel::whereIn('compte_financier_id', $compteIds)->count();
+            if ($nbOptions > 0) {
+                $blockers[] = "{$nbOptions} option(s) souscrite(s)";
+            }
+        }
+
+        // 2. Contrôle pédagogique & disciplinaire sur les inscriptions
+        if ($inscriptionIds->isNotEmpty()) {
+            $nbNotes = Note::whereIn('inscription_id', $inscriptionIds)->count();
+            if ($nbNotes > 0) {
+                $blockers[] = "{$nbNotes} note(s) ou cote(s) d'évaluation";
+            }
+
+            $nbAssiduites = Assiduite::whereIn('inscription_id', $inscriptionIds)->count();
+            if ($nbAssiduites > 0) {
+                $blockers[] = "{$nbAssiduites} relevé(s) d'assiduité";
+            }
+
+            $nbSanctions = SanctionDisciplinaire::whereIn('inscription_id', $inscriptionIds)->count();
+            if ($nbSanctions > 0) {
+                $blockers[] = "{$nbSanctions} sanction(s) disciplinaire(s)";
+            }
+
+            $nbDeliberations = DeliberationConseil::whereIn('inscription_id', $inscriptionIds)->count();
+            if ($nbDeliberations > 0) {
+                $blockers[] = "{$nbDeliberations} délibération(s) de conseil";
+            }
+        }
+
+        $nbDispensesPedago = DispenseEleve::withoutGlobalScopes()
+            ->where('eleve_id', $this->id)
+            ->count();
+        if ($nbDispensesPedago > 0) {
+            $blockers[] = "{$nbDispensesPedago} dispense(s) pédagogique(s)";
+        }
+
+        $nbConseilsDiscipline = DossierConseilDiscipline::where('eleve_id', $this->id)->count();
+        if ($nbConseilsDiscipline > 0) {
+            $blockers[] = "{$nbConseilsDiscipline} dossier(s) de conseil de discipline";
+        }
+
+        return $blockers;
+    }
+
+    /**
+     * Scope pour rechercher des élèves par nom, prénom, matricule ou téléphone.
      */
     public function scopeSearch(Builder $query, ?string $search): Builder
     {
@@ -140,7 +230,7 @@ class Eleve extends Model
             return $query;
         }
 
-        $term = '%' . trim($search) . '%';
+        $term = '%'.trim($search).'%';
 
         return $query->where(function (Builder $q) use ($term) {
             $q->where('nom', 'like', $term)
@@ -153,9 +243,6 @@ class Eleve extends Model
 
     /**
      * Scope pour filtrer les élèves actifs.
-     *
-     * @param Builder $query
-     * @return Builder
      */
     public function scopeActif(Builder $query): Builder
     {
@@ -166,8 +253,8 @@ class Eleve extends Model
      * Génère un matricule unique pour un nouvel élève.
      * Format officiel court et parlant : [YY]-[0001], ex: 26-0001 (pour l'année 2026/2027).
      *
-     * @param int|null $anneeScolaireId Identifiant de l'année scolaire pour extraire les 2 chiffres
-     * @param string|null $prefix Préfixe optionnel si besoin
+     * @param  int|null  $anneeScolaireId  Identifiant de l'année scolaire pour extraire les 2 chiffres
+     * @param  string|null  $prefix  Préfixe optionnel si besoin
      * @return string Le matricule unique formaté
      */
     public static function generateNextMatricule(?int $anneeScolaireId = null, ?string $prefix = null): string
@@ -185,10 +272,10 @@ class Eleve extends Model
         }
 
         // 2. Base du matricule : ex: "26-" (ou avec préfixe optionnel si spécifié)
-        $base = $prefix ? strtoupper(trim($prefix)) . $yearCode . '-' : $yearCode . '-';
+        $base = $prefix ? strtoupper(trim($prefix)).$yearCode.'-' : $yearCode.'-';
 
         // 3. Trouve le dernier numéro incrémental attribué pour cette base
-        $lastRecord = static::where('matricule', 'like', $base . '%')
+        $lastRecord = static::where('matricule', 'like', $base.'%')
             ->orderByDesc('matricule')
             ->first();
 

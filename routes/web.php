@@ -272,16 +272,30 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         // Module 11 : Gestion de la Caisse & Paiements (Gesco 11 & Aurore)
         Route::get('finances', [FinanceController::class, 'index'])->name('finances.index');
+        Route::get('finances/scolarites', [FinanceController::class, 'scolarites'])->name('finances.scolarites');
         Route::post('finances/versements', [FinanceController::class, 'storeVersement'])->name('finances.versements.store');
+        Route::post('finances/versements/annuler-lot', [FinanceController::class, 'annulerVersementsLot'])->name('finances.versements.annuler-lot');
         Route::get('finances/versements/{versement}/recu', [FinanceController::class, 'imprimerRecu'])->name('finances.versements.recu');
         Route::post('finances/versements/{versement}/annuler', [FinanceController::class, 'annulerVersement'])->name('finances.versements.annuler');
         Route::post('finances/comptes/{compte}/ajuster', [FinanceController::class, 'ajusterCompte'])->name('finances.comptes.ajuster');
         Route::post('finances/cloturer-journee', [FinanceController::class, 'cloturerJournee'])->name('finances.cloturer-journee');
         Route::post('finances/types-frais', [FinanceController::class, 'storeTypeFrais'])->name('finances.types-frais.store');
+        Route::put('finances/types-frais/{typeFrais}', [FinanceController::class, 'updateTypeFrais'])->name('finances.types-frais.update');
         Route::delete('finances/types-frais/{typeFrais}', [FinanceController::class, 'destroyTypeFrais'])->name('finances.types-frais.destroy');
         Route::post('finances/tarifs', [FinanceController::class, 'storeTarif'])->name('finances.tarifs.store');
+        Route::post('finances/tarifs/affecter-niveaux', [FinanceController::class, 'affecterFraisAuxNiveaux'])->name('finances.tarifs.affecter-niveaux');
+        Route::put('finances/tarifs/{fraisScolaire}', [FinanceController::class, 'updateTarif'])->name('finances.tarifs.update');
         Route::delete('finances/tarifs/{fraisScolaire}', [FinanceController::class, 'destroyTarif'])->name('finances.tarifs.destroy');
         Route::post('finances/etablissements/{etablissement}/verrou-solvabilite', [FinanceController::class, 'toggleVerrouSolvabilite'])->name('finances.verrou-solvabilite');
+
+        // Catégories de frais du Catalogue & Catégories personnalisables (Recettes diverses & Bourses/Remises)
+        Route::post('finances/categories-frais', [FinanceController::class, 'storeCategorieFrais'])->name('finances.categories-frais.store');
+        Route::put('finances/categories-frais/{categorieFrais}', [FinanceController::class, 'updateCategorieFrais'])->name('finances.categories-frais.update');
+        Route::delete('finances/categories-frais/{categorieFrais}', [FinanceController::class, 'destroyCategorieFrais'])->name('finances.categories-frais.destroy');
+        Route::post('finances/categories-recettes', [FinanceController::class, 'storeCategorieRecette'])->name('finances.categories-recettes.store');
+        Route::delete('finances/categories-recettes/{categorie}', [FinanceController::class, 'destroyCategorieRecette'])->name('finances.categories-recettes.destroy');
+        Route::post('finances/categories-bourses', [FinanceController::class, 'storeCategorieBourse'])->name('finances.categories-bourses.store');
+        Route::delete('finances/categories-bourses/{categorie}', [FinanceController::class, 'destroyCategorieBourse'])->name('finances.categories-bourses.destroy');
 
         // Caisses multiples (Aurore §3.20)
         Route::post('finances/caisses', [FinanceController::class, 'storeCaisse'])->name('finances.caisses.store');
@@ -293,12 +307,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('finances/reglements-divers/{reglement}/annuler', [FinanceController::class, 'annulerReglementDivers'])->name('finances.reglements-divers.annuler');
         Route::get('finances/reglements-divers/{reglement}/recu', [FinanceController::class, 'imprimerRecuDivers'])->name('finances.reglements-divers.recu');
 
-        // Bourses & Remises (Aurore §3.19, §3.21, §3.25, §4.1.6)
+        // Bourses, Remises & Dispenses financières par tranche (Aurore §3.19, §3.21, §3.25, §4.1.6)
         Route::post('finances/bourses-remises', [FinanceController::class, 'storeBourseRemise'])->name('finances.bourses-remises.store');
         Route::put('finances/bourses-remises/{bourseRemise}', [FinanceController::class, 'updateBourseRemise'])->name('finances.bourses-remises.update');
         Route::delete('finances/bourses-remises/{bourseRemise}', [FinanceController::class, 'destroyBourseRemise'])->name('finances.bourses-remises.destroy');
         Route::post('finances/bourses-remises/attribuer', [FinanceController::class, 'attribuerBourseRemise'])->name('finances.bourses-remises.attribuer');
         Route::delete('finances/bourses-remises/attributions/{attribution}', [FinanceController::class, 'retirerBourseRemise'])->name('finances.bourses-remises.retirer');
+        Route::post('finances/dispenses', [FinanceController::class, 'storeDispenseFinanciere'])->name('finances.dispenses.store');
+        Route::delete('finances/dispenses/{dispense}', [FinanceController::class, 'destroyDispenseFinanciere'])->name('finances.dispenses.destroy');
 
         // Modèles d'échéances calendaires (Aurore §3.24)
         Route::post('finances/modeles-echeances', [FinanceController::class, 'storeModeleEcheance'])->name('finances.modeles-echeances.store');

@@ -7,7 +7,9 @@ use App\Http\Controllers\Controller;
 use App\Models\Classe;
 use App\Models\Cycle;
 use App\Models\Etablissement;
+use App\Models\FraisScolaire;
 use App\Models\Institution;
+use App\Models\MatiereNiveau;
 use App\Models\Niveau;
 use App\Models\Section;
 use App\Models\Serie;
@@ -1029,14 +1031,28 @@ class InstitutionController extends Controller implements HasMiddleware
     }
 
     /**
-     * Supprime un niveau d'étude s'il ne contient pas de classes.
+     * Supprime un niveau d'étude uniquement s'il ne contient ni classes, ni frais scolaires, ni coefficients.
      */
     public function destroyNiveau(Request $request, Niveau $niveau): RedirectResponse
     {
         abort_unless($request->user()->can('structures.manage'), 403, 'Permission requise : structures.manage');
 
         if ($niveau->classes()->exists()) {
-            return back()->with('error', 'Suppression impossible : ce niveau contient encore des classes actives.');
+            $msg = 'Suppression impossible : ce niveau contient encore des classes actives.';
+
+            return back()->with('error', $msg)->withErrors(['error' => $msg]);
+        }
+
+        if (FraisScolaire::where('niveau_id', $niveau->id)->exists()) {
+            $msg = 'Suppression impossible : des frais scolaires sont actuellement rattachés à ce niveau.';
+
+            return back()->with('error', $msg)->withErrors(['error' => $msg]);
+        }
+
+        if (MatiereNiveau::where('niveau_id', $niveau->id)->exists()) {
+            $msg = 'Suppression impossible : des coefficients de matières sont actuellement configurés sur ce niveau.';
+
+            return back()->with('error', $msg)->withErrors(['error' => $msg]);
         }
 
         $nom = $niveau->nom;

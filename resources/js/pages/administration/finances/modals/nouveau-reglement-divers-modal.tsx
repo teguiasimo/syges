@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { router } from '@inertiajs/react';
 import { toast } from 'sonner';
 import {
     Dialog,
     DialogContent,
+    DialogDescription,
+    DialogFooter,
     DialogHeader,
     DialogTitle,
-    DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,49 +19,117 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
-import { Caisse } from '@/types/finance';
+import { CategorieFinanciere } from '@/types/finance';
+import { Check, Plus, Receipt, X } from 'lucide-react';
 
+/**
+ * Propriétés de la modale d'enregistrement d'une Recette Diverse hors scolarité.
+ */
 interface NouveauReglementDiversModalProps {
     isOpen: boolean;
     onClose: () => void;
-    caisses: Caisse[];
-    caissiers: { id: number; nom: string; prenom: string }[];
+    etablissementId: number;
+    categories?: CategorieFinanciere[];
 }
 
 /**
- * Modal d'enregistrement d'un Règlement Divers hors scolarité (Aurore §4.2).
- * Permet d'encaisser des recettes annexes (uniformes, macarons, tickets cantine libre, location de salle, don).
+ * Catégories de secours affichées si aucune catégorie n'a encore été chargée.
+ */
+const DEFAULT_CATEGORIES = [
+    "Vente d'uniformes & tenues",
+    'Macarons & livrets scolaires',
+    'Cantine libre / Tickets repas',
+    'Location de salle / espace',
+    'Dons & subventions',
+    'Duplicata & documents officiels',
+];
+
+/**
+ * Modale simplifiée d'enregistrement d'une Recette Diverse hors scolarité.
  *
- * @param {NouveauReglementDiversModalProps} props
- * @returns {JSX.Element}
+ * Permet à l'utilisateur de choisir ou de créer librement ses propres catégories de recettes,
+ * sans imposer de sélection de caisse ou d'agent encaisseur (résolus automatiquement via le compte connecté).
+ *
+ * @param {NouveauReglementDiversModalProps} props Propriétés du composant
+ * @returns {JSX.Element} Modale de recette diverse
  */
 export default function NouveauReglementDiversModal({
     isOpen,
     onClose,
-    caisses,
-    caissiers,
+    etablissementId,
+    categories = [],
 }: NouveauReglementDiversModalProps) {
-    const defaultCaisseId = caisses.find(c => c.is_principale)?.id || caisses[0]?.id;
+    const categoryNames = categories.length > 0
+        ? categories.map((c) => c.nom)
+        : DEFAULT_CATEGORIES;
 
-    const [caisseId, setCaisseId] = useState<number>(defaultCaisseId || 0);
+    const [categorie, setCategorie] = useState<string>(categoryNames[0] || DEFAULT_CATEGORIES[0]);
+    const [isAddingCategory, setIsAddingCategory] = useState(false);
+    const [newCategoryName, setNewCategoryName] = useState('');
+    const [isSavingCategory, setIsSavingCategory] = useState(false);
+
     const [payeurNom, setPayeurNom] = useState('');
     const [payeurTelephone, setPayeurTelephone] = useState('');
-    const [categorie, setCategorie] = useState<'uniformes' | 'cantine_libre' | 'macaron' | 'location' | 'don' | 'autre'>('uniformes');
     const [libelle, setLibelle] = useState('');
     const [montant, setMontant] = useState('');
     const [modePaiement, setModePaiement] = useState<'especes' | 'cheque' | 'virement' | 'mobile_money_manuel'>('especes');
     const [referencePaiement, setReferencePaiement] = useState('');
-    const [personnelId, setPersonnelId] = useState<string>('');
-    const [observations, setObservations] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
+    /**
+     * Garantit qu'une catégorie valide est sélectionnée à l'ouverture.
+     */
+    useEffect(() => {
+        if (isOpen && (!categorie || !categoryNames.includes(categorie))) {
+            setCategorie(categoryNames[0] || DEFAULT_CATEGORIES[0]);
+        }
+    }, [isOpen, categories.length]);
+
+    /**
+     * Crée à la volée une nouvelle catégorie personnalisée de recette diverse et la sélectionne.
+     */
+    const handleCreateCategory = () => {
+        const nomTrim = newCategoryName.trim();
+        if (!nomTrim) return;
+
+        setIsSavingCategory(true);
+        router.post(
+            '/administration/finances/categories-recettes',
+            {
+                etablissement_id: etablissementId,
+                nom: nomTrim,
+            },
+            {
+                preserveScroll: true,
+                preserveState: true,
+                onSuccess: () => {
+                    setCategorie(nomTrim);
+                    setNewCategoryName('');
+                    setIsAddingCategory(false);
+                    toast.success(`Catégorie « ${nomTrim} » créée et sélectionnée.`, {
+                        position: 'top-right',
+                        className: 'bg-emerald-600 text-white border-none',
+                    });
+                },
+                onError: () => {
+                    toast.error('Impossible de créer cette catégorie.', { position: 'top-right' });
+                },
+                onFinish: () => setIsSavingCategory(false),
+            }
+        );
+    };
+
+    /**
+     * Valide et enregistre l'encaissement de la recette diverse.
+     */
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
         const montantNum = parseFloat(montant);
-        if (!payeurNom.trim() || !libelle.trim() || isNaN(montantNum) || montantNum <= 0) {
-            toast.error('Veuillez remplir tous les champs obligatoires avec un montant valide.');
+        if (!payeurNom.trim() || !libelle.trim() || !categorie.trim() || isNaN(montantNum) || montantNum <= 0) {
+            toast.error('Veuillez renseigner tous les champs essentiels avec un montant valide.', {
+                position: 'top-right',
+            });
             return;
         }
 
@@ -69,32 +138,33 @@ export default function NouveauReglementDiversModal({
         router.post(
             '/administration/finances/reglements-divers',
             {
-                caisse_id: caisseId,
+                etablissement_id: etablissementId,
                 payeur_nom: payeurNom.trim(),
                 payeur_telephone: payeurTelephone.trim() || null,
-                categorie,
+                categorie: categorie.trim(),
                 libelle: libelle.trim(),
                 montant: montantNum,
                 mode_paiement: modePaiement,
-                reference_paiement: referencePaiement.trim() || null,
-                personnel_id: personnelId ? parseInt(personnelId, 10) : null,
-                observations: observations.trim() || null,
+                reference_paiement: modePaiement !== 'especes' ? (referencePaiement.trim() || null) : null,
             },
             {
                 onSuccess: () => {
-                    toast.success('Règlement divers enregistré avec succès.');
+                    toast.success('Recette diverse encaissée avec succès.', {
+                        position: 'top-right',
+                        className: 'bg-emerald-600 text-white border-none',
+                    });
                     onClose();
-                    // Reset form
                     setPayeurNom('');
                     setPayeurTelephone('');
                     setLibelle('');
                     setMontant('');
                     setReferencePaiement('');
-                    setObservations('');
                 },
                 onError: (errors) => {
                     const firstError = Object.values(errors)[0] as string;
-                    toast.error(firstError || "Erreur lors de l'enregistrement du règlement.");
+                    toast.error(firstError || "Erreur lors de l'enregistrement de la recette.", {
+                        position: 'top-right',
+                    });
                 },
                 onFinish: () => setIsSubmitting(false),
             }
@@ -102,110 +172,140 @@ export default function NouveauReglementDiversModal({
     };
 
     return (
-        <Dialog open={isOpen} onOpenChange={open => !open && onClose()}>
-            <DialogContent className="max-w-lg">
+        <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+            <DialogContent className="max-w-md">
                 <DialogHeader>
-                    <DialogTitle>Nouveau Règlement Divers (Recette libre)</DialogTitle>
+                    <DialogTitle className="flex items-center gap-2 text-slate-900 dark:text-slate-100">
+                        <Receipt className="w-5 h-5 text-emerald-600 shrink-0" />
+                        Nouvelle Recette Diverse
+                    </DialogTitle>
+                    <DialogDescription>
+                        Encaissement rapide hors scolarité (tenues, macarons, cantine libre, duplicatas, etc.).
+                    </DialogDescription>
                 </DialogHeader>
 
-                <form onSubmit={handleSubmit} className="space-y-4 py-2 min-w-0">
-                    {/* Paires de champs responsive : 1 colonne sur mobile, 2 colonnes dès sm */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div className="space-y-1 min-w-0">
-                            <Label htmlFor="caisse">Caisse d'encaissement *</Label>
-                            <Select
-                                value={caisseId ? caisseId.toString() : ''}
-                                onValueChange={val => setCaisseId(parseInt(val, 10))}
+                <form onSubmit={handleSubmit} className="space-y-3.5 py-1 min-w-0">
+                    {/* Catégorie personnalisable */}
+                    <div className="space-y-1.5 min-w-0">
+                        <div className="flex items-center justify-between">
+                            <Label htmlFor="categorie_recette">Catégorie de recette <span className="text-red-500">*</span></Label>
+                            <button
+                                type="button"
+                                onClick={() => setIsAddingCategory((prev) => !prev)}
+                                className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 flex items-center gap-1 cursor-pointer"
                             >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Sélectionner la caisse" />
+                                {isAddingCategory ? (
+                                    <>
+                                        <X className="w-3.5 h-3.5" /> Fermer
+                                    </>
+                                ) : (
+                                    <>
+                                        <Plus className="w-3.5 h-3.5" /> Nouvelle catégorie
+                                    </>
+                                )}
+                            </button>
+                        </div>
+
+                        {isAddingCategory ? (
+                            <div className="flex items-center gap-1.5 p-2 rounded-lg bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800">
+                                <Input
+                                    placeholder="Ex: Vente de cahiers d'exercices..."
+                                    value={newCategoryName}
+                                    onChange={(e) => setNewCategoryName(e.target.value)}
+                                    className="h-8 text-xs bg-white dark:bg-slate-900"
+                                    autoFocus
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            e.preventDefault();
+                                            handleCreateCategory();
+                                        }
+                                    }}
+                                />
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    disabled={isSavingCategory || !newCategoryName.trim()}
+                                    onClick={handleCreateCategory}
+                                    className="h-8 px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs shrink-0"
+                                >
+                                    <Check className="w-3.5 h-3.5 mr-1" /> Créer
+                                </Button>
+                            </div>
+                        ) : (
+                            <Select value={categorie} onValueChange={setCategorie}>
+                                <SelectTrigger id="categorie_recette">
+                                    <SelectValue placeholder="Choisir une catégorie" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {caisses.map(c => (
-                                        <SelectItem key={c.id} value={c.id.toString()}>
-                                            {c.nom} {c.is_principale ? '(Principale)' : ''}
+                                    {Array.from(new Set([...categoryNames, ...(categorie ? [categorie] : [])])).map((cat) => (
+                                        <SelectItem key={cat} value={cat}>
+                                            {cat}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
-                        </div>
-
-                        <div className="space-y-1 min-w-0">
-                            <Label htmlFor="categorie">Catégorie de recette *</Label>
-                            <Select
-                                value={categorie}
-                                onValueChange={(val: 'uniformes' | 'cantine_libre' | 'macaron' | 'location' | 'don' | 'autre') => setCategorie(val)}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Catégorie" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="uniformes">Vente d'uniformes / écussons</SelectItem>
-                                    <SelectItem value="cantine_libre">Cantine libre / Repas visiteur</SelectItem>
-                                    <SelectItem value="macaron">Macaron & Livrets</SelectItem>
-                                    <SelectItem value="location">Location d'espaces / salles</SelectItem>
-                                    <SelectItem value="don">Don & Subvention</SelectItem>
-                                    <SelectItem value="autre">Autre prestation diverse</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
+                        )}
                     </div>
 
+                    {/* Désignation */}
                     <div className="space-y-1">
-                        <Label htmlFor="libelle">Désignation de la prestation *</Label>
+                        <Label htmlFor="libelle">Motif / Désignation <span className="text-red-500">*</span></Label>
                         <Input
                             id="libelle"
                             placeholder="ex: 2 Uniformes complets taille M + 1 Macaron"
                             value={libelle}
-                            onChange={e => setLibelle(e.target.value)}
+                            onChange={(e) => setLibelle(e.target.value)}
                             required
                         />
                     </div>
 
+                    {/* Payeur & Téléphone */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className="space-y-1 min-w-0">
-                            <Label htmlFor="payeurNom">Nom du payeur / Client *</Label>
+                            <Label htmlFor="payeurNom">Nom du payeur <span className="text-red-500">*</span></Label>
                             <Input
                                 id="payeurNom"
                                 placeholder="Nom et prénom"
                                 value={payeurNom}
-                                onChange={e => setPayeurNom(e.target.value)}
+                                onChange={(e) => setPayeurNom(e.target.value)}
                                 required
                             />
                         </div>
 
                         <div className="space-y-1 min-w-0">
-                            <Label htmlFor="payeurTelephone">Téléphone</Label>
+                            <Label htmlFor="payeurTelephone">Téléphone (optionnel)</Label>
                             <Input
                                 id="payeurTelephone"
                                 placeholder="6XX XXX XXX"
                                 value={payeurTelephone}
-                                onChange={e => setPayeurTelephone(e.target.value)}
+                                onChange={(e) => setPayeurTelephone(e.target.value)}
                             />
                         </div>
                     </div>
 
+                    {/* Montant & Mode de règlement */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className="space-y-1 min-w-0">
-                            <Label htmlFor="montant">Montant perçu (FCFA) *</Label>
+                            <Label htmlFor="montant">Montant perçu (FCFA) <span className="text-red-500">*</span></Label>
                             <Input
                                 id="montant"
                                 type="number"
                                 min="1"
                                 placeholder="ex: 15000"
                                 value={montant}
-                                onChange={e => setMontant(e.target.value)}
+                                onChange={(e) => setMontant(e.target.value)}
+                                className="font-bold tabular-nums"
                                 required
                             />
                         </div>
 
                         <div className="space-y-1 min-w-0">
-                            <Label htmlFor="modePaiement">Mode de règlement *</Label>
+                            <Label htmlFor="modePaiement">Mode de paiement <span className="text-red-500">*</span></Label>
                             <Select
                                 value={modePaiement}
                                 onValueChange={(val: 'especes' | 'cheque' | 'virement' | 'mobile_money_manuel') => setModePaiement(val)}
                             >
-                                <SelectTrigger>
+                                <SelectTrigger id="modePaiement">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -220,53 +320,22 @@ export default function NouveauReglementDiversModal({
 
                     {modePaiement !== 'especes' && (
                         <div className="space-y-1">
-                            <Label htmlFor="referencePaiement">Réf. transaction / N° Chèque</Label>
+                            <Label htmlFor="referencePaiement">Référence transaction / N° Chèque</Label>
                             <Input
                                 id="referencePaiement"
-                                placeholder="Numéro de reçu ou référence"
+                                placeholder="Numéro de transaction ou référence"
                                 value={referencePaiement}
-                                onChange={e => setReferencePaiement(e.target.value)}
+                                onChange={(e) => setReferencePaiement(e.target.value)}
                             />
                         </div>
                     )}
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div className="space-y-1 min-w-0">
-                            <Label htmlFor="caissier">Agent encaisseur</Label>
-                            <Select
-                                value={personnelId}
-                                onValueChange={val => setPersonnelId(val)}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Intendance / Caisse" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {caissiers.map(c => (
-                                        <SelectItem key={c.id} value={c.id.toString()}>
-                                            {c.nom} {c.prenom}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div className="space-y-1 min-w-0">
-                            <Label htmlFor="observations">Remarques éventuelles</Label>
-                            <Input
-                                id="observations"
-                                placeholder="Note interne..."
-                                value={observations}
-                                onChange={e => setObservations(e.target.value)}
-                            />
-                        </div>
-                    </div>
 
                     <DialogFooter className="pt-2">
                         <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={onClose} disabled={isSubmitting}>
                             Annuler
                         </Button>
                         <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white">
-                            {isSubmitting ? 'Enregistrement...' : 'Encaisser & Émettre le reçu'}
+                            {isSubmitting ? 'Encaissement...' : 'Encaisser & Émettre le reçu'}
                         </Button>
                     </DialogFooter>
                 </form>

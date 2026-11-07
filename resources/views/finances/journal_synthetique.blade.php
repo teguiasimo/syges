@@ -142,7 +142,16 @@
 
     <div class="doc-banner">
         <div class="doc-title">Journal Synthétique & Récapitulatif de Caisse</div>
-        <div class="doc-subtitle">Période du {{ $date_debut }} au {{ $date_fin }} • {{ $nombre_total }} transaction(s) au total</div>
+        <div class="doc-subtitle">
+            Période du <strong>{{ $date_debut }}</strong> au <strong>{{ $date_fin }}</strong>
+            • {{ $nombre_total }} transaction(s) au total
+            @if(!empty($mode_paiement_filtre))
+                • Mode : <strong>{{ strtoupper(str_replace('_', ' ', $mode_paiement_filtre)) }}</strong>
+            @endif
+        </div>
+        <div class="doc-subtitle" style="margin-top: 2px;">
+            Périmètre : <strong>{{ $perimetre_label ?? 'Toutes les sections, cycles, niveaux et classes' }}</strong>
+        </div>
     </div>
 
     {{-- 1. Récapitulatif Chronologique par Jour --}}
@@ -180,8 +189,33 @@
         </tbody>
     </table>
 
-    {{-- 2. Répartition par Caisse --}}
-    <div class="section-title">2. Répartition par Caisse d'Encaissement</div>
+    {{-- 2. Répartition par Niveau & Classe --}}
+    @if(!empty($synthese_niveaux))
+        <div class="section-title">2. Répartition par Niveau & Classe</div>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th style="width: 35%;">Niveau d'Études</th>
+                    <th style="width: 30%;">Classe</th>
+                    <th style="width: 15%;" class="text-center">Nb Reçus</th>
+                    <th style="width: 20%;" class="text-right">Montant Encaissé</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($synthese_niveaux as $sn)
+                    <tr>
+                        <td class="font-bold">{{ $sn['niveau'] }}</td>
+                        <td>{{ $sn['classe'] }}</td>
+                        <td class="text-center">{{ $sn['nombre'] }}</td>
+                        <td class="text-right font-bold" style="color: #047857;">{{ number_format($sn['total'], 0, ',', ' ') }} FCFA</td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+    @endif
+
+    {{-- 3. Répartition par Caisse --}}
+    <div class="section-title">3. Répartition par Caisse d'Encaissement</div>
     <table class="data-table">
         <thead>
             <tr>
@@ -203,8 +237,8 @@
         </tbody>
     </table>
 
-    {{-- 3. Ventilation par Nature de Frais --}}
-    <div class="section-title">3. Ventilation Analytique par Rubrique</div>
+    {{-- 4. Ventilation par Nature de Frais --}}
+    <div class="section-title">4. Ventilation Analytique par Rubrique</div>
     <table class="data-table">
         <thead>
             <tr>

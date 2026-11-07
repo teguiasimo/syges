@@ -50,6 +50,7 @@ class RolePermissionController extends Controller implements HasMiddleware
         'censeur' => 'Censeur des Études',
         'surveillant-general' => 'Surveillant Général',
         'intendant' => 'Intendant / Comptable',
+        'caissier' => 'Caissier / Économe Guichet',
         'enseignant' => 'Enseignant',
         'secretaire' => 'Secrétaire',
     ];
@@ -765,18 +766,63 @@ class RolePermissionController extends Controller implements HasMiddleware
         // ==========================================
         'finances.view' => [
             'module' => 'finances',
-            'label' => 'Consulter l\'état financier & ardoises',
-            'description' => 'Visualiser les comptes d\'élèves, restes à payer, échéanciers et journaux.',
+            'label' => 'Consulter le module financier & dossiers élèves',
+            'description' => 'Visualiser les dossiers financiers, restes à payer, échéanciers et reçus émis.',
+        ],
+        'finances.etats' => [
+            'module' => 'finances',
+            'label' => 'Générer et imprimer les états financiers PDF',
+            'description' => 'Exporter les états journaliers, mensuels ou filtrés par section/cycle/niveau/classe (journaux, insolvables, élèves en règle).',
+        ],
+        'frais.configure' => [
+            'module' => 'finances',
+            'label' => 'Configurer le catalogue des frais & grille tarifaire',
+            'description' => 'Créer/modifier les catégories de frais, les frais du catalogue et les montants applicables par niveau.',
         ],
         'versements.create' => [
             'module' => 'finances',
             'label' => 'Encaisser un versement de scolarité',
             'description' => 'Enregistrer un paiement physique au guichet et imprimer le reçu officiel numéroté.',
         ],
+        'recettes_diverses.create' => [
+            'module' => 'finances',
+            'label' => 'Encaisser les recettes diverses hors scolarité',
+            'description' => 'Enregistrer les ventes annexes (tenues, cahiers, fêtes...) et gérer leurs catégories.',
+        ],
         'versements.cancel' => [
             'module' => 'finances',
-            'label' => 'Annuler un versement de caisse',
-            'description' => 'Annuler un reçu erroné avec saisie obligatoire d\'un motif d\'annulation.',
+            'label' => 'Annuler un versement ou une recette (avec motif)',
+            'description' => 'Annuler un reçu erroné (unitaire ou en lot) avec saisie obligatoire d\'un motif d\'audit.',
+        ],
+        'bourses.manage' => [
+            'module' => 'finances',
+            'label' => 'Gérer le catalogue des modèles de bourses & remises',
+            'description' => 'Créer, modifier ou supprimer les barèmes standards de bourses et de remises.',
+        ],
+        'bourses.attribuer' => [
+            'module' => 'finances',
+            'label' => 'Attribuer ou retirer une bourse/remise à un élève',
+            'description' => 'Appliquer une remise individuelle (ex: paiement en avance, fratrie) sur le dossier d\'un élève.',
+        ],
+        'dispenses_financieres.manage' => [
+            'module' => 'finances',
+            'label' => 'Accorder ou retirer une dispense de tranche',
+            'description' => 'Exonérer totalement ou partiellement une tranche obligatoire (ex: élève arrivé au 2ème trimestre).',
+        ],
+        'options_financieres.manage' => [
+            'module' => 'finances',
+            'label' => 'Gérer les options élèves (Bus, Cantine) & arriérés',
+            'description' => 'Souscrire/résilier un service optionnel et ajuster le report d\'arriérés d\'un élève.',
+        ],
+        'caisses.cloture' => [
+            'module' => 'finances',
+            'label' => 'Effectuer la clôture journalière de caisse',
+            'description' => 'Clôturer la journée comptable et verrouiller les écritures d\'encaissement sur cette date.',
+        ],
+        'finances.verrou_solvabilite' => [
+            'module' => 'finances',
+            'label' => 'Activer / désactiver le verrou de solvabilité bulletins',
+            'description' => 'Bloquer ou autoriser le tirage des bulletins scolaires pour les élèves ayant une dette échue.',
         ],
         'caisses.view' => [
             'module' => 'finances',
@@ -785,32 +831,22 @@ class RolePermissionController extends Controller implements HasMiddleware
         ],
         'caisses.create' => [
             'module' => 'finances',
-            'label' => 'Créer une caisse auxiliaire',
-            'description' => 'Ouvrir un nouveau point d\'encaissement ou caisse secondaire.',
+            'label' => 'Créer une caisse auxiliaire (Hérité)',
+            'description' => 'Ouvrir un point d\'encaissement secondaire.',
         ],
         'caisses.edit' => [
             'module' => 'finances',
-            'label' => 'Modifier une caisse',
-            'description' => 'Ajuster les paramètres et l\'affectation du caissier responsable.',
-        ],
-        'caisses.cloture' => [
-            'module' => 'finances',
-            'label' => 'Effectuer la clôture journalière',
-            'description' => 'Clôturer la journée comptable et bloquer les nouvelles écritures sur cette date.',
-        ],
-        'bourses.manage' => [
-            'module' => 'finances',
-            'label' => 'Gérer les bourses et remises',
-            'description' => 'Créer des modèles d\'exonération et attribuer des bourses aux élèves méritants.',
+            'label' => 'Modifier une caisse (Hérité)',
+            'description' => 'Ajuster les paramètres d\'une caisse.',
         ],
         'echeances.manage' => [
             'module' => 'finances',
-            'label' => 'Paramétrer les tranches & échéanciers',
-            'description' => 'Définir les dates limites et les montants des tranches de paiement de scolarité.',
+            'label' => 'Paramétrer les échéanciers (Hérité)',
+            'description' => 'Définir les modèles d\'échéanciers calendaires.',
         ],
         'penalites.manage' => [
             'module' => 'finances',
-            'label' => 'Configurer & appliquer les pénalités',
+            'label' => 'Configurer & appliquer les pénalités (Hérité)',
             'description' => 'Appliquer des majorations pour retard de paiement après date limite.',
         ],
         'finances.manage' => [

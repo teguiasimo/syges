@@ -186,8 +186,16 @@ class DatabaseSeeder extends Seeder
             // 11. Module Gestion Financière, Caisse & Dépenses
             // ==========================================
             'finances.view' => 'web',
+            'finances.etats' => 'web',
+            'frais.configure' => 'web',
             'versements.create' => 'web',
+            'recettes_diverses.create' => 'web',
             'versements.cancel' => 'web',
+            'bourses.manage' => 'web',
+            'bourses.attribuer' => 'web',
+            'dispenses_financieres.manage' => 'web',
+            'options_financieres.manage' => 'web',
+            'finances.verrou_solvabilite' => 'web',
             'caisses.view' => 'web',
             'caisses.create' => 'web',
             'caisses.edit' => 'web',
@@ -198,7 +206,6 @@ class DatabaseSeeder extends Seeder
             'depenses.delete' => 'web',
             'depenses.bilan' => 'web',
             'categories_depenses.manage' => 'web',
-            'bourses.manage' => 'web',
             'echeances.manage' => 'web',
             'penalites.manage' => 'web',
             // Compatibilité ascendante
@@ -318,6 +325,7 @@ class DatabaseSeeder extends Seeder
         $censeurRole = Role::firstOrCreate(['name' => 'censeur', 'guard_name' => 'web']);
         $surveillantGeneralRole = Role::firstOrCreate(['name' => 'surveillant-general', 'guard_name' => 'web']);
         $intendantRole = Role::firstOrCreate(['name' => 'intendant', 'guard_name' => 'web']);
+        $caissierRole = Role::firstOrCreate(['name' => 'caissier', 'guard_name' => 'web']);
         $teacherRole = Role::firstOrCreate(['name' => 'enseignant', 'guard_name' => 'web']);
         $secretaryRole = Role::firstOrCreate(['name' => 'secretaire', 'guard_name' => 'web']);
 
@@ -401,8 +409,8 @@ class DatabaseSeeder extends Seeder
             'communication.view', 'communication.send', 'communication.manage',
             // Délibérations & Statistiques
             'statistiques.view', 'deliberations.view', 'deliberations.saisir', 'deliberations.valider', 'deliberations.manage',
-            // Finances (consultation)
-            'finances.view',
+            // Finances (consultation & états de pilotage)
+            'finances.view', 'finances.etats',
         ]);
 
         // Permissions du Censeur
@@ -438,14 +446,29 @@ class DatabaseSeeder extends Seeder
 
         // Permissions de l'Intendant / Comptable
         $intendantRole->syncPermissions([
-            'institutions.view', 'etablissements.view', 'classes.view',
+            'institutions.view', 'etablissements.view',
+            'sections.view', 'cycles.view', 'niveaux.view', 'classes.view',
             'eleves.view',
-            'finances.view', 'finances.manage',
-            'versements.create', 'versements.cancel',
+            'finances.view', 'finances.etats', 'frais.configure', 'finances.manage',
+            'versements.create', 'recettes_diverses.create', 'versements.cancel',
+            'bourses.manage', 'bourses.attribuer',
+            'dispenses_financieres.manage', 'options_financieres.manage',
+            'finances.verrou_solvabilite',
             'caisses.view', 'caisses.create', 'caisses.edit', 'caisses.cloture', 'finances.cloture', 'finances.annuler',
             'depenses.view', 'depenses.create', 'depenses.edit', 'depenses.delete', 'depenses.bilan',
-            'categories_depenses.manage', 'bourses.manage', 'echeances.manage', 'penalites.manage',
+            'categories_depenses.manage', 'echeances.manage', 'penalites.manage',
             'statistiques.view',
+        ]);
+
+        // Permissions du Caissier / Économe Guichet (Principe du moindre privilège : encaissement & états uniquement, sans modification tarifaire ni annulation)
+        $caissierRole->syncPermissions([
+            'institutions.view', 'etablissements.view',
+            'sections.view', 'cycles.view', 'niveaux.view', 'classes.view',
+            'eleves.view',
+            'finances.view', 'finances.etats',
+            'versements.create', 'recettes_diverses.create',
+            'options_financieres.manage',
+            'caisses.view',
         ]);
 
         // Permissions de l'Enseignant (Principe du moindre privilège - Espace Pédagogique)

@@ -6,6 +6,7 @@ use App\Concerns\ScopesEtablissement;
 use App\Http\Controllers\Controller;
 use App\Models\AnneeScolaire;
 use App\Models\Classe;
+use App\Models\CompteFinancierEleve;
 use App\Models\Eleve;
 use App\Models\Inscription;
 use App\Services\FinanceService;
@@ -362,7 +363,7 @@ class EleveController extends Controller implements HasMiddleware
             }
 
             // Création de l'inscription scolaire avec son identifiant d'établissement
-            Inscription::create([
+            $inscription = Inscription::create([
                 'eleve_id' => $eleve->id,
                 'classe_id' => $validated['classe_id'],
                 'etablissement_id' => $etablissementId,
@@ -374,6 +375,9 @@ class EleveController extends Controller implements HasMiddleware
                 'etablissement_provenance' => $validated['etablissement_provenance'] ?? null,
                 'observations' => $validated['observations'] ?? null,
             ]);
+
+            // Initialisation automatique du compte financier de l'élève selon la grille tarifaire de son niveau
+            app(FinanceService::class)->initialiserCompteEleve($inscription);
         });
 
         // Redirection selon l'action demandée (Enregistrer & Nouveau ou Enregistrer & Retourner)
@@ -446,12 +450,34 @@ class EleveController extends Controller implements HasMiddleware
     }
 
     /**
-     * Supprime un élève et ses inscriptions (ou le désactive).
+     * Supprime un élève uniquement s'il ne possède aucun historique lié (versements, notes, cotes, discipline...).
+     *
+     * Préserve strictement l'intégrité référentielle comptable et pédagogique : tout élève ayant déjà
+     * effectué un versement, reçu une note ou un dossier disciplinaire est protégé contre la suppression.
+     *
+     * @param  Eleve  $eleve  Élève ciblé pour la suppression.
+     * @return RedirectResponse Redirection avec confirmation ou motif explicite de blocage.
      */
     public function destroy(Eleve $eleve): RedirectResponse
     {
         $nom = $eleve->nom_complet;
-        $eleve->delete();
+        $blockers = $eleve->getDeletionBlockers();
+
+        if (! empty($blockers)) {
+            $message = "Suppression impossible : l'élève « {$nom} » est déjà lié à des opérations enregistrées (".implode(', ', $blockers)."). Pour conserver l'historique comptable et scolaire, veuillez plutôt modifier le statut de son inscription.";
+
+            return back()->with('error', $message)->withErrors(['error' => $message]);
+        }
+
+        DB::transaction(function () use ($eleve) {
+            CompteFinancierEleve::withoutGlobalScopes()
+                ->where('eleve_id', $eleve->id)
+                ->delete();
+            Inscription::withoutGlobalScopes()
+                ->where('eleve_id', $eleve->id)
+                ->delete();
+            $eleve->delete();
+        });
 
         return back()->with('success', "L'élève {$nom} a été supprimé avec succès.");
     }
@@ -748,7 +774,7 @@ class EleveController extends Controller implements HasMiddleware
                 $etablissementId = $targetClasse?->etablissement_id;
 
                 // Création de l'inscription avec son établissement
-                Inscription::create([
+                $inscription = Inscription::create([
                     'eleve_id' => $eleve->id,
                     'classe_id' => $validated['classe_id'],
                     'etablissement_id' => $etablissementId,
@@ -758,6 +784,11 @@ class EleveController extends Controller implements HasMiddleware
                     'statut' => 'validee',
                     'date_inscription' => now()->toDateString(),
                 ]);
+
+                // Initialisation immédiate du compte financier élève lors de l'import CSV
+                if ($etablissementId) {
+                    app(FinanceService::class)->initialiserCompteEleve($inscription);
+                }
 
                 $imported++;
             }

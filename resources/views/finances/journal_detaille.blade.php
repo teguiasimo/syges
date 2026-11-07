@@ -138,7 +138,16 @@
 
     <div class="doc-banner">
         <div class="doc-title">Grand Journal Détaillé des Encaissements de Caisse</div>
-        <div class="doc-subtitle">Période du {{ $date_debut }} au {{ $date_fin }} • {{ $nombre_versements }} transaction(s) enregistrée(s)</div>
+        <div class="doc-subtitle">
+            Période du <strong>{{ $date_debut }}</strong> au <strong>{{ $date_fin }}</strong>
+            • {{ $nombre_versements }} transaction(s) enregistrée(s)
+            @if(!empty($mode_paiement_filtre))
+                • Mode : <strong>{{ strtoupper(str_replace('_', ' ', $mode_paiement_filtre)) }}</strong>
+            @endif
+        </div>
+        <div class="doc-subtitle" style="margin-top: 2px;">
+            Périmètre : <strong>{{ $perimetre_label ?? 'Toutes les sections, cycles, niveaux et classes' }}</strong>
+        </div>
     </div>
 
     <table class="data-table">

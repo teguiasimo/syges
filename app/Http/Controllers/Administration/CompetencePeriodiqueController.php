@@ -12,6 +12,7 @@ use App\Models\Etablissement;
 use App\Models\Matiere;
 use App\Models\MatiereNiveau;
 use App\Models\Niveau;
+use App\Models\Note;
 use App\Models\Periode;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
@@ -301,10 +302,38 @@ class CompetencePeriodiqueController extends Controller implements HasMiddleware
     }
 
     /**
-     * Supprime une compétence périodique.
+     * Supprime une compétence périodique uniquement si aucune note d'élève ne l'utilise déjà dans cette classe/matière.
      */
     public function destroy(CompetencePeriodique $competence): RedirectResponse
     {
+        $utiliseeDansNotes = Note::where('competence_evaluee', $competence->libelle_competence)
+            ->whereHas('attribution', function ($q) use ($competence) {
+                $q->where('classe_id', $competence->classe_id)
+                    ->where('matiere_id', $competence->matiere_id);
+            })
+            ->when($competence->evaluation_id, fn ($q) => $q->where('evaluation_id', $competence->evaluation_id))
+            ->exists();
+
+        if ($utiliseeDansNotes) {
+            $message = 'Suppression impossible : cette compétence est déjà rattachée à des évaluations notées.';
+
+            return back()->with('error', $message)->withErrors(['error' => $message]);
+        }
+
+        $utiliseeDansNotes = Note::where('competence_evaluee', $competence->libelle_competence)
+            ->whereHas('attribution', function ($q) use ($competence) {
+                $q->where('classe_id', $competence->classe_id)
+                    ->where('matiere_id', $competence->matiere_id);
+            })
+            ->when($competence->evaluation_id, fn ($q) => $q->where('evaluation_id', $competence->evaluation_id))
+            ->exists();
+
+        if ($utiliseeDansNotes) {
+            $message = 'Suppression impossible : cette compétence est déjà rattachée à des évaluations notées.';
+
+            return back()->with('error', $message)->withErrors(['error' => $message]);
+        }
+
         $competence->delete();
 
         return back()->with('success', 'Compétence supprimée avec succès.');

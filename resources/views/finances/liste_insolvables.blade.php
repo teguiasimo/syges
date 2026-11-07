@@ -139,10 +139,15 @@
     <div class="doc-banner">
         <div class="doc-title">État Nominatif des Élèves Insolvables (Échéances Échues)</div>
         <div class="doc-subtitle">
-            Situation arrêtée au {{ $date_reference }}
-            @if($classe) • Classe : <strong>{{ $classe->nom }}</strong> @endif
-            @if($niveau && !$classe) • Niveau : <strong>{{ $niveau->nom }}</strong> @endif
+            @if(!empty($date_debut))
+                Période du <strong>{{ $date_debut }}</strong> au <strong>{{ $date_fin ?? $date_reference }}</strong> (échéances arrêtées au {{ $date_reference }})
+            @else
+                Situation arrêtée au <strong>{{ $date_reference }}</strong>
+            @endif
             • <strong>{{ $nombre_insolvables }}</strong> élève(s) en situation d'impayé
+        </div>
+        <div class="doc-subtitle" style="margin-top: 2px;">
+            Périmètre : <strong>{{ $perimetre_label ?? 'Toutes les sections, cycles, niveaux et classes' }}</strong>
         </div>
     </div>
 
@@ -151,13 +156,14 @@
             <tr>
                 <th style="width: 3%;" class="text-center">#</th>
                 <th style="width: 9%;">Matricule</th>
-                <th style="width: 22%;">Nom & Prénoms de l'Élève</th>
+                <th style="width: 20%;">Nom & Prénoms de l'Élève</th>
                 <th style="width: 4%;" class="text-center">Sexe</th>
                 <th style="width: 8%;">Classe</th>
-                <th style="width: 16%;">Contact Parent / Tuteur</th>
-                <th style="width: 12%;" class="text-right">Net Exigible</th>
-                <th style="width: 12%;" class="text-right">Total Réglé</th>
-                <th style="width: 14%;" class="text-right" style="background-color: #fee2e2; color: #991b1b;">Retard Échu</th>
+                <th style="width: 14%;">Contact Parent / Tuteur</th>
+                <th style="width: 10%;" class="text-right">Net Exigible</th>
+                <th style="width: 10%;" class="text-right">Total Réglé</th>
+                <th style="width: 10%;" class="text-right">Versé Période</th>
+                <th style="width: 12%;" class="text-right" style="background-color: #fee2e2; color: #991b1b;">Retard Échu</th>
             </tr>
         </thead>
         <tbody>
@@ -171,13 +177,14 @@
                     <td>{{ $e['contact_parent'] }}</td>
                     <td class="text-right">{{ number_format($e['montant_net_exigible'], 0, ',', ' ') }} F</td>
                     <td class="text-right" style="color: #047857;">{{ number_format($e['total_paye'], 0, ',', ' ') }} F</td>
+                    <td class="text-right" style="color: #0369a1;">{{ number_format($e['verse_periode'] ?? $e['total_paye'], 0, ',', ' ') }} F</td>
                     <td class="text-right font-bold" style="color: #dc2626; background-color: #fff1f2;">
                         {{ number_format($e['montant_echu_en_retard'], 0, ',', ' ') }} FCFA
                     </td>
                 </tr>
             @empty
                 <tr>
-                    <td colspan="9" class="text-center" style="color: #166534; padding: 15px; font-weight: bold;">
+                    <td colspan="10" class="text-center" style="color: #166534; padding: 15px; font-weight: bold;">
                         Félicitations ! Aucun élève insolvable n'est à déplorer pour ce filtre à la date sélectionnée.
                     </td>
                 </tr>

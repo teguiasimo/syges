@@ -1,6 +1,10 @@
-import React, { useEffect } from 'react';
-import { useForm } from '@inertiajs/react';
+import React, { useEffect, useState } from 'react';
+import { router, useForm } from '@inertiajs/react';
+import { Calendar, CheckCircle2, FolderPlus, Layers, Plus, Tag, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { formatDateForInput } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
     Dialog,
     DialogContent,
@@ -9,10 +13,8 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import {
     Select,
     SelectContent,
@@ -20,81 +22,200 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { TypeFrais, PeriodiciteFrais } from '@/types/finance';
-import { Tag, CheckCircle2 } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import type { CategorieFrais, TypeFrais } from '@/types/finance';
 
+/**
+ * Propriétés de la modale de configuration d'un Frais du Catalogue.
+ */
 interface TypeFraisModalProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     etablissementId: number;
+    categoriesFrais?: CategorieFrais[];
     typeFraisToEdit?: TypeFrais | null;
 }
 
 /**
- * Modale de création et de configuration d'un Type de Frais (Nomenclature financière).
+ * Modale de création et de modification d'un Frais dans le Catalogue des Frais (`01. Catalogue des Frais`).
  *
- * Permet de définir les catégories de frais de l'établissement :
- * - Frais obligatoires (ex: Inscription, Scolarité, APEE)
- * - Frais optionnels (ex: Transport scolaire/Bus, Cantine/Demi-pension, Uniformes)
+ * Permet de configurer un frais une seule fois (catégorie, libellé, caractère obligatoire ou optionnel,
+ * montant, ordre de priorité, date butoir et informations complémentaires) afin de pouvoir ensuite
+ * le rattacher sans répétition à un ou plusieurs niveaux pédagogiques (ex: SIL → CM2).
+ * Intègre également la création rapide d'une Catégorie de Frais (Libellé + Description) sans quitter la fenêtre.
  *
- * @param {TypeFraisModalProps} props - Propriétés du composant modale
- * @returns {JSX.Element}
+ * @param {TypeFraisModalProps} props Propriétés du composant
+ * @returns {JSX.Element} Modale du Catalogue des Frais
  */
 export default function TypeFraisModal({
     open,
     onOpenChange,
     etablissementId,
-    typeFraisToEdit,
+    categoriesFrais = [],
+    typeFraisToEdit = null,
 }: TypeFraisModalProps) {
-    const { data, setData, post, processing, reset, errors, transform } = useForm({
+    const isEditing = Boolean(typeFraisToEdit);
+
+    // Mini-formulaire intégré de création rapide d'une catégorie (Libellé + Description)
+    const [showNewCategorieForm, setShowNewCategorieForm] = useState(false);
+    const [newCatNom, setNewCatNom] = useState('');
+    const [newCatDescription, setNewCatDescription] = useState('');
+    const [creatingCat, setCreatingCat] = useState(false);
+    const [pendingSelectCatName, setPendingSelectCatName] = useState<string | null>(null);
+
+    const { data, setData, post, put, processing, reset, errors, transform } = useForm({
         etablissement_id: etablissementId,
-        code: '',
+        categorie_frais_id: '',
         libelle: '',
         description: '',
         obligatoire: true,
-        periodicite: 'annuel' as PeriodiciteFrais,
+        ordre_priorite: '2',
         montant_defaut: '',
+        date_limite_defaut: '',
     });
 
-    // Synchronisation lors de l'édition ou de la réinitialisation
+    /**
+     * Sélectionne automatiquement la catégorie nouvellement créée dès que Inertia rafraîchit `categoriesFrais`.
+     */
     useEffect(() => {
+        if (!pendingSelectCatName) return;
+        const found = categoriesFrais.find(
+            (c) => c.nom.trim().toLowerCase() === pendingSelectCatName.trim().toLowerCase()
+        );
+        if (found) {
+            setData('categorie_frais_id', String(found.id));
+            setPendingSelectCatName(null);
+        }
+    }, [categoriesFrais, pendingSelectCatName]);
+
+    /**
+     * Synchronise les champs du formulaire à l'ouverture en mode création ou édition.
+     */
+    useEffect(() => {
+        if (!open) {
+            setShowNewCategorieForm(false);
+            return;
+        }
+
         if (typeFraisToEdit) {
             setData({
-                etablissement_id: typeFraisToEdit.etablissement_id,
-                code: typeFraisToEdit.code,
+                etablissement_id: typeFraisToEdit.etablissement_id || etablissementId,
+                categorie_frais_id: typeFraisToEdit.categorie_frais_id
+                    ? String(typeFraisToEdit.categorie_frais_id)
+                    : '',
                 libelle: typeFraisToEdit.libelle,
                 description: typeFraisToEdit.description || '',
                 obligatoire: Boolean(typeFraisToEdit.obligatoire),
-                periodicite: typeFraisToEdit.periodicite,
-                montant_defaut: typeFraisToEdit.montant_defaut ? String(typeFraisToEdit.montant_defaut) : '',
+                ordre_priorite: String(typeFraisToEdit.ordre_priorite ?? 2),
+                montant_defaut:
+                    typeFraisToEdit.montant_defaut !== undefined && typeFraisToEdit.montant_defaut !== null
+                        ? String(Number(typeFraisToEdit.montant_defaut))
+                        : '',
+                date_limite_defaut: formatDateForInput(typeFraisToEdit.date_limite_defaut),
             });
         } else {
+            const defaultCat = categoriesFrais[0];
             setData({
                 etablissement_id: etablissementId,
-                code: '',
+                categorie_frais_id: defaultCat ? String(defaultCat.id) : '',
                 libelle: '',
                 description: '',
                 obligatoire: true,
-                periodicite: 'annuel',
+                ordre_priorite: '2',
                 montant_defaut: '',
+                date_limite_defaut: '',
             });
         }
     }, [typeFraisToEdit, etablissementId, open]);
 
+    /**
+     * Enregistre à la volée une nouvelle Catégorie de Frais (Libellé + Description uniquement).
+     */
+    const handleCreateCategorieInline = () => {
+        const nom = newCatNom.trim();
+        if (!nom) {
+            toast.error('Veuillez saisir le libellé de la catégorie.', { position: 'top-right' });
+            return;
+        }
+
+        setCreatingCat(true);
+        router.post(
+            '/administration/finances/categories-frais',
+            {
+                etablissement_id: etablissementId,
+                nom,
+                description: newCatDescription.trim() || null,
+            },
+            {
+                preserveScroll: true,
+                preserveState: true,
+                onSuccess: () => {
+                    toast.success(`Catégorie « ${nom} » créée avec succès.`, {
+                        position: 'top-right',
+                        className: 'bg-emerald-600 text-white border-none',
+                    });
+                    setPendingSelectCatName(nom);
+                    setNewCatNom('');
+                    setNewCatDescription('');
+                    setShowNewCategorieForm(false);
+                },
+                onError: (err) => {
+                    const first = Object.values(err)[0] as string;
+                    toast.error(first || 'Impossible de créer cette catégorie.', {
+                        position: 'top-right',
+                    });
+                },
+                onFinish: () => setCreatingCat(false),
+            }
+        );
+    };
+
+    /**
+     * Soumet la création ou la mise à jour du frais au serveur.
+     */
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
         transform((formValues) => ({
             ...formValues,
             etablissement_id: etablissementId,
-            code: formValues.code.trim().toUpperCase(),
-            montant_defaut: formValues.montant_defaut ? parseFloat(String(formValues.montant_defaut)) : 0,
+            categorie_frais_id: formValues.categorie_frais_id
+                ? parseInt(String(formValues.categorie_frais_id), 10)
+                : null,
+            ordre_priorite: formValues.ordre_priorite
+                ? parseInt(String(formValues.ordre_priorite), 10)
+                : 10,
+            montant_defaut: formValues.montant_defaut
+                ? parseFloat(String(formValues.montant_defaut))
+                : 0,
+            date_limite_defaut: formValues.date_limite_defaut ? formValues.date_limite_defaut : null,
         }));
+
+        if (isEditing && typeFraisToEdit) {
+            put(`/administration/finances/types-frais/${typeFraisToEdit.id}`, {
+                preserveScroll: true,
+                onSuccess: () => {
+                    toast.success('Frais mis à jour et synchronisé sur les niveaux rattachés.', {
+                        position: 'top-right',
+                        className: 'bg-emerald-600 text-white border-none',
+                    });
+                    reset();
+                    onOpenChange(false);
+                },
+                onError: (err) => {
+                    const first = Object.values(err)[0] as string;
+                    toast.error(first || 'Erreur lors de la mise à jour du frais.', {
+                        position: 'top-right',
+                    });
+                },
+            });
+            return;
+        }
 
         post('/administration/finances/types-frais', {
             preserveScroll: true,
             onSuccess: () => {
-                toast.success('Type de frais enregistré avec succès dans la nomenclature.', {
+                toast.success('Frais ajouté avec succès dans le catalogue.', {
                     position: 'top-right',
                     className: 'bg-emerald-600 text-white border-none',
                 });
@@ -102,123 +223,265 @@ export default function TypeFraisModal({
                 onOpenChange(false);
             },
             onError: (err) => {
-                toast.error(err.error || 'Erreur lors de l’enregistrement du type de frais.', {
+                const first = Object.values(err)[0] as string;
+                toast.error(first || 'Erreur lors de l’enregistrement du frais.', {
                     position: 'top-right',
                 });
             },
         });
     };
 
+    const nbNiveauxRattaches = typeFraisToEdit?.frais_scolaires?.length ?? 0;
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-md">
+            <DialogContent className="max-w-lg max-h-[92vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2 text-lg font-bold text-slate-800 dark:text-slate-100">
                         <Tag className="w-5 h-5 text-emerald-600 shrink-0" />
-                        {typeFraisToEdit ? 'Modifier le Type de Frais' : 'Nouveau Type de Frais'}
+                        {isEditing ? 'Modifier le Frais du Catalogue' : 'Configurer un Nouveau Frais'}
                     </DialogTitle>
-                    <DialogDescription>
-                        Configurez la nature du frais (scolarité, inscription, cantine, transport, etc.).
+                    <DialogDescription className="text-xs">
+                        Définissez le frais une seule fois (catégorie, montant, priorité et date butoir). Vous pourrez ensuite l'affecter en un clic à plusieurs niveaux (ex: SIL à CM2).
                     </DialogDescription>
                 </DialogHeader>
 
-                <form onSubmit={handleSubmit} className="space-y-4 min-w-0">
-                    {/* Code technique */}
-                    <div className="space-y-1">
-                        <Label htmlFor="type_code">Code de Référence <span className="text-red-500">*</span></Label>
-                        <Input
-                            id="type_code"
-                            placeholder="Ex: SCOLARITE, INSCRIPTION, BUS, CANTINE"
-                            value={data.code}
-                            onChange={(e) => setData('code', e.target.value.toUpperCase())}
-                            disabled={Boolean(typeFraisToEdit)}
-                            className="font-mono uppercase text-xs"
-                            required
-                        />
-                        <p className="text-[11px] text-slate-500">Identifiant unique en lettres majuscules sans espace.</p>
-                        {errors.code && <p className="text-xs text-red-500">{errors.code}</p>}
+                {isEditing && nbNiveauxRattaches > 0 && (
+                    <div className="p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-200 flex items-center gap-2">
+                        <Layers className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span>
+                            Ce frais est actuellement rattaché à{' '}
+                            <strong>{nbNiveauxRattaches} niveau(x)</strong> : toute modification mettra automatiquement à jour ces niveaux et les dossiers élèves.
+                        </span>
+                    </div>
+                )}
+
+                <form onSubmit={handleSubmit} className="space-y-3.5 min-w-0">
+                    {/* 1. Catégorie de Frais + Création rapide intégrée */}
+                    <div className="space-y-1.5 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                            <Label htmlFor="frais_categorie" className="text-xs font-semibold">
+                                Catégorie de Frais <span className="text-red-500">*</span>
+                            </Label>
+                            <button
+                                type="button"
+                                onClick={() => setShowNewCategorieForm((prev) => !prev)}
+                                className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 flex items-center gap-1 cursor-pointer"
+                            >
+                                {showNewCategorieForm ? (
+                                    <>
+                                        <X className="w-3.5 h-3.5" /> Fermer
+                                    </>
+                                ) : (
+                                    <>
+                                        <Plus className="w-3.5 h-3.5" /> Nouvelle catégorie
+                                    </>
+                                )}
+                            </button>
+                        </div>
+
+                        {showNewCategorieForm ? (
+                            <div className="p-3 rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/20 space-y-2.5">
+                                <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-800 dark:text-emerald-300">
+                                    <FolderPlus className="w-3.5 h-3.5" />
+                                    <span>Nouvelle Catégorie de Frais</span>
+                                </div>
+                                <div className="space-y-1">
+                                    <Label htmlFor="new_cat_nom" className="text-[11px]">
+                                        Libellé de la catégorie <span className="text-red-500">*</span>
+                                    </Label>
+                                    <Input
+                                        id="new_cat_nom"
+                                        placeholder="Ex: Scolarité, Frais d'Examen, Fête de fin d'année..."
+                                        value={newCatNom}
+                                        onChange={(e) => setNewCatNom(e.target.value)}
+                                        className="h-8 text-xs bg-white dark:bg-slate-900"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <Label htmlFor="new_cat_desc" className="text-[11px]">
+                                        Description (optionnel)
+                                    </Label>
+                                    <Input
+                                        id="new_cat_desc"
+                                        placeholder="Ex: Regroupe CEPE, BEPC et examens blancs"
+                                        value={newCatDescription}
+                                        onChange={(e) => setNewCatDescription(e.target.value)}
+                                        className="h-8 text-xs bg-white dark:bg-slate-900"
+                                    />
+                                </div>
+                                <div className="flex justify-end gap-2">
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-7 text-xs"
+                                        onClick={() => setShowNewCategorieForm(false)}
+                                    >
+                                        Annuler
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        disabled={creatingCat || !newCatNom.trim()}
+                                        onClick={handleCreateCategorieInline}
+                                        className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                                    >
+                                        {creatingCat ? 'Création...' : 'Ajouter la catégorie'}
+                                    </Button>
+                                </div>
+                            </div>
+                        ) : (
+                            <Select
+                                value={data.categorie_frais_id}
+                                onValueChange={(val) => {
+                                    setData('categorie_frais_id', val);
+                                    const selectedCat = categoriesFrais.find((c) => String(c.id) === val);
+                                    if (
+                                        selectedCat &&
+                                        !isEditing &&
+                                        selectedCat.nom.toLowerCase().includes('transport')
+                                    ) {
+                                        setData((prev) => ({
+                                            ...prev,
+                                            categorie_frais_id: val,
+                                            obligatoire: false,
+                                        }));
+                                    }
+                                }}
+                            >
+                                <SelectTrigger id="frais_categorie" className="h-9 text-xs">
+                                    <SelectValue placeholder="Sélectionner une catégorie (Scolarité, Examen, Fête...)" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {categoriesFrais.map((cat) => (
+                                        <SelectItem key={cat.id} value={String(cat.id)}>
+                                            {cat.nom}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        )}
+                        {errors.categorie_frais_id && (
+                            <p className="text-xs text-red-500">{errors.categorie_frais_id}</p>
+                        )}
                     </div>
 
-                    {/* Libellé complet */}
+                    {/* 2. Libellé explicite du frais */}
                     <div className="space-y-1">
-                        <Label htmlFor="type_libelle">Libellé d'Affichage <span className="text-red-500">*</span></Label>
+                        <Label htmlFor="type_libelle" className="text-xs font-semibold">
+                            Libellé du Frais <span className="text-red-500">*</span>
+                        </Label>
                         <Input
                             id="type_libelle"
-                            placeholder="Ex: Frais de Scolarité / Pension"
+                            placeholder="Ex: Inscription SIL - CM2, Tranche 1 SIL - CM2, CEPE, Fête..."
                             value={data.libelle}
                             onChange={(e) => setData('libelle', e.target.value)}
+                            className="h-9 text-xs font-medium"
                             required
                         />
                         {errors.libelle && <p className="text-xs text-red-500">{errors.libelle}</p>}
                     </div>
 
-                    {/* Obligatoire ou Optionnel */}
+                    {/* 3. Caractère obligatoire ou optionnel */}
                     <div className="space-y-1 min-w-0">
-                        <Label htmlFor="type_obligatoire">Caractère d'Exigibilité <span className="text-red-500">*</span></Label>
+                        <Label htmlFor="type_obligatoire" className="text-xs font-semibold">
+                            Caractère d'Exigibilité <span className="text-red-500">*</span>
+                        </Label>
                         <Select
                             value={data.obligatoire ? 'true' : 'false'}
                             onValueChange={(val) => setData('obligatoire', val === 'true')}
                         >
-                            <SelectTrigger id="type_obligatoire">
-                                <SelectValue placeholder="Choisir le caractère..." />
+                            <SelectTrigger id="type_obligatoire" className="h-9 text-xs">
+                                <SelectValue placeholder="Choisir..." />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="true">Obligatoire (Appliqué d'office à tous les élèves)</SelectItem>
-                                <SelectItem value="false">Optionnel (Frais à la carte : Bus, Cantine, Activités...)</SelectItem>
+                                <SelectItem value="true">
+                                    Obligatoire (appliqué à tous les élèves des niveaux rattachés)
+                                </SelectItem>
+                                <SelectItem value="false">
+                                    Optionnel (sur souscription : Bus scolaire, Cantine, Activités...)
+                                </SelectItem>
                             </SelectContent>
                         </Select>
-                        <p className="text-[11px] text-slate-500">
-                            {data.obligatoire
-                                ? 'Les élèves inscrits dans le niveau hériteront automatiquement de ce frais.'
-                                : 'Souscription volontaire au guichet via le dossier financier de l’élève.'}
-                        </p>
                     </div>
 
-                    {/* Périodicité */}
-                    <div className="space-y-1 min-w-0">
-                        <Label htmlFor="type_periodicite">Périodicité d'Exigibilité <span className="text-red-500">*</span></Label>
-                        <Select
-                            value={data.periodicite}
-                            onValueChange={(val: PeriodiciteFrais) => setData('periodicite', val)}
-                        >
-                            <SelectTrigger id="type_periodicite">
-                                <SelectValue placeholder="Choisir la périodicité..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="annuel">Annuel (ex: Scolarité, Inscription, APEE)</SelectItem>
-                                <SelectItem value="trimestriel">Trimestriel (ex: Examens blancs, Activités)</SelectItem>
-                                <SelectItem value="mensuel">Mensuel (ex: Transport bus, Cantine)</SelectItem>
-                                <SelectItem value="ponctuel">Ponctuel (ex: Tenue de sport, Carnet de correspondance)</SelectItem>
-                            </SelectContent>
-                        </Select>
-                        {errors.periodicite && <p className="text-xs text-red-500">{errors.periodicite}</p>}
+                    {/* 4. Montant & Ordre de priorité */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1 min-w-0">
+                            <Label htmlFor="type_montant" className="text-xs font-semibold">
+                                Montant du Frais (FCFA) <span className="text-red-500">*</span>
+                            </Label>
+                            <Input
+                                id="type_montant"
+                                type="number"
+                                min="0"
+                                step="100"
+                                placeholder="Ex: 25000"
+                                value={data.montant_defaut}
+                                onChange={(e) => setData('montant_defaut', e.target.value)}
+                                className="h-9 text-xs font-bold tabular-nums text-right"
+                                required
+                            />
+                            {errors.montant_defaut && (
+                                <p className="text-xs text-red-500">{errors.montant_defaut}</p>
+                            )}
+                        </div>
+
+                        <div className="space-y-1 min-w-0">
+                            <div className="flex items-center justify-between">
+                                <Label htmlFor="type_priorite" className="text-xs font-semibold">
+                                    Ordre de Priorité <span className="text-red-500">*</span>
+                                </Label>
+                                <Badge variant="outline" className="text-[10px] py-0 px-1.5">
+                                    1 = coupé en 1er
+                                </Badge>
+                            </div>
+                            <Input
+                                id="type_priorite"
+                                type="number"
+                                min={1}
+                                max={99}
+                                value={data.ordre_priorite}
+                                onChange={(e) => setData('ordre_priorite', e.target.value)}
+                                className="h-9 text-xs font-bold tabular-nums"
+                                required
+                            />
+                        </div>
                     </div>
 
-                    {/* Montant indicatif par défaut */}
+                    {/* 5. Date butoir / Date limite */}
                     <div className="space-y-1">
-                        <Label htmlFor="type_montant">Montant Indicatif / Défaut (FCFA)</Label>
+                        <Label htmlFor="type_date_limite" className="text-xs font-semibold flex items-center gap-1.5">
+                            <Calendar className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>Date Butoir / Échéance</span>
+                            <span className="text-slate-400 font-normal">(optionnel — vide = dès l'inscription)</span>
+                        </Label>
                         <Input
-                            id="type_montant"
-                            type="number"
-                            min="0"
-                            step="100"
-                            placeholder="Ex: 50000"
-                            value={data.montant_defaut}
-                            onChange={(e) => setData('montant_defaut', e.target.value)}
+                            id="type_date_limite"
+                            type="date"
+                            value={formatDateForInput(data.date_limite_defaut)}
+                            onChange={(e) => setData('date_limite_defaut', e.target.value)}
+                            className="h-9 text-xs"
                         />
-                        <p className="text-[11px] text-slate-500">Sera proposé automatiquement lors du paramétrage par niveau.</p>
-                        {errors.montant_defaut && <p className="text-xs text-red-500">{errors.montant_defaut}</p>}
+                        {errors.date_limite_defaut && (
+                            <p className="text-xs text-red-500">{errors.date_limite_defaut}</p>
+                        )}
                     </div>
 
-                    {/* Description optionnelle */}
+                    {/* 6. Informations complémentaires */}
                     <div className="space-y-1">
-                        <Label htmlFor="type_description">Description / Remarques (Optionnel)</Label>
+                        <Label htmlFor="type_description" className="text-xs font-semibold">
+                            Informations complémentaires{' '}
+                            <span className="text-slate-400 font-normal">(optionnel)</span>
+                        </Label>
                         <Textarea
                             id="type_description"
-                            placeholder="Précisions sur les modalités ou conditions..."
+                            placeholder="Précisions utiles (ex: payable à la rentrée, concerne le cycle primaire SIL à CM2...)"
                             value={data.description}
                             onChange={(e) => setData('description', e.target.value)}
                             rows={2}
+                            className="text-xs"
                         />
                     </div>
 
@@ -228,16 +491,21 @@ export default function TypeFraisModal({
                             variant="outline"
                             onClick={() => onOpenChange(false)}
                             disabled={processing}
+                            className="text-xs h-9"
                         >
                             Annuler
                         </Button>
                         <Button
                             type="submit"
-                            disabled={processing}
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center gap-1.5"
+                            disabled={processing || !data.libelle.trim() || data.montant_defaut === ''}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs h-9 flex items-center gap-1.5"
                         >
                             <CheckCircle2 className="w-4 h-4 shrink-0" />
-                            {processing ? 'Enregistrement...' : 'Enregistrer le Type de Frais'}
+                            {processing
+                                ? 'Enregistrement...'
+                                : isEditing
+                                  ? 'Enregistrer & Synchroniser'
+                                  : 'Enregistrer dans le Catalogue'}
                         </Button>
                     </DialogFooter>
                 </form>

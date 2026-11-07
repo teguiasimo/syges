@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -16,7 +17,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $compte_financier_id Compte financier élève
  * @property int $bourse_remise_id Modèle de bourse ou remise
  * @property float $montant_calcule Montant réel déduit en FCFA
- * @property \Carbon\Carbon $date_attribution Date d'octroi
+ * @property string|null $cible_imputation Surcharge éventuelle de la tranche cible pour cet élève
+ * @property int|null $frais_scolaire_id Ligne de tarif spécifique ciblée pour cet élève (optionnel)
+ * @property Carbon $date_attribution Date d'octroi
  * @property string|null $motif Justificatif ou observation
  * @property int|null $attribue_par Utilisateur ayant accordé la bourse/remise
  */
@@ -40,6 +43,8 @@ class EleveBourseRemise extends Model
         'compte_financier_id',
         'bourse_remise_id',
         'montant_calcule',
+        'cible_imputation',
+        'frais_scolaire_id',
         'date_attribution',
         'motif',
         'attribue_par',
@@ -52,6 +57,7 @@ class EleveBourseRemise extends Model
      */
     protected $casts = [
         'montant_calcule' => 'float',
+        'frais_scolaire_id' => 'integer',
         'date_attribution' => 'date',
     ];
 
@@ -73,6 +79,16 @@ class EleveBourseRemise extends Model
     public function bourseRemise(): BelongsTo
     {
         return $this->belongsTo(BourseRemise::class, 'bourse_remise_id');
+    }
+
+    /**
+     * Ligne de tarif spécifique sur laquelle la remise est éventuellement ciblée.
+     *
+     * @return BelongsTo<FraisScolaire, EleveBourseRemise>
+     */
+    public function fraisScolaire(): BelongsTo
+    {
+        return $this->belongsTo(FraisScolaire::class, 'frais_scolaire_id');
     }
 
     /**

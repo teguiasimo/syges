@@ -12,6 +12,7 @@ use App\Models\Etablissement;
 use App\Models\ReglementDivers;
 use App\Models\VersementCaisse;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
@@ -46,14 +47,14 @@ class DepenseController extends Controller implements HasMiddleware
             new Middleware('can:depenses.edit|finances.manage', only: ['update']),
             new Middleware('can:depenses.delete|finances.manage', only: ['destroy']),
             new Middleware('can:categories_depenses.manage|finances.manage', only: ['storeCategorie']),
-            new Middleware('can:depenses.bilan|depenses.view|finances.view', only: ['imprimerBilan']),
+            new Middleware('can:depenses.bilan|finances.etats|depenses.view|finances.view', only: ['imprimerBilan']),
         ];
     }
 
     /**
      * Affiche l'écran de gestion des dépenses et du bilan entrées/sorties.
      *
-     * @param Request $request Requête HTTP avec filtres optionnels.
+     * @param  Request  $request  Requête HTTP avec filtres optionnels.
      * @return Response Rendu Inertia avec statistiques et liste des dépenses.
      */
     public function index(Request $request): Response
@@ -81,8 +82,8 @@ class DepenseController extends Controller implements HasMiddleware
             'categorieDepense',
             'auteur',
         ])
-        ->where('etablissement_id', $selectedEtabId)
-        ->where('annee_scolaire_id', $selectedAnneeId);
+            ->where('etablissement_id', $selectedEtabId)
+            ->where('annee_scolaire_id', $selectedAnneeId);
 
         if ($caisseId) {
             $depensesQuery->where('caisse_id', $caisseId);
@@ -99,8 +100,8 @@ class DepenseController extends Controller implements HasMiddleware
         if ($search) {
             $depensesQuery->where(function ($q) use ($search) {
                 $q->where('numero_piece', 'like', "%{$search}%")
-                  ->orWhere('beneficiaire', 'like', "%{$search}%")
-                  ->orWhere('motif', 'like', "%{$search}%");
+                    ->orWhere('beneficiaire', 'like', "%{$search}%")
+                    ->orWhere('motif', 'like', "%{$search}%");
             });
         }
 
@@ -156,6 +157,7 @@ class DepenseController extends Controller implements HasMiddleware
             'etablissements' => $etablissements,
             'selectedEtabId' => $selectedEtabId,
             'selectedAnneeId' => $selectedAnneeId,
+            'isSuperAdmin' => $isSuperAdmin,
             'anneesScolaires' => AnneeScolaire::orderByDesc('is_current')->orderByDesc('date_debut')->get(),
             'filters' => [
                 'etablissement_id' => (string) $selectedEtabId,
@@ -170,7 +172,7 @@ class DepenseController extends Controller implements HasMiddleware
                 'create' => $isSuperAdmin || $user?->can('depenses.create') || $user?->can('finances.manage'),
                 'edit' => $isSuperAdmin || $user?->can('depenses.edit') || $user?->can('finances.manage'),
                 'delete' => $isSuperAdmin || $user?->can('depenses.delete'),
-                'bilan' => $isSuperAdmin || $user?->can('depenses.bilan') || $user?->can('finances.view'),
+                'bilan' => $isSuperAdmin || $user?->can('depenses.bilan') || $user?->can('finances.etats') || $user?->can('finances.view'),
                 'categories' => $isSuperAdmin || $user?->can('categories_depenses.manage') || $user?->can('finances.manage'),
             ],
         ]);
@@ -178,9 +180,6 @@ class DepenseController extends Controller implements HasMiddleware
 
     /**
      * Enregistre une nouvelle dépense de caisse.
-     *
-     * @param Request $request
-     * @return RedirectResponse
      */
     public function store(Request $request): RedirectResponse
     {
@@ -210,10 +209,6 @@ class DepenseController extends Controller implements HasMiddleware
 
     /**
      * Met à jour une dépense existante.
-     *
-     * @param Request $request
-     * @param Depense $depense
-     * @return RedirectResponse
      */
     public function update(Request $request, Depense $depense): RedirectResponse
     {
@@ -236,9 +231,6 @@ class DepenseController extends Controller implements HasMiddleware
 
     /**
      * Supprime une dépense.
-     *
-     * @param Depense $depense
-     * @return RedirectResponse
      */
     public function destroy(Depense $depense): RedirectResponse
     {
@@ -249,9 +241,6 @@ class DepenseController extends Controller implements HasMiddleware
 
     /**
      * Crée une nouvelle catégorie de dépense.
-     *
-     * @param Request $request
-     * @return RedirectResponse
      */
     public function storeCategorie(Request $request): RedirectResponse
     {
@@ -270,9 +259,6 @@ class DepenseController extends Controller implements HasMiddleware
 
     /**
      * Génère la Fiche de Décharge / Bon de Décaissement de Caisse en PDF.
-     *
-     * @param Depense $depense
-     * @return HttpResponse
      */
     public function imprimerDecharge(Depense $depense): HttpResponse
     {
@@ -303,24 +289,40 @@ class DepenseController extends Controller implements HasMiddleware
     }
 
     /**
-     * Génère le Bilan Synthétique Entrées / Sorties au format PDF.
+     * Génère le Bilan Synthétique Entrées / Sorties au format PDF, filtrable par période (date_debut / date_fin).
      *
-     * @param Request $request Requête HTTP contenant l'ID établissement et l'ID année scolaire.
+     * @param  Request  $request  Requête HTTP contenant l'établissement, l'année scolaire et la période optionnelle.
      * @return HttpResponse Fichier PDF du bilan financier.
      */
     public function imprimerBilan(Request $request): HttpResponse
     {
-        $etablissementId = (int) $request->input('etablissement_id');
-        $anneeId = (int) $request->input('annee_scolaire_id');
+        $request->validate([
+            'etablissement_id' => 'nullable|integer|exists:etablissements,id',
+            'annee_scolaire_id' => 'nullable|integer|exists:annees_scolaires,id',
+            'date_debut' => 'nullable|date',
+            'date_fin' => 'nullable|date',
+        ]);
 
         // Cloisonnement SaaS Multi-Tenant
         $context = $this->resolveEtablissementContext($request);
-        if (! $context['isSuperAdmin'] && $etablissementId !== (int) $context['etablissementId']) {
+        $requestedEtabId = $request->filled('etablissement_id') ? (int) $request->input('etablissement_id') : null;
+        if ($requestedEtabId !== null && ! $context['isSuperAdmin'] && $requestedEtabId !== (int) $context['etablissementId']) {
             abort(403, 'Accès non autorisé au bilan de cet établissement.');
         }
 
+        $etablissementId = (int) ($requestedEtabId ?? $context['etablissementId'] ?? 0);
         $etablissement = Etablissement::with('institution')->findOrFail($etablissementId);
-        $annee = AnneeScolaire::findOrFail($anneeId);
+
+        $annee = $request->filled('annee_scolaire_id')
+            ? AnneeScolaire::findOrFail((int) $request->input('annee_scolaire_id'))
+            : (AnneeScolaire::where('is_current', true)->first() ?? AnneeScolaire::latest()->firstOrFail());
+        $anneeId = (int) $annee->id;
+
+        $debut = $request->filled('date_debut') ? Carbon::parse((string) $request->input('date_debut'))->startOfDay() : null;
+        $fin = $request->filled('date_fin') ? Carbon::parse((string) $request->input('date_fin'))->endOfDay() : null;
+        if ($debut && $fin && $debut->gt($fin)) {
+            [$debut, $fin] = [$fin->copy()->startOfDay(), $debut->copy()->endOfDay()];
+        }
 
         // Recettes scolaires (VersementCaisse montant_total)
         $versementsQuery = VersementCaisse::where('etablissement_id', $etablissementId)
@@ -331,21 +333,39 @@ class DepenseController extends Controller implements HasMiddleware
                 $q->where('annee_scolaire_id', $anneeId);
             });
         }
+        if ($debut) {
+            $versementsQuery->where('date_versement', '>=', $debut);
+        }
+        if ($fin) {
+            $versementsQuery->where('date_versement', '<=', $fin);
+        }
 
         $versements = (float) $versementsQuery->sum('montant_total');
 
         // Recettes diverses hors scolarité (ReglementDivers montant)
-        $divers = (float) ReglementDivers::where('etablissement_id', $etablissementId)
-            ->where('statut', 'valide')
-            ->sum('montant');
+        $diversQuery = ReglementDivers::where('etablissement_id', $etablissementId)
+            ->where('statut', 'valide');
+        if ($debut) {
+            $diversQuery->where('date_reglement', '>=', $debut);
+        }
+        if ($fin) {
+            $diversQuery->where('date_reglement', '<=', $fin);
+        }
+        $divers = (float) $diversQuery->sum('montant');
 
         $totalRecettes = $versements + $divers;
 
         // Dépenses groupées par catégorie
-        $categoriesDepenses = CategorieDepense::with(['depenses' => function ($q) use ($etablissementId, $anneeId) {
+        $categoriesDepenses = CategorieDepense::with(['depenses' => function ($q) use ($etablissementId, $anneeId, $debut, $fin) {
             $q->where('etablissement_id', $etablissementId)
-              ->where('annee_scolaire_id', $anneeId)
-              ->where('statut', 'validee');
+                ->where('annee_scolaire_id', $anneeId)
+                ->where('statut', 'validee');
+            if ($debut) {
+                $q->whereDate('date_depense', '>=', $debut->toDateString());
+            }
+            if ($fin) {
+                $q->whereDate('date_depense', '<=', $fin->toDateString());
+            }
         }])->get();
 
         $totalDepenses = 0;
@@ -369,13 +389,15 @@ class DepenseController extends Controller implements HasMiddleware
             'etablissement' => $etablissement,
             'institution' => $etablissement->institution,
             'annee' => $annee,
+            'date_debut' => $debut?->format('d-m-Y'),
+            'date_fin' => $fin?->format('d-m-Y'),
             'versements' => $versements,
             'divers' => $divers,
             'totalRecettes' => $totalRecettes,
             'lignesCategories' => $lignesCategories,
             'totalDepenses' => $totalDepenses,
             'soldeNet' => $soldeNet,
-            'date_generation' => now()->format('d/m/Y'),
+            'date_generation' => now()->format('d-m-Y'),
         ])->setPaper('a4', 'portrait');
 
         $filename = "BILAN_FINANCIER_{$annee->code}.pdf";

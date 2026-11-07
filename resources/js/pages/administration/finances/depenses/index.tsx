@@ -56,6 +56,7 @@ import type {
     StatutDepense,
 } from '@/types/depense';
 import type { EtablissementRef, AnneeScolaireRef } from '@/types/eleve';
+import GenerateurEtatsFinanciersModal from '../modals/generateur-etats-modal';
 
 /**
  * Propriétés passées par le contrôleur DepenseController.
@@ -68,6 +69,7 @@ interface DepensesPageProps {
     etablissements: EtablissementRef[];
     selectedEtabId: number;
     selectedAnneeId: number;
+    isSuperAdmin?: boolean;
     anneesScolaires: AnneeScolaireRef[];
     filters: {
         etablissement_id?: string;
@@ -76,6 +78,14 @@ interface DepensesPageProps {
         categorie_depense_id?: string;
         statut?: string;
         search?: string;
+    };
+    can?: {
+        view?: boolean;
+        create?: boolean;
+        edit?: boolean;
+        delete?: boolean;
+        bilan?: boolean;
+        categories?: boolean;
     };
 }
 
@@ -95,11 +105,13 @@ export default function DepensesIndex({
     etablissements = [],
     selectedEtabId,
     selectedAnneeId,
+    isSuperAdmin = false,
     anneesScolaires = [],
     filters = {},
+    can,
 }: DepensesPageProps) {
-    const [selectedEtab, setSelectedEtab] = useState<number>(selectedEtabId);
-    const [selectedAnnee, setSelectedAnnee] = useState<number>(selectedAnneeId);
+    const [selectedEtab] = useState<number>(selectedEtabId);
+    const [selectedAnnee] = useState<number>(selectedAnneeId);
     const [selectedCaisse, setSelectedCaisse] = useState<string>(filters.caisse_id || '');
     const [selectedCategorie, setSelectedCategorie] = useState<string>(filters.categorie_depense_id || '');
     const [selectedStatut, setSelectedStatut] = useState<string>(filters.statut || '');
@@ -109,7 +121,24 @@ export default function DepensesIndex({
     const [isCreateOpen, setIsCreateOpen] = useState<boolean>(false);
     const [isEditOpen, setIsEditOpen] = useState<boolean>(false);
     const [isCategoryModalOpen, setIsCategoryModalOpen] = useState<boolean>(false);
+    const [isBilanModalOpen, setIsBilanModalOpen] = useState<boolean>(false);
     const [editingDepense, setEditingDepense] = useState<DepenseItem | null>(null);
+
+    // Droits d'accès résolus côté serveur
+    const canCreate = can?.create ?? true;
+    const canEdit = can?.edit ?? true;
+    const canDelete = can?.delete ?? true;
+    const canBilan = can?.bilan ?? true;
+    const canCategories = can?.categories ?? true;
+
+    const currentAnneeObj = useMemo(
+        () => anneesScolaires.find((a) => a.id === selectedAnnee) ?? anneesScolaires[0] ?? null,
+        [anneesScolaires, selectedAnnee]
+    );
+    const currentEtabObj = useMemo(
+        () => etablissements.find((e) => e.id === selectedEtab) ?? etablissements[0] ?? null,
+        [etablissements, selectedEtab]
+    );
 
     // Formulaire de dépense
     const [formData, setFormData] = useState({
@@ -405,44 +434,48 @@ export default function DepensesIndex({
                             Décharge (PDF)
                         </Button>
 
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="size-7 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                            onClick={() => {
-                                setEditingDepense(row.original);
-                                setFormData({
-                                    caisse_id: String(row.original.caisse_id),
-                                    categorie_depense_id: String(row.original.categorie_depense_id),
-                                    beneficiaire: row.original.beneficiaire,
-                                    montant: String(row.original.montant),
-                                    date_depense: formatDateForInput(row.original.date_depense),
-                                    motif: row.original.motif,
-                                    mode_reglement: row.original.mode_reglement,
-                                    reference_paiement: row.original.reference_paiement || '',
-                                    statut: row.original.statut,
-                                });
-                                setIsEditOpen(true);
-                            }}
-                            title="Modifier"
-                        >
-                            <Edit2 className="size-3.5" />
-                        </Button>
+                        {canEdit && (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="size-7 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                onClick={() => {
+                                    setEditingDepense(row.original);
+                                    setFormData({
+                                        caisse_id: String(row.original.caisse_id),
+                                        categorie_depense_id: String(row.original.categorie_depense_id),
+                                        beneficiaire: row.original.beneficiaire,
+                                        montant: String(row.original.montant),
+                                        date_depense: formatDateForInput(row.original.date_depense),
+                                        motif: row.original.motif,
+                                        mode_reglement: row.original.mode_reglement,
+                                        reference_paiement: row.original.reference_paiement || '',
+                                        statut: row.original.statut,
+                                    });
+                                    setIsEditOpen(true);
+                                }}
+                                title="Modifier"
+                            >
+                                <Edit2 className="size-3.5" />
+                            </Button>
+                        )}
 
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="size-7 text-rose-600 hover:text-rose-700 hover:bg-rose-50"
-                            onClick={() => handleDeleteDepense(row.original)}
-                            title="Supprimer"
-                        >
-                            <Trash2 className="size-3.5" />
-                        </Button>
+                        {canDelete && (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="size-7 text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+                                onClick={() => handleDeleteDepense(row.original)}
+                                title="Supprimer"
+                            >
+                                <Trash2 className="size-3.5" />
+                            </Button>
+                        )}
                     </div>
                 ),
             },
         ],
-        []
+        [canDelete, canEdit]
     );
 
     const table = useReactTable({
@@ -460,12 +493,10 @@ export default function DepensesIndex({
     });
 
     /**
-     * Ouvre le Bilan Financier Synthétique Entrées/Sorties en PDF.
+     * Ouvre le générateur du Bilan Financier Synthétique Entrées/Sorties filtrable par période (date_debut / date_fin).
      */
     const handlePrintBilan = () => {
-        const url = `/administration/finances/bilan-pdf?etablissement_id=${selectedEtab}&annee_scolaire_id=${selectedAnnee}`;
-        window.open(url, '_blank');
-        toast.success('Bilan financier généré en PDF.', { position: 'top-right' });
+        setIsBilanModalOpen(true);
     };
 
     return (
@@ -502,50 +533,56 @@ export default function DepensesIndex({
 
                     {/* Actions d'ajout & Bilan */}
                     <div className="flex flex-col sm:flex-row sm:items-center gap-2 flex-wrap w-full sm:w-auto">
-                        <Button
-                            variant="outline"
-                            onClick={handlePrintBilan}
-                            className="gap-2 h-9 text-xs font-semibold w-full sm:w-auto justify-center border-teal-300 text-teal-700 hover:bg-teal-50 dark:border-teal-800 dark:text-teal-300"
-                        >
-                            <FileSpreadsheet className="size-3.5 shrink-0" />
-                            Bilan Entrées/Sorties (PDF)
-                        </Button>
-                        <Button
-                            variant="outline"
-                            onClick={() => {
-                                setCatFormData({
-                                    code: `CHG-${categories.length + 1}`,
-                                    nom: '',
-                                    description: '',
-                                    couleur: '#0284c7',
-                                });
-                                setIsCategoryModalOpen(true);
-                            }}
-                            className="gap-2 h-9 text-xs font-semibold w-full sm:w-auto justify-center border-border text-foreground hover:bg-muted"
-                        >
-                            <Tag className="size-3.5 shrink-0" />
-                            Nouvelle Catégorie
-                        </Button>
-                        <Button
-                            onClick={() => {
-                                setFormData({
-                                    caisse_id: caisses[0]?.id ? String(caisses[0].id) : '',
-                                    categorie_depense_id: categories[0]?.id ? String(categories[0].id) : '',
-                                    beneficiaire: '',
-                                    montant: '',
-                                    date_depense: formatDateForInput(new Date()),
-                                    motif: '',
-                                    mode_reglement: 'especes',
-                                    reference_paiement: '',
-                                    statut: 'validee',
-                                });
-                                setIsCreateOpen(true);
-                            }}
-                            className="gap-2 h-9 text-xs font-semibold w-full sm:w-auto justify-center bg-rose-600 hover:bg-rose-700 text-white shadow-sm"
-                        >
-                            <Plus className="size-4 shrink-0" />
-                            Enregistrer une Dépense
-                        </Button>
+                        {canBilan && (
+                            <Button
+                                variant="outline"
+                                onClick={handlePrintBilan}
+                                className="gap-2 h-9 text-xs font-semibold w-full sm:w-auto justify-center border-teal-300 text-teal-700 hover:bg-teal-50 dark:border-teal-800 dark:text-teal-300"
+                            >
+                                <FileSpreadsheet className="size-3.5 shrink-0" />
+                                Bilan Entrées/Sorties Filtré (PDF)
+                            </Button>
+                        )}
+                        {canCategories && (
+                            <Button
+                                variant="outline"
+                                onClick={() => {
+                                    setCatFormData({
+                                        code: `CHG-${categories.length + 1}`,
+                                        nom: '',
+                                        description: '',
+                                        couleur: '#0284c7',
+                                    });
+                                    setIsCategoryModalOpen(true);
+                                }}
+                                className="gap-2 h-9 text-xs font-semibold w-full sm:w-auto justify-center border-border text-foreground hover:bg-muted"
+                            >
+                                <Tag className="size-3.5 shrink-0" />
+                                Nouvelle Catégorie
+                            </Button>
+                        )}
+                        {canCreate && (
+                            <Button
+                                onClick={() => {
+                                    setFormData({
+                                        caisse_id: caisses[0]?.id ? String(caisses[0].id) : '',
+                                        categorie_depense_id: categories[0]?.id ? String(categories[0].id) : '',
+                                        beneficiaire: '',
+                                        montant: '',
+                                        date_depense: formatDateForInput(new Date()),
+                                        motif: '',
+                                        mode_reglement: 'especes',
+                                        reference_paiement: '',
+                                        statut: 'validee',
+                                    });
+                                    setIsCreateOpen(true);
+                                }}
+                                className="gap-2 h-9 text-xs font-semibold w-full sm:w-auto justify-center bg-rose-600 hover:bg-rose-700 text-white shadow-sm"
+                            >
+                                <Plus className="size-4 shrink-0" />
+                                Enregistrer une Dépense
+                            </Button>
+                        )}
                     </div>
                 </div>
 
@@ -993,6 +1030,22 @@ export default function DepensesIndex({
                     </form>
                 </DialogContent>
             </Dialog>
+
+            {/* MODAL 3 : GÉNÉRATEUR DU BILAN ENTRÉES / SORTIES FILTRABLE PAR DATES & ÉTABLISSEMENT */}
+            {canBilan && (
+                <GenerateurEtatsFinanciersModal
+                    open={isBilanModalOpen}
+                    onOpenChange={setIsBilanModalOpen}
+                    etablissements={etablissements}
+                    currentEtablissementId={selectedEtab}
+                    currentEtablissementNom={currentEtabObj?.nom ?? null}
+                    isSuperAdmin={isSuperAdmin}
+                    currentAnnee={currentAnneeObj}
+                    initialType="bilan_entrees_sorties"
+                    initialPreset="mois"
+                    allowBilanEntreesSorties={true}
+                />
+            )}
         </>
     );
 }

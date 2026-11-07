@@ -1,26 +1,35 @@
 <?php
 
-/** @var \Tests\TestCase $this */
+/** @var TestCase $this */
 
 use App\Models\AnneeScolaire;
+use App\Models\Attribution;
+use App\Models\Caisse;
 use App\Models\Classe;
+use App\Models\CompteFinancierEleve;
+use App\Models\Cycle;
+use App\Models\DeliberationConseil;
 use App\Models\Eleve;
 use App\Models\Etablissement;
+use App\Models\Evaluation;
 use App\Models\Inscription;
 use App\Models\Institution;
+use App\Models\Matiere;
 use App\Models\Niveau;
+use App\Models\Note;
+use App\Models\Periode;
+use App\Models\Personnel;
+use App\Models\Section;
 use App\Models\User;
+use App\Models\VersementCaisse;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
+use Tests\TestCase;
+
 use function Pest\Laravel\actingAs;
 use function Pest\Laravel\delete;
 use function Pest\Laravel\get;
-use function Pest\Laravel\getJson;
-use function Pest\Laravel\patch;
-use function Pest\Laravel\post;
-use function Pest\Laravel\put;
 
 /**
  * Tests de fonctionnalités pour le Module 5 : Gestion des Élèves & Inscriptions (Gesco & SAGEES).
@@ -37,9 +46,8 @@ use function Pest\Laravel\put;
  * - L'importation de fichier CSV selon le standard camerounais / SAGEES Schooling.
  * - La suppression d'un élève.
  */
-
 beforeEach(function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     Role::firstOrCreate(['name' => 'super-admin', 'guard_name' => 'web']);
 
     $permissions = [
@@ -81,11 +89,11 @@ beforeEach(function () {
             ['code' => 'ETAB-ELEVE'],
             ['institution_id' => $inst->id, 'nom' => 'Collège Test']
         );
-        $sec = \App\Models\Section::firstOrCreate(
+        $sec = Section::firstOrCreate(
             ['etablissement_id' => $etab->id, 'code' => 'FR-ELEVE'],
             ['nom' => 'Section FR']
         );
-        $cyc = \App\Models\Cycle::firstOrCreate(
+        $cyc = Cycle::firstOrCreate(
             ['section_id' => $sec->id, 'code' => 'CYC-ELEVE'],
             ['nom' => '1er Cycle', 'ordre' => 1]
         );
@@ -106,7 +114,7 @@ test('un invité ne peut pas accéder au module élèves', function () {
 });
 
 test('un administrateur autorisé peut afficher la liste des élèves', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     actingAs($this->adminUser)
         ->get(route('administration.eleves.index'))
         ->assertOk()
@@ -120,7 +128,7 @@ test('un administrateur autorisé peut afficher la liste des élèves', function
 });
 
 test('on peut enregistrer un nouvel élève avec auto-génération de matricule et inscription dans une classe', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $data = [
         'matricule' => '', // Laisser vide pour tester l'auto-génération
         'matricule_national' => 'MIN-2026-44112',
@@ -164,7 +172,7 @@ test('on peut enregistrer un nouvel élève avec auto-génération de matricule 
 });
 
 test('la validation échoue si le nom ou le téléphone du parent est absent', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     actingAs($this->adminUser)
         ->post(route('administration.eleves.store'), [
             'nom' => '',
@@ -176,7 +184,7 @@ test('la validation échoue si le nom ou le téléphone du parent est absent', f
 });
 
 test('on peut modifier les informations civiles et de contact d un élève', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $eleve = Eleve::create([
         'matricule' => 'GS26-9999',
         'nom' => 'ONANA',
@@ -206,7 +214,7 @@ test('on peut modifier les informations civiles et de contact d un élève', fun
 });
 
 test('on peut modifier le statut d une inscription en suspendue ou exclu', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $eleve = Eleve::create([
         'matricule' => 'GS26-7777',
         'nom' => 'TCHIO',
@@ -234,7 +242,7 @@ test('on peut modifier le statut d une inscription en suspendue ou exclu', funct
 });
 
 test('on peut réinscrire un ancien élève dans une nouvelle classe', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $eleve = Eleve::create([
         'matricule' => 'GS25-1234',
         'nom' => 'BEA',
@@ -263,7 +271,7 @@ test('on peut réinscrire un ancien élève dans une nouvelle classe', function 
 });
 
 test('on peut réinscrire un ancien élève avec report manuel des arriérés antérieurs', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $eleve = Eleve::create([
         'matricule' => 'GS25-5678',
         'nom' => 'KAMGA',
@@ -295,9 +303,9 @@ test('on peut réinscrire un ancien élève avec report manuel des arriérés an
 });
 
 test('searchAnciens renvoie la dernière classe fréquentée et la décision du conseil', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     // Année précédente
-    $anneePrecedente = \App\Models\AnneeScolaire::create([
+    $anneePrecedente = AnneeScolaire::create([
         'code' => '2024-2025',
         'nom' => 'Année Scolaire 2024/2025',
         'date_debut' => '2024-09-01',
@@ -326,7 +334,7 @@ test('searchAnciens renvoie la dernière classe fréquentée et la décision du 
     ]);
 
     // Délibération de fin d'année passée
-    \App\Models\DeliberationConseil::create([
+    DeliberationConseil::create([
         'etablissement_id' => $this->classe->niveau->cycle->section->etablissement_id,
         'inscription_id' => $inscriptionPassée->id,
         'classe_id' => $this->classe->id,
@@ -361,7 +369,7 @@ test('searchAnciens renvoie la dernière classe fréquentée et la décision du 
 });
 
 test('on peut transférer des élèves d une classe vers une autre classe', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $classeCible = Classe::create([
         'niveau_id' => $this->classe->niveau_id,
         'code' => '6M2-TEST',
@@ -399,10 +407,10 @@ test('on peut transférer des élèves d une classe vers une autre classe', func
 });
 
 test('on peut importer une liste d élèves à partir d un fichier CSV', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $csvContent = "Matricule\tMatrNat\tNom\tPrenom\tSexe\tDateNaiss\tLieu\tRedoub\tTel\tAdresse\tTuteur\tNat\n"
-        . "IMP-001\t\tEBODE\tChrist\tM\t12/11/2010\tYaounde\tN\t+237 699112233\tBastos\tEBODE Père\tCAMEROUNAISE\n"
-        . "\t\tNGOULA\tDiane\tF\t05/04/2011\tDouala\tN\t+237 677223344\tBonanjo\tNGOULA Tuteur\tCAMEROUNAISE\n";
+        ."IMP-001\t\tEBODE\tChrist\tM\t12/11/2010\tYaounde\tN\t+237 699112233\tBastos\tEBODE Père\tCAMEROUNAISE\n"
+        ."\t\tNGOULA\tDiane\tF\t05/04/2011\tDouala\tN\t+237 677223344\tBonanjo\tNGOULA Tuteur\tCAMEROUNAISE\n";
 
     $file = UploadedFile::fake()->createWithContent('eleves.csv', $csvContent);
 
@@ -425,7 +433,7 @@ test('on peut importer une liste d élèves à partir d un fichier CSV', functio
 });
 
 test('on peut supprimer un élève et son inscription', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $eleve = Eleve::create([
         'matricule' => 'GS26-0099',
         'nom' => 'SUPPRIME',
@@ -450,7 +458,7 @@ test('on peut supprimer un élève et son inscription', function () {
 });
 
 test('on peut rechercher les anciens élèves non inscrits sur une année donnée pour réinscription', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     // Élève ancien sans inscription sur l'année active
     $ancienEleve = Eleve::create([
         'matricule' => 'GS24-8888',
@@ -501,7 +509,7 @@ test('on peut rechercher les anciens élèves non inscrits sur une année donné
  * qu'un transfert inter-établissements réassigne hermétiquement l'inscription.
  */
 test('eleves and inscriptions are strictly isolated per etablissement', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     // Création de deux établissements distincts
     $inst = Institution::firstOrCreate(
         ['code' => 'INST-MULTI'],
@@ -522,13 +530,13 @@ test('eleves and inscriptions are strictly isolated per etablissement', function
         'ordre_enseignement' => 'Secondaire_General',
     ]);
 
-    $secA = \App\Models\Section::create(['etablissement_id' => $etabA->id, 'code' => 'SEC-PA', 'nom' => 'Section Prim', 'langue' => 'fr']);
-    $cycA = \App\Models\Cycle::create(['section_id' => $secA->id, 'code' => 'CYC-PA', 'nom' => 'Cycle Prim', 'ordre' => 1]);
+    $secA = Section::create(['etablissement_id' => $etabA->id, 'code' => 'SEC-PA', 'nom' => 'Section Prim', 'langue' => 'fr']);
+    $cycA = Cycle::create(['section_id' => $secA->id, 'code' => 'CYC-PA', 'nom' => 'Cycle Prim', 'ordre' => 1]);
     $nivA = Niveau::create(['cycle_id' => $cycA->id, 'code' => 'NIV-SIL', 'nom' => 'SIL', 'ordre' => 1]);
     $classeA = Classe::create(['niveau_id' => $nivA->id, 'etablissement_id' => $etabA->id, 'code' => 'SIL-A', 'nom' => 'Classe SIL A', 'capacite_max' => 30]);
 
-    $secB = \App\Models\Section::create(['etablissement_id' => $etabB->id, 'code' => 'SEC-SB', 'nom' => 'Section Sec', 'langue' => 'fr']);
-    $cycB = \App\Models\Cycle::create(['section_id' => $secB->id, 'code' => 'CYC-SB', 'nom' => 'Cycle Sec', 'ordre' => 1]);
+    $secB = Section::create(['etablissement_id' => $etabB->id, 'code' => 'SEC-SB', 'nom' => 'Section Sec', 'langue' => 'fr']);
+    $cycB = Cycle::create(['section_id' => $secB->id, 'code' => 'CYC-SB', 'nom' => 'Cycle Sec', 'ordre' => 1]);
     $nivB = Niveau::create(['cycle_id' => $cycB->id, 'code' => 'NIV-6B', 'nom' => 'Sixième', 'ordre' => 1]);
     $classeB = Classe::create(['niveau_id' => $nivB->id, 'etablissement_id' => $etabB->id, 'code' => '6B-B', 'nom' => 'Classe 6ème B', 'capacite_max' => 40]);
 
@@ -593,4 +601,155 @@ test('eleves and inscriptions are strictly isolated per etablissement', function
     );
 });
 
+/**
+ * Vérifie l'intégrité référentielle stricte : un élève ayant déjà effectué un versement financier
+ * ou possédant déjà une note / évaluation pédagogique ne peut jamais être supprimé,
+ * de même qu'une séquence d'évaluation ayant déjà des notes saisies.
+ */
+test('interdit la suppression d un élève ayant un versement ou une note ainsi que d une évaluation notée', function () {
+    /** @var TestCase $this */
+    Permission::firstOrCreate(['name' => 'periodes.manage', 'guard_name' => 'web']);
+    $etabId = Etablissement::firstOrFail()->id;
 
+    // 1. Élève ayant effectué un versement en caisse -> suppression bloquée
+    $eleveAvecVersement = Eleve::create([
+        'etablissement_id' => $etabId,
+        'matricule' => 'GS26-LOCK-FIN',
+        'nom' => 'ATANGANA',
+        'prenom' => 'Samuel',
+        'sexe' => 'M',
+        'telephone_parent' => '+237 690 11 22 33',
+    ]);
+    $inscFin = Inscription::create([
+        'eleve_id' => $eleveAvecVersement->id,
+        'classe_id' => $this->classe->id,
+        'etablissement_id' => $etabId,
+        'annee_scolaire_id' => $this->annee->id,
+        'statut' => 'validee',
+        'date_inscription' => '2026-09-01',
+    ]);
+    $caisse = Caisse::create([
+        'etablissement_id' => $etabId,
+        'code' => 'CAISSE-LOCK',
+        'nom' => 'Caisse Principale Test',
+        'is_principale' => true,
+        'is_active' => true,
+    ]);
+    $compte = CompteFinancierEleve::create([
+        'inscription_id' => $inscFin->id,
+        'eleve_id' => $eleveAvecVersement->id,
+        'etablissement_id' => $etabId,
+        'annee_scolaire_id' => $this->annee->id,
+        'debit_initial' => 50000,
+        'montant_net_exigible' => 50000,
+        'total_paye' => 15000,
+        'solde_restant' => 35000,
+        'statut_financier' => 'insolvable',
+    ]);
+    VersementCaisse::create([
+        'reference_recu' => 'REC-LOCK-0001',
+        'etablissement_id' => $etabId,
+        'caisse_id' => $caisse->id,
+        'compte_financier_id' => $compte->id,
+        'inscription_id' => $inscFin->id,
+        'caissier_user_id' => $this->adminUser->id,
+        'montant_total' => 15000,
+        'mode_paiement' => 'especes',
+        'date_versement' => now(),
+        'statut' => 'valide',
+    ]);
+
+    actingAs($this->adminUser)
+        ->delete(route('administration.eleves.destroy', $eleveAvecVersement))
+        ->assertRedirect()
+        ->assertSessionHasErrors('error');
+
+    expect(Eleve::find($eleveAvecVersement->id))->not->toBeNull();
+
+    // 2. Élève ayant une note pédagogique -> suppression de l'élève ET de l'évaluation bloquées
+    $eleveAvecNote = Eleve::create([
+        'etablissement_id' => $etabId,
+        'matricule' => 'GS26-LOCK-NOTE',
+        'nom' => 'FOUDA',
+        'prenom' => 'Mireille',
+        'sexe' => 'F',
+        'telephone_parent' => '+237 690 44 55 66',
+    ]);
+    $inscNote = Inscription::create([
+        'eleve_id' => $eleveAvecNote->id,
+        'classe_id' => $this->classe->id,
+        'etablissement_id' => $etabId,
+        'annee_scolaire_id' => $this->annee->id,
+        'statut' => 'validee',
+        'date_inscription' => '2026-09-01',
+    ]);
+
+    $periode = Periode::create([
+        'etablissement_id' => $etabId,
+        'annee_scolaire_id' => $this->annee->id,
+        'code' => 'TRIM-LOCK-1',
+        'nom' => 'Trimestre 1',
+        'ordre' => 1,
+        'statut' => 'en_cours',
+    ]);
+    $evaluation = Evaluation::create([
+        'periode_id' => $periode->id,
+        'code' => 'SEQ-LOCK-1',
+        'nom' => 'Séquence 1',
+        'ordre' => 1,
+        'ponderation' => 50,
+        'statut' => 'ouverte',
+    ]);
+    $matiere = Matiere::create([
+        'etablissement_id' => $etabId,
+        'code' => 'MATH-LOCK',
+        'nom' => 'Mathématiques',
+        'is_active' => true,
+    ]);
+    $enseignant = Personnel::create([
+        'etablissement_id' => $etabId,
+        'matricule' => 'PERS-LOCK-01',
+        'nom' => 'NDI',
+        'prenom' => 'Paul',
+        'sexe' => 'M',
+        'telephone' => '+237 677 88 99 00',
+        'fonction_principale' => 'Enseignant',
+        'type_contrat' => 'CDI',
+        'date_embauche' => '2025-09-01',
+        'statut' => 'actif',
+        'is_enseignant' => true,
+        'volume_horaire_hebdo' => 18,
+    ]);
+    $attribution = Attribution::create([
+        'annee_scolaire_id' => $this->annee->id,
+        'personnel_id' => $enseignant->id,
+        'classe_id' => $this->classe->id,
+        'matiere_id' => $matiere->id,
+        'volume_horaire_reel' => 4,
+        'is_titulaire' => false,
+        'is_active' => true,
+    ]);
+    Note::create([
+        'inscription_id' => $inscNote->id,
+        'attribution_id' => $attribution->id,
+        'evaluation_id' => $evaluation->id,
+        'valeur_note' => 16.5,
+        'statut_presence' => 'present',
+    ]);
+
+    // Suppression de l'élève ayant une note -> refusée
+    actingAs($this->adminUser)
+        ->delete(route('administration.eleves.destroy', $eleveAvecNote))
+        ->assertRedirect()
+        ->assertSessionHasErrors('error');
+
+    expect(Eleve::find($eleveAvecNote->id))->not->toBeNull();
+
+    // Suppression de la séquence d'évaluation ayant une note -> refusée
+    actingAs($this->adminUser)
+        ->delete(route('administration.periodes.evaluations.destroy', $evaluation))
+        ->assertRedirect()
+        ->assertSessionHasErrors('error');
+
+    expect(Evaluation::find($evaluation->id))->not->toBeNull();
+});

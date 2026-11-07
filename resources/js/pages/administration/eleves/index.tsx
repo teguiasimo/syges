@@ -186,20 +186,31 @@ export default function ElevesIndex({
         });
     };
 
-    // Confirmation de suppression
+    // Confirmation de suppression avec prise en charge du verrouillage d'intégrité (versements, notes...)
     const confirmDelete = () => {
         if (!eleveToDelete) return;
         setDeleting(true);
         router.delete(`/administration/eleves/${eleveToDelete.id}`, {
+            preserveScroll: true,
             onSuccess: () => {
                 setDeleting(false);
                 setDeleteDialogOpen(false);
                 setEleveToDelete(null);
-                toast.success('Élève supprimé avec succès.');
+                toast.success('Élève supprimé avec succès.', {
+                    position: 'top-right',
+                    className: 'bg-emerald-600 text-white border-none',
+                });
             },
-            onError: () => {
+            onError: (errors) => {
                 setDeleting(false);
-                toast.error('Impossible de supprimer cet élève.');
+                setDeleteDialogOpen(false);
+                const message =
+                    (errors as Record<string, string>)?.error ||
+                    Object.values(errors)[0] ||
+                    'Suppression impossible : cet élève est lié à des opérations existantes.';
+                toast.error(String(message), {
+                    position: 'top-right',
+                });
             },
         });
     };
@@ -891,8 +902,8 @@ export default function ElevesIndex({
                 {/* Filtres Drill-down & Barre de recherche avec disposition responsive */}
                 <div className="rounded-2xl border border-border/80 bg-card p-4 shadow-xs space-y-3">
                     <div className="flex flex-col sm:flex-row sm:flex-wrap lg:flex-nowrap items-stretch sm:items-center gap-2.5 sm:gap-3">
-                        {/* Barre de recherche */}
-                        <div className="relative flex-1 min-w-0 w-full sm:min-w-[220px]">
+                        {/* Barre de recherche avec largeur minimale responsive canonique (220px = 55 rem units) */}
+                        <div className="relative flex-1 min-w-0 w-full sm:min-w-55">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                             <Input
                                 value={searchTerm}

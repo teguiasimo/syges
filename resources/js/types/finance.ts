@@ -13,24 +13,96 @@ export type StatutFinancier = 'insolvable' | 'en_regle_tranche_1' | 'en_regle_tr
 export type PeriodiciteFrais = 'annuel' | 'trimestriel' | 'mensuel' | 'ponctuel';
 
 /**
- * Type de frais (nomenclature).
+ * Cible d'imputation d'une bourse ou d'une remise sur les tranches obligatoires.
+ */
+export type CibleImputationRemise =
+    | 'derniere_tranche'
+    | 'tranche_1'
+    | 'tranche_2'
+    | 'tranche_3'
+    | 'tranche_4'
+    | 'proportionnelle';
+
+/**
+ * Retourne le libellé lisible en français d'une cible d'imputation de remise.
+ *
+ * @param {string | null | undefined} cible Code de la cible d'imputation
+ * @returns {string} Libellé explicite pour l'utilisateur
+ */
+export function formatCibleImputationLabel(cible?: string | null): string {
+    switch (cible) {
+        case 'tranche_1':
+            return '1ère tranche';
+        case 'tranche_2':
+            return '2ème tranche';
+        case 'tranche_3':
+            return '3ème tranche';
+        case 'tranche_4':
+            return '4ème tranche';
+        case 'proportionnelle':
+            return 'Répartition proportionnelle';
+        case 'derniere_tranche':
+        default:
+            return 'Dernière tranche';
+    }
+}
+
+/**
+ * Catégorie légère de regroupement des frais du Catalogue (ex: Scolarité, Frais d'Examen, Fête).
+ * Sert à classer les frais sans alourdir la configuration et à calculer les montants globaux par catégorie.
+ */
+export interface CategorieFrais {
+    id: number;
+    etablissement_id: number;
+    nom: string;
+    description: string | null;
+    is_active: boolean;
+    types_frais_count?: number;
+}
+
+/**
+ * Référence d'un niveau pédagogique enrichi de son cycle et de sa section pour l'affectation groupée.
+ */
+export interface NiveauFinanceRef {
+    id: number;
+    code?: string;
+    nom: string;
+    ordre?: number;
+    cycle_id?: number;
+    cycle?: {
+        id: number;
+        nom: string;
+        section?: {
+            id: number;
+            nom: string;
+        } | null;
+    } | null;
+}
+
+/**
+ * Frais configuré dans le Catalogue des Frais de l'établissement.
  */
 export interface TypeFrais {
     id: number;
     etablissement_id: number;
+    categorie_frais_id?: number | null;
     code: string;
     libelle: string;
     description: string | null;
     obligatoire: boolean;
     periodicite: PeriodiciteFrais;
+    ordre_priorite?: number;
     montant_defaut: number;
+    date_limite_defaut?: string | null;
     is_active: boolean;
+    categorie_frais?: CategorieFrais | null;
+    frais_scolaires?: FraisScolaire[];
     created_at?: string;
     updated_at?: string;
 }
 
 /**
- * Ligne de tarif paramétrée dans la grille tarifaire.
+ * Ligne d'affectation d'un frais du catalogue à un niveau dans la grille tarifaire.
  */
 export interface FraisScolaire {
     id: number;
@@ -40,13 +112,11 @@ export interface FraisScolaire {
     serie: string | null;
     type_frais_id: number;
     tranche_numero: number;
+    ordre_priorite?: number | null;
     libelle_tranche: string | null;
     montant: number;
     date_limite: string | null;
-    niveau?: {
-        id: number;
-        nom: string;
-    };
+    niveau?: NiveauFinanceRef;
     type_frais?: TypeFrais;
 }
 
@@ -101,6 +171,7 @@ export interface CompteFinancierEleve {
     etablissement_id: number;
     annee_scolaire_id: number;
     debit_initial: number;
+    total_dispense?: number;
     arrieres_anterieurs?: number;
     remise_bourse: number;
     montant_net_exigible: number;
@@ -111,8 +182,10 @@ export interface CompteFinancierEleve {
     eleve?: Eleve;
     inscription?: Inscription;
     bourses_remises?: EleveBourseRemise[];
+    dispenses_financieres?: DispenseFinanciere[];
     souscriptions_optionnelles?: SouscriptionFraisOptionnel[];
     penalites?: PenaliteEleve[];
+    versements?: VersementCaisse[];
 }
 
 /**
@@ -214,6 +287,16 @@ export interface ReglementDivers {
 }
 
 /**
+ * Catégorie personnalisable (Recette diverse ou Bourse / Remise).
+ */
+export interface CategorieFinanciere {
+    id: number;
+    etablissement_id: number | null;
+    nom: string;
+    is_active: boolean;
+}
+
+/**
  * Référentiel de bourse ou de remise (Module Aurore §3.19, §3.21, §3.25).
  */
 export interface BourseRemise {
@@ -223,9 +306,10 @@ export interface BourseRemise {
     code: string;
     nom: string;
     type: 'bourse' | 'remise';
-    categorie: 'excellence' | 'sociale' | 'fratrie' | 'personnel' | 'autre';
+    categorie: string;
     mode_calcul: 'pourcentage' | 'montant_fixe';
     valeur: number;
+    cible_imputation?: CibleImputationRemise;
     niveau_id: number | null;
     type_frais_id: number | null;
     description: string | null;
@@ -244,12 +328,30 @@ export interface EleveBourseRemise {
     compte_financier_id: number;
     bourse_remise_id: number;
     montant_calcule: number;
+    cible_imputation?: CibleImputationRemise | null;
+    frais_scolaire_id?: number | null;
     date_attribution: string;
     motif: string | null;
     attribue_par: number | null;
     bourse_remise?: BourseRemise;
     created_at?: string;
     updated_at?: string;
+}
+
+/**
+ * Dispense financière (totale ou partielle) accordée à un élève sur une tranche précise
+ * (ex: élève arrivant au 2ème trimestre dispensé de la Tranche 1).
+ */
+export interface DispenseFinanciere {
+    id: number;
+    compte_financier_id: number;
+    frais_scolaire_id: number;
+    type_dispense: 'totale' | 'partielle';
+    montant_dispense: number;
+    motif: string;
+    date_dispense: string;
+    accorde_par?: number | null;
+    frais_scolaire?: FraisScolaire;
 }
 
 /**
@@ -310,4 +412,26 @@ export interface PenaliteEleve {
     configuration?: PenaliteConfiguration;
     created_at?: string;
     updated_at?: string;
+}
+
+/**
+ * Matrice normalisée des permissions granulaires du module financier transmise par FinanceController.
+ */
+export interface CanFinancePermissions {
+    view: boolean;
+    manage: boolean;
+    etats?: boolean;
+    frais_configure?: boolean;
+    versements_create: boolean;
+    recettes_diverses_create?: boolean;
+    versements_cancel?: boolean;
+    caisses_manage?: boolean;
+    caisses_cloture?: boolean;
+    bourses_manage: boolean;
+    bourses_attribuer?: boolean;
+    dispenses_manage?: boolean;
+    options_manage?: boolean;
+    verrou_solvabilite?: boolean;
+    echeances_manage?: boolean;
+    penalites_manage?: boolean;
 }

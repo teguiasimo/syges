@@ -31,7 +31,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class ClotureCaisse extends Model
 {
-    use HasFactory, BelongsToEtablissement;
+    use BelongsToEtablissement, HasFactory;
 
     /**
      * Nom de la table associée dans la base de données.
@@ -47,6 +47,7 @@ class ClotureCaisse extends Model
      */
     protected $fillable = [
         'etablissement_id',
+        'caisse_id',
         'personnel_id',
         'date_cloture',
         'total_especes',
@@ -77,6 +78,15 @@ class ClotureCaisse extends Model
         'cloture_a' => 'datetime',
     ];
 
+    /**
+     * Relation vers la caisse clôturée.
+     *
+     * @return BelongsTo<Caisse, ClotureCaisse>
+     */
+    public function caisse(): BelongsTo
+    {
+        return $this->belongsTo(Caisse::class, 'caisse_id');
+    }
 
     /**
      * Relation vers le caissier / économe.

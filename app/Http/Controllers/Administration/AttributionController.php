@@ -7,10 +7,12 @@ use App\Http\Controllers\Controller;
 use App\Models\AnneeScolaire;
 use App\Models\Attribution;
 use App\Models\Classe;
-use App\Models\Etablissement;
+use App\Models\FicheProgression;
 use App\Models\Matiere;
 use App\Models\MatiereNiveau;
+use App\Models\Note;
 use App\Models\Personnel;
+use App\Models\SeanceEmploiTemps;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
@@ -22,7 +24,7 @@ use Inertia\Response;
 /**
  * Contrôleur de gestion du Module 9 : Attribution des Classes & Matières (Répartition pédagogique).
  * Conforme au Cahier des Charges Gesco V1.1 (Sections 9.1, 9.2 et 2.7.5).
- * 
+ *
  * Assure la passerelle opérationnelle gérée par le Censeur / Directeur des Études :
  * - Répartition des enseignements par classe et par discipline pour l'année scolaire active.
  * - Suivi et calcul en temps réel de la charge horaire des enseignants (sous-charge, équilibré, surcharge/vacations).
@@ -32,6 +34,7 @@ use Inertia\Response;
 class AttributionController extends Controller implements HasMiddleware
 {
     use ScopesEtablissement;
+
     /**
      * Définition de la matrice des middlewares d'autorisation pour le module Attributions.
      *
@@ -50,9 +53,6 @@ class AttributionController extends Controller implements HasMiddleware
 
     /**
      * Affiche l'interface de répartition pédagogique avec double vue (par Classe et par Enseignant).
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Inertia\Response
      */
     public function index(Request $request): Response
     {
@@ -135,7 +135,7 @@ class AttributionController extends Controller implements HasMiddleware
 
         $enseignants = $enseignantsQuery->orderBy('nom')
             ->get()
-            ->map(function (Personnel $ens) use ($selectedAnneeId) {
+            ->map(function (Personnel $ens) {
                 $heuresContractuelles = (float) $ens->volume_horaire_hebdo;
                 $heuresAttribuees = (float) $ens->attributions->sum('volume_horaire_reel');
                 $ecart = $heuresAttribuees - $heuresContractuelles;
@@ -204,8 +204,8 @@ class AttributionController extends Controller implements HasMiddleware
             $totalMatieresPourvues += $matieresPourvuesIds->intersect($matieresRequisesPourClasse)->count();
         }
 
-        $tauxCouverture = $totalMatieresRequises > 0 
-            ? round(($totalMatieresPourvues / $totalMatieresRequises) * 100, 1) 
+        $tauxCouverture = $totalMatieresRequises > 0
+            ? round(($totalMatieresPourvues / $totalMatieresRequises) * 100, 1)
             : 100.0;
 
         $stats = [
@@ -250,9 +250,6 @@ class AttributionController extends Controller implements HasMiddleware
      * Affiche la page dédiée de la grille de répartition pédagogique d'une classe.
      * Permet au Censeur / Directeur des Études de visualiser l'ensemble de la maquette
      * pédagogique d'une classe et de modifier en masse les affectations d'enseignants.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Inertia\Response
      */
     public function grille(Request $request): Response
     {
@@ -421,9 +418,6 @@ class AttributionController extends Controller implements HasMiddleware
 
     /**
      * Enregistre une attribution individuelle (Enseignant <-> Classe <-> Matière).
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\RedirectResponse
      */
     public function store(Request $request): RedirectResponse
     {
@@ -476,10 +470,6 @@ class AttributionController extends Controller implements HasMiddleware
 
     /**
      * Met à jour une attribution existante.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  \App\Models\Attribution  $attribution
-     * @return \Illuminate\Http\RedirectResponse
      */
     public function update(Request $request, Attribution $attribution): RedirectResponse
     {
@@ -504,9 +494,6 @@ class AttributionController extends Controller implements HasMiddleware
 
     /**
      * Révoque / supprime une attribution de cours.
-     *
-     * @param  \App\Models\Attribution  $attribution
-     * @return \Illuminate\Http\RedirectResponse
      */
     public function destroy(Attribution $attribution): RedirectResponse
     {
@@ -517,6 +504,28 @@ class AttributionController extends Controller implements HasMiddleware
             'Accès non autorisé : vous ne disposez pas de la permission de révoquer cette attribution.'
         );
 
+        $blockers = [];
+        $nbNotes = Note::where('attribution_id', $attribution->id)->count();
+        if ($nbNotes > 0) {
+            $blockers[] = "{$nbNotes} note(s) saisie(s)";
+        }
+
+        $nbProgressions = FicheProgression::where('attribution_id', $attribution->id)->count();
+        if ($nbProgressions > 0) {
+            $blockers[] = "{$nbProgressions} fiche(s) de progression";
+        }
+
+        $nbSeances = SeanceEmploiTemps::where('attribution_id', $attribution->id)->count();
+        if ($nbSeances > 0) {
+            $blockers[] = "{$nbSeances} séance(s) d'emploi du temps";
+        }
+
+        if (! empty($blockers)) {
+            $message = 'Suppression impossible : cette attribution de cours est déjà liée à '.implode(', ', $blockers).'.';
+
+            return back()->with('error', $message)->withErrors(['error' => $message]);
+        }
+
         $attribution->delete();
 
         return back()->with('success', 'Attribution de cours révoquée.');
@@ -524,10 +533,6 @@ class AttributionController extends Controller implements HasMiddleware
 
     /**
      * Désigne ou met à jour le Professeur Principal de la classe (Gesco Section 2.7.5).
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  \App\Models\Classe  $classe
-     * @return \Illuminate\Http\RedirectResponse
      */
     public function setProfesseurPrincipal(Request $request, Classe $classe): RedirectResponse
     {
@@ -551,10 +556,6 @@ class AttributionController extends Controller implements HasMiddleware
 
     /**
      * Affectation en masse des matières d'une classe (Matrice rapide par classe).
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  \App\Models\Classe  $classe
-     * @return \Illuminate\Http\RedirectResponse
      */
     public function batchAssign(Request $request, Classe $classe): RedirectResponse
     {

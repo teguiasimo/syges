@@ -129,6 +129,7 @@
         .badge-solde { background-color: #dcfce7; color: #166534; }
         .badge-retard { background-color: #fee2e2; color: #991b1b; }
         .badge-attente { background-color: #fef3c7; color: #92400e; }
+        .badge-dispense { background-color: #e0f2fe; color: #075985; }
         .summary-box {
             width: 100%;
             border-collapse: collapse;
@@ -252,12 +253,26 @@
             @forelse($echeancier['lignes'] as $idx => $ligne)
                 <tr>
                     <td class="text-center">{{ $idx + 1 }}</td>
-                    <td class="font-bold">{{ $ligne['libelle'] }}</td>
+                    <td>
+                        <div class="font-bold">{{ $ligne['libelle'] }}</div>
+                        @if(!empty($ligne['dispense_appliquee']) && $ligne['dispense_appliquee'] > 0)
+                            <div style="font-size: 7pt; color: #0369a1;">
+                                Dispense : -{{ number_format($ligne['dispense_appliquee'], 0, ',', ' ') }} F ({{ $ligne['dispense_motif'] ?? 'Exonération' }})
+                            </div>
+                        @endif
+                        @if(!empty($ligne['remise_appliquee']) && $ligne['remise_appliquee'] > 0)
+                            <div style="font-size: 7pt; color: #047857;">
+                                Remise / Bourse déduite : -{{ number_format($ligne['remise_appliquee'], 0, ',', ' ') }} F
+                            </div>
+                        @endif
+                    </td>
                     <td>{{ $ligne['categorie'] }}</td>
                     <td class="text-center">{{ $ligne['date_limite'] ?? 'À l\'inscription' }}</td>
                     <td class="text-right font-bold">{{ number_format($ligne['montant'], 0, ',', ' ') }} FCFA</td>
                     <td class="text-center">
-                        @if($ligne['statut'] === 'solde')
+                        @if($ligne['statut'] === 'dispense')
+                            <span class="badge badge-dispense">DISPENSÉ</span>
+                        @elseif($ligne['statut'] === 'solde')
                             <span class="badge badge-solde">RÉGLÉ</span>
                         @elseif($ligne['statut'] === 'en_retard')
                             <span class="badge badge-retard">EN RETARD</span>
@@ -274,12 +289,20 @@
         </tbody>
     </table>
 
-    {{-- Déductions & Bourses éventuelles --}}
+    {{-- Dispenses & Réductions éventuelles --}}
+    @if(!empty($echeancier['dispenses_attribuees']))
+        <div style="background-color: #f0f9ff; border: 1px solid #bae6fd; border-radius: 4px; padding: 6px 10px; margin-bottom: 8px; font-size: 7.5pt;">
+            <strong style="color: #0369a1;">Dispense(s) financière(s) accordée(s) :</strong>
+            @foreach($echeancier['dispenses_attribuees'] as $d)
+                {{ $d['libelle_tranche'] }} (-{{ number_format($d['montant_dispense'], 0, ',', ' ') }} FCFA — {{ $d['motif'] }})@if(!$loop->last) • @endif
+            @endforeach
+        </div>
+    @endif
     @if($compte->boursesRemises->isNotEmpty())
-        <div style="background-color: #f5f3ff; border: 1px solid #ddd6fe; border-radius: 4px; padding: 6px 10px; margin-bottom: 10px; font-size: 7.5pt;">
-            <strong style="color: #5b21b6;">Bourse / Réduction accordée :</strong>
+        <div style="background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 4px; padding: 6px 10px; margin-bottom: 10px; font-size: 7.5pt;">
+            <strong style="color: #047857;">Bourse / Réduction accordée :</strong>
             @foreach($compte->boursesRemises as $b)
-                {{ $b->bourseRemise?->nom }} (-{{ number_format($b->montant_calcule, 0, ',', ' ') }} FCFA)
+                {{ $b->bourseRemise?->nom }} (-{{ number_format($b->montant_calcule, 0, ',', ' ') }} FCFA)@if(!$loop->last) • @endif
             @endforeach
         </div>
     @endif

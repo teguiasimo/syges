@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Concerns\BelongsToEtablissement;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -20,9 +21,10 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property int $compte_financier_id Compte financier élève crédité
  * @property int $inscription_id Inscription scolaire de l'élève
  * @property int $etablissement_id Établissement
+ * @property int|null $caisse_id Caisse d'encaissement rattachée
  * @property int|null $personnel_id Caissier / Économe ayant encaissé
  * @property int|null $cloture_caisse_id Clôture journalière rattachée
- * @property \Carbon\Carbon $date_versement Date et heure précises du versement
+ * @property Carbon $date_versement Date et heure précises du versement
  * @property float $montant_total Montant total versé en FCFA
  * @property string $mode_paiement Mode ('especes', 'cheque', 'virement', 'mobile_money_manuel')
  * @property string|null $reference_paiement Numéro du chèque, bordereau ou identifiant MoMo
@@ -32,12 +34,12 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string $statut Statut du versement ('valide', 'annule')
  * @property string|null $motif_annulation Motif en cas d'annulation administrative
  * @property int|null $annule_par Utilisateur ayant autorisé l'annulation
- * @property \Carbon\Carbon|null $annule_le Horodatage de l'annulation
+ * @property Carbon|null $annule_le Horodatage de l'annulation
  * @property string|null $observations Remarques ou précisions
  */
 class VersementCaisse extends Model
 {
-    use HasFactory, SoftDeletes, BelongsToEtablissement;
+    use BelongsToEtablissement, HasFactory, SoftDeletes;
 
     /**
      * Nom de la table associée dans la base de données.
@@ -56,6 +58,7 @@ class VersementCaisse extends Model
         'compte_financier_id',
         'inscription_id',
         'etablissement_id',
+        'caisse_id',
         'personnel_id',
         'cloture_caisse_id',
         'date_versement',
@@ -103,6 +106,15 @@ class VersementCaisse extends Model
         return $this->belongsTo(Inscription::class);
     }
 
+    /**
+     * Relation vers la caisse d'encaissement rattachée au versement.
+     *
+     * @return BelongsTo<Caisse, VersementCaisse>
+     */
+    public function caisse(): BelongsTo
+    {
+        return $this->belongsTo(Caisse::class, 'caisse_id');
+    }
 
     /**
      * Relation vers le caissier / personnel ayant encaissé.

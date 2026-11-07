@@ -136,10 +136,15 @@
     <div class="doc-banner">
         <div class="doc-title">État des Élèves en Règle Financière</div>
         <div class="doc-subtitle">
-            Situation arrêtée au {{ $date_reference }}
-            @if($classe) • Classe : <strong>{{ $classe->nom }}</strong> @endif
-            @if($niveau && !$classe) • Niveau : <strong>{{ $niveau->nom }}</strong> @endif
+            @if(!empty($date_debut))
+                Période du <strong>{{ $date_debut }}</strong> au <strong>{{ $date_fin ?? $date_reference }}</strong> (échéances arrêtées au {{ $date_reference }})
+            @else
+                Situation arrêtée au <strong>{{ $date_reference }}</strong>
+            @endif
             • <strong>{{ $nombre_en_regle }}</strong> élève(s) à jour de scolarité
+        </div>
+        <div class="doc-subtitle" style="margin-top: 2px;">
+            Périmètre : <strong>{{ $perimetre_label ?? 'Toutes les sections, cycles, niveaux et classes' }}</strong>
         </div>
     </div>
 
@@ -147,11 +152,12 @@
         <thead>
             <tr>
                 <th style="width: 4%;" class="text-center">#</th>
-                <th style="width: 14%;">Matricule</th>
-                <th style="width: 32%;">Nom & Prénoms</th>
+                <th style="width: 13%;">Matricule</th>
+                <th style="width: 28%;">Nom & Prénoms</th>
                 <th style="width: 10%;">Classe</th>
-                <th style="width: 15%;" class="text-right">Total Versé</th>
-                <th style="width: 13%;" class="text-right">Reste Dû</th>
+                <th style="width: 12%;" class="text-right">Total Versé</th>
+                <th style="width: 11%;" class="text-right">Versé Période</th>
+                <th style="width: 10%;" class="text-right">Reste Dû</th>
                 <th style="width: 12%;" class="text-center">Statut</th>
             </tr>
         </thead>
@@ -163,6 +169,7 @@
                     <td class="font-bold">{{ $e['nom_complet'] }}</td>
                     <td>{{ $e['classe'] }}</td>
                     <td class="text-right font-bold" style="color: #047857;">{{ number_format($e['total_paye'], 0, ',', ' ') }} F</td>
+                    <td class="text-right" style="color: #0369a1;">{{ number_format($e['verse_periode'] ?? $e['total_paye'], 0, ',', ' ') }} F</td>
                     <td class="text-right">{{ number_format($e['solde_restant'], 0, ',', ' ') }} F</td>
                     <td class="text-center">
                         <span class="badge-ok">{{ $e['statut'] }}</span>
@@ -170,7 +177,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="7" class="text-center" style="color: #64748b; padding: 15px;">
+                    <td colspan="8" class="text-center" style="color: #64748b; padding: 15px;">
                         Aucun élève identifié en règle pour ces critères.
                     </td>
                 </tr>

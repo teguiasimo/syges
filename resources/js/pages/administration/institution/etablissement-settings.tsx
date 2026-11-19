@@ -41,11 +41,14 @@ interface EtablissementData {
     nom_chef_etablissement?: string | null;
     titre_chef?: string | null;
     titre_chef_en?: string | null;
+    titre_responsable_classe?: string | null;
+    titre_responsable_classe_en?: string | null;
     email?: string | null;
     telephone_1?: string | null;
     telephone_2?: string | null;
     adresse?: string | null;
     logo?: string | null;
+    logo_filigrane?: string | null;
     mode_bulletin_defaut: 'sans_competences' | 'avec_competences';
     type_calcul_trimestre: 'arithmetique' | 'pondere';
     seuil_classement_actif?: boolean;
@@ -57,11 +60,13 @@ interface EtablissementData {
     montant_bonus_anticipe?: number | null;
     date_limite_bonus?: string | null;
     effective_logo?: string | null;
+    effective_filigrane?: string | null;
     institution?: {
         id: number;
         nom: string;
         code: string;
         logo?: string | null;
+        logo_filigrane?: string | null;
     } | null;
 }
 
@@ -128,12 +133,16 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
         nom_chef_etablissement: string;
         titre_chef: string;
         titre_chef_en: string;
+        titre_responsable_classe: string;
+        titre_responsable_classe_en: string;
         email: string;
         telephone_1: string;
         telephone_2: string;
         adresse: string;
         logo: string;
         logo_file: File | null;
+        logo_filigrane: string;
+        logo_filigrane_file: File | null;
         _method: string;
         mode_bulletin_defaut: 'sans_competences' | 'avec_competences';
         type_calcul_trimestre: 'arithmetique' | 'pondere';
@@ -156,12 +165,16 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
         nom_chef_etablissement: etablissement.nom_chef_etablissement || '',
         titre_chef: etablissement.titre_chef || '',
         titre_chef_en: etablissement.titre_chef_en || '',
+        titre_responsable_classe: etablissement.titre_responsable_classe || '',
+        titre_responsable_classe_en: etablissement.titre_responsable_classe_en || '',
         email: etablissement.email || '',
         telephone_1: etablissement.telephone_1 || '',
         telephone_2: etablissement.telephone_2 || '',
         adresse: etablissement.adresse || '',
         logo: etablissement.logo || '',
         logo_file: null,
+        logo_filigrane: etablissement.logo_filigrane || '',
+        logo_filigrane_file: null,
         _method: 'put',
 
         // Pédagogie & Format des Bulletins (Module 10)
@@ -181,37 +194,53 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
         date_limite_bonus: etablissement.date_limite_bonus ? String(etablissement.date_limite_bonus).substring(0, 10) : '',
     });
 
-    // Prévisualisation du logo du campus et référence de l'input fichier
+    // Prévisualisation des logos (principal + filigrane) et références des inputs fichier
     const [logoPreview, setLogoPreview] = useState<string | null>(etablissement.logo || null);
+    const [filigranePreview, setFiligranePreview] = useState<string | null>(etablissement.logo_filigrane || null);
     const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+    const filigraneInputRef = React.useRef<HTMLInputElement | null>(null);
 
     /**
-     * Gestion du téléversement du logo propre au campus avec prévisualisation immédiate.
+     * Valide la taille d'une image (<= 2 Mo) et met à jour le champ et son aperçu.
      *
      * @param {React.ChangeEvent<HTMLInputElement>} e Événement de sélection de fichier.
+     * @param {'logo_file' | 'logo_filigrane_file'} field Champ fichier Inertia cible.
+     * @param {React.Dispatch<React.SetStateAction<string | null>>} setPreview Mutateur d'aperçu.
      */
-    const handleLogoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleImageFileChange = (
+        e: React.ChangeEvent<HTMLInputElement>,
+        field: 'logo_file' | 'logo_filigrane_file',
+        setPreview: React.Dispatch<React.SetStateAction<string | null>>
+    ) => {
         const file = e.target.files?.[0];
-        if (file) {
-            if (file.size > 2 * 1024 * 1024) {
-                toast.error('Le fichier est trop volumineux. Taille maximale : 2 Mo.');
-                return;
-            }
-            setData('logo_file', file);
-            const previewUrl = URL.createObjectURL(file);
-            setLogoPreview(previewUrl);
+        if (!file) return;
+        if (file.size > 2 * 1024 * 1024) {
+            toast.error('Le fichier est trop volumineux. Taille maximale : 2 Mo.');
+            return;
         }
+        setData(field, file);
+        setPreview(URL.createObjectURL(file));
     };
 
     /**
-     * Suppression du logo propre au campus (retour automatique au logo faîtier de l'institution).
+     * Supprime un visuel du campus (retour automatique au visuel faîtier de l'institution).
+     *
+     * @param {'logo' | 'logo_filigrane'} pathField Champ chemin texte.
+     * @param {'logo_file' | 'logo_filigrane_file'} fileField Champ fichier multipart.
+     * @param {React.Dispatch<React.SetStateAction<string | null>>} setPreview Mutateur d'aperçu.
+     * @param {React.RefObject<HTMLInputElement | null>} inputRef Référence vers l'input fichier.
      */
-    const handleRemoveLogo = () => {
-        setData('logo', '');
-        setData('logo_file', null);
-        setLogoPreview(null);
-        if (fileInputRef.current) {
-            fileInputRef.current.value = '';
+    const handleRemoveImage = (
+        pathField: 'logo' | 'logo_filigrane',
+        fileField: 'logo_file' | 'logo_filigrane_file',
+        setPreview: React.Dispatch<React.SetStateAction<string | null>>,
+        inputRef: React.RefObject<HTMLInputElement | null>
+    ) => {
+        setData(pathField, '');
+        setData(fileField, null);
+        setPreview(null);
+        if (inputRef.current) {
+            inputRef.current.value = '';
         }
     };
 
@@ -1007,6 +1036,74 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
                                         </div>
                                     </div>
 
+                                    {/* Titre officiel du responsable de classe (Professeur Principal / Maître / Maîtresse) */}
+                                    <div className="p-3.5 rounded-xl bg-amber-50/40 dark:bg-amber-950/15 border border-amber-200/70 dark:border-amber-900/40 space-y-3">
+                                        <div className="flex flex-wrap items-center justify-between gap-2">
+                                            <div>
+                                                <p className="text-xs font-bold text-foreground">
+                                                    Appellation du Titulaire de Classe (Bulletins & Pédagogie)
+                                                </p>
+                                                <p className="text-[11px] text-muted-foreground">
+                                                    Personnalise le libellé imprimé au bas des bulletins et dans les attributions selon l'ordre d'enseignement.
+                                                </p>
+                                            </div>
+                                            <div className="flex flex-wrap items-center gap-1.5">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setData('titre_responsable_classe', 'Le Maître / La Maîtresse');
+                                                        setData('titre_responsable_classe_en', 'Class Teacher');
+                                                    }}
+                                                    className="text-[10px] px-2 py-0.5 rounded-md border border-amber-300 bg-white dark:bg-slate-900 hover:bg-amber-100 dark:hover:bg-amber-950/50 text-amber-800 dark:text-amber-300 font-medium cursor-pointer"
+                                                >
+                                                    Base (Maître / Maîtresse)
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setData('titre_responsable_classe', 'Le Professeur Principal');
+                                                        setData('titre_responsable_classe_en', 'Head Teacher');
+                                                    }}
+                                                    className="text-[10px] px-2 py-0.5 rounded-md border border-border bg-white dark:bg-slate-900 hover:bg-muted font-medium cursor-pointer"
+                                                >
+                                                    Secondaire (Professeur Principal)
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div className="space-y-1.5">
+                                                <Label htmlFor="titre_responsable_classe" className="text-xs font-semibold text-foreground">
+                                                    Appellation (Français)
+                                                </Label>
+                                                <Input
+                                                    id="titre_responsable_classe"
+                                                    value={data.titre_responsable_classe}
+                                                    onChange={(e) => setData('titre_responsable_classe', e.target.value)}
+                                                    placeholder="Ex: Le Maître / La Maîtresse, Le Professeur Principal"
+                                                    className="text-sm bg-background"
+                                                />
+                                                {errors.titre_responsable_classe && (
+                                                    <p className="text-xs text-rose-500 font-medium">{errors.titre_responsable_classe}</p>
+                                                )}
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <Label htmlFor="titre_responsable_classe_en" className="text-xs font-semibold text-foreground">
+                                                    Appellation en anglais (English)
+                                                </Label>
+                                                <Input
+                                                    id="titre_responsable_classe_en"
+                                                    value={data.titre_responsable_classe_en}
+                                                    onChange={(e) => setData('titre_responsable_classe_en', e.target.value)}
+                                                    placeholder="Ex: Class Teacher, Head Teacher"
+                                                    className="text-sm bg-background"
+                                                />
+                                                {errors.titre_responsable_classe_en && (
+                                                    <p className="text-xs text-rose-500 font-medium">{errors.titre_responsable_classe_en}</p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                         <div className="space-y-2">
                                             <Label htmlFor="email" className="text-xs font-semibold text-foreground">
@@ -1114,7 +1211,7 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
                                             <input
                                                 type="file"
                                                 ref={fileInputRef}
-                                                onChange={handleLogoFileChange}
+                                                onChange={(e) => handleImageFileChange(e, 'logo_file', setLogoPreview)}
                                                 accept="image/png,image/jpeg,image/jpg,image/webp,image/svg+xml"
                                                 className="hidden"
                                             />
@@ -1129,7 +1226,7 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
                                                         />
                                                         <button
                                                             type="button"
-                                                            onClick={handleRemoveLogo}
+                                                            onClick={() => handleRemoveImage('logo', 'logo_file', setLogoPreview, fileInputRef)}
                                                             className="absolute inset-0 bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl cursor-pointer"
                                                             title="Supprimer le logo (revenir au logo de l'institution)"
                                                         >
@@ -1178,7 +1275,7 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
                                                                 type="button"
                                                                 variant="ghost"
                                                                 size="sm"
-                                                                onClick={handleRemoveLogo}
+                                                                onClick={() => handleRemoveImage('logo', 'logo_file', setLogoPreview, fileInputRef)}
                                                                 className="cursor-pointer text-xs h-8 gap-1 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40"
                                                             >
                                                                 <Trash2 className="size-3.5 shrink-0" />
@@ -1197,6 +1294,117 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
                                             </div>
                                             {errors.logo && (
                                                 <p className="text-xs text-rose-500 font-medium">{errors.logo}</p>
+                                            )}
+                                        </div>
+
+                                        {/* Section Filigrane Officiel du Campus */}
+                                        <div className="mt-4 p-4 rounded-xl bg-slate-50/70 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 space-y-3">
+                                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                                <div>
+                                                    <Label className="text-xs font-bold text-foreground">
+                                                        Logo Filigrane Officiel (Arrière-plan PDF du Campus)
+                                                    </Label>
+                                                    <p className="text-[11px] text-muted-foreground">
+                                                        Image apposée en filigrane centré et discret sur tous les états officiels (recommandé : PNG sans fond).
+                                                    </p>
+                                                </div>
+                                                {filigranePreview ? (
+                                                    <Badge variant="outline" className="text-[10px] text-emerald-700 bg-emerald-50 border-emerald-200 dark:text-emerald-300 dark:bg-emerald-950/40">
+                                                        Filigrane propre actif
+                                                    </Badge>
+                                                ) : etablissement.institution?.logo_filigrane ? (
+                                                    <Badge variant="outline" className="text-[10px] text-muted-foreground bg-muted/40 border-border/60">
+                                                        Repli sur filigrane faîtier
+                                                    </Badge>
+                                                ) : null}
+                                            </div>
+
+                                            <input
+                                                type="file"
+                                                ref={filigraneInputRef}
+                                                onChange={(e) => handleImageFileChange(e, 'logo_filigrane_file', setFiligranePreview)}
+                                                accept="image/png,image/jpeg,image/jpg,image/webp,image/svg+xml"
+                                                className="hidden"
+                                            />
+
+                                            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 pt-1">
+                                                {filigranePreview ? (
+                                                    <div className="relative group size-16 shrink-0 rounded-2xl border border-border bg-white dark:bg-slate-900 p-1 flex items-center justify-center overflow-hidden shadow-xs">
+                                                        <img
+                                                            src={filigranePreview}
+                                                            alt="Filigrane campus"
+                                                            className="max-h-full max-w-full object-contain opacity-65"
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleRemoveImage('logo_filigrane', 'logo_filigrane_file', setFiligranePreview, filigraneInputRef)}
+                                                            className="absolute inset-0 bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl cursor-pointer"
+                                                            title="Supprimer le filigrane du campus"
+                                                        >
+                                                            <Trash2 className="size-5" />
+                                                        </button>
+                                                    </div>
+                                                ) : etablissement.institution?.logo_filigrane ? (
+                                                    <div
+                                                        onClick={() => filigraneInputRef.current?.click()}
+                                                        className="relative group size-16 shrink-0 rounded-2xl border-2 border-dashed border-border/80 hover:border-primary/60 bg-muted/20 p-1 flex items-center justify-center cursor-pointer transition-colors"
+                                                        title="Filigrane hérité de l'institution faîtière"
+                                                    >
+                                                        <img
+                                                            src={etablissement.institution.logo_filigrane}
+                                                            alt="Filigrane institution (repli)"
+                                                            className="max-h-full max-w-full object-contain opacity-45 group-hover:opacity-30 transition-opacity"
+                                                        />
+                                                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/30 rounded-2xl text-white">
+                                                            <UploadCloud className="size-5" />
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <div
+                                                        onClick={() => filigraneInputRef.current?.click()}
+                                                        className="size-16 shrink-0 rounded-2xl border-2 border-dashed border-border hover:border-primary/60 bg-muted/20 flex flex-col items-center justify-center cursor-pointer transition-colors"
+                                                        title="Cliquer pour importer un filigrane"
+                                                    >
+                                                        <UploadCloud className="size-6 text-muted-foreground" />
+                                                    </div>
+                                                )}
+
+                                                <div className="flex flex-col gap-1.5 min-w-0">
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        <Button
+                                                            type="button"
+                                                            variant="outline"
+                                                            size="sm"
+                                                            onClick={() => filigraneInputRef.current?.click()}
+                                                            className="cursor-pointer text-xs h-8 gap-1.5 justify-start w-fit"
+                                                        >
+                                                            <UploadCloud className="size-3.5 shrink-0" />
+                                                            <span>{filigranePreview ? 'Changer le filigrane' : 'Téléverser un filigrane spécifique'}</span>
+                                                        </Button>
+                                                        {filigranePreview && (
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() => handleRemoveImage('logo_filigrane', 'logo_filigrane_file', setFiligranePreview, filigraneInputRef)}
+                                                                className="cursor-pointer text-xs h-8 gap-1 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                                                            >
+                                                                <Trash2 className="size-3.5 shrink-0" />
+                                                                <span>Supprimer</span>
+                                                            </Button>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-[11px] text-muted-foreground">
+                                                        {filigranePreview
+                                                            ? 'Ce filigrane personnalisé est appliqué sur l’ensemble des documents PDF de ce campus.'
+                                                            : etablissement.institution?.logo_filigrane
+                                                            ? 'En l’absence de filigrane propre, celui de l’institution faîtière est automatiquement hérité.'
+                                                            : 'Formats acceptés : PNG transparent recommandé, JPG, SVG (max 2 Mo).'}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            {errors.logo_filigrane && (
+                                                <p className="text-xs text-rose-500 font-medium">{errors.logo_filigrane}</p>
                                             )}
                                         </div>
                                     </div>

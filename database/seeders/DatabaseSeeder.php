@@ -189,6 +189,7 @@ class DatabaseSeeder extends Seeder
             'finances.etats' => 'web',
             'frais.configure' => 'web',
             'versements.create' => 'web',
+            'versements.edit' => 'web',
             'recettes_diverses.create' => 'web',
             'versements.cancel' => 'web',
             'bourses.manage' => 'web',
@@ -339,12 +340,21 @@ class DatabaseSeeder extends Seeder
         //   des opérations système critiques, de la modification des rôles de sécurité et des suppressions destructrices
         //   (ex: interdiction de supprimer un élève, un personnel, une classe, un établissement ou de lancer une mise à jour système).
         $excludedForLocalAdmin = [
-            // Système & Sécurité globale
+            // Système, Sécurité & Gestion des comptes utilisateurs (réservés au Super-Admin)
             'system.update',
             'roles.view',
             'roles.create',
             'roles.edit',
             'roles.delete',
+            'users.view',
+            'users.create',
+            'users.edit',
+            'users.block',
+            // Tarification / configuration des frais & annulations de versements (réservées au Super-Admin)
+            'frais.configure',
+            'versements.cancel',
+            'finances.annuler',
+            'finances.manage',
             // Institution & Établissements (pas de création/suppression de campus SaaS)
             'institutions.edit',
             'etablissements.create',
@@ -450,7 +460,7 @@ class DatabaseSeeder extends Seeder
             'sections.view', 'cycles.view', 'niveaux.view', 'classes.view',
             'eleves.view',
             'finances.view', 'finances.etats', 'frais.configure', 'finances.manage',
-            'versements.create', 'recettes_diverses.create', 'versements.cancel',
+            'versements.create', 'versements.edit', 'recettes_diverses.create', 'versements.cancel',
             'bourses.manage', 'bourses.attribuer',
             'dispenses_financieres.manage', 'options_financieres.manage',
             'finances.verrou_solvabilite',
@@ -484,17 +494,23 @@ class DatabaseSeeder extends Seeder
             'emplois_du_temps.view',
         ]);
 
-        // Permissions du Secrétaire
+        // Permissions du Secrétaire (vision globale transversale des établissements, élèves, notes et états financiers)
         $secretaryRole->syncPermissions([
             'users.view', 'users.create', 'users.edit',
             'institutions.view', 'etablissements.view',
             'sections.view', 'cycles.view', 'niveaux.view', 'classes.view',
-            'periodes.view', 'matieres.view',
+            'annees.view', 'periodes.view', 'matieres.view',
             'eleves.view', 'eleves.create', 'eleves.edit', 'eleves.import',
             'inscriptions.reinscrire', 'inscriptions.transfer', 'inscriptions.manage',
             'cartes_scolaires.view', 'cartes_scolaires.generate',
             'personnels.view',
-            'finances.view',
+            // Notes & Bulletins (consultation globale et réédition)
+            'notes.view', 'releves_notes.view', 'releves_notes.print',
+            'bulletins.view', 'bulletins.generate',
+            // Finances, Caisses & États financiers consolidés
+            'finances.view', 'finances.etats', 'caisses.view', 'depenses.view', 'depenses.bilan',
+            // Délibérations & Statistiques
+            'statistiques.view', 'deliberations.view',
             'communication.view', 'communication.send',
         ]);
 
@@ -517,7 +533,8 @@ class DatabaseSeeder extends Seeder
             $superAdmin->is_active = true;
             $superAdmin->password = Hash::make('5idfasuper');
             if (! $superAdmin->email_verified_at) {
-                $superAdmin->email_verified_at = now();
+                // Utilise forceFill afin de conserver le type CarbonImmutable renvoyé par now()
+                $superAdmin->forceFill(['email_verified_at' => now()]);
             }
             $superAdmin->save();
         }
@@ -526,5 +543,8 @@ class DatabaseSeeder extends Seeder
         if (! $superAdmin->hasRole('super-admin')) {
             $superAdmin->assignRole($superAdminRole);
         }
+
+        // 5. Initialisation automatique du Catalogue National des Matières & Blocs Pédagogiques (Tronc Commun)
+        $this->call(CatalogueMatiereSeeder::class);
     }
 }

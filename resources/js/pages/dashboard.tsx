@@ -79,6 +79,8 @@ export interface EnseignantStats {
 
 interface DashboardProps {
     hasAccess?: boolean;
+    supportsAllEtablissements?: boolean;
+    isAllEtablissements?: boolean;
     isEnseignantDashboard?: boolean;
     enseignantStats?: EnseignantStats | null;
     etablissements: EtablissementOption[];
@@ -109,6 +111,8 @@ const breadcrumbs: BreadcrumbItem[] = [
  */
 export default function Dashboard({
     hasAccess = true,
+    supportsAllEtablissements = false,
+    isAllEtablissements = false,
     isEnseignantDashboard = false,
     enseignantStats = null,
     etablissements,
@@ -161,13 +165,18 @@ export default function Dashboard({
     }
 
     /**
-     * Changement d'établissement ou d'année scolaire avec rechargement partiel Inertia.
+     * Changement d'établissement (campus ou « Tous les établissements ») ou d'année scolaire avec rechargement partiel Inertia.
+     *
+     * @param {'etablissement_id' | 'annee_id'} key Clé du filtre modifié.
+     * @param {string} value Nouvelle valeur sélectionnée (ID campus, 'all' ou ID d'année scolaire).
      */
     const handleFilterChange = (key: 'etablissement_id' | 'annee_id', value: string) => {
+        const activeEtabParam = isAllEtablissements ? 'all' : currentEtablissement?.id;
+
         router.get(
             '/dashboard',
             {
-                etablissement_id: key === 'etablissement_id' ? value : currentEtablissement?.id,
+                etablissement_id: key === 'etablissement_id' ? value : activeEtabParam,
                 annee_id: key === 'annee_id' ? value : currentAnneeId,
             },
             { preserveState: true, preserveScroll: true }
@@ -200,7 +209,8 @@ export default function Dashboard({
         <>
             <Head title="Tableau de bord exécutif" />
 
-            <div className="flex flex-1 flex-col gap-6 p-4 md:p-6">
+            {/* Conteneur principal pleine largeur sans plafond artificiel sur les très grands écrans */}
+            <div className="flex flex-1 flex-col gap-6 p-4 md:p-6 w-full min-w-0">
                 {/* En-tête avec Sélecteurs de contexte */}
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
@@ -217,13 +227,18 @@ export default function Dashboard({
                             <div className="flex items-center gap-2 w-full sm:w-auto">
                                 <Building2 className="size-4 text-muted-foreground shrink-0" />
                                 <Select
-                                    value={currentEtablissement?.id.toString()}
+                                    value={isAllEtablissements ? 'all' : currentEtablissement?.id.toString()}
                                     onValueChange={(val) => handleFilterChange('etablissement_id', val)}
                                 >
-                                    <SelectTrigger className="w-full sm:w-52">
+                                    <SelectTrigger className="w-full sm:w-56">
                                         <SelectValue placeholder="Établissement" />
                                     </SelectTrigger>
                                     <SelectContent>
+                                        {supportsAllEtablissements && (
+                                            <SelectItem value="all">
+                                                Tous les établissements
+                                            </SelectItem>
+                                        )}
                                         {etablissements.map((etab) => (
                                             <SelectItem key={etab.id} value={etab.id.toString()}>
                                                 {etab.nom}

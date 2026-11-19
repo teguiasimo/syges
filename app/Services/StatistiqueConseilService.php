@@ -41,25 +41,40 @@ class StatistiqueConseilService
     }
 
     /**
-     * Calcule l'ensemble des KPIs démographiques et d'effectifs pour un établissement (Gesco 15.1).
+     * Normalise un identifiant unique ou un tableau d'identifiants de campus en liste d'entiers valides.
      *
-     * @param int $etablissementId
-     * @param int|null $anneeId
-     * @return array<string, mixed>
+     * @param int|array<int, int|string> $etablissementIds Identifiant d'un établissement ou tableau d'identifiants (mode consolidé).
+     * @return array<int, int> Liste d'identifiants entiers positifs dédoublonnés.
      */
-    public function getStatistiquesDemographiques(int $etablissementId, ?int $anneeId = null): array
+    protected function normalizeEtablissementIds(int|array $etablissementIds): array
     {
+        $ids = is_array($etablissementIds) ? $etablissementIds : [$etablissementIds];
+
+        return array_values(array_unique(array_filter(array_map('intval', $ids), fn (int $id) => $id > 0)));
+    }
+
+    /**
+     * Calcule l'ensemble des KPIs démographiques et d'effectifs pour un ou plusieurs établissements (Gesco 15.1).
+     *
+     * @param int|array<int, int|string> $etablissementIds Identifiant d'un campus ou liste des campus du complexe.
+     * @param int|null $anneeId Identifiant de l'année scolaire ciblée (par défaut l'année active).
+     * @return array<string, mixed> Indicateurs agrégés (effectif, parité, statuts, densité, répartition par cycle).
+     */
+    public function getStatistiquesDemographiques(int|array $etablissementIds, ?int $anneeId = null): array
+    {
+        $ids = $this->normalizeEtablissementIds($etablissementIds);
+        $isMultiCampus = count($ids) > 1;
         $anneeActive = $anneeId ? AnneeScolaire::find($anneeId) : (AnneeScolaire::current() ?? AnneeScolaire::latest()->first());
         $anneeId = $anneeActive?->id;
 
-        // Requête de base pour les inscriptions validées
+        // Requête de base pour les inscriptions validées sur le(s) campus ciblé(s)
         $queryInscriptions = Inscription::query()
             ->join('classes', 'inscriptions.classe_id', '=', 'classes.id')
             ->join('niveaux', 'classes.niveau_id', '=', 'niveaux.id')
             ->join('cycles', 'niveaux.cycle_id', '=', 'cycles.id')
             ->join('sections', 'cycles.section_id', '=', 'sections.id')
             ->join('eleves', 'inscriptions.eleve_id', '=', 'eleves.id')
-            ->where('sections.etablissement_id', $etablissementId)
+            ->whereIn('sections.etablissement_id', $ids)
             ->where('inscriptions.statut', 'validee');
 
         if ($anneeId) {
@@ -80,8 +95,9 @@ class StatistiqueConseilService
         $effectifNouveaux = $totalEffectif - $effectifRedoublants;
         $tauxRedoublants = $totalEffectif > 0 ? round(($effectifRedoublants / $totalEffectif) * 100, 1) : 0.0;
 
-        // Densité moyenne des classes et surcharge
-        $classes = Classe::whereHas('niveau.cycle.section', fn ($q) => $q->where('etablissement_id', $etablissementId))
+        // Densité moyenne des classes et surcharge (avec préchargement du campus pour disambiguïser en mode consolidé)
+        $classes = Classe::with('niveau.cycle.section.etablissement')
+            ->whereHas('niveau.cycle.section', fn ($q) => $q->whereIn('etablissement_id', $ids))
             ->withCount(['inscriptions' => function ($q) use ($anneeId) {
                 $q->where('statut', 'validee');
                 if ($anneeId) {
@@ -91,19 +107,27 @@ class StatistiqueConseilService
             ->orderBy('nom')
             ->get();
 
+        // Compter les occurrences de chaque nom de classe pour suffixer le code campus uniquement en cas d'homonymie multi-campus
+        $nameOccurrences = $isMultiCampus ? $classes->countBy('nom') : collect();
+
         $totalClasses = $classes->count();
         $moyenneDensite = $totalClasses > 0 ? round($totalEffectif / $totalClasses, 1) : 0.0;
 
-        $classesDetails = $classes->map(function ($classe) {
+        $classesDetails = $classes->map(function ($classe) use ($isMultiCampus, $nameOccurrences) {
             $effectif = $classe->inscriptions_count;
             // Récupère la capacité maximale réelle définie sur la classe (colonne `capacite_max`), avec repli par défaut à 50
             $capacite = (int) ($classe->capacite_max ?: ($classe->capacite ?: 50));
             $isSurchargee = $effectif > $capacite;
             $tauxOccupation = $capacite > 0 ? round(($effectif / $capacite) * 100, 1) : 0.0;
+            $etab = $classe->niveau?->cycle?->section?->etablissement;
+            $nomAffiche = ($isMultiCampus && ($nameOccurrences->get($classe->nom, 0) > 1) && $etab?->code)
+                ? "{$classe->nom} ({$etab->code})"
+                : $classe->nom;
 
             return [
                 'id' => $classe->id,
-                'nom' => $classe->nom,
+                'nom' => $nomAffiche,
+                'etablissement_code' => $etab?->code,
                 'effectif' => $effectif,
                 'capacite' => $capacite,
                 'taux_occupation' => $tauxOccupation,
@@ -119,14 +143,15 @@ class StatistiqueConseilService
             ->join('niveaux', 'classes.niveau_id', '=', 'niveaux.id')
             ->join('cycles', 'niveaux.cycle_id', '=', 'cycles.id')
             ->join('sections', 'cycles.section_id', '=', 'sections.id')
-            ->where('sections.etablissement_id', $etablissementId)
+            ->join('etablissements', 'sections.etablissement_id', '=', 'etablissements.id')
+            ->whereIn('sections.etablissement_id', $ids)
             ->where('inscriptions.statut', 'validee')
             ->when($anneeId, fn ($q) => $q->where('inscriptions.annee_scolaire_id', $anneeId))
-            ->selectRaw('cycles.nom as cycle_nom, sections.nom as section_nom, count(inscriptions.id) as total')
-            ->groupBy('cycles.id', 'cycles.nom', 'sections.id', 'sections.nom')
+            ->selectRaw('cycles.nom as cycle_nom, sections.nom as section_nom, etablissements.code as etab_code, count(inscriptions.id) as total')
+            ->groupBy('cycles.id', 'cycles.nom', 'sections.id', 'sections.nom', 'etablissements.id', 'etablissements.code')
             ->get()
             ->map(fn ($r) => [
-                'nom' => "{$r->cycle_nom} - {$r->section_nom}",
+                'nom' => $isMultiCampus && $r->etab_code ? "{$r->cycle_nom} - {$r->section_nom} ({$r->etab_code})" : "{$r->cycle_nom} - {$r->section_nom}",
                 'cycle' => $r->cycle_nom,
                 'section' => $r->section_nom,
                 'total' => (int) $r->total,
@@ -162,18 +187,19 @@ class StatistiqueConseilService
     /**
      * Génère la liste officielle alphabétique des élèves avec matricule national pour examens (Gesco 15.1).
      *
-     * @param int $etablissementId
-     * @param int|null $classeId
-     * @param int|null $anneeId
-     * @return array<int, array<string, mixed>>
+     * @param int|array<int, int|string> $etablissementIds Identifiant d'un campus ou liste des campus du complexe.
+     * @param int|null $classeId Identifiant optionnel d'une classe pour restreindre la liste.
+     * @param int|null $anneeId Identifiant de l'année scolaire ciblée.
+     * @return array<int, array<string, mixed>> Liste triée alphabétiquement des candidats validés.
      */
-    public function getListesOfficiellesExamens(int $etablissementId, ?int $classeId = null, ?int $anneeId = null): array
+    public function getListesOfficiellesExamens(int|array $etablissementIds, ?int $classeId = null, ?int $anneeId = null): array
     {
+        $ids = $this->normalizeEtablissementIds($etablissementIds);
         $anneeActive = $anneeId ? AnneeScolaire::find($anneeId) : (AnneeScolaire::current() ?? AnneeScolaire::latest()->first());
         $anneeId = $anneeActive?->id;
 
-        $query = Inscription::with(['eleve', 'classe.niveau'])
-            ->whereHas('classe.niveau.cycle.section', fn ($q) => $q->where('etablissement_id', $etablissementId))
+        $query = Inscription::with(['eleve', 'classe.niveau.cycle.section.etablissement'])
+            ->whereHas('classe.niveau.cycle.section', fn ($q) => $q->whereIn('etablissement_id', $ids))
             ->where('statut', 'validee');
 
         if ($anneeId) {
@@ -184,8 +210,10 @@ class StatistiqueConseilService
             $query->where('classe_id', $classeId);
         }
 
+        // Remise à zéro des clés après le tri alphabétique afin que rang_alphabetique soit strictement séquentiel (1..N)
         $inscriptions = $query->get()
-            ->sortBy(fn ($i) => ($i->eleve?->nom ?? '') . ' ' . ($i->eleve?->prenom ?? ''));
+            ->sortBy(fn ($i) => ($i->eleve?->nom ?? '') . ' ' . ($i->eleve?->prenom ?? ''))
+            ->values();
 
         return $inscriptions->map(function ($ins, $index) {
             return [
@@ -200,6 +228,8 @@ class StatistiqueConseilService
                 'date_naissance' => $ins->eleve?->date_naissance?->format('d/m/Y') ?? 'N/A',
                 'lieu_naissance' => $ins->eleve?->lieu_naissance ?? 'N/A',
                 'classe_nom' => $ins->classe?->nom ?? 'N/A',
+                'etablissement_nom' => $ins->classe?->niveau?->cycle?->section?->etablissement?->nom ?? 'N/A',
+                'etablissement_code' => $ins->classe?->niveau?->cycle?->section?->etablissement?->code ?? 'N/A',
                 'is_redoublant' => (bool) $ins->is_redoublant,
                 'statut_candidat' => $ins->is_redoublant ? 'Redoublant' : 'Régulier',
             ];
@@ -208,32 +238,55 @@ class StatistiqueConseilService
 
     /**
      * Récupère les indicateurs académiques de réussite et la détection précoce du décrochage (Gesco 15.3).
+     * Résout automatiquement la période correspondante sur chaque établissement en mode consolidé.
      *
-     * @param int $etablissementId
-     * @param int|null $anneeId
-     * @param int|null $periodeId
-     * @return array<string, mixed>
+     * @param int|array<int, int|string> $etablissementIds Identifiant d'un campus ou liste des campus du complexe.
+     * @param int|null $anneeId Identifiant de l'année scolaire ciblée.
+     * @param int|null $periodeId Identifiant optionnel d'une période de référence.
+     * @return array<string, mixed> Synthèse des effectifs évalués, admis et élèves en alerte de décrochage.
      */
-    public function getStatistiquesPedagogiques(int $etablissementId, ?int $anneeId = null, ?int $periodeId = null): array
+    public function getStatistiquesPedagogiques(int|array $etablissementIds, ?int $anneeId = null, ?int $periodeId = null): array
     {
+        $ids = $this->normalizeEtablissementIds($etablissementIds);
         $anneeActive = $anneeId ? AnneeScolaire::find($anneeId) : (AnneeScolaire::current() ?? AnneeScolaire::latest()->first());
         $anneeId = $anneeActive?->id;
 
-        // Classes de l'établissement
-        $classes = Classe::whereHas('niveau.cycle.section', fn ($q) => $q->where('etablissement_id', $etablissementId))
+        // Classes actives des campus ciblés avec préchargement de la hiérarchie pour identifier leur établissement
+        $classes = Classe::with('niveau.cycle.section')
+            ->whereHas('niveau.cycle.section', fn ($q) => $q->whereIn('etablissement_id', $ids))
             ->where('is_active', true)
             ->get();
 
-        $periode = $periodeId ? Periode::find($periodeId) : Periode::where('annee_scolaire_id', $anneeId)->orderBy('ordre')->first();
+        $explicitPeriode = $periodeId ? Periode::find($periodeId) : null;
+        $targetOrdre = $explicitPeriode?->ordre;
+
+        // Précharge les périodes de chaque établissement afin d'éviter un mauvais appariement d'IDs multi-campus
+        $periodesParEtab = Periode::whereIn('etablissement_id', $ids)
+            ->when($anneeId, fn ($q) => $q->where('annee_scolaire_id', $anneeId))
+            ->when($targetOrdre !== null, fn ($q) => $q->where('ordre', $targetOrdre))
+            ->orderBy('ordre')
+            ->get()
+            ->groupBy('etablissement_id')
+            ->map->first();
+
+        $globalFallbackPeriode = $explicitPeriode
+            ?? Periode::when($anneeId, fn ($q) => $q->where('annee_scolaire_id', $anneeId))
+                ->orderBy('ordre')
+                ->first();
 
         $totalElevesEvalues = 0;
         $totalAdmis = 0;
         $elevesDecrochage = [];
 
         foreach ($classes as $classe) {
+            $classeEtabId = $classe->niveau?->cycle?->section?->etablissement_id;
+            $periodeClasse = ($explicitPeriode && $explicitPeriode->etablissement_id === $classeEtabId)
+                ? $explicitPeriode
+                : ($periodesParEtab->get($classeEtabId) ?? $globalFallbackPeriode);
+
             $donnees = null;
-            if ($periode) {
-                $donnees = $this->bulletinService->calculerTrimestre($classe, $periode);
+            if ($periodeClasse) {
+                $donnees = $this->bulletinService->calculerTrimestre($classe, $periodeClasse);
             } elseif ($anneeActive) {
                 $donnees = $this->bulletinService->calculerAnnuel($classe, $anneeActive);
             }
@@ -272,6 +325,7 @@ class StatistiqueConseilService
         }
 
         $tauxReussiteGlobal = $totalElevesEvalues > 0 ? round(($totalAdmis / $totalElevesEvalues) * 100, 1) : 0.0;
+        $periodeReference = $explicitPeriode ?? $periodesParEtab->first() ?? $globalFallbackPeriode;
 
         return [
             'total_evalues' => $totalElevesEvalues,
@@ -279,23 +333,24 @@ class StatistiqueConseilService
             'taux_reussite_global' => $tauxReussiteGlobal,
             'total_decrochage' => count($elevesDecrochage),
             'eleves_decrochage' => $elevesDecrochage,
-            'periode_nom' => $periode?->nom ?? 'Annuel',
+            'periode_nom' => $periodeReference?->nom ?? 'Annuel',
         ];
     }
 
     /**
-     * Récupère la synthèse financière consolidée pour la Direction de l'établissement (Gesco 15.3).
+     * Récupère la synthèse financière consolidée pour la Direction d'un ou de plusieurs établissements (Gesco 15.3).
      *
-     * @param int $etablissementId
-     * @param int|null $anneeId
-     * @return array<string, mixed>
+     * @param int|array<int, int|string> $etablissementIds Identifiant d'un campus ou liste des campus du complexe.
+     * @param int|null $anneeId Identifiant de l'année scolaire ciblée.
+     * @return array<string, mixed> Totaux facturés, recouvrés, créances et effectifs financiers.
      */
-    public function getStatistiquesFinancieres(int $etablissementId, ?int $anneeId = null): array
+    public function getStatistiquesFinancieres(int|array $etablissementIds, ?int $anneeId = null): array
     {
+        $ids = $this->normalizeEtablissementIds($etablissementIds);
         $anneeActive = $anneeId ? AnneeScolaire::find($anneeId) : (AnneeScolaire::current() ?? AnneeScolaire::latest()->first());
         $anneeId = $anneeActive?->id;
 
-        $comptesQuery = CompteFinancierEleve::where('etablissement_id', $etablissementId);
+        $comptesQuery = CompteFinancierEleve::whereIn('etablissement_id', $ids);
         if ($anneeId) {
             $comptesQuery->where('annee_scolaire_id', $anneeId);
         }

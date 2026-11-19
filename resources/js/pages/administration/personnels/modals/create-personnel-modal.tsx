@@ -64,6 +64,7 @@ interface CreatePersonnelModalProps {
  */
 const FONCTIONS_PREDEFINIES = [
     'Directeur',
+    'Directrice',
     'Proviseur',
     'Principal',
     'Chef d\'établissement',
@@ -73,6 +74,8 @@ const FONCTIONS_PREDEFINIES = [
     'Économe / Comptable',
     'Secrétaire',
     'Enseignant',
+    'Maître',
+    'Maîtresse',
     'Documentaliste / Bibliothécaire',
     'Infirmier(ère)',
     'Psychologue scolaire',
@@ -413,10 +416,11 @@ export function CreatePersonnelModal({
                                 <Select
                                     value={data.fonction_principale}
                                     onValueChange={(val) => {
+                                        const isTeacherFunction = ['Enseignant', 'Maître', 'Maîtresse', 'Maitre', 'Maitresse'].includes(val);
                                         setData((prev) => ({
                                             ...prev,
                                             fonction_principale: val,
-                                            is_enseignant: val === 'Enseignant' ? true : prev.is_enseignant,
+                                            is_enseignant: isTeacherFunction ? true : prev.is_enseignant,
                                         }));
                                     }}
                                 >

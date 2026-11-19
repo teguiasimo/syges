@@ -183,30 +183,16 @@
 </head>
 <body>
 
+    @php
+        // Détermine si le module financier est déjà configuré ou mouvementé pour cet élève (grille tarifaire, débit ou encaissement)
+        $tarificationConfiguree = ! empty($echeancier['lignes'])
+            || (float) ($compte->debit_initial ?? 0) > 0
+            || (float) ($compte->montant_net_exigible ?? 0) > 0
+            || (float) ($compte->total_paye ?? 0) > 0;
+    @endphp
+
     {{-- En-tête Officiel --}}
-    <table class="header-table">
-        <tr>
-            <td class="header-left">
-                RÉPUBLIQUE DU CAMEROUN<br>
-                <em>Paix - Travail - Patrie</em><br>
-                MINISTÈRE DES ENSEIGNEMENTS SECONDAIRES<br>
-                DÉLÉGATION RÉGIONALE
-            </td>
-            <td class="header-center">
-                @if(!empty($etablissement->logo_url) && file_exists(public_path($etablissement->logo_url)))
-                    <img src="{{ public_path($etablissement->logo_url) }}" style="max-height: 45px; max-width: 90px;" alt="Logo">
-                @endif
-                <div class="school-name">{{ $etablissement->nom ?? 'SYGES COMPLEXE SCOLAIRE' }}</div>
-                <div class="school-sub">Année Scolaire : {{ $annee->code ?? '2026-2027' }}</div>
-            </td>
-            <td class="header-right">
-                REPUBLIC OF CAMEROON<br>
-                <em>Peace - Work - Fatherland</em><br>
-                MINISTRY OF SECONDARY EDUCATION<br>
-                REGIONAL DELEGATION
-            </td>
-        </tr>
-    </table>
+    @include('finances.partials.header', ['serviceTitle' => "Service de l'Intendance & Scolarité"])
 
     {{-- Bannière du Document --}}
     <div class="doc-banner">
@@ -283,7 +269,10 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="6" class="text-center" style="color: #64748b;">Aucun frais configuré pour ce niveau d'étude.</td>
+                    <td colspan="6" class="text-center" style="padding: 10px; color: #475569; background-color: #f8fafc;">
+                        <strong>Grille tarifaire non encore configurée pour ce niveau d'étude ({{ $compte->inscription?->classe?->niveau?->nom ?? $compte->inscription?->classe?->nom ?? 'Niveau actuel' }}).</strong><br>
+                        <span style="font-size: 7.5pt; color: #64748b;">L'élève est régulièrement inscrit au niveau pédagogique. Les échéances financières apparaîtront automatiquement dès le paramétrage des frais scolaires à l'intendance.</span>
+                    </td>
                 </tr>
             @endforelse
         </tbody>
@@ -359,7 +348,14 @@
             </td>
             <td class="summary-kpi" style="background-color: #f1f5f9; width: 28%;">
                 <div class="kpi-title">Situation Vis-à-Vis des Échéances</div>
-                @if($echeancier['montant_echu_en_retard'] > 0)
+                @if(! $tarificationConfiguree)
+                    <div style="font-size: 8pt; font-weight: bold; color: #475569; margin-top: 3px;">
+                        TARIFICATION NON CONFIGURÉE
+                    </div>
+                    <div style="font-size: 6.5pt; color: #64748b;">
+                        En attente du paramétrage des frais
+                    </div>
+                @elseif($echeancier['montant_echu_en_retard'] > 0)
                     <div style="font-size: 8.5pt; font-weight: bold; color: #b91c1c; margin-top: 3px;">
                         Retard échu : {{ number_format($echeancier['montant_echu_en_retard'], 0, ',', ' ') }} FCFA
                     </div>

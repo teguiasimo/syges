@@ -19,38 +19,55 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { BourseRemise, CategorieFinanciere, CibleImputationRemise, formatCibleImputationLabel } from '@/types/finance';
-import { Award, Check, Plus, Sparkles, X } from 'lucide-react';
+import {
+    BaseCalculRemise,
+    BourseRemise,
+    CibleImputationRemise,
+} from '@/types/finance';
+import { Award } from 'lucide-react';
 
 /**
- * Propriétés de la modale minimaliste de création / édition d'un Modèle de Bourse ou Remise.
+ * Propriétés de la modale de création / édition d'un Modèle de Bourse ou Remise.
  */
 interface ModeleBourseModalProps {
     isOpen: boolean;
     onClose: () => void;
     etablissementId: number;
     anneeId?: number;
-    categories?: CategorieFinanciere[];
+    categories?: unknown[];
     modelToEdit?: BourseRemise | null;
 }
 
 /**
- * Catégories standards proposées par défaut (incluant en tête le Paiement en avance avant rentrée).
+ * Génère un libellé standardisé par défaut lorsqu'aucun nom personnalisé n'est saisi.
+ *
+ * @param {'REMISE' | 'BOURSE'} categorie Catégorie du modèle
+ * @param {'pourcentage' | 'montant_fixe'} modeCalcul Mode de calcul
+ * @param {string} valeurRaw Valeur brute saisie dans le formulaire
+ * @returns {string} Libellé suggéré ou chaîne vide si aucune valeur positive n'est saisie
  */
-const DEFAULT_CATEGORIES = [
-    'Paiement en avance (avant rentrée)',
-    'Fratrie / Famille nombreuse',
-    'Enfant du personnel',
-    'Excellence scolaire',
-    'Sociale / Orphelin',
-];
+function genererLibelleSuggestion(
+    categorie: 'REMISE' | 'BOURSE',
+    modeCalcul: 'pourcentage' | 'montant_fixe',
+    valeurRaw: string
+): string {
+    const valNum = parseFloat(valeurRaw);
+    if (isNaN(valNum) || valNum <= 0) return '';
+
+    const prefixe = categorie === 'BOURSE' ? 'Bourse' : 'Remise';
+    return modeCalcul === 'pourcentage'
+        ? `${prefixe} ${valNum}%`
+        : `${prefixe} ${valNum.toLocaleString('fr-FR')} FCFA`;
+}
 
 /**
- * Modale épurée de création et modification d'un modèle de Bourse, Bonus ou Remise.
+ * Modale de création et modification d'un modèle de Bourse ou Remise.
  *
- * Se concentre strictement sur l'essentiel : Type, Catégorie personnalisable, Libellé et Montant/Pourcentage.
- * Toute remise créée ici s'applique individuellement à un élève (depuis son dossier) et s'impute
- * automatiquement en commençant par sa dernière tranche de scolarité.
+ * Permet de configurer :
+ * - Le libellé explicite de la remise / bourse (ou génération automatique si laissé vide)
+ * - Le mode de calcul (Montant fixe en FCFA ou Pourcentage)
+ * - L'assiette de calcul en mode pourcentage (`total_scolarite` par défaut ou `tranche_ciblee`)
+ * - La tranche d'imputation par défaut (modifiable lors de l'attribution à un élève)
  *
  * @param {ModeleBourseModalProps} props Propriétés du composant
  * @returns {JSX.Element} Modale de modèle de bourse/remise
@@ -60,27 +77,20 @@ export default function ModeleBourseModal({
     onClose,
     etablissementId,
     anneeId,
-    categories = [],
     modelToEdit,
 }: ModeleBourseModalProps) {
     const isEditing = Boolean(modelToEdit);
 
-    const categoryNames = categories.length > 0
-        ? categories.map((c) => c.nom)
-        : DEFAULT_CATEGORIES;
-
-    const [type, setType] = useState<'bourse' | 'remise'>('remise');
-    const [categorie, setCategorie] = useState<string>(categoryNames[0] || DEFAULT_CATEGORIES[0]);
-    const [isAddingCategory, setIsAddingCategory] = useState(false);
-    const [newCategoryName, setNewCategoryName] = useState('');
-    const [isSavingCategory, setIsSavingCategory] = useState(false);
-
+    const [categorie, setCategorie] = useState<'REMISE' | 'BOURSE'>('REMISE');
     const [nom, setNom] = useState('');
     const [modeCalcul, setModeCalcul] = useState<'pourcentage' | 'montant_fixe'>('montant_fixe');
     const [valeur, setValeur] = useState('');
+    const [baseCalcul, setBaseCalcul] = useState<BaseCalculRemise>('total_scolarite');
     const [cibleImputation, setCibleImputation] = useState<CibleImputationRemise>('derniere_tranche');
     const [isActive, setIsActive] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const libelleSuggestion = genererLibelleSuggestion(categorie, modeCalcul, valeur);
 
     /**
      * Initialise le formulaire en mode création ou édition à chaque ouverture de la modale.
@@ -88,71 +98,47 @@ export default function ModeleBourseModal({
     useEffect(() => {
         if (!isOpen) return;
 
-        setIsAddingCategory(false);
-        setNewCategoryName('');
-
         if (modelToEdit) {
-            setType(modelToEdit.type);
-            setCategorie(modelToEdit.categorie || categoryNames[0] || DEFAULT_CATEGORIES[0]);
-            setNom(modelToEdit.nom);
+            const catNormalisee = (modelToEdit.categorie?.toUpperCase() === 'BOURSE' || modelToEdit.type === 'bourse')
+                ? 'BOURSE'
+                : 'REMISE';
+            setCategorie(catNormalisee);
+            setNom(modelToEdit.nom || '');
             setModeCalcul(modelToEdit.mode_calcul);
             setValeur(String(Number(modelToEdit.valeur)));
+            setBaseCalcul(modelToEdit.base_calcul === 'tranche_ciblee' ? 'tranche_ciblee' : 'total_scolarite');
             setCibleImputation(modelToEdit.cible_imputation || 'derniere_tranche');
             setIsActive(modelToEdit.is_active);
         } else {
-            setType('remise');
-            setCategorie(categoryNames[0] || DEFAULT_CATEGORIES[0]);
+            setCategorie('REMISE');
             setNom('');
             setModeCalcul('montant_fixe');
             setValeur('');
+            setBaseCalcul('total_scolarite');
             setCibleImputation('derniere_tranche');
             setIsActive(true);
         }
     }, [modelToEdit, isOpen]);
 
     /**
-     * Crée à la volée une nouvelle catégorie personnalisée de bourse/remise et la sélectionne.
-     */
-    const handleCreateCategory = () => {
-        const nomTrim = newCategoryName.trim();
-        if (!nomTrim) return;
-
-        setIsSavingCategory(true);
-        router.post(
-            '/administration/finances/categories-bourses',
-            {
-                etablissement_id: etablissementId,
-                nom: nomTrim,
-            },
-            {
-                preserveScroll: true,
-                preserveState: true,
-                onSuccess: () => {
-                    setCategorie(nomTrim);
-                    setNewCategoryName('');
-                    setIsAddingCategory(false);
-                    toast.success(`Catégorie « ${nomTrim} » créée et sélectionnée.`, {
-                        position: 'top-right',
-                        className: 'bg-emerald-600 text-white border-none',
-                    });
-                },
-                onError: () => {
-                    toast.error('Impossible de créer cette catégorie.', { position: 'top-right' });
-                },
-                onFinish: () => setIsSavingCategory(false),
-            }
-        );
-    };
-
-    /**
      * Soumet le modèle de bourse ou remise au backend.
+     *
+     * @param {React.FormEvent} e Événement de soumission du formulaire
      */
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
         const valNum = parseFloat(valeur);
-        if (!nom.trim() || !categorie.trim() || isNaN(valNum) || valNum <= 0) {
-            toast.error('Veuillez renseigner le libellé et une valeur positive.', {
+        if (isNaN(valNum) || valNum <= 0) {
+            toast.error('Veuillez renseigner un montant ou un taux positif.', {
+                position: 'top-right',
+            });
+            return;
+        }
+
+        const libelleFinal = nom.trim() || libelleSuggestion;
+        if (!libelleFinal) {
+            toast.error('Veuillez renseigner le libellé de la remise ou bourse.', {
                 position: 'top-right',
             });
             return;
@@ -160,14 +146,17 @@ export default function ModeleBourseModal({
 
         setIsSubmitting(true);
 
+        const typeLower = categorie === 'BOURSE' ? 'bourse' : 'remise';
+
         const payload = {
             etablissement_id: etablissementId,
             annee_scolaire_id: anneeId || null,
-            nom: nom.trim(),
-            type,
-            categorie: categorie.trim(),
+            nom: libelleFinal,
+            type: typeLower,
+            categorie,
             mode_calcul: modeCalcul,
             valeur: valNum,
+            base_calcul: modeCalcul === 'pourcentage' ? baseCalcul : 'total_scolarite',
             cible_imputation: cibleImputation,
             is_active: isActive,
         };
@@ -197,7 +186,7 @@ export default function ModeleBourseModal({
                 payload,
                 {
                     onSuccess: () => {
-                        toast.success(`Modèle « ${nom.trim()} » créé avec succès.`, {
+                        toast.success(`Modèle « ${libelleFinal} » créé avec succès.`, {
                             position: 'top-right',
                             className: 'bg-emerald-600 text-white border-none',
                         });
@@ -215,112 +204,75 @@ export default function ModeleBourseModal({
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <DialogContent className="sm:max-w-md">
+            <DialogContent className="sm:max-w-lg max-h-[92vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2 text-slate-900 dark:text-slate-100">
                         <Award className="w-5 h-5 text-emerald-600 shrink-0" />
                         {isEditing ? 'Modifier le Modèle' : 'Nouveau Modèle de Bourse ou Remise'}
                     </DialogTitle>
                     <DialogDescription>
-                        Créez une réduction réutilisable à attribuer individuellement dans le dossier d'un élève.
+                        Définissez une bourse ou une remise réutilisable avec son libellé, son mode de calcul
+                        et sa tranche d'imputation par défaut.
                     </DialogDescription>
                 </DialogHeader>
 
-                <form onSubmit={handleSubmit} className="space-y-3.5 py-1 min-w-0">
-                    {/* Type */}
-                    <div className="space-y-1">
-                        <Label htmlFor="bourse_type">Nature de l'avantage <span className="text-red-500">*</span></Label>
-                        <Select value={type} onValueChange={(val: 'bourse' | 'remise') => setType(val)}>
-                            <SelectTrigger id="bourse_type">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="remise">Remise / Bonus (ex: Paiement en avance, Fratrie)</SelectItem>
-                                <SelectItem value="bourse">Bourse d'études / Prise en charge</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-
-                    {/* Catégorie personnalisable */}
-                    <div className="space-y-1.5 min-w-0">
-                        <div className="flex items-center justify-between">
-                            <Label htmlFor="bourse_categorie">Catégorie <span className="text-red-500">*</span></Label>
-                            <button
-                                type="button"
-                                onClick={() => setIsAddingCategory((prev) => !prev)}
-                                className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 flex items-center gap-1 cursor-pointer"
+                <form onSubmit={handleSubmit} className="space-y-4 py-2 min-w-0">
+                    {/* Catégorie & Libellé explicite */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div className="space-y-1.5 min-w-0">
+                            <Label htmlFor="bourse_categorie">
+                                Catégorie <span className="text-red-500">*</span>
+                            </Label>
+                            <Select
+                                value={categorie}
+                                onValueChange={(val: 'REMISE' | 'BOURSE') => setCategorie(val)}
                             >
-                                {isAddingCategory ? (
-                                    <>
-                                        <X className="w-3.5 h-3.5" /> Fermer
-                                    </>
-                                ) : (
-                                    <>
-                                        <Plus className="w-3.5 h-3.5" /> Nouvelle catégorie
-                                    </>
-                                )}
-                            </button>
-                        </div>
-
-                        {isAddingCategory ? (
-                            <div className="flex items-center gap-1.5 p-2 rounded-lg bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800">
-                                <Input
-                                    placeholder="Ex: Partenariat entreprise, Parrainage..."
-                                    value={newCategoryName}
-                                    onChange={(e) => setNewCategoryName(e.target.value)}
-                                    className="h-8 text-xs bg-white dark:bg-slate-900"
-                                    autoFocus
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter') {
-                                            e.preventDefault();
-                                            handleCreateCategory();
-                                        }
-                                    }}
-                                />
-                                <Button
-                                    type="button"
-                                    size="sm"
-                                    disabled={isSavingCategory || !newCategoryName.trim()}
-                                    onClick={handleCreateCategory}
-                                    className="h-8 px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs shrink-0"
-                                >
-                                    <Check className="w-3.5 h-3.5 mr-1" /> Créer
-                                </Button>
-                            </div>
-                        ) : (
-                            <Select value={categorie} onValueChange={setCategorie}>
-                                <SelectTrigger id="bourse_categorie">
-                                    <SelectValue placeholder="Sélectionner une catégorie" />
+                                <SelectTrigger id="bourse_categorie" className="h-9">
+                                    <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {Array.from(new Set([...categoryNames, ...(categorie ? [categorie] : [])])).map((cat) => (
-                                        <SelectItem key={cat} value={cat}>
-                                            {cat}
-                                        </SelectItem>
-                                    ))}
+                                    <SelectItem value="REMISE">REMISE</SelectItem>
+                                    <SelectItem value="BOURSE">BOURSE</SelectItem>
                                 </SelectContent>
                             </Select>
-                        )}
-                    </div>
+                        </div>
 
-                    {/* Intitulé */}
-                    <div className="space-y-1">
-                        <Label htmlFor="bourse_nom">Libellé du modèle <span className="text-red-500">*</span></Label>
-                        <Input
-                            id="bourse_nom"
-                            placeholder="ex: Bonus paiement avant la rentrée (-3 000 FCFA)"
-                            value={nom}
-                            onChange={(e) => setNom(e.target.value)}
-                            required
-                        />
+                        <div className="sm:col-span-2 space-y-1.5 min-w-0">
+                            <Label htmlFor="bourse_nom">
+                                Libellé de la Remise / Bourse <span className="text-red-500">*</span>
+                            </Label>
+                            <Input
+                                id="bourse_nom"
+                                type="text"
+                                maxLength={150}
+                                placeholder={
+                                    libelleSuggestion
+                                        ? `Suggestion : ${libelleSuggestion}`
+                                        : 'ex: Remise Primaire (-3 000 FCFA)'
+                                }
+                                value={nom}
+                                onChange={(e) => setNom(e.target.value)}
+                                className="h-9"
+                            />
+                            {!nom.trim() && libelleSuggestion && (
+                                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                                    Sera enregistré sous « {libelleSuggestion} » si laissé vide.
+                                </p>
+                            )}
+                        </div>
                     </div>
 
                     {/* Mode de calcul & Valeur */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div className="space-y-1 min-w-0">
-                            <Label htmlFor="modeCalcul">Mode de calcul <span className="text-red-500">*</span></Label>
-                            <Select value={modeCalcul} onValueChange={(val: 'pourcentage' | 'montant_fixe') => setModeCalcul(val)}>
-                                <SelectTrigger id="modeCalcul">
+                        <div className="space-y-1.5 min-w-0">
+                            <Label htmlFor="modeCalcul">
+                                Mode de calcul <span className="text-red-500">*</span>
+                            </Label>
+                            <Select
+                                value={modeCalcul}
+                                onValueChange={(val: 'pourcentage' | 'montant_fixe') => setModeCalcul(val)}
+                            >
+                                <SelectTrigger id="modeCalcul" className="h-9">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -330,7 +282,7 @@ export default function ModeleBourseModal({
                             </Select>
                         </div>
 
-                        <div className="space-y-1 min-w-0">
+                        <div className="space-y-1.5 min-w-0">
                             <Label htmlFor="valeur">
                                 {modeCalcul === 'pourcentage' ? 'Taux (%)' : 'Montant (FCFA)'} <span className="text-red-500">*</span>
                             </Label>
@@ -339,60 +291,98 @@ export default function ModeleBourseModal({
                                 type="number"
                                 min="0.01"
                                 step="any"
-                                placeholder={modeCalcul === 'pourcentage' ? 'ex: 15' : 'ex: 3000'}
+                                placeholder={modeCalcul === 'pourcentage' ? 'ex: 4' : 'ex: 3000'}
                                 value={valeur}
                                 onChange={(e) => setValeur(e.target.value)}
-                                className="font-bold tabular-nums"
+                                className="h-9 font-bold tabular-nums"
                                 required
                             />
                         </div>
                     </div>
 
-                    {/* Tranche cible d'imputation */}
-                    <div className="space-y-1 min-w-0">
-                        <Label htmlFor="cibleImputation">Sur quelle tranche déduire par défaut ? <span className="text-red-500">*</span></Label>
+                    {/* Base de calcul (pour les pourcentages) */}
+                    {modeCalcul === 'pourcentage' && (
+                        <div className="space-y-1.5 min-w-0 rounded-lg border border-emerald-200 dark:border-emerald-900 bg-emerald-50/50 dark:bg-emerald-950/20 p-3">
+                            <Label htmlFor="baseCalcul" className="text-xs font-semibold text-emerald-900 dark:text-emerald-200">
+                                Base de calcul du pourcentage <span className="text-red-500">*</span>
+                            </Label>
+                            <Select
+                                value={baseCalcul}
+                                onValueChange={(val: BaseCalculRemise) => setBaseCalcul(val)}
+                            >
+                                <SelectTrigger id="baseCalcul" className="h-9 bg-white dark:bg-slate-900">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="total_scolarite">
+                                        Toute la scolarité nette (Recommandé)
+                                    </SelectItem>
+                                    <SelectItem value="tranche_ciblee">
+                                        Uniquement la tranche ciblée
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-snug">
+                                {baseCalcul === 'total_scolarite'
+                                    ? 'Le pourcentage est calculé sur la scolarité totale de l’élève (ex : 4 % de 75 000 = 3 000 FCFA), puis déduit de la tranche choisie.'
+                                    : 'Le pourcentage est calculé uniquement sur le montant de la tranche où la remise est imputée.'}
+                            </p>
+                        </div>
+                    )}
+
+                    {/* Tranche d'imputation par défaut */}
+                    <div className="space-y-1.5 min-w-0">
+                        <Label htmlFor="cibleImputation">Tranche d'imputation par défaut</Label>
                         <Select
                             value={cibleImputation}
                             onValueChange={(val: CibleImputationRemise) => setCibleImputation(val)}
                         >
-                            <SelectTrigger id="cibleImputation">
+                            <SelectTrigger id="cibleImputation" className="h-9">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="derniere_tranche">Dernière tranche (recommandé pour bonus anticipation)</SelectItem>
-                                <SelectItem value="tranche_1">1ère tranche de scolarité</SelectItem>
-                                <SelectItem value="tranche_2">2ème tranche de scolarité</SelectItem>
-                                <SelectItem value="tranche_3">3ème tranche de scolarité</SelectItem>
-                                <SelectItem value="proportionnelle">Répartition proportionnelle sur toutes les tranches</SelectItem>
+                                <SelectItem value="derniere_tranche">Dernière tranche obligatoire</SelectItem>
+                                <SelectItem value="tranche_1">1ère tranche</SelectItem>
+                                <SelectItem value="tranche_2">2ème tranche</SelectItem>
+                                <SelectItem value="tranche_3">3ème tranche</SelectItem>
+                                <SelectItem value="tranche_4">4ème tranche</SelectItem>
+                                <SelectItem value="proportionnelle">Répartition proportionnelle</SelectItem>
                             </SelectContent>
                         </Select>
-                    </div>
-
-                    {/* Rappel métier clair */}
-                    <div className="p-2.5 rounded-lg bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/70 dark:border-emerald-800/50 text-[11px] text-emerald-900 dark:text-emerald-200 flex items-start gap-2">
-                        <Sparkles className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                        <span>
-                            S'applique <strong>individuellement par élève</strong> sur <strong>{formatCibleImputationLabel(cibleImputation).toLowerCase()}</strong> (modifiable dans le dossier de l'enfant si besoin).
-                        </span>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                            Tranche sur laquelle la réduction est déduite par défaut (ajustable au cas par cas dans le dossier de l'élève).
+                        </p>
                     </div>
 
                     {isEditing && (
-                        <label className="flex items-start gap-2.5 text-xs cursor-pointer pt-0.5">
+                        <label className="flex items-start gap-2.5 text-xs cursor-pointer pt-1">
                             <input
                                 type="checkbox"
                                 checked={isActive}
                                 onChange={(e) => setIsActive(e.target.checked)}
                                 className="mt-0.5 shrink-0 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
                             />
-                            <span className="leading-snug text-slate-700 dark:text-slate-300">Modèle actif et disponible dans les dossiers élèves</span>
+                            <span className="leading-snug text-slate-700 dark:text-slate-300">
+                                Modèle actif et disponible dans les dossiers élèves
+                            </span>
                         </label>
                     )}
 
                     <DialogFooter className="pt-2">
-                        <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={onClose} disabled={isSubmitting}>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            className="w-full sm:w-auto"
+                            onClick={onClose}
+                            disabled={isSubmitting}
+                        >
                             Annuler
                         </Button>
-                        <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white">
+                        <Button
+                            type="submit"
+                            disabled={isSubmitting}
+                            className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white"
+                        >
                             {isSubmitting ? 'Enregistrement...' : isEditing ? 'Mettre à jour' : 'Enregistrer le modèle'}
                         </Button>
                     </DialogFooter>

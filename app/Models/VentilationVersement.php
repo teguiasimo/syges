@@ -21,6 +21,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int|null $frais_scolaire_id Tarif d'origine
  * @property string $libelle Description de la rubrique ou tranche ventilée
  * @property float $montant Montant affecté à cette rubrique en FCFA
+ * @property-read VersementCaisse|null $versement
+ * @property-read TypeFrais|null $typeFrais
+ * @property-read FraisScolaire|null $fraisScolaire
+ * @property-read FraisScolaire|null $frais
  */
 class VentilationVersement extends Model
 {
@@ -81,6 +85,18 @@ class VentilationVersement extends Model
      * @return BelongsTo<FraisScolaire, VentilationVersement>
      */
     public function fraisScolaire(): BelongsTo
+    {
+        return $this->belongsTo(FraisScolaire::class, 'frais_scolaire_id');
+    }
+
+    /**
+     * Alias de compatibilité vers le frais scolaire d'origine.
+     *
+     * Garantit qu'aucun appel Eloquent utilisant `ventilations.frais` ne lève d'exception `RelationNotFoundException`.
+     *
+     * @return BelongsTo<FraisScolaire, VentilationVersement>
+     */
+    public function frais(): BelongsTo
     {
         return $this->belongsTo(FraisScolaire::class, 'frais_scolaire_id');
     }

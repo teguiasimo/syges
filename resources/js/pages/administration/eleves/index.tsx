@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import {
     type ColumnDef,
@@ -16,7 +16,6 @@ import {
     ArrowRightLeft,
     FileSpreadsheet,
     Search,
-    Filter,
     Users,
     User,
     Phone,
@@ -29,7 +28,6 @@ import {
     Clock,
     Ban,
     AlertTriangle,
-    Check,
     ChevronLeft,
     ChevronRight,
     ChevronsLeft,
@@ -115,10 +113,10 @@ interface ElevesPageProps {
  * @returns {JSX.Element}
  */
 export default function ElevesIndex({
-    inscriptions = [],
-    anneesScolaires = [],
+    inscriptions,
+    anneesScolaires,
     selectedAnneeId,
-    etablissements = [],
+    etablissements,
     stats,
     filters,
     can,
@@ -139,6 +137,7 @@ export default function ElevesIndex({
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [eleveToDelete, setEleveToDelete] = useState<Eleve | null>(null);
     const [deleting, setDeleting] = useState(false);
+    const [deleteErrorMessage, setDeleteErrorMessage] = useState<string | null>(null);
 
     // Sélection multiple de lignes pour le transfert
     const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
@@ -146,18 +145,23 @@ export default function ElevesIndex({
     // État de tri TanStack
     const [sorting, setSorting] = useState<SortingState>([]);
 
-    // Filtres dynamiques locaux
+    // Filtres dynamiques locaux (l'établissement est piloté par le sélecteur global d'en-tête)
     const [searchTerm, setSearchTerm] = useState(filters.search || '');
     const [selectedEtab, setSelectedEtab] = useState(filters.etablissement_id || '');
     const [selectedClasse, setSelectedClasse] = useState(filters.classe_id || '');
     const [selectedStatut, setSelectedStatut] = useState(filters.statut || '');
     const [selectedSexe, setSelectedSexe] = useState(filters.sexe || '');
 
+    // Synchronise les filtres locaux lorsque le sélecteur global d'en-tête change le campus actif
+    useEffect(() => {
+        setSelectedEtab(filters.etablissement_id || '');
+        setSelectedClasse(filters.classe_id || '');
+    }, [filters.etablissement_id, filters.classe_id]);
+
     // Application des filtres côté client ou navigation Inertia
     const handleFilterChange = (params: Record<string, string>) => {
         router.get('/administration/eleves', {
             annee_scolaire_id: selectedAnneeId,
-            etablissement_id: selectedEtab,
             classe_id: selectedClasse,
             statut: selectedStatut,
             sexe: selectedSexe,
@@ -186,16 +190,21 @@ export default function ElevesIndex({
         });
     };
 
-    // Confirmation de suppression avec prise en charge du verrouillage d'intégrité (versements, notes...)
+    /**
+     * Exécute la suppression définitive de l'élève sélectionné et affiche clairement
+     * les éventuels blocages d'intégrité (versements valides, notes, sanctions...) dans la modale et en toast.
+     */
     const confirmDelete = () => {
         if (!eleveToDelete) return;
         setDeleting(true);
+        setDeleteErrorMessage(null);
         router.delete(`/administration/eleves/${eleveToDelete.id}`, {
             preserveScroll: true,
             onSuccess: () => {
                 setDeleting(false);
                 setDeleteDialogOpen(false);
                 setEleveToDelete(null);
+                setDeleteErrorMessage(null);
                 toast.success('Élève supprimé avec succès.', {
                     position: 'top-right',
                     className: 'bg-emerald-600 text-white border-none',
@@ -203,12 +212,13 @@ export default function ElevesIndex({
             },
             onError: (errors) => {
                 setDeleting(false);
-                setDeleteDialogOpen(false);
-                const message =
+                const message = String(
                     (errors as Record<string, string>)?.error ||
-                    Object.values(errors)[0] ||
-                    'Suppression impossible : cet élève est lié à des opérations existantes.';
-                toast.error(String(message), {
+                        Object.values(errors)[0] ||
+                        'Suppression impossible : cet élève est lié à des opérations actives.'
+                );
+                setDeleteErrorMessage(message);
+                toast.error(message, {
                     position: 'top-right',
                 });
             },
@@ -293,10 +303,12 @@ export default function ElevesIndex({
                                 className={`text-[10px] px-1.5 py-0 font-semibold ${
                                     el.sexe === 'F'
                                         ? 'bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300'
-                                        : 'bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-300'
+                                        : el.sexe === 'M'
+                                        ? 'bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-300'
+                                        : 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300'
                                 }`}
                             >
-                                {el.sexe === 'F' ? 'Fille' : 'Garçon'}
+                                {el.sexe === 'F' ? 'Fille' : el.sexe === 'M' ? 'Garçon' : 'À compléter'}
                             </Badge>
                             {age !== null && <span className="font-medium text-muted-foreground">{age} ans</span>}
                         </div>
@@ -320,10 +332,10 @@ export default function ElevesIndex({
                         <span className="font-bold text-foreground text-sm block">
                             {cls?.nom ?? 'Non assignée'}
                         </span>
-                        {/* Affichage compact : Niveau • Sigle de l'établissement (ex: 6ème • CES MEGUEU) */}
+                        {/* Affichage compact : Niveau • Sigle de l'établissement */}
                         <span className="text-[11px] text-muted-foreground truncate block">
                             {cls?.niveau?.nom ? `${cls.niveau.nom} • ` : ''}
-                            {insc.etablissement?.sigle || insc.etablissement?.code || cls?.niveau?.cycle?.section?.etablissement?.code || insc.etablissement?.nom || 'CES MEGUEU'}
+                            {insc.etablissement?.sigle || insc.etablissement?.code || cls?.niveau?.cycle?.section?.etablissement?.code || insc.etablissement?.nom || ''}
                         </span>
                     </div>
                 );
@@ -499,6 +511,7 @@ export default function ElevesIndex({
                                             <DropdownMenuSeparator />
                                             <DropdownMenuItem
                                                 onClick={() => {
+                                                    setDeleteErrorMessage(null);
                                                     setEleveToDelete(el);
                                                     setDeleteDialogOpen(true);
                                                 }}
@@ -745,45 +758,8 @@ export default function ElevesIndex({
                     </div>
                 </div>
 
-                {/* Sélecteur Maître de Campus (Multi-Établissements) */}
-                {etablissements.length > 1 ? (
-                    <div className="flex items-center gap-2 overflow-x-auto pb-1">
-                        <span className="text-xs font-semibold text-muted-foreground shrink-0 flex items-center gap-1.5 mr-1">
-                            <School className="size-4 text-primary" />
-                            Campus :
-                        </span>
-                        <Button
-                            type="button"
-                            variant={!selectedEtab ? 'default' : 'outline'}
-                            size="sm"
-                            onClick={() => {
-                                setSelectedEtab('');
-                                setSelectedClasse('');
-                                handleFilterChange({ etablissement_id: '', classe_id: '' });
-                            }}
-                            className="h-8 text-xs font-medium rounded-full cursor-pointer"
-                        >
-                            Tous les campus ({etablissements.length})
-                        </Button>
-                        {etablissements.map((etab) => (
-                            <Button
-                                key={etab.id}
-                                type="button"
-                                variant={selectedEtab === String(etab.id) ? 'default' : 'outline'}
-                                size="sm"
-                                onClick={() => {
-                                    setSelectedEtab(String(etab.id));
-                                    setSelectedClasse('');
-                                    handleFilterChange({ etablissement_id: String(etab.id), classe_id: '' });
-                                }}
-                                className="h-8 text-xs font-medium rounded-full cursor-pointer max-w-50 truncate"
-                                title={etab.nom}
-                            >
-                                {etab.nom.length > 25 ? `${etab.nom.substring(0, 25)}…` : etab.nom}
-                            </Button>
-                        ))}
-                    </div>
-                ) : etablissements.length === 1 ? (
+                {/* Indicateur discret de campus pour un utilisateur restreint à un seul établissement */}
+                {etablissements.length === 1 ? (
                     <div className="flex items-center gap-2 p-2.5 rounded-xl bg-muted/40 border border-border/60">
                         <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 text-xs font-semibold px-2.5 py-1">
                             {etablissements[0].code || 'Campus'}
@@ -854,6 +830,11 @@ export default function ElevesIndex({
                                 }}
                             />
                         </div>
+                        {Boolean(stats.totalNonDefinis) && (
+                            <p className="text-[10px] font-medium text-amber-600 dark:text-amber-400 mt-1.5">
+                                {stats.totalNonDefinis} dossier(s) à compléter (sexe non défini)
+                            </p>
+                        )}
                     </div>
 
                     <div className="rounded-2xl border border-border/80 bg-card p-4 shadow-xs">
@@ -914,25 +895,7 @@ export default function ElevesIndex({
                             />
                         </div>
 
-                        {/* Filtre Établissement */}
-                        <select
-                            value={selectedEtab}
-                            onChange={(e) => {
-                                setSelectedEtab(e.target.value);
-                                setSelectedClasse('');
-                                handleFilterChange({ etablissement_id: e.target.value, classe_id: '' });
-                            }}
-                            className="w-full sm:w-auto md:w-48 h-9 rounded-md border border-input bg-background px-3 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
-                        >
-                            <option value="">Tous les établissements</option>
-                            {etablissements.map((etab) => (
-                                <option key={etab.id} value={etab.id}>
-                                    {etab.nom}
-                                </option>
-                            ))}
-                        </select>
-
-                        {/* Filtre Classe avec recherche instantanée */}
+                        {/* Filtre Classe avec recherche instantanée (filtré selon le campus actif en en-tête) */}
                         <div className="w-full sm:w-auto md:w-56 min-w-0">
                             <SearchableSelect
                                 options={classeOptions}
@@ -976,6 +939,7 @@ export default function ElevesIndex({
                             <option value="">Tous sexes</option>
                             <option value="M">Garçons (M)</option>
                             <option value="F">Filles (F)</option>
+                            <option value="ND">Non défini (À compléter)</option>
                         </select>
 
                         <Button
@@ -1044,7 +1008,7 @@ export default function ElevesIndex({
                 {/* TABLEAU DE DONNÉES TANSTACK TABLE */}
                 <div className="rounded-2xl border border-border/80 bg-card overflow-hidden shadow-xs min-w-0">
                     <div className="overflow-x-auto min-w-0">
-                        <table className="w-full text-left border-collapse min-w-[850px]">
+                        <table className="w-full text-left border-collapse min-w-212.5">
                             <thead>
                                 {table.getHeaderGroups().map((headerGroup) => (
                                     <tr key={headerGroup.id} className="border-b border-border bg-muted/40">
@@ -1231,20 +1195,40 @@ export default function ElevesIndex({
                 }}
             />
 
-            {/* Confirmation Dialog de suppression */}
-            <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+            {/* Confirmation Dialog de suppression sécurisée */}
+            <Dialog
+                open={deleteDialogOpen}
+                onOpenChange={(open) => {
+                    setDeleteDialogOpen(open);
+                    if (!open) {
+                        setDeleteErrorMessage(null);
+                    }
+                }}
+            >
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle className="text-destructive flex items-center gap-2">
                             <AlertTriangle className="size-5" />
                             Supprimer l'élève
                         </DialogTitle>
-                        <DialogDescription>
-                            Êtes-vous sûr de vouloir supprimer définitivement l'élève{' '}
-                            <strong>{eleveToDelete?.nom_complet}</strong> (Matricule : {eleveToDelete?.matricule}) ?
-                            Cette action supprimera également son inscription de l'année scolaire.
+                        <DialogDescription className="space-y-2">
+                            <span className="block">
+                                Êtes-vous sûr de vouloir supprimer définitivement l'élève{' '}
+                                <strong>{eleveToDelete?.nom_complet}</strong> (Matricule : {eleveToDelete?.matricule}) ?
+                                Cette action supprimera également son inscription de l'année scolaire.
+                            </span>
+                            <span className="block text-[11px] text-muted-foreground">
+                                Garde-fou d'intégrité : l'élève ne doit posséder aucun versement valide actif, note,
+                                sanction disciplinaire, bourse ou option active. Si un versement a été saisi par erreur,
+                                annulez-le d'abord dans Finances avant de supprimer la fiche.
+                            </span>
                         </DialogDescription>
                     </DialogHeader>
+                    {deleteErrorMessage && (
+                        <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive font-medium leading-relaxed">
+                            {deleteErrorMessage}
+                        </div>
+                    )}
                     <DialogFooter className="gap-2">
                         <Button variant="ghost" onClick={() => setDeleteDialogOpen(false)}>
                             Annuler

@@ -142,7 +142,7 @@ class CommunicationSmsController extends Controller implements HasMiddleware
         ]);
 
         $context = $this->resolveEtablissementContext($request);
-        if (! $context['isSuperAdmin']) {
+        if (! ($context['canAccessAll'] ?? $context['isSuperAdmin'])) {
             $validated['etablissement_id'] = $context['etablissementId'];
         }
 
@@ -175,7 +175,7 @@ class CommunicationSmsController extends Controller implements HasMiddleware
         ]);
 
         $context = $this->resolveEtablissementContext($request);
-        if (! $context['isSuperAdmin']) {
+        if (! ($context['canAccessAll'] ?? $context['isSuperAdmin'])) {
             $validated['etablissement_id'] = $context['etablissementId'];
         }
 
@@ -213,7 +213,7 @@ class CommunicationSmsController extends Controller implements HasMiddleware
         ]);
 
         $context = $this->resolveEtablissementContext($request);
-        if (! $context['isSuperAdmin']) {
+        if (! ($context['canAccessAll'] ?? $context['isSuperAdmin'])) {
             $validated['etablissement_id'] = $context['etablissementId'];
         }
 
@@ -240,7 +240,7 @@ class CommunicationSmsController extends Controller implements HasMiddleware
         ]);
 
         $context = $this->resolveEtablissementContext($request);
-        if (! $context['isSuperAdmin']) {
+        if (! ($context['canAccessAll'] ?? $context['isSuperAdmin'])) {
             $validated['etablissement_id'] = $context['etablissementId'];
         }
 

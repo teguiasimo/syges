@@ -113,25 +113,7 @@
 </head>
 <body>
 
-    <table class="header-table">
-        <tr>
-            <td class="header-left">
-                RÉPUBLIQUE DU CAMEROUN<br>
-                <em>Paix - Travail - Patrie</em><br>
-                MINISTÈRE DES ENSEIGNEMENTS SECONDAIRES
-            </td>
-            <td class="header-center">
-                <div class="school-name">{{ $etablissement->nom ?? 'SYGES COMPLEXE SCOLAIRE' }}</div>
-                <div class="school-sub">Service Intendance & Caisse</div>
-                <div class="school-sub">Année Scolaire : {{ $annee->code ?? '2026-2027' }}</div>
-            </td>
-            <td class="header-right">
-                REPUBLIC OF CAMEROON<br>
-                <em>Peace - Work - Fatherland</em><br>
-                MINISTRY OF SECONDARY EDUCATION
-            </td>
-        </tr>
-    </table>
+    @include('finances.partials.header', ['serviceTitle' => "Service Intendance & Caisse"])
 
     <div class="doc-banner">
         <div class="doc-title">État des Élèves en Règle Financière</div>

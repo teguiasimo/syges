@@ -190,6 +190,7 @@
     </style>
 </head>
 <body>
+    @include('partials.watermark', ['etablissement' => $etablissement ?? null])
 
     <!-- En-tête bilingue officiel républicain -->
     <table class="header-table">
@@ -264,7 +265,7 @@
                 <span class="info-val">{{ $classe->nom }}</span>
             </td>
             <td>
-                <span class="info-label">Professeur Principal :</span><br>
+                <span class="info-label">{{ $etablissement->titre_responsable_classe ?? 'Titulaire de classe' }} :</span><br>
                 <span class="info-val">{{ $classe->professeurPrincipal ? ($classe->professeurPrincipal->nom . ' ' . $classe->professeurPrincipal->prenom) : 'Non assigné' }}</span>
             </td>
             <td>
@@ -342,7 +343,7 @@
                 <div class="sign-dots">(Émargement hebdomadaire)</div>
             </td>
             <td>
-                <div class="sign-title">Le Professeur Principal</div>
+                <div class="sign-title">{{ $etablissement->titre_responsable_classe ?? 'Le Professeur Principal' }}</div>
                 <div class="sign-dots">(Visa & Contrôle des carnets)</div>
             </td>
             <td>

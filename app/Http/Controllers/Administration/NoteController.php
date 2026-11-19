@@ -55,9 +55,11 @@ class NoteController extends Controller implements HasMiddleware
     public function index(Request $request): InertiaResponse
     {
         $user = Auth::user();
-        $isSuperAdmin = $user ? ($user->hasRole('super-admin') || $user->email === 'admin@gmail.com') : false;
-        $isGestionnaire = $user->hasRole(['super-admin', 'Directeur / Promoteur', 'Censeur', 'directeur-etudes', 'admin'])
-            || $user->can('notes.lock');
+        $canAccessAll = $user ? $user->canAccessAllEtablissements() : false;
+        $isGestionnaire = $user->isSuperAdmin()
+            || $user->hasRole(['super-admin', 'Directeur / Promoteur', 'Censeur', 'directeur-etudes', 'censeur', 'admin'])
+            || $user->can('notes.lock')
+            || $user->can('notes.manage');
 
         // Récupération du personnel associé à l'utilisateur connecté s'il est enseignant
         $personnel = $user->personnel ?? ($user->email ? Personnel::where('email', $user->email)->first() : null);
@@ -73,8 +75,9 @@ class NoteController extends Controller implements HasMiddleware
 
         $allEtablissements = \App\Models\Etablissement::select('id', 'nom', 'code')->orderBy('nom')->get();
 
-        if (! $isSuperAdmin && $personnel?->etablissement_id) {
-            $etablissementId = (int) $personnel->etablissement_id;
+        $effectiveEtabId = $user?->getEffectiveEtablissementId();
+        if (! $canAccessAll && $effectiveEtabId) {
+            $etablissementId = (int) $effectiveEtabId;
             $etablissements = $allEtablissements->where('id', $etablissementId)->values();
         } else {
             $etablissementId = $request->query('etablissement_id')
@@ -142,8 +145,10 @@ class NoteController extends Controller implements HasMiddleware
         ]);
 
         $user = Auth::user();
-        $isGestionnaire = $user->hasRole(['super-admin', 'Directeur / Promoteur', 'Censeur'])
-            || $user->can('notes.lock');
+        $isGestionnaire = $user->isSuperAdmin()
+            || $user->hasRole(['super-admin', 'Directeur / Promoteur', 'Censeur', 'directeur-etudes', 'censeur', 'admin'])
+            || $user->can('notes.lock')
+            || $user->can('notes.manage');
 
         $attribution = Attribution::with(['classe.niveau', 'matiere', 'personnel'])
             ->findOrFail($request->attribution_id);
@@ -152,7 +157,7 @@ class NoteController extends Controller implements HasMiddleware
 
         // Cloisonnement SaaS Multi-Tenant : vérifier l'appartenance de la classe à l'établissement courant
         $context = $this->resolveEtablissementContext($request);
-        if (! $context['isSuperAdmin']) {
+        if (! ($context['canAccessAll'] ?? $context['isSuperAdmin'])) {
             $classe = Classe::withoutGlobalScopes()->find($attribution->classe_id);
             if (! $classe || (int) $classe->etablissement_id !== (int) $context['etablissementId']) {
                 return response()->json([
@@ -243,15 +248,17 @@ class NoteController extends Controller implements HasMiddleware
         ]);
 
         $user = Auth::user();
-        $isGestionnaire = $user->hasRole(['super-admin', 'Directeur / Promoteur', 'Censeur'])
-            || $user->can('notes.lock');
+        $isGestionnaire = $user->isSuperAdmin()
+            || $user->hasRole(['super-admin', 'Directeur / Promoteur', 'Censeur', 'directeur-etudes', 'censeur', 'admin'])
+            || $user->can('notes.lock')
+            || $user->can('notes.manage');
 
         $attribution = Attribution::with('classe')->findOrFail($validated['attribution_id']);
         $evaluation = Evaluation::findOrFail($validated['evaluation_id']);
 
         // Cloisonnement SaaS Multi-Tenant : vérifier l'appartenance du cours à l'établissement courant
         $context = $this->resolveEtablissementContext($request);
-        if (! $context['isSuperAdmin']) {
+        if (! ($context['canAccessAll'] ?? $context['isSuperAdmin'])) {
             $classe = Classe::withoutGlobalScopes()->find($attribution->classe_id);
             if (! $classe || (int) $classe->etablissement_id !== (int) $context['etablissementId']) {
                 abort(403, 'Action non autorisée : ce cours n\'appartient pas à votre établissement.');
@@ -362,14 +369,16 @@ class NoteController extends Controller implements HasMiddleware
         ]);
 
         $user = Auth::user();
-        $isGestionnaire = $user->hasRole(['super-admin', 'Directeur / Promoteur', 'Censeur'])
-            || $user->can('notes.lock');
+        $isGestionnaire = $user->isSuperAdmin()
+            || $user->hasRole(['super-admin', 'Directeur / Promoteur', 'Censeur', 'directeur-etudes', 'censeur', 'admin'])
+            || $user->can('notes.lock')
+            || $user->can('notes.manage');
 
         $attribution = Attribution::with('classe')->findOrFail($validated['attribution_id']);
 
         // Cloisonnement SaaS Multi-Tenant
         $context = $this->resolveEtablissementContext($request);
-        if (! $context['isSuperAdmin']) {
+        if (! ($context['canAccessAll'] ?? $context['isSuperAdmin'])) {
             $classe = Classe::withoutGlobalScopes()->find($attribution->classe_id);
             if (! $classe || (int) $classe->etablissement_id !== (int) $context['etablissementId']) {
                 abort(403, 'Action non autorisée : ce cours n\'appartient pas à votre établissement.');
@@ -421,7 +430,7 @@ class NoteController extends Controller implements HasMiddleware
 
         // Cloisonnement SaaS Multi-Tenant
         $context = $this->resolveEtablissementContext($request);
-        if (! $context['isSuperAdmin']) {
+        if (! ($context['canAccessAll'] ?? $context['isSuperAdmin'])) {
             $classe = Classe::withoutGlobalScopes()->find($attribution->classe_id);
             if (! $classe || (int) $classe->etablissement_id !== (int) $context['etablissementId']) {
                 abort(403, 'Action non autorisée : ce cours n\'appartient pas à votre établissement.');

@@ -171,16 +171,18 @@ test('on peut enregistrer un nouvel élève avec auto-génération de matricule 
     expect($inscription->is_redoublant)->toBeFalse();
 });
 
-test('la validation échoue si le nom ou le téléphone du parent est absent', function () {
+test('la validation échoue si les champs obligatoires sont absents tandis que sexe et telephone_parent restent optionnels', function () {
     /** @var TestCase $this */
     actingAs($this->adminUser)
         ->post(route('administration.eleves.store'), [
             'nom' => '',
+            'sexe' => '',
             'telephone_parent' => '',
             'classe_id' => $this->classe->id,
             'annee_scolaire_id' => $this->annee->id,
         ])
-        ->assertSessionHasErrors(['nom', 'telephone_parent', 'sexe']);
+        ->assertSessionHasErrors(['nom', 'statut', 'is_redoublant'])
+        ->assertSessionDoesntHaveErrors(['sexe', 'telephone_parent']);
 });
 
 test('on peut modifier les informations civiles et de contact d un élève', function () {
@@ -195,7 +197,7 @@ test('on peut modifier les informations civiles et de contact d un élève', fun
     ]);
 
     $updateData = [
-        'matricule' => 'GS26-9999',
+        'matricule' => 'TENTATIVE-MODIF-MATRICULE',
         'nom' => 'ONANA MODIFIE',
         'prenom' => 'André Joseph',
         'sexe' => 'M',
@@ -208,6 +210,8 @@ test('on peut modifier les informations civiles et de contact d un élève', fun
         ->assertRedirect();
 
     $eleve->refresh();
+    // Le matricule interne doit rester strictement en lecture seule (immuable)
+    expect($eleve->matricule)->toBe('GS26-9999');
     expect($eleve->nom)->toBe('ONANA MODIFIE');
     expect($eleve->telephone_parent)->toBe('+237 699 11 11 11');
     expect($eleve->adresse)->toBe('Quartier Bastos, Yaoundé');
@@ -752,4 +756,318 @@ test('interdit la suppression d un élève ayant un versement ou une note ainsi 
         ->assertSessionHasErrors('error');
 
     expect(Evaluation::find($evaluation->id))->not->toBeNull();
+});
+
+test('le sélecteur global d en-tête filtre la page des élèves par campus et permet le retour à tous les établissements', function () {
+    /** @var TestCase $this */
+    $inst = Institution::first();
+    $etabA = Etablissement::firstOrCreate(
+        ['code' => 'ETAB-SW-A'],
+        ['institution_id' => $inst->id, 'nom' => 'Campus Maternelle Switch']
+    );
+    $etabB = Etablissement::firstOrCreate(
+        ['code' => 'ETAB-SW-B'],
+        ['institution_id' => $inst->id, 'nom' => 'Campus Primaire Switch']
+    );
+
+    $secA = Section::create(['etablissement_id' => $etabA->id, 'code' => 'SEC-SWA', 'nom' => 'Section A']);
+    $cycA = Cycle::create(['section_id' => $secA->id, 'code' => 'CYC-SWA', 'nom' => 'Cycle A', 'ordre' => 1]);
+    $nivA = Niveau::create(['cycle_id' => $cycA->id, 'code' => 'NIV-SWA', 'nom' => 'Niveau A', 'ordre' => 1]);
+    $clsA = Classe::create(['etablissement_id' => $etabA->id, 'niveau_id' => $nivA->id, 'code' => 'CLS-SWA', 'nom' => 'Classe A', 'capacite_max' => 40, 'is_active' => true]);
+
+    $secB = Section::create(['etablissement_id' => $etabB->id, 'code' => 'SEC-SWB', 'nom' => 'Section B']);
+    $cycB = Cycle::create(['section_id' => $secB->id, 'code' => 'CYC-SWB', 'nom' => 'Cycle B', 'ordre' => 1]);
+    $nivB = Niveau::create(['cycle_id' => $cycB->id, 'code' => 'NIV-SWB', 'nom' => 'Niveau B', 'ordre' => 1]);
+    $clsB = Classe::create(['etablissement_id' => $etabB->id, 'niveau_id' => $nivB->id, 'code' => 'CLS-SWB', 'nom' => 'Classe B', 'capacite_max' => 40, 'is_active' => true]);
+
+    $elA = Eleve::create(['matricule' => 'SW-A-01', 'nom' => 'ELEVE_SWITCH_A', 'sexe' => 'F']);
+    Inscription::create([
+        'eleve_id' => $elA->id,
+        'classe_id' => $clsA->id,
+        'etablissement_id' => $etabA->id,
+        'annee_scolaire_id' => $this->annee->id,
+        'statut' => 'validee',
+        'date_inscription' => '2026-09-01',
+    ]);
+
+    $elB = Eleve::create(['matricule' => 'SW-B-01', 'nom' => 'ELEVE_SWITCH_B', 'sexe' => 'M']);
+    Inscription::create([
+        'eleve_id' => $elB->id,
+        'classe_id' => $clsB->id,
+        'etablissement_id' => $etabB->id,
+        'annee_scolaire_id' => $this->annee->id,
+        'statut' => 'validee',
+        'date_inscription' => '2026-09-01',
+    ]);
+
+    // 1. Bascule via le sélecteur global d'en-tête vers Campus B
+    $this->actingAs($this->adminUser)
+        ->from('/administration/eleves')
+        ->post(route('context.switch-etablissement'), [
+            'etablissement_id' => $etabB->id,
+        ])
+        ->assertRedirect('/administration/eleves');
+
+    $this->actingAs($this->adminUser)
+        ->get(route('administration.eleves.index'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('supportsAllEtablissements', true)
+            ->where('isAllEtablissements', false)
+            ->where('filters.etablissement_id', (string) $etabB->id)
+            ->where('stats.totalInscrits', 1)
+            ->has('inscriptions', 1)
+            ->where('inscriptions.0.eleve.nom', 'ELEVE_SWITCH_B')
+        );
+
+    // 2. Bascule via le sélecteur global d'en-tête vers « Tous les établissements » ('all')
+    $this->actingAs($this->adminUser)
+        ->from('/administration/eleves')
+        ->post(route('context.switch-etablissement'), [
+            'etablissement_id' => 'all',
+        ])
+        ->assertRedirect('/administration/eleves');
+
+    $this->actingAs($this->adminUser)
+        ->get(route('administration.eleves.index'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('supportsAllEtablissements', true)
+            ->where('isAllEtablissements', true)
+            ->where('filters.etablissement_id', '')
+            ->where('stats.totalInscrits', 2)
+            ->has('inscriptions', 2)
+        );
+});
+
+/**
+ * Teste la génération du nouveau modèle de Fiche d'Appel Journalière (Lundi–Vendredi sans créneaux horaires)
+ * ainsi que le maintien du modèle horaire classique à 8 séances.
+ */
+test('la fiche d appel journaliere genere un tableau hebdomadaire neutre sans creneaux horaires tandis que le mode horaire reste intact', function () {
+    /** @var TestCase $this */
+    $eleve = Eleve::create([
+        'matricule' => 'ESP-PRI-2026-0001',
+        'nom' => 'MBAPPE',
+        'prenom' => 'Junior',
+        'sexe' => 'M',
+    ]);
+    Inscription::create([
+        'eleve_id' => $eleve->id,
+        'classe_id' => $this->classe->id,
+        'etablissement_id' => $this->classe->etablissement_id,
+        'annee_scolaire_id' => $this->annee->id,
+        'statut' => 'validee',
+        'date_inscription' => '2026-09-07',
+    ]);
+
+    $capturedJournaliere = null;
+    view()->composer('documents.fiche_appel_journaliere', function ($view) use (&$capturedJournaliere): void {
+        $capturedJournaliere = $view->getData();
+    });
+
+    $respJournaliere = actingAs($this->adminUser)->get(
+        route('administration.documents.fiche-appel', $this->classe).'?mode=journaliere&annee_id='.$this->annee->id
+    );
+
+    $respJournaliere->assertOk();
+    expect($respJournaliere->headers->get('Content-Type'))->toBe('application/pdf');
+    expect($capturedJournaliere)->toBeArray();
+
+    $htmlJournaliere = view('documents.fiche_appel_journaliere', $capturedJournaliere)->render();
+    expect($htmlJournaliere)->toContain("Fiche d'Appel Journalière (Lundi – Vendredi)")
+        ->toContain('Lundi')
+        ->toContain('Mardi')
+        ->toContain('Mercredi')
+        ->toContain('Jeudi')
+        ->toContain('Vendredi')
+        ->toContain('Observations')
+        ->toContain('TOTAL PRÉSENTS')
+        ->toContain('TOTAL ABSENTS')
+        ->toContain('Le / La Responsable de Classe')
+        ->toContain('La Direction')
+        ->toContain('MBAPPE')
+        ->not->toContain('Primaire')
+        ->not->toContain('Secondaire')
+        ->not->toContain('Délégué de Classe')
+        ->not->toContain('Surveillant Général')
+        ->not->toContain('th-hour');
+
+    // Le mode horaire historique (par défaut ou ?mode=horaire) reste inchangé
+    $capturedHoraire = null;
+    view()->composer('documents.fiche_appel', function ($view) use (&$capturedHoraire): void {
+        $capturedHoraire = $view->getData();
+    });
+
+    $respHoraire = actingAs($this->adminUser)->get(
+        route('administration.documents.fiche-appel', $this->classe).'?mode=horaire&annee_id='.$this->annee->id
+    );
+
+    $respHoraire->assertOk();
+    expect($respHoraire->headers->get('Content-Type'))->toBe('application/pdf');
+    expect($capturedHoraire)->toBeArray();
+
+    $htmlHoraire = view('documents.fiche_appel', $capturedHoraire)->render();
+    expect($htmlHoraire)->toContain('th-hour')
+        ->toContain('LUNDI');
+});
+
+/**
+ * Teste l'harmonisation de la nomenclature automatique des matricules sur {CODE_ETAB}-{YYYY}-{0001}
+ * lors d'une création manuelle ou d'une importation CSV sans écraser les matricules existants.
+ */
+test('la creation manuelle et l import CSV generent un matricule au format CODE_ETAB-YYYY-0001 en continuite avec l existant', function () {
+    /** @var TestCase $this */
+    $inst = Institution::firstOrCreate(
+        ['code' => 'INST-ESP-NOM'],
+        ['nom' => 'GSB ESPOIR', 'sigle' => 'ESP']
+    );
+    $etabPri = Etablissement::create([
+        'institution_id' => $inst->id,
+        'code' => 'ESP-PRI',
+        'nom' => 'École Primaire Espoir',
+        'statut_juridique' => 'Prive_Laic',
+        'ordre_enseignement' => 'Primaire',
+    ]);
+    $sec = Section::create(['etablissement_id' => $etabPri->id, 'code' => 'SEC-PRI-NOM', 'nom' => 'Section FR']);
+    $cyc = Cycle::create(['section_id' => $sec->id, 'code' => 'CYC-PRI-NOM', 'nom' => 'Cycle Primaire', 'ordre' => 1]);
+    $niv = Niveau::create(['cycle_id' => $cyc->id, 'code' => 'NIV-CM2-NOM', 'nom' => 'CM2', 'ordre' => 6]);
+    $classePri = Classe::create([
+        'etablissement_id' => $etabPri->id,
+        'niveau_id' => $niv->id,
+        'code' => 'CM2-A',
+        'nom' => 'CM2 A',
+        'capacite_max' => 45,
+        'is_active' => true,
+    ]);
+
+    // Élève déjà présent dans la nomenclature structurée du campus Primaire
+    Eleve::create([
+        'matricule' => 'ESP-PRI-2026-0282',
+        'nom' => 'EXISTANT',
+        'prenom' => 'Éric',
+    ]);
+
+    // 1. Création manuelle d'un élève dans la classe du Primaire -> doit produire ESP-PRI-2026-0283
+    actingAs($this->adminUser)
+        ->post(route('administration.eleves.store'), [
+            'nom' => 'NOUVEAU_PRIMAIRE',
+            'prenom' => 'Claire',
+            'classe_id' => $classePri->id,
+            'annee_scolaire_id' => $this->annee->id,
+            'statut' => 'validee',
+            'is_redoublant' => false,
+        ])
+        ->assertRedirect();
+
+    $eleveManuel = Eleve::where('nom', 'NOUVEAU_PRIMAIRE')->first();
+    expect($eleveManuel)->not->toBeNull();
+    expect($eleveManuel->matricule)->toBe('ESP-PRI-2026-0283');
+
+    // 2. Importation CSV sans matricule dans le même campus -> doit produire ESP-PRI-2026-0284
+    $csvContent = "Matricule\tMatrNat\tNom\tPrenom\tSexe\tDateNaiss\tLieu\tRedoub\tTel\tAdresse\tTuteur\tNat\n"
+        ."\t\tIMPORT_PRIMAIRE\tPaul\tM\t10/05/2015\tDouala\tN\t+237 699000011\tBonaberi\tParent\tCAMEROUNAISE\n";
+    $file = UploadedFile::fake()->createWithContent('eleves_pri.csv', $csvContent);
+
+    actingAs($this->adminUser)
+        ->post(route('administration.eleves.import-csv'), [
+            'fichier' => $file,
+            'classe_id' => $classePri->id,
+            'annee_scolaire_id' => $this->annee->id,
+            'ignorer_doublons' => true,
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $eleveCsv = Eleve::where('nom', 'IMPORT_PRIMAIRE')->first();
+    expect($eleveCsv)->not->toBeNull();
+    expect($eleveCsv->matricule)->toBe('ESP-PRI-2026-0284');
+});
+
+/**
+ * Teste que la suppression d'un élève bloqué par un versement financier valide
+ * devient possible dès que le versement erroné a été annulé en Caisse, tout en journalisant l'audit.
+ */
+test('un eleve dont le versement errone a ete annule peut etre supprime proprement avec audit', function () {
+    /** @var TestCase $this */
+    $etabId = $this->classe->etablissement_id ?? Etablissement::firstOrFail()->id;
+
+    $eleve = Eleve::create([
+        'matricule' => '26-0001',
+        'nom' => 'FOTSO FOGUE',
+        'prenom' => 'Gauklin',
+        'sexe' => 'M',
+    ]);
+    $insc = Inscription::create([
+        'eleve_id' => $eleve->id,
+        'classe_id' => $this->classe->id,
+        'etablissement_id' => $etabId,
+        'annee_scolaire_id' => $this->annee->id,
+        'statut' => 'validee',
+        'date_inscription' => '2026-09-07',
+    ]);
+    $caisse = Caisse::firstOrCreate(
+        ['etablissement_id' => $etabId, 'code' => 'CAISSE-ERR'],
+        ['nom' => 'Caisse Test', 'is_principale' => true, 'is_active' => true]
+    );
+    $compte = CompteFinancierEleve::create([
+        'inscription_id' => $insc->id,
+        'eleve_id' => $eleve->id,
+        'etablissement_id' => $etabId,
+        'annee_scolaire_id' => $this->annee->id,
+        'debit_initial' => 50000,
+        'montant_net_exigible' => 50000,
+        'total_paye' => 15000,
+        'solde_restant' => 35000,
+        'statut_financier' => 'acompte',
+    ]);
+    $versement = VersementCaisse::create([
+        'reference_recu' => 'REC-ERR-0001',
+        'etablissement_id' => $etabId,
+        'caisse_id' => $caisse->id,
+        'compte_financier_id' => $compte->id,
+        'inscription_id' => $insc->id,
+        'caissier_user_id' => $this->adminUser->id,
+        'montant_total' => 15000,
+        'mode_paiement' => 'especes',
+        'date_versement' => now(),
+        'statut' => 'valide',
+    ]);
+    \App\Models\VentilationVersement::create([
+        'versement_id' => $versement->id,
+        'libelle' => 'Inscription',
+        'montant' => 15000,
+    ]);
+
+    // 1. Tant que le versement est valide, la suppression est strictement refusée
+    actingAs($this->adminUser)
+        ->delete(route('administration.eleves.destroy', $eleve))
+        ->assertRedirect()
+        ->assertSessionHasErrors('error');
+    expect(Eleve::find($eleve->id))->not->toBeNull();
+
+    // 2. Après annulation administrative du versement erroné, la suppression doit réussir
+    $versement->update([
+        'statut' => 'annule',
+        'motif_annulation' => 'Élève inscrit par erreur',
+        'annule_par' => $this->adminUser->id,
+        'annule_le' => now(),
+    ]);
+
+    \Illuminate\Support\Facades\Log::shouldReceive('warning')
+        ->once()
+        ->withArgs(fn (string $msg, array $ctx) => $msg === 'Suppression définitive élève exécutée'
+            && $ctx['matricule'] === '26-0001'
+            && count($ctx['recus_annules_purges']) === 1
+            && $ctx['recus_annules_purges'][0]['reference_recu'] === 'REC-ERR-0001');
+
+    actingAs($this->adminUser)
+        ->delete(route('administration.eleves.destroy', $eleve))
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $this->assertDatabaseMissing('eleves', ['id' => $eleve->id]);
+    $this->assertDatabaseMissing('inscriptions', ['id' => $insc->id]);
+    $this->assertDatabaseMissing('comptes_financiers_eleves', ['id' => $compte->id]);
+    $this->assertDatabaseMissing('versements_caisse', ['id' => $versement->id]);
 });

@@ -63,7 +63,7 @@ interface AncienEleveResult {
     nom: string;
     prenom?: string | null;
     nom_complet: string;
-    sexe: string;
+    sexe: string | null;
     date_naissance?: string | null;
     telephone_parent?: string | null;
     derniere_classe?: DerniereClasseInfo | null;
@@ -79,7 +79,7 @@ interface BatchEleveItem {
     nom: string;
     prenom?: string | null;
     nom_complet: string;
-    sexe: string;
+    sexe: string | null;
     date_naissance?: string | null;
     telephone_parent?: string | null;
     deja_inscrit: boolean;
@@ -604,7 +604,7 @@ export function ReinscriptionModal({
                                         </span>
                                         <p className="text-base font-bold text-foreground mt-0.5">{selectedEleve.nom_complet}</p>
                                         <p className="text-xs text-muted-foreground font-mono">
-                                            Matricule : {selectedEleve.matricule} • {selectedEleve.sexe === 'M' ? 'Garçon' : 'Fille'}
+                                            Matricule : {selectedEleve.matricule} • {selectedEleve.sexe === 'M' ? 'Garçon' : selectedEleve.sexe === 'F' ? 'Fille' : 'Sexe à compléter'}
                                             {selectedEleve.telephone_parent ? ` • Tél: ${selectedEleve.telephone_parent}` : ''}
                                         </p>
                                     </div>
@@ -905,7 +905,7 @@ export function ReinscriptionModal({
                                                                 [{el.matricule}]
                                                             </span>
                                                             <span className="text-[11px] text-muted-foreground">
-                                                                {el.sexe === 'M' ? 'G' : 'F'}
+                                                                {el.sexe === 'M' ? 'G' : el.sexe === 'F' ? 'F' : '-'}
                                                             </span>
                                                         </div>
 

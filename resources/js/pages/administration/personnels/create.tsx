@@ -60,6 +60,7 @@ interface CreatePersonnelPageProps {
  */
 const FONCTIONS_PREDEFINIES = [
     'Directeur',
+    'Directrice',
     'Proviseur',
     'Principal',
     'Chef d\'établissement',
@@ -69,6 +70,8 @@ const FONCTIONS_PREDEFINIES = [
     'Économe / Comptable',
     'Secrétaire',
     'Enseignant',
+    'Maître',
+    'Maîtresse',
     'Documentaliste / Bibliothécaire',
     'Infirmier(ère)',
     'Psychologue scolaire',
@@ -552,11 +555,12 @@ export default function CreatePersonnel({
                                     <Select
                                         value={data.fonction_principale}
                                         onValueChange={(val) => {
+                                            const isTeacherFunction = ['Enseignant', 'Maître', 'Maîtresse', 'Maitre', 'Maitresse'].includes(val);
                                             setData((prev) => ({
                                                 ...prev,
                                                 fonction_principale: val,
-                                                is_enseignant: val === 'Enseignant' ? true : prev.is_enseignant,
-                                                user_role: val === 'Enseignant' ? 'enseignant' : prev.user_role,
+                                                is_enseignant: isTeacherFunction ? true : prev.is_enseignant,
+                                                user_role: isTeacherFunction ? 'enseignant' : prev.user_role,
                                             }));
                                         }}
                                     >

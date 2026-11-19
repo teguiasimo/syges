@@ -107,6 +107,7 @@
     </style>
 </head>
 <body>
+    @include('partials.watermark', ['etablissement' => $etab ?? ($classe->niveau?->cycle?->section?->etablissement ?? $classe->etablissement ?? null)])
     <!-- En-tête officiel -->
     <table class="header-table">
         <tr>
@@ -183,7 +184,7 @@
                     <td class="text-center bold">{{ $el['rang'] ?? '-' }}</td>
                     <td class="text-center">{{ $el['matricule'] }}</td>
                     <td class="bold">{{ $el['nom_complet'] }}</td>
-                    <td class="text-center">{{ $el['sexe'] }}</td>
+                    <td class="text-center">{{ $el['sexe'] ?: '-' }}</td>
                     <td class="text-center bold" style="font-size: 8pt;">
                         {{ number_format($el['moyenne_obtenue'], 2) }}
                     </td>
@@ -227,16 +228,16 @@
                 <div class="signature-box"></div>
                 <div>(Nom & Signature)</div>
             </td>
-            <td>
-                <div class="bold uppercase">Le Professeur Principal</div>
+                @php
+                    $etab = $classe->niveau?->cycle?->section?->etablissement ?? $classe->etablissement;
+                    $titreTitulaire = $etab?->titre_responsable_classe ?? 'Le Professeur Principal';
+                    $titreChef = $etab?->titre_chef ?? "Le Chef d'Établissement";
+                @endphp
+                <div class="bold uppercase">{{ $titreTitulaire }}</div>
                 <div class="signature-box"></div>
                 <div>(Nom & Signature)</div>
             </td>
             <td>
-                @php
-                    $etab = $classe->niveau?->cycle?->section?->etablissement ?? $classe->etablissement;
-                    $titreChef = $etab?->titre_chef ?? "Le Chef d'Établissement";
-                @endphp
                 <div class="bold uppercase">{{ $titreChef }}</div>
                 <div class="signature-box"></div>
                 <div>(Signature & Sceau de l'Établissement)</div>

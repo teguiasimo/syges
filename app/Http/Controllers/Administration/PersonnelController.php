@@ -70,10 +70,11 @@ class PersonnelController extends Controller implements HasMiddleware
         $context = $this->resolveEtablissementContext($request, ['institution']);
         $selectedEtablissement = $context['selectedEtablissement'];
         $etablissementId = $selectedEtablissement?->id;
+        $canAccessAll = (bool) ($context['canAccessAll'] ?? $isSuperAdmin);
 
         $requestedEtabId = $request->input('etablissement_id') ?? $request->query('etablissement_id');
         $filterEtabId = null;
-        if (! $isSuperAdmin) {
+        if (! $canAccessAll) {
             $filterEtabId = $etablissementId;
         } elseif ($requestedEtabId && $requestedEtabId !== 'all') {
             $filterEtabId = (int) $requestedEtabId;
@@ -100,9 +101,10 @@ class PersonnelController extends Controller implements HasMiddleware
         // 2: Autres membres de l'administration (Censeur, Directeur des Études, Surveillant Général, Intendant, Secrétaire...)
         // 3: Corps enseignant (Professeurs / Enseignants)
         // 4: Personnel d'appui et services (Documentaliste, Infirmier, Gardien, etc.)
-        $dirList = "'Directeur', 'Le Directeur', 'Proviseur', 'Le Proviseur', 'Principal', 'Le Principal', 'Chef d\'établissement'";
+        // Échappement ANSI SQL ('') compatible à la fois avec MySQL et SQLite
+        $dirList = "'Directeur', 'Le Directeur', 'Directrice', 'La Directrice', 'Proviseur', 'Le Proviseur', 'Principal', 'Le Principal', 'Chef d''établissement'";
         $admList = "'Directeur des Études', 'Directeur Adjoint', 'Censeur', 'Surveillant Général', 'Intendant', 'Économe', 'Économe / Comptable', 'Secrétaire', 'Secrétaire Principale', 'Comptable'";
-        $appuList = "'Documentaliste / Bibliothécaire', 'Infirmier(ère)', 'Psychologue scolaire', 'Agent d\'entretien', 'Gardien / Sécurité', 'Chauffeur', 'Autre'";
+        $appuList = "'Documentaliste / Bibliothécaire', 'Infirmier(ère)', 'Psychologue scolaire', 'Agent d''entretien', 'Gardien / Sécurité', 'Chauffeur', 'Autre'";
 
         $personnelsQuery = Personnel::with([
             'etablissement:id,nom,code',
@@ -133,7 +135,7 @@ class PersonnelController extends Controller implements HasMiddleware
                 CASE 
                     WHEN fonction_principale IN ({$dirList}) THEN 1
                     WHEN fonction_principale IN ({$admList}) THEN 2
-                    WHEN is_enseignant = 1 OR fonction_principale = 'Enseignant' THEN 3
+                    WHEN is_enseignant = 1 OR fonction_principale IN ('Enseignant', 'Maître', 'Maîtresse', 'Maitre', 'Maitresse') THEN 3
                     WHEN fonction_principale IN ({$appuList}) THEN 4
                     ELSE 3
                 END ASC
@@ -336,18 +338,20 @@ class PersonnelController extends Controller implements HasMiddleware
 
                 $userId = $newUser->id;
             } elseif (! empty($userId)) {
-                // Synchronisation de sécurité : si un compte utilisateur existant est associé, on synchronise son campus
+                // Synchronisation de sécurité : si un compte utilisateur existant est associé à une fiche d'établissement, alignement de son campus et désactivation de l'accès global
                 $linkedUser = User::find($userId);
-                if ($linkedUser && ! $linkedUser->isSuperAdmin() && (int) $linkedUser->etablissement_id !== (int) $validated['etablissement_id']) {
+                if ($linkedUser && ! $linkedUser->isSuperAdmin() && ((int) $linkedUser->etablissement_id !== (int) $validated['etablissement_id'] || $linkedUser->has_global_access)) {
                     $linkedUser->etablissement_id = (int) $validated['etablissement_id'];
+                    $linkedUser->has_global_access = false;
                     $linkedUser->save();
                 }
             }
 
-            // 3. Déduction de is_enseignant si fonction = Enseignant
+            // 3. Déduction de is_enseignant si fonction = Enseignant / Maître / Maîtresse
+            $fonctionsEnseignantes = ['Enseignant', 'Maître', 'Maîtresse', 'Maitre', 'Maitresse'];
             $isEnseignant = isset($validated['is_enseignant'])
                 ? (bool) $validated['is_enseignant']
-                : ($validated['fonction_principale'] === 'Enseignant');
+                : in_array($validated['fonction_principale'], $fonctionsEnseignantes, true);
 
             // 4. Création de la fiche administrative Personnel
             Personnel::create([
@@ -434,8 +438,9 @@ class PersonnelController extends Controller implements HasMiddleware
         // Synchronisation de sécurité : si le personnel est lié à un compte utilisateur, alignement immédiat de l'établissement
         if ($personnel->user_id && $personnel->etablissement_id) {
             $linkedUser = User::find($personnel->user_id);
-            if ($linkedUser && ! $linkedUser->isSuperAdmin() && (int) $linkedUser->etablissement_id !== (int) $personnel->etablissement_id) {
+            if ($linkedUser && ! $linkedUser->isSuperAdmin() && ((int) $linkedUser->etablissement_id !== (int) $personnel->etablissement_id || $linkedUser->has_global_access)) {
                 $linkedUser->etablissement_id = (int) $personnel->etablissement_id;
+                $linkedUser->has_global_access = false;
                 $linkedUser->save();
             }
         }
@@ -580,6 +585,8 @@ class PersonnelController extends Controller implements HasMiddleware
         $directeurFonctions = [
             'Directeur',
             'Le Directeur',
+            'Directrice',
+            'La Directrice',
             'Proviseur',
             'Le Proviseur',
             'Principal',

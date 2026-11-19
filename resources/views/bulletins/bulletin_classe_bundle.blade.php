@@ -14,6 +14,7 @@
     </style>
 </head>
 <body>
+    @include('partials.watermark', ['filigraneSrc' => $classe['etablissement']['filigrane_base64'] ?? null])
     @foreach($eleves as $eleve)
         @if(($type_bulletin ?? 'trimestriel') === 'sequentiel')
             @include('bulletins.bulletin_sequentiel', [
@@ -24,6 +25,7 @@
                 'annee_scolaire' => $annee_scolaire,
                 'stats_classe' => $stats_classe,
                 'mode_bulletin' => $mode_bulletin,
+                'skipWatermark' => true,
             ])
         @elseif(($type_bulletin ?? 'trimestriel') === 'annuel')
             @include('bulletins.bulletin_annuel', [
@@ -33,6 +35,7 @@
                 'annee_scolaire' => $annee_scolaire,
                 'stats_classe' => $stats_classe,
                 'mode_bulletin' => $mode_bulletin,
+                'skipWatermark' => true,
             ])
         @else
             @include('bulletins.bulletin_trimestriel', [
@@ -42,6 +45,7 @@
                 'annee_scolaire' => $annee_scolaire,
                 'stats_classe' => $stats_classe,
                 'mode_bulletin' => $mode_bulletin,
+                'skipWatermark' => true,
             ])
         @endif
 

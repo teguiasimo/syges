@@ -79,6 +79,8 @@ export const en: Translations = {
         // Individual modules
         institution_title: 'Institution & Campus',
         institution_desc: 'Subjects, levels, cycles, classes and establishments.',
+        login_appearance_title: 'Appearance & Branding',
+        login_appearance_desc: 'Login carousel photos, branding logo (login & sidebar), favicon and support contacts.',
 
         periodes_title: 'Academic Years & Terms',
         periodes_desc: 'Years, terms, sequences and assessment parameters.',
@@ -111,8 +113,11 @@ export const en: Translations = {
         progression_desc: 'Lesson tracking, hourly quota monitoring, homework assignment and censor official stamp (Aurore §5.1.8).',
 
 
-        finances_title: 'Cashier & Fee Payments',
-        finances_desc: 'Cashier desk, student ledger accounts, tamper-proof receipts, cash closing and solvency lock.',
+        finances_title: 'Finance & Fee Structure',
+        finances_desc: 'Fee types, tuition schedule, discounts, scholarships and financial setup.',
+
+        guichet_scolarites_title: 'Cashier & Tuition Desk',
+        guichet_scolarites_desc: 'Class tuition collection, student ledger accounts, tamper-proof receipts and solvency lock.',
 
         discipline_title: 'Absences, Lateness & Discipline',
         discipline_desc: 'Attendance tracking, justifications, disciplinary sanctions and honor roll forfeiture checks.',

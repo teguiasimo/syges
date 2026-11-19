@@ -9,7 +9,9 @@ use App\Models\Caisse;
 use App\Models\CategorieDepense;
 use App\Models\Depense;
 use App\Models\Etablissement;
+use App\Models\Institution;
 use App\Models\ReglementDivers;
+use App\Models\User;
 use App\Models\VersementCaisse;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
@@ -59,6 +61,7 @@ class DepenseController extends Controller implements HasMiddleware
      */
     public function index(Request $request): Response
     {
+        /** @var User|null $user */
         $user = Auth::user();
 
         // Résolution hermétique du contexte établissement (Multi-Tenant)
@@ -157,7 +160,8 @@ class DepenseController extends Controller implements HasMiddleware
             'etablissements' => $etablissements,
             'selectedEtabId' => $selectedEtabId,
             'selectedAnneeId' => $selectedAnneeId,
-            'isSuperAdmin' => $isSuperAdmin,
+            // Transmettre canAccessAll afin d'exposer le sélecteur/bilan consolidé multi-campus aux profils globaux (ex: Secrétaire)
+            'isSuperAdmin' => (bool) ($context['canAccessAll'] ?? $isSuperAdmin),
             'anneesScolaires' => AnneeScolaire::orderByDesc('is_current')->orderByDesc('date_debut')->get(),
             'filters' => [
                 'etablissement_id' => (string) $selectedEtabId,
@@ -258,7 +262,10 @@ class DepenseController extends Controller implements HasMiddleware
     }
 
     /**
-     * Génère la Fiche de Décharge / Bon de Décaissement de Caisse en PDF.
+     * Génère la Fiche de Décharge / Bon de Décaissement de Caisse en PDF au format A4 portrait.
+     *
+     * @param  Depense  $depense  Dépense concernée par la décharge
+     * @return HttpResponse Réponse PDF en ligne
      */
     public function imprimerDecharge(Depense $depense): HttpResponse
     {
@@ -277,7 +284,7 @@ class DepenseController extends Controller implements HasMiddleware
             'institution' => $etablissement->institution,
             'depense' => $depense,
             'date_impression' => now()->format('d/m/Y'),
-        ])->setPaper('a5', 'landscape');
+        ])->setPaper('a4', 'portrait');
 
         $cleanRef = preg_replace('/[^A-Za-z0-9]/', '_', $depense->numero_piece);
         $filename = "DECHARGE_{$cleanRef}.pdf";
@@ -296,22 +303,41 @@ class DepenseController extends Controller implements HasMiddleware
      */
     public function imprimerBilan(Request $request): HttpResponse
     {
+        // Validation assouplie : support du filtre global 'all' pour les super-administrateurs / profils transversaux
+        $rawEtabId = $request->input('etablissement_id');
+        $context = $this->resolveEtablissementContext($request);
+        $canAccessAll = (bool) ($context['canAccessAll'] ?? $context['isSuperAdmin']);
+        $isGlobal = ($rawEtabId === 'all' || (empty($rawEtabId) && $canAccessAll)) && $canAccessAll;
+
+        if (! $isGlobal) {
+            $request->validate([
+                'etablissement_id' => 'nullable|integer|exists:etablissements,id',
+            ]);
+        }
+
         $request->validate([
-            'etablissement_id' => 'nullable|integer|exists:etablissements,id',
             'annee_scolaire_id' => 'nullable|integer|exists:annees_scolaires,id',
             'date_debut' => 'nullable|date',
             'date_fin' => 'nullable|date',
         ]);
 
-        // Cloisonnement SaaS Multi-Tenant
-        $context = $this->resolveEtablissementContext($request);
-        $requestedEtabId = $request->filled('etablissement_id') ? (int) $request->input('etablissement_id') : null;
-        if ($requestedEtabId !== null && ! $context['isSuperAdmin'] && $requestedEtabId !== (int) $context['etablissementId']) {
-            abort(403, 'Accès non autorisé au bilan de cet établissement.');
-        }
+        // Cloisonnement SaaS Multi-Tenant ou Agrégation Globale Complexe Scolaire
+        if ($isGlobal) {
+            $etablissementId = null;
+            $etablissement = null;
+            $institution = Institution::first();
+        } else {
+            $requestedEtabId = $request->filled('etablissement_id') && $request->input('etablissement_id') !== 'all'
+                ? (int) $request->input('etablissement_id')
+                : null;
+            if ($requestedEtabId !== null && ! $canAccessAll && $requestedEtabId !== (int) $context['etablissementId']) {
+                abort(403, 'Accès non autorisé au bilan de cet établissement.');
+            }
 
-        $etablissementId = (int) ($requestedEtabId ?? $context['etablissementId'] ?? 0);
-        $etablissement = Etablissement::with('institution')->findOrFail($etablissementId);
+            $etablissementId = (int) ($requestedEtabId ?? $context['etablissementId'] ?? 0);
+            $etablissement = Etablissement::with('institution')->findOrFail($etablissementId);
+            $institution = $etablissement->institution;
+        }
 
         $annee = $request->filled('annee_scolaire_id')
             ? AnneeScolaire::findOrFail((int) $request->input('annee_scolaire_id'))
@@ -325,8 +351,10 @@ class DepenseController extends Controller implements HasMiddleware
         }
 
         // Recettes scolaires (VersementCaisse montant_total)
-        $versementsQuery = VersementCaisse::where('etablissement_id', $etablissementId)
-            ->where('statut', 'valide');
+        $versementsQuery = VersementCaisse::where('statut', 'valide');
+        if (! $isGlobal && $etablissementId !== null) {
+            $versementsQuery->where('etablissement_id', $etablissementId);
+        }
 
         if ($anneeId) {
             $versementsQuery->whereHas('inscription', function ($q) use ($anneeId) {
@@ -343,8 +371,10 @@ class DepenseController extends Controller implements HasMiddleware
         $versements = (float) $versementsQuery->sum('montant_total');
 
         // Recettes diverses hors scolarité (ReglementDivers montant)
-        $diversQuery = ReglementDivers::where('etablissement_id', $etablissementId)
-            ->where('statut', 'valide');
+        $diversQuery = ReglementDivers::where('statut', 'valide');
+        if (! $isGlobal && $etablissementId !== null) {
+            $diversQuery->where('etablissement_id', $etablissementId);
+        }
         if ($debut) {
             $diversQuery->where('date_reglement', '>=', $debut);
         }
@@ -356,9 +386,11 @@ class DepenseController extends Controller implements HasMiddleware
         $totalRecettes = $versements + $divers;
 
         // Dépenses groupées par catégorie
-        $categoriesDepenses = CategorieDepense::with(['depenses' => function ($q) use ($etablissementId, $anneeId, $debut, $fin) {
-            $q->where('etablissement_id', $etablissementId)
-                ->where('annee_scolaire_id', $anneeId)
+        $categoriesDepenses = CategorieDepense::with(['depenses' => function ($q) use ($isGlobal, $etablissementId, $anneeId, $debut, $fin) {
+            if (! $isGlobal && $etablissementId !== null) {
+                $q->where('etablissement_id', $etablissementId);
+            }
+            $q->where('annee_scolaire_id', $anneeId)
                 ->where('statut', 'validee');
             if ($debut) {
                 $q->whereDate('date_depense', '>=', $debut->toDateString());
@@ -387,7 +419,8 @@ class DepenseController extends Controller implements HasMiddleware
 
         $pdf = Pdf::loadView('finances.bilan_entrees_sorties', [
             'etablissement' => $etablissement,
-            'institution' => $etablissement->institution,
+            'institution' => $institution,
+            'is_global' => $isGlobal,
             'annee' => $annee,
             'date_debut' => $debut?->format('d-m-Y'),
             'date_fin' => $fin?->format('d-m-Y'),

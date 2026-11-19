@@ -213,7 +213,7 @@ class EmploiDuTempsController extends Controller implements HasMiddleware
 
         $classe = Classe::findOrFail($validated['classe_id']);
         $context = $this->resolveEtablissementContext($request);
-        if (! $context['isSuperAdmin'] && (int) $classe->etablissement_id !== (int) $context['etablissementId']) {
+        if (! ($context['canAccessAll'] ?? $context['isSuperAdmin']) && (int) $classe->etablissement_id !== (int) $context['etablissementId']) {
             abort(403, 'Action non autorisée sur une classe d\'un autre établissement.');
         }
 
@@ -236,7 +236,7 @@ class EmploiDuTempsController extends Controller implements HasMiddleware
 
         $seance->load('classe');
         $context = $this->resolveEtablissementContext($request);
-        if (! $context['isSuperAdmin'] && (int) $seance->classe?->etablissement_id !== (int) $context['etablissementId']) {
+        if (! ($context['canAccessAll'] ?? $context['isSuperAdmin']) && (int) $seance->classe?->etablissement_id !== (int) $context['etablissementId']) {
             abort(403, 'Action non autorisée sur une séance d\'un autre établissement.');
         }
 
@@ -265,7 +265,7 @@ class EmploiDuTempsController extends Controller implements HasMiddleware
 
         $seance->load('classe');
         $context = $this->resolveEtablissementContext(request());
-        if (! $context['isSuperAdmin'] && (int) $seance->classe?->etablissement_id !== (int) $context['etablissementId']) {
+        if (! ($context['canAccessAll'] ?? $context['isSuperAdmin']) && (int) $seance->classe?->etablissement_id !== (int) $context['etablissementId']) {
             abort(403, 'Action non autorisée sur une séance d\'un autre établissement.');
         }
 
@@ -288,7 +288,7 @@ class EmploiDuTempsController extends Controller implements HasMiddleware
 
         $seance->load('classe');
         $context = $this->resolveEtablissementContext($request);
-        if (! $context['isSuperAdmin'] && (int) $seance->classe?->etablissement_id !== (int) $context['etablissementId']) {
+        if (! ($context['canAccessAll'] ?? $context['isSuperAdmin']) && (int) $seance->classe?->etablissement_id !== (int) $context['etablissementId']) {
             abort(403, 'Action non autorisée sur une séance d\'un autre établissement.');
         }
 
@@ -315,7 +315,7 @@ class EmploiDuTempsController extends Controller implements HasMiddleware
 
         $seance->load('classe');
         $context = $this->resolveEtablissementContext($request);
-        if (! $context['isSuperAdmin'] && (int) $seance->classe?->etablissement_id !== (int) $context['etablissementId']) {
+        if (! ($context['canAccessAll'] ?? $context['isSuperAdmin']) && (int) $seance->classe?->etablissement_id !== (int) $context['etablissementId']) {
             abort(403, 'Action non autorisée sur une séance d\'un autre établissement.');
         }
 
@@ -342,7 +342,7 @@ class EmploiDuTempsController extends Controller implements HasMiddleware
 
         $seance->load('classe');
         $context = $this->resolveEtablissementContext(request());
-        if (! $context['isSuperAdmin'] && (int) $seance->classe?->etablissement_id !== (int) $context['etablissementId']) {
+        if (! ($context['canAccessAll'] ?? $context['isSuperAdmin']) && (int) $seance->classe?->etablissement_id !== (int) $context['etablissementId']) {
             abort(403, 'Action non autorisée sur une séance d\'un autre établissement.');
         }
 
@@ -372,7 +372,7 @@ class EmploiDuTempsController extends Controller implements HasMiddleware
         ]);
 
         $context = $this->resolveEtablissementContext($request);
-        if (! $context['isSuperAdmin']) {
+        if (! ($context['canAccessAll'] ?? $context['isSuperAdmin'])) {
             $validated['etablissement_id'] = $context['etablissementId'];
         }
 
@@ -393,7 +393,7 @@ class EmploiDuTempsController extends Controller implements HasMiddleware
         abort_if(! $request->user()?->can('emplois_du_temps.manage') && ! $request->user()?->hasRole('super-admin'), 403);
 
         $context = $this->resolveEtablissementContext($request);
-        if (! $context['isSuperAdmin'] && (int) $salle->etablissement_id !== (int) $context['etablissementId']) {
+        if (! ($context['canAccessAll'] ?? $context['isSuperAdmin']) && (int) $salle->etablissement_id !== (int) $context['etablissementId']) {
             abort(403, 'Action non autorisée sur une salle d\'un autre établissement.');
         }
 
@@ -422,7 +422,7 @@ class EmploiDuTempsController extends Controller implements HasMiddleware
         abort_if(! request()->user()?->can('emplois_du_temps.manage') && ! request()->user()?->hasRole('super-admin'), 403);
 
         $context = $this->resolveEtablissementContext(request());
-        if (! $context['isSuperAdmin'] && (int) $salle->etablissement_id !== (int) $context['etablissementId']) {
+        if (! ($context['canAccessAll'] ?? $context['isSuperAdmin']) && (int) $salle->etablissement_id !== (int) $context['etablissementId']) {
             abort(403, 'Action non autorisée sur une salle d\'un autre établissement.');
         }
 

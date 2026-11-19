@@ -3,88 +3,24 @@ import { Link, usePage } from '@inertiajs/react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { home } from '@/routes';
 import type { AuthLayoutProps } from '@/types';
+import {
+    DEFAULT_LOGIN_BRANDING,
+    DEFAULT_LOGIN_SCENES,
+    type LoginAppearancePayload,
+} from '@/types/login-appearance';
 
 /**
- * 10 photographies 100% réelles, authentiques et libres de droits illustrant le contexte scolaire au Cameroun :
- * En classe, dans la cour, l'école au village, en ville, la jeunesse camerounaise et l'éducation générale.
- * Aucune image générée par IA.
+ * Cadence de rotation par défaut du diaporama en millisecondes (4 secondes).
  */
-const SCENES = [
-    {
-        id: 'classe-pedagogie',
-        image: '/images/auth/real-classroom-cameroon.jpg',
-        title: 'Apprentissage & Pédagogie Active',
-        subtitle: 'Séance de cours et travail pratique en classe au Cameroun',
-    },
-    {
-        id: 'classe-eleves',
-        image: '/images/auth/real-students-class.jpg',
-        title: 'Travail en Classe & Réflexion',
-        subtitle: 'Élèves studieux, cahiers et transmission des savoirs fondamentaux',
-    },
-    {
-        id: 'ecole-urbaine',
-        image: '/images/auth/real-school-douala.jpg',
-        title: 'Établissements Scolaires Urbains',
-        subtitle: 'Élèves réunis au sein de l’École Publique de Bonadowito (Douala)',
-    },
-    {
-        id: 'ecole-village',
-        image: '/images/auth/village-school.jpg',
-        title: 'L’École au Village',
-        subtitle: 'Bâtiment et cour d’école en zone rurale (Bamena, Ouest Cameroun)',
-    },
-    {
-        id: 'ecoliers-cameroun',
-        image: '/images/auth/school-scene-1.jpg',
-        title: 'Écoliers du Cameroun',
-        subtitle: 'La jeunesse camerounaise et l’accès universel à l’éducation (Akok Bekoe)',
-    },
-    {
-        id: 'defile-jeunesse',
-        image: '/images/auth/school-scene-4.jpg',
-        title: 'Fête de la Jeunesse & Civisme',
-        subtitle: 'Défilé scolaire traditionnel du 11 février et cohésion nationale',
-    },
-    {
-        id: 'batiment-rural',
-        image: '/images/auth/rural-school-west.jpg',
-        title: 'Infrastructures Scolaires de Proximité',
-        subtitle: 'Établissements scolaires au cœur des terroirs locaux (Bapeng-Bameka)',
-    },
-    {
-        id: 'rassemblement-nord',
-        image: '/images/auth/school-scene-3.jpg',
-        title: 'Rassemblement & Camaraderie',
-        subtitle: 'Élèves réunies dans la cour (Maroua, Grand Nord Cameroun)',
-    },
-    {
-        id: 'patrimoine-bankim',
-        image: '/images/auth/real-schoolhouse-bankim.jpg',
-        title: 'Patrimoine Éducatif Régional',
-        subtitle: 'Bâtiment scolaire historique et cadre d’études (Bankim, Adamaoua)',
-    },
-    {
-        id: 'cour-recreation',
-        image: '/images/auth/school-scene-8.jpg',
-        title: 'Cérémonie & Discipline Scolaire',
-        subtitle: 'Cérémonie de levée des couleurs et rassemblement dans la cour',
-    },
-];
+const DEFAULT_ROTATION_INTERVAL_MS = 4000;
 
 /**
- * Fréquence de défilement automatique du diaporama (en millisecondes).
- * 4 secondes pour un rythme dynamique, agréable et régulier.
- */
-const ROTATION_INTERVAL_MS = 4000;
-
-/**
- * Layout d'authentification scindé professionnel et allégé (AuthSplitLayout).
+ * Layout d'authentification scindé professionnel et dynamique (AuthSplitLayout).
  *
  * Section gauche (Écran 22" et Desktop) :
- * - Carrousel fluide et automatique de 10 photographies réelles d'écoles du Cameroun.
- * - Défilement automatique continu toutes les 4 secondes.
- * - Transitions en fondu enchaîné et légendes sobres sans encombrement.
+ * - Carrousel automatique et bouclé sur les N diapositives configurées dans Administration
+ *   (ou les 10 photographies scolaires par défaut si aucune personnalisation active n'est définie).
+ * - Transitions en fondu enchaîné et affichage conditionnel des contrôles selon le nombre réel de slides.
  *
  * Section droite :
  * - Formulaire de connexion épuré, centré et directement accessible.
@@ -97,42 +33,80 @@ export default function AuthSplitLayout({
     title,
     description,
 }: AuthLayoutProps) {
-    const { name } = usePage().props;
+    const { name, loginAppearance } = usePage<{
+        name?: string;
+        loginAppearance?: LoginAppearancePayload | null;
+    }>().props;
+
+    // Utilise uniquement les N slides configurés s'il y en a ; sinon retombe sur les 10 scènes par défaut SYGES
+    const slides =
+        loginAppearance?.slides && loginAppearance.slides.length > 0
+            ? loginAppearance.slides
+            : DEFAULT_LOGIN_SCENES;
+
+    const rotationMs =
+        loginAppearance?.rotation_interval_ms && loginAppearance.rotation_interval_ms >= 2000
+            ? loginAppearance.rotation_interval_ms
+            : DEFAULT_ROTATION_INTERVAL_MS;
+
+    const branding = loginAppearance?.branding ?? DEFAULT_LOGIN_BRANDING;
+    const brandName = branding.brand_name || name || DEFAULT_LOGIN_BRANDING.brand_name;
+    const brandSubtitle = branding.brand_subtitle || DEFAULT_LOGIN_BRANDING.brand_subtitle;
+    const logoUrl = branding.logo_url || DEFAULT_LOGIN_BRANDING.logo_url;
+    const footerLeft = branding.footer_left || DEFAULT_LOGIN_BRANDING.footer_left;
+    const footerRight = branding.footer_right || DEFAULT_LOGIN_BRANDING.footer_right;
 
     const [activeIdx, setActiveIdx] = useState(0);
+    const [resolvedLogoUrl, setResolvedLogoUrl] = useState(logoUrl);
+
+    useEffect(() => {
+        setResolvedLogoUrl(logoUrl);
+    }, [logoUrl]);
+
+    // Réinitialise l'index si le nombre de slides évolue pour éviter tout dépassement de tableau
+    useEffect(() => {
+        if (activeIdx >= slides.length) {
+            setActiveIdx(0);
+        }
+    }, [activeIdx, slides.length]);
 
     const nextScene = useCallback(() => {
-        setActiveIdx((prev) => (prev + 1) % SCENES.length);
-    }, []);
+        if (slides.length <= 1) return;
+        setActiveIdx((prev) => (prev + 1) % slides.length);
+    }, [slides.length]);
 
     const prevScene = useCallback(() => {
-        setActiveIdx((prev) => (prev - 1 + SCENES.length) % SCENES.length);
-    }, []);
+        if (slides.length <= 1) return;
+        setActiveIdx((prev) => (prev - 1 + slides.length) % slides.length);
+    }, [slides.length]);
 
-    // Défilement automatique continu : avance toutes les 4s et réinitialise le compte à rebours lors d'un changement manuel
+    // Défilement automatique en boucle sur les slides actifs réels (pas de boucle si 1 seul slide)
     useEffect(() => {
+        if (slides.length <= 1) return;
+
         const timer = setInterval(() => {
-            setActiveIdx((prev) => (prev + 1) % SCENES.length);
-        }, ROTATION_INTERVAL_MS);
+            setActiveIdx((prev) => (prev + 1) % slides.length);
+        }, rotationMs);
 
         return () => clearInterval(timer);
-    }, [activeIdx]);
+    }, [activeIdx, slides.length, rotationMs]);
 
-    // Préchargement des 10 photographies en arrière-plan pour des transitions instantanées
+    // Préchargement des photographies actives en arrière-plan pour des transitions sans scintillement
     useEffect(() => {
-        SCENES.forEach((scene) => {
+        slides.forEach((scene) => {
             const img = new Image();
             img.src = scene.image;
         });
-    }, []);
+    }, [slides]);
 
-    const activeScene = SCENES[activeIdx];
+    const safeIdx = activeIdx < slides.length ? activeIdx : 0;
+    const activeScene = slides[safeIdx];
 
     return (
         <div className="relative min-h-screen w-full overflow-x-hidden bg-background">
-            <div className="grid min-h-screen grid-cols-1 lg:grid-cols-12">
+            <div className="grid min-h-screen w-full grid-cols-1 lg:grid-cols-12">
                 {/* ========================================================= */}
-                {/* SECTION 1 (GAUCHE) : 10 PHOTOS SCOLAIRES DU CAMEROUN       */}
+                {/* SECTION 1 (GAUCHE) : CARROUSEL PHOTOGRAPHIQUE CONFIGURABLE*/}
                 {/* 58% sur grand écran (7/12)                                */}
                 {/* ========================================================= */}
                 <div
@@ -143,40 +117,41 @@ export default function AuthSplitLayout({
                     <div className="absolute -top-32 -left-32 size-128 rounded-full bg-indigo-600/10 blur-3xl pointer-events-none" />
                     <div className="absolute -bottom-32 right-1/4 size-128 rounded-full bg-blue-600/10 blur-3xl pointer-events-none" />
 
-                    {/* En-tête : Logo SYGES épuré */}
-                    <div className="relative z-20">
+                    {/* En-tête : Logo et identité de l'établissement/plateforme */}
+                    <div className="relative z-20 min-w-0">
                         <Link
                             href={home()}
-                            className="inline-flex items-center gap-3 transition-opacity hover:opacity-90"
+                            className="inline-flex max-w-full items-center gap-3 transition-opacity hover:opacity-90"
                         >
-                            <div className="flex size-11 items-center justify-center rounded-2xl overflow-hidden bg-white/10 p-1.5 shadow-lg ring-1 ring-white/15 backdrop-blur-md">
+                            <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl overflow-hidden bg-white/10 p-1.5 shadow-lg ring-1 ring-white/15 backdrop-blur-md">
                                 <img
-                                    src="/images/syges-icon.png"
-                                    alt="Logo SYGES"
+                                    src={resolvedLogoUrl}
+                                    alt={`Logo ${brandName}`}
+                                    onError={() => setResolvedLogoUrl(DEFAULT_LOGIN_BRANDING.logo_url)}
                                     className="size-full object-contain"
                                 />
                             </div>
-                            <div className="flex flex-col">
-                                <span className="text-2xl font-bold tracking-tight text-white">
-                                    {name ?? 'SYGES'}
+                            <div className="flex min-w-0 flex-col">
+                                <span className="truncate text-xl xl:text-2xl font-bold tracking-tight text-white">
+                                    {brandName}
                                 </span>
-                                <span className="text-xs text-slate-400">
-                                    Gestion des Établissements Scolaires
+                                <span className="truncate text-xs text-slate-400">
+                                    {brandSubtitle}
                                 </span>
                             </div>
                         </Link>
                     </div>
 
-                    {/* Vitrine photographique animée des 10 scènes scolaires */}
+                    {/* Vitrine photographique animée (exactement slides.length diapositives en boucle) */}
                     <div className="relative z-20 my-auto py-4">
                         <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-slate-900/50 shadow-2xl backdrop-blur-sm">
-                            {/* Hauteur équilibrée pour écran 22 pouces */}
-                            <div className="relative h-80 xl:h-96 2xl:h-112 w-full overflow-hidden">
-                                {SCENES.map((scene, idx) => (
+                            {/* Hauteur fluide proportionnelle à la diagonale de l'écran (portable 13", 22" ou très grand écran) */}
+                            <div className="relative h-[clamp(20rem,52vh,38rem)] w-full overflow-hidden">
+                                {slides.map((scene, idx) => (
                                     <div
                                         key={scene.id}
                                         className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
-                                            idx === activeIdx ? 'opacity-100 z-10' : 'opacity-0 z-0'
+                                            idx === safeIdx ? 'opacity-100 z-10' : 'opacity-0 z-0'
                                         }`}
                                     >
                                         <img
@@ -184,66 +159,72 @@ export default function AuthSplitLayout({
                                             alt={scene.title}
                                             className="h-full w-full object-cover object-center transform scale-102 transition-transform duration-6000 ease-out"
                                         />
-                                        {/* Dégradé doux pour faire ressortir la légende sans masquer les visages */}
+                                        {/* Dégradé doux pour faire ressortir la légende sans masquer l'image */}
                                         <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/25 to-transparent" />
                                     </div>
                                 ))}
 
-                                {/* Boutons discrets précédent / suivant */}
-                                <div className="absolute top-4 right-4 z-20 flex items-center gap-1.5">
-                                    <button
-                                        type="button"
-                                        onClick={prevScene}
-                                        className="flex size-8 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-md transition-colors hover:bg-black/70 cursor-pointer"
-                                        aria-label="Image précédente"
-                                    >
-                                        <ChevronLeft className="size-4" />
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={nextScene}
-                                        className="flex size-8 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-md transition-colors hover:bg-black/70 cursor-pointer"
-                                        aria-label="Image suivante"
-                                    >
-                                        <ChevronRight className="size-4" />
-                                    </button>
-                                </div>
+                                {/* Boutons discrets précédent / suivant affichés si plus d'un slide */}
+                                {slides.length > 1 && (
+                                    <div className="absolute top-4 right-4 z-20 flex items-center gap-1.5">
+                                        <button
+                                            type="button"
+                                            onClick={prevScene}
+                                            className="flex size-8 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-md transition-colors hover:bg-black/70 cursor-pointer"
+                                            aria-label="Image précédente"
+                                        >
+                                            <ChevronLeft className="size-4" />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={nextScene}
+                                            className="flex size-8 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-md transition-colors hover:bg-black/70 cursor-pointer"
+                                            aria-label="Image suivante"
+                                        >
+                                            <ChevronRight className="size-4" />
+                                        </button>
+                                    </div>
+                                )}
 
-                                {/* Légende en une ligne courte au bas de l'image */}
+                                {/* Légende au bas de l'image */}
                                 <div className="absolute bottom-0 inset-x-0 z-20 p-6 sm:p-8 space-y-1">
                                     <h3 className="text-xl font-bold text-white tracking-tight drop-shadow-sm">
                                         {activeScene.title}
                                     </h3>
-                                    <p className="text-sm text-slate-300 drop-shadow-sm">
-                                        {activeScene.subtitle}
-                                    </p>
+                                    {activeScene.subtitle && (
+                                        <p className="text-sm text-slate-300 drop-shadow-sm">
+                                            {activeScene.subtitle}
+                                        </p>
+                                    )}
                                 </div>
                             </div>
                         </div>
 
-                        {/* Pastilles indicatrices pour les 10 photos */}
-                        <div className="flex items-center justify-center gap-1.5 pt-4">
-                            {SCENES.map((scene, idx) => (
-                                <button
-                                    key={scene.id}
-                                    type="button"
-                                    onClick={() => setActiveIdx(idx)}
-                                    className={`h-1.5 rounded-full transition-all duration-300 cursor-pointer ${
-                                        idx === activeIdx
-                                            ? 'w-7 bg-white shadow-sm'
-                                            : 'w-1.5 bg-white/25 hover:bg-white/50'
-                                    }`}
-                                    aria-label={`Photo ${idx + 1}: ${scene.title}`}
-                                />
-                            ))}
-                        </div>
+                        {/* Pastilles indicatrices strictement proportionnelles au nombre de slides configurés */}
+                        {slides.length > 1 && (
+                            <div className="flex items-center justify-center gap-1.5 pt-4">
+                                {slides.map((scene, idx) => (
+                                    <button
+                                        key={scene.id}
+                                        type="button"
+                                        onClick={() => setActiveIdx(idx)}
+                                        className={`h-1.5 rounded-full transition-all duration-300 cursor-pointer ${
+                                            idx === safeIdx
+                                                ? 'w-7 bg-white shadow-sm'
+                                                : 'w-1.5 bg-white/25 hover:bg-white/50'
+                                        }`}
+                                        aria-label={`Photo ${idx + 1}: ${scene.title}`}
+                                    />
+                                ))}
+                            </div>
+                        )}
                     </div>
 
                     {/* Pied de page sobre */}
                     <div className="relative z-20 border-t border-slate-800/60 pt-4">
                         <div className="flex items-center justify-between text-xs text-slate-400">
-                            <span>SYGES • Système Éducatif Camerounais</span>
-                            <span>© 2026</span>
+                            <span>{footerLeft}</span>
+                            <span>{footerRight}</span>
                         </div>
                     </div>
                 </div>
@@ -255,22 +236,28 @@ export default function AuthSplitLayout({
                 <div className="relative flex min-h-screen w-full flex-col justify-between p-6 sm:p-10 lg:col-span-5 xl:col-span-5 xl:p-12 2xl:p-16">
                     {/* Logo mobile (affiché uniquement sur smartphone/tablette) */}
                     <div className="flex items-center justify-between w-full pb-4 lg:hidden">
-                        <Link href={home()} className="flex items-center gap-2.5">
-                            <div className="flex size-9 items-center justify-center rounded-xl overflow-hidden shadow-xs">
+                        <Link href={home()} className="flex min-w-0 max-w-full items-center gap-2.5">
+                            <div className="flex size-9 shrink-0 items-center justify-center rounded-xl overflow-hidden shadow-xs">
                                 <img
-                                    src="/images/syges-icon.png"
-                                    alt="Logo SYGES"
+                                    src={resolvedLogoUrl}
+                                    alt={`Logo ${brandName}`}
+                                    onError={() => setResolvedLogoUrl(DEFAULT_LOGIN_BRANDING.logo_url)}
                                     className="size-9 object-contain"
                                 />
                             </div>
-                            <span className="text-lg font-bold tracking-tight text-foreground">
-                                {name ?? 'SYGES'}
-                            </span>
+                            <div className="flex min-w-0 flex-col">
+                                <span className="truncate text-base sm:text-lg font-bold tracking-tight text-foreground">
+                                    {brandName}
+                                </span>
+                                <span className="truncate text-[11px] text-muted-foreground">
+                                    {brandSubtitle}
+                                </span>
+                            </div>
                         </Link>
                     </div>
 
-                    {/* Carte de connexion centrée, épurée et aérée */}
-                    <div className="my-auto mx-auto w-full max-w-md">
+                    {/* Carte de connexion centrée, fluide sur mobile/tablette comme sur grand écran */}
+                    <div className="my-auto mx-auto w-full max-w-md sm:max-w-lg lg:max-w-md xl:max-w-[29rem] 2xl:max-w-[31rem]">
                         <div className="rounded-3xl border border-border/70 bg-card/95 p-8 sm:p-10 shadow-xl backdrop-blur-xl">
                             {/* Titre sobre */}
                             <div className="space-y-1.5 text-center mb-7">

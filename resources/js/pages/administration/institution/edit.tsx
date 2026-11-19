@@ -36,6 +36,7 @@ interface InstitutionData {
     devise?: string | null;
     devise_en?: string | null;
     logo?: string | null;
+    logo_filigrane?: string | null;
     email?: string | null;
     telephone_1?: string | null;
     telephone_2?: string | null;
@@ -99,9 +100,11 @@ export default function EditInstitution({ institution, flash }: EditInstitutionP
         }
     }, [flash]);
 
-    // Gestion de l'état de prévisualisation du logo et référence de l'input fichier
+    // Gestion de l'état de prévisualisation des logos (principal + filigrane) et références input
     const [logoPreview, setLogoPreview] = React.useState<string | null>(institution.logo || null);
+    const [filigranePreview, setFiligranePreview] = React.useState<string | null>(institution.logo_filigrane || null);
     const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+    const filigraneInputRef = React.useRef<HTMLInputElement | null>(null);
 
     // Initialisation du formulaire Inertia avec l'ensemble des champs
     const { data, setData, post, processing, errors, isDirty, reset } = useForm<{
@@ -113,6 +116,8 @@ export default function EditInstitution({ institution, flash }: EditInstitutionP
         devise_en: string;
         logo: string;
         logo_file: File | null;
+        logo_filigrane: string;
+        logo_filigrane_file: File | null;
         _method: string;
         email: string;
         telephone_1: string;
@@ -139,6 +144,8 @@ export default function EditInstitution({ institution, flash }: EditInstitutionP
         devise_en: institution.devise_en || '',
         logo: institution.logo || '',
         logo_file: null,
+        logo_filigrane: institution.logo_filigrane || '',
+        logo_filigrane_file: null,
         _method: 'put',
         email: institution.email || '',
         telephone_1: institution.telephone_1 || '',
@@ -160,32 +167,46 @@ export default function EditInstitution({ institution, flash }: EditInstitutionP
 
 
     /**
-     * Gestion de la sélection d'un fichier logo avec prévisualisation immédiate.
+     * Valide la taille d'un fichier image (<= 2 Mo) et met à jour le champ et son aperçu.
      *
-     * @param {React.ChangeEvent<HTMLInputElement>} e Événement de changement de fichier.
+     * @param {React.ChangeEvent<HTMLInputElement>} e Événement de sélection de fichier.
+     * @param {'logo_file' | 'logo_filigrane_file'} field Nom du champ Inertia cible.
+     * @param {(url: string | null) => void} setPreview Mutateur de l'URL de prévisualisation.
      */
-    const handleLogoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleImageFileSelect = (
+        e: React.ChangeEvent<HTMLInputElement>,
+        field: 'logo_file' | 'logo_filigrane_file',
+        setPreview: React.Dispatch<React.SetStateAction<string | null>>
+    ) => {
         const file = e.target.files?.[0];
-        if (file) {
-            if (file.size > 2 * 1024 * 1024) {
-                toast.error('Le fichier est trop volumineux. Taille maximale : 2 Mo.');
-                return;
-            }
-            setData('logo_file', file);
-            const previewUrl = URL.createObjectURL(file);
-            setLogoPreview(previewUrl);
+        if (!file) return;
+        if (file.size > 2 * 1024 * 1024) {
+            toast.error('Le fichier est trop volumineux. Taille maximale : 2 Mo.');
+            return;
         }
+        setData(field, file);
+        setPreview(URL.createObjectURL(file));
     };
 
     /**
-     * Suppression du logo sélectionné.
+     * Supprime le logo ou le filigrane sélectionné.
+     *
+     * @param {'logo' | 'logo_filigrane'} pathField Champ chemin texte.
+     * @param {'logo_file' | 'logo_filigrane_file'} fileField Champ fichier multipart.
+     * @param {React.Dispatch<React.SetStateAction<string | null>>} setPreview Mutateur d'aperçu.
+     * @param {React.RefObject<HTMLInputElement | null>} inputRef Référence vers l'input fichier.
      */
-    const handleRemoveLogo = () => {
-        setData('logo', '');
-        setData('logo_file', null);
-        setLogoPreview(null);
-        if (fileInputRef.current) {
-            fileInputRef.current.value = '';
+    const handleRemoveImage = (
+        pathField: 'logo' | 'logo_filigrane',
+        fileField: 'logo_file' | 'logo_filigrane_file',
+        setPreview: React.Dispatch<React.SetStateAction<string | null>>,
+        inputRef: React.RefObject<HTMLInputElement | null>
+    ) => {
+        setData(pathField, '');
+        setData(fileField, null);
+        setPreview(null);
+        if (inputRef.current) {
+            inputRef.current.value = '';
         }
     };
 
@@ -362,7 +383,7 @@ export default function EditInstitution({ institution, flash }: EditInstitutionP
                                 <input
                                     type="file"
                                     ref={fileInputRef}
-                                    onChange={handleLogoFileChange}
+                                    onChange={(e) => handleImageFileSelect(e, 'logo_file', setLogoPreview)}
                                     accept="image/png,image/jpeg,image/jpg,image/webp,image/svg+xml"
                                     className="hidden"
                                 />
@@ -376,7 +397,7 @@ export default function EditInstitution({ institution, flash }: EditInstitutionP
                                             />
                                             <button
                                                 type="button"
-                                                onClick={handleRemoveLogo}
+                                                onClick={() => handleRemoveImage('logo', 'logo_file', setLogoPreview, fileInputRef)}
                                                 className="absolute inset-0 bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-xl cursor-pointer"
                                                 title="Supprimer le logo"
                                             >
@@ -409,6 +430,84 @@ export default function EditInstitution({ institution, flash }: EditInstitutionP
                                 </div>
                                 {errors.logo && <p className="text-[11px] text-rose-500">{errors.logo}</p>}
                             </div>
+                            </div>
+
+                            {/* Logo Filigrane Officiel (Fond des États PDF) */}
+                            <div className="rounded-xl border border-border/70 bg-muted/20 p-4 space-y-2.5">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <div>
+                                        <Label className="text-xs font-bold text-foreground">
+                                            Logo Filigrane Officiel (Fond des États & Bulletins PDF)
+                                        </Label>
+                                        <p className="text-[11px] text-muted-foreground">
+                                            Apposé en arrière-plan centré et semi-transparent sur tous les états officiels (recommandé : PNG transparent). Les campus en héritent par défaut.
+                                        </p>
+                                    </div>
+                                    {filigranePreview && (
+                                        <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300">
+                                            Filigrane actif
+                                        </Badge>
+                                    )}
+                                </div>
+                                <input
+                                    type="file"
+                                    ref={filigraneInputRef}
+                                    onChange={(e) => handleImageFileSelect(e, 'logo_filigrane_file', setFiligranePreview)}
+                                    accept="image/png,image/jpeg,image/jpg,image/webp,image/svg+xml"
+                                    className="hidden"
+                                />
+                                <div className="flex items-center gap-3">
+                                    {filigranePreview ? (
+                                        <div className="relative group size-16 shrink-0 rounded-xl border border-border bg-white dark:bg-slate-900 p-1.5 flex items-center justify-center overflow-hidden shadow-xs">
+                                            <img
+                                                src={filigranePreview}
+                                                alt="Filigrane officiel"
+                                                className="max-h-full max-w-full object-contain opacity-65"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => handleRemoveImage('logo_filigrane', 'logo_filigrane_file', setFiligranePreview, filigraneInputRef)}
+                                                className="absolute inset-0 bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-xl cursor-pointer"
+                                                title="Supprimer le filigrane"
+                                            >
+                                                <Trash2 className="size-4" />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div
+                                            onClick={() => filigraneInputRef.current?.click()}
+                                            className="size-16 shrink-0 rounded-xl border-2 border-dashed border-border hover:border-primary/60 bg-background flex flex-col items-center justify-center cursor-pointer transition-colors"
+                                            title="Cliquer pour importer un filigrane"
+                                        >
+                                            <UploadCloud className="size-5 text-muted-foreground" />
+                                        </div>
+                                    )}
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => filigraneInputRef.current?.click()}
+                                            className="cursor-pointer text-xs h-8 gap-1.5"
+                                        >
+                                            <UploadCloud className="size-3.5" />
+                                            <span>{filigranePreview ? 'Changer le filigrane' : 'Téléverser un filigrane'}</span>
+                                        </Button>
+                                        {filigranePreview && (
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => handleRemoveImage('logo_filigrane', 'logo_filigrane_file', setFiligranePreview, filigraneInputRef)}
+                                                className="cursor-pointer text-xs h-8 gap-1 text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+                                            >
+                                                <Trash2 className="size-3.5" />
+                                                <span>Supprimer</span>
+                                            </Button>
+                                        )}
+                                    </div>
+                                </div>
+                                {errors.logo_filigrane && <p className="text-[11px] text-rose-500">{errors.logo_filigrane}</p>}
                             </div>
                         </div>
                     </div>

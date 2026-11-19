@@ -75,7 +75,11 @@ import { PersonnelDetailDrawer } from './modals/personnel-detail-drawer';
  * Fonctions types prédéfinies pour le filtre.
  */
 const FONCTIONS_LISTE = [
+    'Directeur',
+    'Directrice',
     'Enseignant',
+    'Maître',
+    'Maîtresse',
     'Directeur des Études',
     'Censeur',
     'Surveillant Général',
@@ -169,6 +173,7 @@ export default function PersonnelsIndex({
         const f = (fonction || '').toLowerCase().trim();
         if (
             (f.includes('directeur') && !f.includes('études') && !f.includes('etudes') && !f.includes('adjoint')) ||
+            (f.includes('directrice') && !f.includes('études') && !f.includes('etudes') && !f.includes('adjoint')) ||
             f.includes('proviseur') ||
             f.includes('principal') ||
             f.includes('chef d\'établissement') ||
@@ -190,7 +195,15 @@ export default function PersonnelsIndex({
         ) {
             return 2;
         }
-        if (isEnseignant || f.includes('enseignant') || f.includes('professeur')) {
+        if (
+            isEnseignant ||
+            f.includes('enseignant') ||
+            f.includes('professeur') ||
+            f.includes('maître') ||
+            f.includes('maitre') ||
+            f.includes('maîtresse') ||
+            f.includes('maitresse')
+        ) {
             return 3;
         }
         return 4;

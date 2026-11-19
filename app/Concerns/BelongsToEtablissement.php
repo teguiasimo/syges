@@ -42,11 +42,11 @@ trait BelongsToEtablissement
                 /** @var User $user */
                 $user = Auth::user();
 
-                if (! $user->isSuperAdmin()) {
+                if (! $user->canAccessAllEtablissements()) {
                     // Pour un utilisateur local, on force son établissement d'affectation
                     $model->etablissement_id = $user->getEffectiveEtablissementId();
                 } elseif (request()->hasSession() && request()->session()->has('current_etablissement_id')) {
-                    // Pour le Super-Admin, on utilise l'établissement actif en session s'il existe
+                    // Pour un profil transversal (Super-Admin / Secrétaire globale), on utilise l'établissement actif en session s'il existe
                     $model->etablissement_id = (int) request()->session()->get('current_etablissement_id');
                 }
             }

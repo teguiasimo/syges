@@ -45,11 +45,12 @@ import {
 } from '@/components/ui/select';
 import { useTranslation } from '@/contexts/language-context';
 import { formatAnneeLabel } from '@/lib/utils';
-import type {
-    Attribution,
-    AttributionsPageProps,
-    ClasseWithAttributions,
-    EnseignantWithWorkload,
+import {
+    getClasseTitulaireLabel,
+    type Attribution,
+    type AttributionsPageProps,
+    type ClasseWithAttributions,
+    type EnseignantWithWorkload,
 } from '@/types/attribution';
 import { ClasseMatrixModal } from './modals/classe-matrix-modal';
 import { CreateAttributionModal } from './modals/create-attribution-modal';
@@ -221,9 +222,10 @@ export default function AttributionsIndex({
             },
             {
                 id: 'professeur_principal',
-                header: () => <span className="font-semibold text-xs">Professeur Principal</span>,
+                header: () => <span className="font-semibold text-xs">Titulaire de Classe</span>,
                 cell: ({ row }) => {
                     const c = row.original;
+                    const titulaireLabel = getClasseTitulaireLabel(c);
                     if (c.professeur_principal) {
                         return (
                             <button
@@ -237,7 +239,7 @@ export default function AttributionsIndex({
                                 className={`flex items-center gap-2 text-left group p-1.5 rounded-lg transition-colors ${
                                     can.manage ? 'hover:bg-amber-50 dark:hover:bg-amber-950/40 cursor-pointer' : ''
                                 }`}
-                                title={can.manage ? 'Cliquer pour modifier le professeur principal de cette classe' : undefined}
+                                title={can.manage ? `Cliquer pour modifier le ${titulaireLabel.toLowerCase()} de cette classe` : undefined}
                             >
                                 <Award className="size-4 text-amber-600 shrink-0 group-hover:scale-110 transition-transform" />
                                 <div className="text-xs">
@@ -245,7 +247,7 @@ export default function AttributionsIndex({
                                         {c.professeur_principal.nom} {c.professeur_principal.prenom}
                                     </span>
                                     <span className="text-[11px] text-muted-foreground font-mono">
-                                        {c.professeur_principal.matricule}
+                                        {c.professeur_principal.matricule} • {titulaireLabel}
                                     </span>
                                 </div>
                             </button>
@@ -260,7 +262,7 @@ export default function AttributionsIndex({
                             }}
                             className="text-xs text-amber-600 hover:underline inline-flex items-center gap-1 font-medium cursor-pointer"
                         >
-                            <Plus className="size-3" /> Désigner un PP
+                            <Plus className="size-3" /> Désigner ({titulaireLabel})
                         </button>
                     );
                 },

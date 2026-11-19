@@ -16,7 +16,7 @@ use App\Models\SeanceEmploiTemps;
 use App\Models\Section;
 use App\Models\User;
 use App\Services\EmploiDuTempsService;
-use Illuminate\Validation\ValidationException;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -38,15 +38,22 @@ use Tests\TestCase;
  */
 class EmploiDuTempsTest extends TestCase
 {
-    use \Illuminate\Foundation\Testing\RefreshDatabase;
+    use RefreshDatabase;
 
     public ?User $unauthorizedUser = null;
+
     protected Salle $salle1;
+
     protected Salle $salle2;
+
     protected Classe $classe2;
+
     protected Personnel $enseignant2;
+
     protected Attribution $attribution1;
+
     protected Attribution $attribution2;
+
     protected Attribution $attribution3;
 
     protected function setUp(): void
@@ -81,6 +88,9 @@ class EmploiDuTempsTest extends TestCase
                 'ordre_enseignement' => 'Secondaire General',
             ]
         );
+
+        // Rattacher le compte administrateur au campus pour satisfaire le filtre EtablissementScope
+        $this->adminUser->update(['etablissement_id' => $this->etablissement->id]);
 
         $this->section = Section::firstOrCreate(
             ['code' => 'SEC-FR-EDT', 'etablissement_id' => $this->etablissement->id],

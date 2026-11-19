@@ -22,7 +22,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
 import type { CategorieFrais, TypeFrais } from '@/types/finance';
 
 /**
@@ -39,10 +38,9 @@ interface TypeFraisModalProps {
 /**
  * Modale de création et de modification d'un Frais dans le Catalogue des Frais (`01. Catalogue des Frais`).
  *
- * Permet de configurer un frais une seule fois (catégorie, libellé, caractère obligatoire ou optionnel,
- * montant, ordre de priorité, date butoir et informations complémentaires) afin de pouvoir ensuite
- * le rattacher sans répétition à un ou plusieurs niveaux pédagogiques (ex: SIL → CM2).
- * Intègre également la création rapide d'une Catégorie de Frais (Libellé + Description) sans quitter la fenêtre.
+ * Permet de configurer un frais une seule fois (catégorie, libellé, montant, ordre de priorité et date butoir)
+ * de manière épurée et sans répétition. Inclut la création rapide d'une Catégorie de Frais ainsi qu'un bouton
+ * « Enregistrer & Nouveau » pour enchaîner les saisies rapidement.
  *
  * @param {TypeFraisModalProps} props Propriétés du composant
  * @returns {JSX.Element} Modale du Catalogue des Frais
@@ -62,6 +60,7 @@ export default function TypeFraisModal({
     const [newCatDescription, setNewCatDescription] = useState('');
     const [creatingCat, setCreatingCat] = useState(false);
     const [pendingSelectCatName, setPendingSelectCatName] = useState<string | null>(null);
+    const [savingAndNew, setSavingAndNew] = useState(false);
 
     const { data, setData, post, put, processing, reset, errors, transform } = useForm({
         etablissement_id: etablissementId,
@@ -171,6 +170,64 @@ export default function TypeFraisModal({
     };
 
     /**
+     * Enregistre le frais courant et réinitialise les champs pour permettre
+     * une saisie rapide à la chaîne sans fermer la modale, en conservant la catégorie active.
+     */
+    const handleSaveAndNew = () => {
+        if (!data.libelle.trim() || data.montant_defaut === '') {
+            toast.error('Veuillez renseigner au minimum le libellé et le montant du frais.', {
+                position: 'top-right',
+            });
+            return;
+        }
+
+        setSavingAndNew(true);
+        router.post(
+            '/administration/finances/types-frais',
+            {
+                etablissement_id: etablissementId,
+                categorie_frais_id: data.categorie_frais_id
+                    ? parseInt(String(data.categorie_frais_id), 10)
+                    : null,
+                libelle: data.libelle.trim(),
+                description: null,
+                obligatoire: true,
+                ordre_priorite: data.ordre_priorite
+                    ? parseInt(String(data.ordre_priorite), 10)
+                    : 10,
+                montant_defaut: data.montant_defaut
+                    ? parseFloat(String(data.montant_defaut))
+                    : 0,
+                date_limite_defaut: data.date_limite_defaut ? data.date_limite_defaut : null,
+            },
+            {
+                preserveScroll: true,
+                preserveState: true,
+                onSuccess: () => {
+                    toast.success(`Frais « ${data.libelle.trim()} » ajouté avec succès.`, {
+                        position: 'top-right',
+                        className: 'bg-emerald-600 text-white border-none',
+                    });
+                    // Conserve la catégorie et la priorité sélectionnées, réinitialise libellé, montant et date butoir
+                    setData((prev) => ({
+                        ...prev,
+                        libelle: '',
+                        montant_defaut: '',
+                        date_limite_defaut: '',
+                    }));
+                },
+                onError: (err) => {
+                    const first = Object.values(err)[0] as string;
+                    toast.error(first || 'Erreur lors de l’enregistrement du frais.', {
+                        position: 'top-right',
+                    });
+                },
+                onFinish: () => setSavingAndNew(false),
+            }
+        );
+    };
+
+    /**
      * Soumet la création ou la mise à jour du frais au serveur.
      */
     const handleSubmit = (e: React.FormEvent) => {
@@ -242,7 +299,7 @@ export default function TypeFraisModal({
                         {isEditing ? 'Modifier le Frais du Catalogue' : 'Configurer un Nouveau Frais'}
                     </DialogTitle>
                     <DialogDescription className="text-xs">
-                        Définissez le frais une seule fois (catégorie, montant, priorité et date butoir). Vous pourrez ensuite l'affecter en un clic à plusieurs niveaux (ex: SIL à CM2).
+                        Définissez les paramètres de base du frais (catégorie, libellé, montant, priorité et date butoir).
                     </DialogDescription>
                 </DialogHeader>
 
@@ -334,21 +391,7 @@ export default function TypeFraisModal({
                         ) : (
                             <Select
                                 value={data.categorie_frais_id}
-                                onValueChange={(val) => {
-                                    setData('categorie_frais_id', val);
-                                    const selectedCat = categoriesFrais.find((c) => String(c.id) === val);
-                                    if (
-                                        selectedCat &&
-                                        !isEditing &&
-                                        selectedCat.nom.toLowerCase().includes('transport')
-                                    ) {
-                                        setData((prev) => ({
-                                            ...prev,
-                                            categorie_frais_id: val,
-                                            obligatoire: false,
-                                        }));
-                                    }
-                                }}
+                                onValueChange={(val) => setData('categorie_frais_id', val)}
                             >
                                 <SelectTrigger id="frais_categorie" className="h-9 text-xs">
                                     <SelectValue placeholder="Sélectionner une catégorie (Scolarité, Examen, Fête...)" />
@@ -374,7 +417,7 @@ export default function TypeFraisModal({
                         </Label>
                         <Input
                             id="type_libelle"
-                            placeholder="Ex: Inscription SIL - CM2, Tranche 1 SIL - CM2, CEPE, Fête..."
+                            placeholder="Ex: Inscription 6EME-4EME"
                             value={data.libelle}
                             onChange={(e) => setData('libelle', e.target.value)}
                             className="h-9 text-xs font-medium"
@@ -383,30 +426,7 @@ export default function TypeFraisModal({
                         {errors.libelle && <p className="text-xs text-red-500">{errors.libelle}</p>}
                     </div>
 
-                    {/* 3. Caractère obligatoire ou optionnel */}
-                    <div className="space-y-1 min-w-0">
-                        <Label htmlFor="type_obligatoire" className="text-xs font-semibold">
-                            Caractère d'Exigibilité <span className="text-red-500">*</span>
-                        </Label>
-                        <Select
-                            value={data.obligatoire ? 'true' : 'false'}
-                            onValueChange={(val) => setData('obligatoire', val === 'true')}
-                        >
-                            <SelectTrigger id="type_obligatoire" className="h-9 text-xs">
-                                <SelectValue placeholder="Choisir..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="true">
-                                    Obligatoire (appliqué à tous les élèves des niveaux rattachés)
-                                </SelectItem>
-                                <SelectItem value="false">
-                                    Optionnel (sur souscription : Bus scolaire, Cantine, Activités...)
-                                </SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-
-                    {/* 4. Montant & Ordre de priorité */}
+                    {/* 3. Montant & Ordre de priorité */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className="space-y-1 min-w-0">
                             <Label htmlFor="type_montant" className="text-xs font-semibold">
@@ -450,7 +470,7 @@ export default function TypeFraisModal({
                         </div>
                     </div>
 
-                    {/* 5. Date butoir / Date limite */}
+                    {/* 4. Date butoir / Date limite */}
                     <div className="space-y-1">
                         <Label htmlFor="type_date_limite" className="text-xs font-semibold flex items-center gap-1.5">
                             <Calendar className="w-3.5 h-3.5 text-emerald-600" />
@@ -469,35 +489,31 @@ export default function TypeFraisModal({
                         )}
                     </div>
 
-                    {/* 6. Informations complémentaires */}
-                    <div className="space-y-1">
-                        <Label htmlFor="type_description" className="text-xs font-semibold">
-                            Informations complémentaires{' '}
-                            <span className="text-slate-400 font-normal">(optionnel)</span>
-                        </Label>
-                        <Textarea
-                            id="type_description"
-                            placeholder="Précisions utiles (ex: payable à la rentrée, concerne le cycle primaire SIL à CM2...)"
-                            value={data.description}
-                            onChange={(e) => setData('description', e.target.value)}
-                            rows={2}
-                            className="text-xs"
-                        />
-                    </div>
-
-                    <DialogFooter className="pt-2">
+                    <DialogFooter className="pt-2 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2">
                         <Button
                             type="button"
                             variant="outline"
                             onClick={() => onOpenChange(false)}
-                            disabled={processing}
+                            disabled={processing || savingAndNew}
                             className="text-xs h-9"
                         >
                             Annuler
                         </Button>
+                        {!isEditing && (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                disabled={processing || savingAndNew || !data.libelle.trim() || data.montant_defaut === ''}
+                                onClick={handleSaveAndNew}
+                                className="text-xs h-9 font-semibold border-emerald-300 text-emerald-800 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-200 dark:border-emerald-800 flex items-center gap-1.5"
+                            >
+                                <Plus className="w-3.5 h-3.5" />
+                                {savingAndNew ? 'Enregistrement...' : 'Enregistrer & Nouveau'}
+                            </Button>
+                        )}
                         <Button
                             type="submit"
-                            disabled={processing || !data.libelle.trim() || data.montant_defaut === ''}
+                            disabled={processing || savingAndNew || !data.libelle.trim() || data.montant_defaut === ''}
                             className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs h-9 flex items-center gap-1.5"
                         >
                             <CheckCircle2 className="w-4 h-4 shrink-0" />

@@ -328,6 +328,7 @@
     </style>
 </head>
 <body>
+    @include('partials.watermark', ['filigraneSrc' => $classe['etablissement']['filigrane_base64'] ?? null, 'skipWatermark' => $skipWatermark ?? false])
 
     @php
         $rawBp = $classe['etablissement']['boite_postale'] ?? '---';
@@ -344,8 +345,8 @@
             <td style="width: 38%; text-align: center;">
                 <div class="country-title">RÉPUBLIQUE DU CAMEROUN</div>
                 <div class="motto">Paix - Travail - Patrie</div>
-                <div class="delegation">MINISTÈRE DES ENSEIGNEMENTS SECONDAIRES</div>
-                <div class="delegation">{{ $classe['etablissement']['delegation_regionale'] ?? 'DÉLÉGATION RÉGIONALE DES ENSEIGNEMENTS SECONDAIRES' }}</div>
+                <div class="delegation">{{ $classe['etablissement']['ministere_tutelle'] ?? "MINISTÈRE DES ENSEIGNEMENTS SECONDAIRES" }}</div>
+                <div class="delegation">{{ $classe['etablissement']['delegation_regionale'] ?? 'DÉLÉGATION RÉGIONALE DE L\'ÉDUCATION' }}</div>
                 <div class="school-name">{{ $classe['etablissement']['nom'] }}</div>
                 <div class="school-contact">BP : {{ $displayBp }} | Tél : {{ $classe['etablissement']['telephone'] ?? '---' }}</div>
                 <div class="school-year">ANNÉE SCOLAIRE {{ preg_replace('/^\s*Ann[ée]e\s+scolaire\s*[:\-]?\s*/ui', '', $annee_scolaire['nom']) }}</div>
@@ -361,8 +362,8 @@
                     if (!$logoPath || !file_exists($logoPath)) {
                         $logoPath = file_exists(public_path('logo.png')) ? public_path('logo.png') : (file_exists(public_path('logo.jpg')) ? public_path('logo.jpg') : null);
                     }
-                    $logoSrc = null;
-                    if ($logoPath && file_exists($logoPath)) {
+                    $logoSrc = $classe['etablissement']['logo_base64'] ?? null;
+                    if (!$logoSrc && $logoPath && file_exists($logoPath)) {
                         $logoExt = strtolower(pathinfo($logoPath, PATHINFO_EXTENSION)) ?: 'png';
                         $logoSrc = 'data:image/' . ($logoExt === 'jpg' ? 'jpeg' : $logoExt) . ';base64,' . base64_encode(file_get_contents($logoPath));
                     }
@@ -383,8 +384,8 @@
             <td style="width: 38%; text-align: center;">
                 <div class="country-title">REPUBLIC OF CAMEROON</div>
                 <div class="motto">Peace - Work - Fatherland</div>
-                <div class="delegation">MINISTRY OF SECONDARY EDUCATION</div>
-                <div class="delegation">{{ $classe['etablissement']['delegation_regionale_en'] ?? 'REGIONAL DELEGATION OF SECONDARY EDUCATION' }}</div>
+                <div class="delegation">{{ $classe['etablissement']['ministere_tutelle_en'] ?? 'MINISTRY OF SECONDARY EDUCATION' }}</div>
+                <div class="delegation">{{ $classe['etablissement']['delegation_regionale_en'] ?? 'REGIONAL DELEGATION OF EDUCATION' }}</div>
                 <div class="school-name">{{ $classe['etablissement']['nom_en'] ?: $classe['etablissement']['nom'] }}</div>
                 <div class="school-contact">PO. Box : {{ $displayBp }} | Phone : {{ $classe['etablissement']['telephone'] ?? '---' }}</div>
                 <div class="school-year">SCHOOL YEAR {{ preg_replace('/^\s*Ann[ée]e\s+scolaire\s*[:\-]?\s*/ui', '', $annee_scolaire['nom']) }}</div>
@@ -779,7 +780,7 @@
                     Cote APC : <strong class="cote-badge cote-{{ $eleve['cote_globale'] }}">{{ $eleve['cote_globale'] }}</strong> &bull; T.H. : <strong>{{ !empty($eleve['tableau_honneur']) ? 'Oui' : '-' }}</strong>
                 </div>
                 <div style="font-weight: bold; font-size: 6.2pt; color: #0f172a; margin-top: 1px;">
-                    Visa Professeur Principal
+                    Visa {{ $classe['etablissement']['titre_responsable_classe'] ?? 'Professeur Principal' }}
                 </div>
                 <div class="stamp-box" style="margin-top: 8px; color: #94a3b8; font-size: 5.2pt;">Signature et avis</div>
             </td>

@@ -72,7 +72,7 @@ interface AncienEleveResult {
     nom: string;
     prenom?: string | null;
     nom_complet: string;
-    sexe: string;
+    sexe: string | null;
     date_naissance?: string | null;
     telephone_parent?: string | null;
     derniere_classe?: DerniereClasseInfo | null;
@@ -88,7 +88,7 @@ interface BatchEleveItem {
     nom: string;
     prenom?: string | null;
     nom_complet: string;
-    sexe: string;
+    sexe: string | null;
     date_naissance?: string | null;
     telephone_parent?: string | null;
     deja_inscrit: boolean;
@@ -902,10 +902,12 @@ export default function ReinscriptionPage({
                                                                         className={`text-[10px] px-1.5 py-0 font-semibold ${
                                                                             el.sexe === 'F'
                                                                                 ? 'bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300'
-                                                                                : 'bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-300'
+                                                                                : el.sexe === 'M'
+                                                                                ? 'bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-300'
+                                                                                : 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300'
                                                                         }`}
                                                                     >
-                                                                        {el.sexe === 'F' ? 'Fille' : 'Garçon'}
+                                                                        {el.sexe === 'F' ? 'Fille' : el.sexe === 'M' ? 'Garçon' : 'À compléter'}
                                                                     </Badge>
                                                                     {age !== null && (
                                                                         <span className="text-muted-foreground">
@@ -1190,7 +1192,9 @@ export default function ReinscriptionPage({
                                                     </div>
 
                                                     <div className="flex items-center gap-2 mt-1.5 text-muted-foreground text-[11px]">
-                                                        <span>{el.sexe === 'F' ? 'Fille' : 'Garçon'}</span>
+                                                        <span>
+                                                            {el.sexe === 'F' ? 'Fille' : el.sexe === 'M' ? 'Garçon' : 'À compléter'}
+                                                        </span>
                                                         {el.derniere_classe && (
                                                             <>
                                                                 <span>•</span>

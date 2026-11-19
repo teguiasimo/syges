@@ -813,7 +813,7 @@ export default function CartesScolairesIndex({
                                                     <div className="truncate">
                                                         <span className="font-bold text-slate-600">Sexe : </span>
                                                         <span className="font-bold text-red-600">
-                                                            {previewInscription?.eleve?.sexe || 'F'}
+                                                            {previewInscription?.eleve?.sexe || '--'}
                                                         </span>
                                                     </div>
                                                 </div>

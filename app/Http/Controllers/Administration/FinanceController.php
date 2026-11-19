@@ -18,6 +18,7 @@ use App\Models\EcheanceTranche;
 use App\Models\Eleve;
 use App\Models\EleveBourseRemise;
 use App\Models\Etablissement;
+use App\Models\Inscription;
 use App\Models\FraisScolaire;
 use App\Models\ModeleEcheance;
 use App\Models\Niveau;
@@ -29,6 +30,7 @@ use App\Models\SouscriptionFraisOptionnel;
 use App\Models\TypeFrais;
 use App\Models\VentilationVersement;
 use App\Models\VersementCaisse;
+use App\Scopes\EtablissementScope;
 use App\Services\FinanceService;
 use App\Services\QrCodeService;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -80,6 +82,7 @@ class FinanceController extends Controller implements HasMiddleware
                 'imprimerFicheCompte',
             ]),
             new Middleware('can:finances.etats|finances.manage', only: [
+                'etats',
                 'imprimerJournalDetaille',
                 'imprimerJournalSynthetique',
                 'imprimerListeInsolvables',
@@ -87,6 +90,9 @@ class FinanceController extends Controller implements HasMiddleware
             ]),
             new Middleware('can:versements.create|finances.manage', only: [
                 'storeVersement',
+            ]),
+            new Middleware('can:versements.edit|finances.manage', only: [
+                'updateVersement',
             ]),
             new Middleware('can:recettes_diverses.create|finances.manage', only: [
                 'storeReglementDivers',
@@ -100,7 +106,7 @@ class FinanceController extends Controller implements HasMiddleware
             ]),
             new Middleware('can:caisses.cloture|finances.cloture|finances.manage', only: ['cloturerJournee']),
             new Middleware('can:caisses.create|caisses.edit|finances.manage', only: ['storeCaisse', 'updateCaisse', 'destroyCaisse']),
-            new Middleware('can:frais.configure|echeances.manage|finances.manage', only: [
+            new Middleware('can:frais.configure|finances.manage', only: [
                 'storeCategorieFrais',
                 'updateCategorieFrais',
                 'destroyCategorieFrais',
@@ -111,6 +117,8 @@ class FinanceController extends Controller implements HasMiddleware
                 'affecterFraisAuxNiveaux',
                 'updateTarif',
                 'destroyTarif',
+            ]),
+            new Middleware('can:echeances.manage|finances.manage', only: [
                 'storeModeleEcheance',
                 'destroyModeleEcheance',
             ]),
@@ -131,6 +139,7 @@ class FinanceController extends Controller implements HasMiddleware
             ]),
             new Middleware('can:options_financieres.manage|finances.manage', only: [
                 'storeSouscriptionOptionnelle',
+                'storeSouscriptionOptionnelleClasse',
                 'destroySouscriptionOptionnelle',
                 'ajusterCompte',
             ]),
@@ -198,8 +207,9 @@ class FinanceController extends Controller implements HasMiddleware
             'view' => $canManageAll || (bool) $user?->can('finances.view'),
             'manage' => $canManageAll,
             'etats' => $canManageAll || (bool) $user?->can('finances.etats'),
-            'frais_configure' => $canManageAll || (bool) $user?->can('frais.configure') || (bool) $user?->can('echeances.manage'),
+            'frais_configure' => $canManageAll || (bool) $user?->can('frais.configure'),
             'versements_create' => $canManageAll || (bool) $user?->can('versements.create'),
+            'versements_edit' => $canManageAll || (bool) $user?->can('versements.edit'),
             'recettes_diverses_create' => $canManageAll || (bool) $user?->can('recettes_diverses.create'),
             'versements_cancel' => $canManageAll || (bool) $user?->can('versements.cancel') || (bool) $user?->can('finances.annuler'),
             'caisses_manage' => $canManageAll || (bool) $user?->can('caisses.create') || (bool) $user?->can('caisses.edit'),
@@ -423,11 +433,17 @@ class FinanceController extends Controller implements HasMiddleware
             ->orderBy('nom')
             ->get();
 
-        // 13. Frais scolaires optionnels paramétrés pour l'année en cours (bus, cantine, activités...)
+        // 13. Frais scolaires optionnels paramétrés pour l'année en cours (bus, cantine, activités, frais spécifiques par série/classe...)
         $fraisOptionnels = FraisScolaire::with(['typeFrais.categorieFrais', 'niveau'])
             ->where('etablissement_id', $etablissementId)
             ->where('annee_scolaire_id', $anneeId)
-            ->whereHas('typeFrais', fn ($q) => $q->where('obligatoire', false))
+            ->where(function ($q) {
+                $q->where('frais_scolaires.obligatoire', false)
+                    ->orWhere(function ($q2) {
+                        $q2->whereNull('frais_scolaires.obligatoire')
+                            ->whereHas('typeFrais', fn ($q3) => $q3->where('obligatoire', false));
+                    });
+            })
             ->get();
 
         // 14. Catégories personnalisables (Recettes diverses & Bourses/Remises)
@@ -454,7 +470,8 @@ class FinanceController extends Controller implements HasMiddleware
             'caissiers' => $caissiers,
             'etablissements' => $etablissements,
             'currentEtablissement' => $currentEtablissement,
-            'isSuperAdmin' => $context['isSuperAdmin'],
+            // Exposer le sélecteur d'établissement aux profils autorisés en navigation globale (Super-Admin & Secrétaire)
+            'isSuperAdmin' => (bool) ($context['canAccessAll'] ?? $context['isSuperAdmin']),
             'anneesScolaires' => AnneeScolaire::orderBy('code', 'desc')->get(),
             'currentAnnee' => $currentAnnee,
             'filters' => $request->only(['search', 'mode_paiement', 'statut', 'classe_id', 'statut_financier', 'tab']),
@@ -541,7 +558,13 @@ class FinanceController extends Controller implements HasMiddleware
         $fraisOptionnels = FraisScolaire::with(['typeFrais.categorieFrais', 'niveau'])
             ->where('etablissement_id', $etablissementId)
             ->where('annee_scolaire_id', $anneeId)
-            ->whereHas('typeFrais', fn ($q) => $q->where('obligatoire', false))
+            ->where(function ($q) {
+                $q->where('frais_scolaires.obligatoire', false)
+                    ->orWhere(function ($q2) {
+                        $q2->whereNull('frais_scolaires.obligatoire')
+                            ->whereHas('typeFrais', fn ($q3) => $q3->where('obligatoire', false));
+                    });
+            })
             ->get();
 
         $boursesRemises = BourseRemise::with(['niveau', 'typeFrais'])
@@ -570,10 +593,156 @@ class FinanceController extends Controller implements HasMiddleware
             'estCaisseCloturee' => $estCloture,
             'etablissements' => $etablissements,
             'currentEtablissement' => $currentEtablissement,
-            'isSuperAdmin' => $context['isSuperAdmin'],
+            // Exposer le sélecteur d'établissement aux profils autorisés en navigation globale (Super-Admin & Secrétaire)
+            'isSuperAdmin' => (bool) ($context['canAccessAll'] ?? $context['isSuperAdmin']),
             'anneesScolaires' => AnneeScolaire::orderBy('code', 'desc')->get(),
             'currentAnnee' => $currentAnnee,
             'filters' => $request->only(['etablissement_id', 'annee_scolaire_id', 'classe_id', 'compte_id']),
+            'can' => $this->buildPermissionsPayload($request),
+        ]);
+    }
+
+    /**
+     * Affiche la page dédiée du Centre des États & Rapports Financiers (Aurore §3.22, §4.3).
+     *
+     * Regroupe l'ensemble des états et documents financiers officiels (Journaux de caisse,
+     * liste des élèves insolvables, liste des élèves en règle, balance de trésorerie) avec filtres
+     * multicritères par période (date_debut / date_fin) et hiérarchie scolaire complète (Établissement,
+     * Section, Cycle, Niveau, Classe) dans un espace spacieux, ergonomique et aéré.
+     *
+     * @param  Request  $request  Requête HTTP entrante
+     * @return InertiaResponse Vue Inertia du centre des états financiers
+     */
+    public function etats(Request $request): InertiaResponse
+    {
+        abort_if(! $request->user()?->can('finances.etats') && ! $request->user()?->can('finances.view') && ! $request->user()?->can('finances.manage') && ! $request->user()?->hasRole('super-admin'), 403);
+
+        $context = $this->resolveEtablissementContext($request, ['sections.cycles.niveaux.classes']);
+        $rawEtabId = $request->input('etablissement_id');
+        $isSuperAdmin = (bool) $context['isSuperAdmin'];
+        $canAccessAll = (bool) ($context['canAccessAll'] ?? $isSuperAdmin);
+        $isGlobal = ($rawEtabId === 'all' || empty($rawEtabId) && $canAccessAll) && $canAccessAll;
+
+        // Cloisonnement multi-tenant : rejet strict si un utilisateur local tente de consulter un autre établissement
+        if (
+            $request->filled('etablissement_id')
+            && $rawEtabId !== 'all'
+            && ! $canAccessAll
+            && $request->integer('etablissement_id') !== (int) $context['etablissementId']
+        ) {
+            abort(403, "Accès refusé : vous n'êtes pas autorisé à consulter les états financiers d'un autre établissement.");
+        }
+
+        $etablissementId = $isGlobal ? null : (int) $context['etablissementId'];
+        $currentEtablissement = $isGlobal ? null : $context['selectedEtablissement'];
+        $etablissements = $context['etablissements'];
+
+        $anneeId = $request->filled('annee_scolaire_id')
+            ? $request->integer('annee_scolaire_id')
+            : (AnneeScolaire::where('is_current', true)->value('id') ?? AnneeScolaire::latest()->value('id'));
+
+        $currentAnnee = AnneeScolaire::find($anneeId);
+
+        $accessibleEtabIds = $etablissements->pluck('id')->map(fn ($id) => (int) $id)->all();
+
+        // Caisses disponibles pour filtrer les encaissements
+        $caissesQuery = Caisse::orderByDesc('is_principale')->orderBy('nom');
+        if ($etablissementId) {
+            $caissesQuery->where('etablissement_id', $etablissementId);
+        } elseif (! empty($accessibleEtabIds)) {
+            $caissesQuery->whereIn('etablissement_id', $accessibleEtabIds);
+        }
+        $caisses = $caissesQuery->get();
+
+        // Élèves pour la sélection rapide du Relevé Individuel
+        $elevesQuery = Inscription::with(['eleve', 'classe'])
+            ->where('annee_scolaire_id', $anneeId);
+        if ($etablissementId) {
+            $elevesQuery->where('etablissement_id', $etablissementId);
+        } elseif (! empty($accessibleEtabIds)) {
+            $elevesQuery->whereIn('etablissement_id', $accessibleEtabIds);
+        }
+        $elevesList = $elevesQuery->get()->map(function ($insc) {
+            return [
+                'id' => $insc->eleve_id,
+                'matricule' => $insc->eleve?->matricule ?? 'N/A',
+                'nom' => $insc->eleve?->nom ?? '',
+                'prenom' => $insc->eleve?->prenom ?? '',
+                'nom_complet' => trim(($insc->eleve?->nom ?? '').' '.($insc->eleve?->prenom ?? '')),
+                'classe_id' => $insc->classe_id,
+                'classe' => $insc->classe?->nom ?? 'N/A',
+                'etablissement_id' => $insc->etablissement_id,
+            ];
+        })->sortBy('nom_complet')->values();
+
+        // Catégories et types de frais disponibles pour les filtres avancés des états
+        $categoriesQuery = CategorieFrais::withoutGlobalScopes()->where('is_active', true)->orderBy('nom')->orderBy('id');
+        if ($etablissementId) {
+            $categoriesQuery->where('etablissement_id', $etablissementId);
+        } elseif (! empty($accessibleEtabIds)) {
+            $categoriesQuery->whereIn('etablissement_id', $accessibleEtabIds);
+        }
+        $categoriesFrais = $categoriesQuery->get(['id', 'etablissement_id', 'nom', 'description']);
+
+        $typesFraisQuery = TypeFrais::withoutGlobalScopes()
+            ->with('categorieFrais:id,nom')
+            ->where('is_active', true)
+            ->orderBy('ordre_priorite')
+            ->orderBy('libelle')
+            ->orderBy('id');
+        if ($etablissementId) {
+            $typesFraisQuery->where('etablissement_id', $etablissementId);
+        } elseif (! empty($accessibleEtabIds)) {
+            $typesFraisQuery->whereIn('etablissement_id', $accessibleEtabIds);
+        }
+        $typesFrais = $typesFraisQuery->get(['id', 'etablissement_id', 'categorie_frais_id', 'code', 'libelle', 'obligatoire', 'ordre_priorite']);
+
+        // En mode multi-campus global, chaque établissement possède ses propres lignes homonymes
+        // (« Scolarité », « Frais d'Examen », etc.) : on dédoublonne par libellé normalisé côté UI,
+        // puis FinanceService résout automatiquement les homonymes sur tous les campus lors du tirage PDF.
+        if ($isGlobal) {
+            $categoriesFrais = $categoriesFrais
+                ->unique(fn (CategorieFrais $cat): string => mb_strtolower(trim($cat->nom)))
+                ->values();
+
+            $typesFrais = $typesFrais
+                ->unique(function (TypeFrais $tf): string {
+                    $catNorm = mb_strtolower(trim((string) ($tf->categorieFrais?->nom ?? '')));
+
+                    return $catNorm.'|'.mb_strtolower(trim($tf->libelle));
+                })
+                ->values();
+        }
+
+        return Inertia::render('administration/finances/etats', [
+            'etablissements' => $etablissements,
+            'currentEtablissement' => $currentEtablissement,
+            'isSuperAdmin' => $canAccessAll,
+            'isGlobal' => $isGlobal,
+            'anneesScolaires' => AnneeScolaire::orderBy('code', 'desc')->get(),
+            'currentAnnee' => $currentAnnee,
+            'caisses' => $caisses,
+            'eleves' => $elevesList,
+            'categoriesFrais' => $categoriesFrais,
+            'typesFrais' => $typesFrais,
+            'filters' => $request->only([
+                'etablissement_id',
+                'annee_scolaire_id',
+                'section_id',
+                'cycle_id',
+                'niveau_id',
+                'classe_id',
+                'caisse_id',
+                'mode_paiement',
+                'date_debut',
+                'date_fin',
+                'eleve_id',
+                'categorie_frais_id',
+                'type_frais_id',
+                'mode_filtre_frais',
+                'type',
+                'preset',
+            ]),
             'can' => $this->buildPermissionsPayload($request),
         ]);
     }
@@ -588,6 +757,9 @@ class FinanceController extends Controller implements HasMiddleware
         $validated = $request->validate([
             'compte_financier_id' => 'required|exists:comptes_financiers_eleves,id',
             'montant_total' => 'required|numeric|min:1',
+            'date_versement' => 'nullable|date|after_or_equal:2020-01-01|before_or_equal:today',
+            'appliquer_remise_anticipee' => 'nullable|boolean',
+            'bourse_remise_anticipee_id' => 'nullable|exists:bourses_remises,id',
             'mode_paiement' => 'required|in:especes,cheque,virement,mobile_money_manuel',
             'reference_paiement' => 'nullable|string|max:100',
             'payeur_nom' => 'nullable|string|max:150',
@@ -599,6 +771,10 @@ class FinanceController extends Controller implements HasMiddleware
             'ventilations.*.montant' => 'required|numeric|min:1',
             'ventilations.*.type_frais_id' => 'nullable|exists:types_frais,id',
             'ventilations.*.frais_scolaire_id' => 'nullable|exists:frais_scolaires,id',
+        ], [
+            'date_versement.before_or_equal' => "La date de versement ne peut pas être postérieure à aujourd'hui.",
+            'date_versement.after_or_equal' => 'La date de versement doit être postérieure au 01-01-2020.',
+            'date_versement.date' => 'Veuillez saisir une date de versement valide.',
         ]);
 
         $caissier = null;
@@ -619,11 +795,77 @@ class FinanceController extends Controller implements HasMiddleware
     }
 
     /**
-     * Génère et télécharge le reçu officiel PDF d'un versement avec son QR code de sécurité.
+     * Modifie un versement de scolarité valide existant (montant, date, mode de paiement, payeur, référence)
+     * et met à jour atomiquement le dossier financier de l'élève ainsi que tous les états financiers.
+     *
+     * @param  Request  $request  Requête HTTP contenant les champs modifiés du versement
+     * @param  VersementCaisse  $versement  Versement ciblé
+     * @param  FinanceService  $financeService  Service métier financier
+     * @return RedirectResponse Redirection avec notification de succès ou message d'erreur métier
      */
-    public function imprimerRecu(VersementCaisse $versement, QrCodeService $qrCodeService): Response
+    public function updateVersement(Request $request, VersementCaisse $versement, FinanceService $financeService): RedirectResponse
     {
-        abort_if(! request()->user()?->can('finances.view|finances.manage') && ! request()->user()?->hasRole('super-admin'), 403);
+        abort_if(
+            ! $request->user()?->can('versements.edit')
+            && ! $request->user()?->can('finances.manage')
+            && ! $request->user()?->hasRole('super-admin'),
+            403
+        );
+
+        // Vérification du périmètre multi-établissement
+        $context = $this->resolveEtablissementContext($request);
+        $canAccessAll = (bool) ($context['canAccessAll'] ?? $context['isSuperAdmin']);
+        if (! $canAccessAll && (int) $versement->etablissement_id !== (int) $context['etablissementId']) {
+            abort(403, "Vous n'êtes pas autorisé à modifier un versement appartenant à un autre établissement.");
+        }
+
+        $validated = $request->validate([
+            'montant_total' => 'required|numeric|min:1',
+            'date_versement' => 'nullable|date|after_or_equal:2020-01-01|before_or_equal:today',
+            'mode_paiement' => 'required|in:especes,cheque,virement,mobile_money_manuel',
+            'reference_paiement' => 'nullable|string|max:100',
+            'payeur_nom' => 'nullable|string|max:150',
+            'payeur_telephone' => 'nullable|string|max:50',
+            'observations' => 'nullable|string|max:500',
+            'mode_allocation' => 'nullable|in:auto,manuel',
+            'ventilations' => 'nullable|array',
+            'ventilations.*.libelle' => 'required_with:ventilations|string|max:150',
+            'ventilations.*.montant' => 'required_with:ventilations|numeric|min:1',
+            'ventilations.*.type_frais_id' => 'nullable|exists:types_frais,id',
+            'ventilations.*.frais_scolaire_id' => 'nullable|exists:frais_scolaires,id',
+        ], [
+            'montant_total.required' => 'Veuillez saisir le nouveau montant du versement.',
+            'montant_total.min' => 'Le montant du versement doit être supérieur à 0 FCFA.',
+            'date_versement.before_or_equal' => "La date de versement ne peut pas être postérieure à aujourd'hui.",
+            'date_versement.after_or_equal' => 'La date de versement doit être postérieure au 01-01-2020.',
+            'date_versement.date' => 'Veuillez saisir une date de versement valide.',
+        ]);
+
+        try {
+            $versementMisAJour = $financeService->modifierVersement($versement, $validated, $request->user());
+            $montantFormate = number_format((float) $versementMisAJour->montant_total, 0, ',', ' ');
+
+            return back()->with(
+                'success',
+                "Le versement {$versementMisAJour->reference_recu} a été mis à jour à {$montantFormate} FCFA. Le dossier de l'élève et les états financiers ont été recalculés."
+            );
+        } catch (InvalidArgumentException $e) {
+            return back()->with('error', $e->getMessage())->withErrors(['error' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Génère et télécharge le reçu officiel PDF d'un versement avec son QR code de sécurité
+     * (format A4 portrait par défaut avec double exemplaire parent/souche, ou ticket thermique 80mm avec `?format=ticket`).
+     *
+     * @param  Request  $request  Requête HTTP portant le paramètre optionnel `format`
+     * @param  VersementCaisse  $versement  Versement concerné
+     * @param  QrCodeService  $qrCodeService  Service de génération du QR code
+     * @return Response Document PDF généré
+     */
+    public function imprimerRecu(Request $request, VersementCaisse $versement, QrCodeService $qrCodeService): Response
+    {
+        abort_if(! $request->user()?->can('finances.view|finances.manage') && ! $request->user()?->hasRole('super-admin'), 403);
 
         $versement->load([
             'ventilations',
@@ -631,6 +873,8 @@ class FinanceController extends Controller implements HasMiddleware
             'compteFinancier.anneeScolaire',
             'inscription.classe',
             'etablissement',
+            'caisse',
+            'caissier',
         ]);
 
         $compte = $versement->compteFinancier;
@@ -654,10 +898,28 @@ class FinanceController extends Controller implements HasMiddleware
             number_format($compte->solde_restant, 0, ',', ' ')
         );
 
+        // Choix du gabarit d'impression : Ticket thermique 80mm (format=ticket) ou Reçu A4 portrait (défaut)
+        $formatImpression = mb_strtolower($request->string('format', 'a4')->toString());
+        if ($formatImpression === 'ticket') {
+            $qrCodeBase64 = $qrCodeService->generateBase64Svg($qrData, 80);
+            $nbLignes = max(1, $versement->ventilations->count());
+            // Hauteur dynamique en points (80mm = 226.77pt de large) pour éviter les sauts de page thermiques
+            $hauteurTicketPt = 435
+                + ($nbLignes * 18)
+                + ($versement->statut === 'annule' ? 48 : 0)
+                + ($versement->payeur_nom ? 16 : 0)
+                + ($versement->reference_paiement ? 14 : 0);
+
+            $pdf = Pdf::loadView('finances.recu_caisse_ticket', compact('versement', 'compte', 'eleve', 'inscription', 'etablissement', 'qrCodeBase64'))
+                ->setPaper([0, 0, 226.77, $hauteurTicketPt]);
+
+            return $pdf->stream("Ticket_{$versement->reference_recu}.pdf");
+        }
+
         $qrCodeBase64 = $qrCodeService->generateBase64Svg($qrData, 90);
 
         $pdf = Pdf::loadView('finances.recu_caisse', compact('versement', 'compte', 'eleve', 'inscription', 'etablissement', 'qrCodeBase64'))
-            ->setPaper('a5', 'landscape');
+            ->setPaper('a4', 'portrait');
 
         return $pdf->stream("Recu_{$versement->reference_recu}.pdf");
     }
@@ -697,7 +959,7 @@ class FinanceController extends Controller implements HasMiddleware
         ]);
 
         $context = $this->resolveEtablissementContext($request);
-        $etabRestriction = $context['isSuperAdmin'] ? null : ($context['etablissementId'] ? (int) $context['etablissementId'] : null);
+        $etabRestriction = ($context['canAccessAll'] ?? $context['isSuperAdmin']) ? null : ($context['etablissementId'] ? (int) $context['etablissementId'] : null);
 
         try {
             $bilan = $financeService->annulerVersementsEnLot(
@@ -833,12 +1095,18 @@ class FinanceController extends Controller implements HasMiddleware
     }
 
     /**
-     * Supprime une Catégorie de Frais uniquement si aucun frais du catalogue ne lui est rattaché.
+     * Supprime une Catégorie de Frais uniquement si aucun frais actif du catalogue ne lui est rattaché.
+     *
+     * Note : les frais précédemment mis à la corbeille (soft-deleted) ne doivent pas bloquer
+     * la suppression d'une catégorie affichée avec un compteur à 0.
+     *
+     * @param  CategorieFrais  $categorieFrais  Catégorie ciblée
+     * @return RedirectResponse Redirection avec message de succès ou d'erreur
      */
     public function destroyCategorieFrais(CategorieFrais $categorieFrais): RedirectResponse
     {
         $nom = $categorieFrais->nom;
-        $nbFraisLies = TypeFrais::withoutGlobalScopes()
+        $nbFraisLies = TypeFrais::withoutGlobalScope(EtablissementScope::class)
             ->where('categorie_frais_id', $categorieFrais->id)
             ->count();
 
@@ -847,6 +1115,12 @@ class FinanceController extends Controller implements HasMiddleware
 
             return back()->with('error', $message)->withErrors(['error' => $message]);
         }
+
+        // Dissocie proprement les anciens frais de corbeille (soft-deleted) s'il y en avait
+        TypeFrais::withoutGlobalScope(EtablissementScope::class)
+            ->withTrashed()
+            ->where('categorie_frais_id', $categorieFrais->id)
+            ->update(['categorie_frais_id' => null]);
 
         $categorieFrais->delete();
 
@@ -867,7 +1141,7 @@ class FinanceController extends Controller implements HasMiddleware
             'code' => 'nullable|string|max:50',
             'libelle' => 'required|string|max:150',
             'description' => 'nullable|string|max:1000',
-            'obligatoire' => 'required|boolean',
+            'obligatoire' => 'nullable|boolean',
             'periodicite' => 'nullable|in:annuel,trimestriel,mensuel,ponctuel',
             'ordre_priorite' => 'nullable|integer|min:1|max:99',
             'montant_defaut' => 'required|numeric|min:0',
@@ -900,6 +1174,8 @@ class FinanceController extends Controller implements HasMiddleware
         if (empty($validated['periodicite'])) {
             $validated['periodicite'] = 'annuel';
         }
+
+        $validated['obligatoire'] = isset($validated['obligatoire']) ? (bool) $validated['obligatoire'] : true;
 
         if (empty($validated['date_limite_defaut'])) {
             $validated['date_limite_defaut'] = null;
@@ -936,7 +1212,7 @@ class FinanceController extends Controller implements HasMiddleware
             'categorie_frais_id' => 'nullable|exists:categories_frais,id',
             'libelle' => 'required|string|max:150',
             'description' => 'nullable|string|max:1000',
-            'obligatoire' => 'required|boolean',
+            'obligatoire' => 'nullable|boolean',
             'periodicite' => 'nullable|in:annuel,trimestriel,mensuel,ponctuel',
             'ordre_priorite' => 'required|integer|min:1|max:99',
             'montant_defaut' => 'required|numeric|min:0',
@@ -949,7 +1225,7 @@ class FinanceController extends Controller implements HasMiddleware
             'description' => isset($validated['description']) && trim((string) $validated['description']) !== ''
                 ? trim((string) $validated['description'])
                 : null,
-            'obligatoire' => (bool) $validated['obligatoire'],
+            'obligatoire' => isset($validated['obligatoire']) ? (bool) $validated['obligatoire'] : (bool) $typeFrais->obligatoire,
             'periodicite' => $validated['periodicite'] ?? $typeFrais->periodicite ?? 'annuel',
             'ordre_priorite' => (int) $validated['ordre_priorite'],
             'montant_defaut' => (float) $validated['montant_defaut'],
@@ -1018,7 +1294,9 @@ class FinanceController extends Controller implements HasMiddleware
             return back()->with('error', $message)->withErrors(['error' => $message]);
         }
 
-        if (VentilationVersement::where('type_frais_id', $typeFrais->id)->exists()) {
+        if (VentilationVersement::where('type_frais_id', $typeFrais->id)
+            ->whereHas('versement', fn ($q) => $q->where('statut', 'valide'))
+            ->exists()) {
             $message = "Suppression impossible : le frais « {$typeFrais->libelle} » fait déjà l'objet de versements enregistrés en caisse.";
 
             return back()->with('error', $message)->withErrors(['error' => $message]);
@@ -1050,6 +1328,7 @@ class FinanceController extends Controller implements HasMiddleware
             'niveau_ids' => 'required|array|min:1',
             'niveau_ids.*' => 'integer|exists:niveaux,id',
             'serie' => 'nullable|string|max:50',
+            'obligatoire' => 'nullable|boolean',
         ]);
 
         $anneeId = (int) $validated['annee_scolaire_id'];
@@ -1057,6 +1336,7 @@ class FinanceController extends Controller implements HasMiddleware
         $serie = isset($validated['serie']) && trim((string) $validated['serie']) !== ''
             ? trim((string) $validated['serie'])
             : null;
+        $isObligatoire = $request->has('obligatoire') ? $request->boolean('obligatoire') : true;
 
         $typesSelectionnes = TypeFrais::where('etablissement_id', $etabId)
             ->whereIn('id', $validated['type_frais_ids'])
@@ -1075,7 +1355,7 @@ class FinanceController extends Controller implements HasMiddleware
 
         $nbAffectations = 0;
 
-        DB::transaction(function () use ($typesSelectionnes, $niveauxValidesIds, $anneeId, $etabId, $serie, $financeService, &$nbAffectations) {
+        DB::transaction(function () use ($typesSelectionnes, $niveauxValidesIds, $anneeId, $etabId, $serie, $isObligatoire, $financeService, &$nbAffectations) {
             foreach ($typesSelectionnes as $typeFrais) {
                 $trancheNum = $financeService->infererNumeroTrancheDepuisLibelle($typeFrais->libelle);
 
@@ -1103,6 +1383,7 @@ class FinanceController extends Controller implements HasMiddleware
                         'ordre_priorite' => (int) ($typeFrais->ordre_priorite ?? 10),
                         'libelle_tranche' => $typeFrais->libelle,
                         'montant' => (float) $typeFrais->montant_defaut,
+                        'obligatoire' => $isObligatoire,
                         'date_limite' => $typeFrais->date_limite_defaut,
                     ];
 
@@ -1142,6 +1423,7 @@ class FinanceController extends Controller implements HasMiddleware
             'ordre_priorite' => 'nullable|integer|min:1|max:99',
             'libelle_tranche' => 'nullable|string|max:150',
             'montant' => 'required|numeric|min:0',
+            'obligatoire' => 'nullable|boolean',
             'date_limite' => 'nullable|date',
         ]);
 
@@ -1151,6 +1433,7 @@ class FinanceController extends Controller implements HasMiddleware
         if (array_key_exists('ordre_priorite', $validated) && ($validated['ordre_priorite'] === '' || $validated['ordre_priorite'] === null)) {
             $validated['ordre_priorite'] = null;
         }
+        $validated['obligatoire'] = $request->has('obligatoire') ? $request->boolean('obligatoire') : true;
 
         FraisScolaire::create($validated);
 
@@ -1178,6 +1461,7 @@ class FinanceController extends Controller implements HasMiddleware
             'ordre_priorite' => 'nullable|integer|min:1|max:99',
             'libelle_tranche' => 'nullable|string|max:150',
             'montant' => 'required|numeric|min:0',
+            'obligatoire' => 'nullable|boolean',
             'date_limite' => 'nullable|date',
         ]);
 
@@ -1186,6 +1470,9 @@ class FinanceController extends Controller implements HasMiddleware
         }
         if (array_key_exists('ordre_priorite', $validated) && ($validated['ordre_priorite'] === '' || $validated['ordre_priorite'] === null)) {
             $validated['ordre_priorite'] = null;
+        }
+        if ($request->has('obligatoire')) {
+            $validated['obligatoire'] = $request->boolean('obligatoire');
         }
 
         $ancienNiveauId = (int) $fraisScolaire->niveau_id;
@@ -1219,9 +1506,11 @@ class FinanceController extends Controller implements HasMiddleware
             .($fraisScolaire->niveau ? " ({$fraisScolaire->niveau->nom})" : '');
 
         $blockers = [];
-        $nbVentilations = VentilationVersement::where('frais_scolaire_id', $fraisScolaire->id)->count();
+        $nbVentilations = VentilationVersement::where('frais_scolaire_id', $fraisScolaire->id)
+            ->whereHas('versement', fn ($q) => $q->where('statut', 'valide'))
+            ->count();
         if ($nbVentilations > 0) {
-            $blockers[] = "{$nbVentilations} versement(s) ventilé(s)";
+            $blockers[] = "{$nbVentilations} versement(s) actif(s)";
         }
 
         $nbDispenses = DispenseFinanciere::withoutGlobalScopes()
@@ -1231,7 +1520,9 @@ class FinanceController extends Controller implements HasMiddleware
             $blockers[] = "{$nbDispenses} dispense(s) accordée(s)";
         }
 
-        $nbSouscriptions = SouscriptionFraisOptionnel::where('frais_scolaire_id', $fraisScolaire->id)->count();
+        $nbSouscriptions = SouscriptionFraisOptionnel::where('frais_scolaire_id', $fraisScolaire->id)
+            ->where('statut', 'actif')
+            ->count();
         if ($nbSouscriptions > 0) {
             $blockers[] = "{$nbSouscriptions} souscription(s) d'élève(s)";
         }
@@ -1359,13 +1650,18 @@ class FinanceController extends Controller implements HasMiddleware
             'payeur_nom' => 'required|string|max:150',
             'payeur_telephone' => 'nullable|string|max:50',
             'categorie' => 'required|string|max:100',
-            'libelle' => 'required|string|max:255',
+            'libelle' => 'nullable|string|max:255',
             'montant' => 'required|numeric|min:1',
+            'date_paiement' => 'nullable|date',
             'mode_paiement' => 'required|in:especes,cheque,virement,mobile_money_manuel',
             'reference_paiement' => 'nullable|string|max:100',
             'personnel_id' => 'nullable|exists:personnels,id',
             'observations' => 'nullable|string|max:500',
         ]);
+
+        if (empty($validated['libelle'])) {
+            $validated['libelle'] = $validated['categorie'];
+        }
 
         if (empty($validated['caisse_id']) && empty($validated['etablissement_id'])) {
             $context = $this->resolveEtablissementContext($request);
@@ -1387,6 +1683,47 @@ class FinanceController extends Controller implements HasMiddleware
         } catch (InvalidArgumentException $e) {
             return back()->withErrors(['error' => $e->getMessage()]);
         }
+    }
+
+    /**
+     * Met à jour une recette diverse préenregistrée.
+     */
+    public function updateReglementDivers(Request $request, ReglementDivers $reglementDivers): RedirectResponse
+    {
+        $validated = $request->validate([
+            'payeur_nom' => 'required|string|max:150',
+            'payeur_telephone' => 'nullable|string|max:50',
+            'categorie' => 'required|string|max:100',
+            'libelle' => 'nullable|string|max:255',
+            'montant' => 'required|numeric|min:1',
+            'date_paiement' => 'nullable|date',
+            'mode_paiement' => 'required|in:especes,cheque,virement,mobile_money_manuel',
+            'reference_paiement' => 'nullable|string|max:100',
+            'observations' => 'nullable|string|max:500',
+        ]);
+
+        if (empty($validated['libelle'])) {
+            $validated['libelle'] = $validated['categorie'];
+        }
+
+        $reglementDivers->payeur_nom = $validated['payeur_nom'];
+        $reglementDivers->payeur_telephone = $validated['payeur_telephone'] ?? null;
+        $reglementDivers->categorie = $validated['categorie'];
+        $reglementDivers->libelle = $validated['libelle'];
+        $reglementDivers->montant = $validated['montant'];
+        $reglementDivers->mode_paiement = $validated['mode_paiement'];
+        $reglementDivers->reference_paiement = $validated['reference_paiement'] ?? null;
+        if (! empty($validated['observations'])) {
+            $reglementDivers->observations = $validated['observations'];
+        }
+
+        if (! empty($validated['date_paiement'])) {
+            $reglementDivers->date_reglement = Carbon::parse($validated['date_paiement'])->setTime(Carbon::now()->hour, Carbon::now()->minute, Carbon::now()->second);
+        }
+
+        $reglementDivers->save();
+
+        return back()->with('success', "Recette diverse N° {$reglementDivers->reference_recu} modifiée avec succès.");
     }
 
     /**
@@ -1450,7 +1787,11 @@ class FinanceController extends Controller implements HasMiddleware
     }
 
     /**
-     * Imprime le reçu d'un règlement divers avec QR code.
+     * Imprime le reçu A4 portrait d'un règlement divers (double exemplaire versant / souche) avec QR code.
+     *
+     * @param  ReglementDivers  $reglement  Règlement divers concerné
+     * @param  QrCodeService  $qrCodeService  Service de génération du QR code
+     * @return Response Document PDF généré
      */
     public function imprimerRecuDivers(ReglementDivers $reglement, QrCodeService $qrCodeService): Response
     {
@@ -1474,44 +1815,85 @@ class FinanceController extends Controller implements HasMiddleware
         $qrCodeBase64 = $qrCodeService->generateBase64Svg($qrData, 90);
 
         $pdf = Pdf::loadView('finances.recu_divers', compact('reglement', 'etablissement', 'qrCodeBase64'))
-            ->setPaper('a5', 'landscape');
+            ->setPaper('a4', 'portrait');
 
         return $pdf->stream("Recu_Divers_{$reglement->reference_recu}.pdf");
     }
 
     /**
-     * Crée un modèle de bourse ou de remise avec sa tranche cible d'imputation par défaut.
+     * Valide et normalise les données communes d'un modèle de bourse ou remise.
      *
-     * Génère automatiquement le code interne si non renseigné et accepte les catégories personnalisées
-     * telles que « Paiement en avance (avant rentrée) ».
+     * @param  Request  $request  Requête HTTP entrante
+     * @param  BourseRemise|null  $existant  Modèle existant en cas de mise à jour (null lors d'une création)
+     * @return array<string, mixed> Données prêtes pour la création ou mise à jour Eloquent
      */
-    public function storeBourseRemise(Request $request): RedirectResponse
+    private function validerDonneesBourseRemise(Request $request, ?BourseRemise $existant = null): array
     {
-        $validated = $request->validate([
-            'etablissement_id' => 'required|exists:etablissements,id',
-            'annee_scolaire_id' => 'nullable|exists:annees_scolaires,id',
+        $rules = [
             'code' => 'nullable|string|max:50',
-            'nom' => 'required|string|max:150',
+            'nom' => 'nullable|string|max:150',
             'type' => 'required|in:bourse,remise',
             'categorie' => 'required|string|max:100',
             'mode_calcul' => 'required|in:pourcentage,montant_fixe',
             'valeur' => 'required|numeric|min:0.01',
+            'base_calcul' => 'nullable|in:total_scolarite,tranche_ciblee',
             'cible_imputation' => 'nullable|in:derniere_tranche,tranche_1,tranche_2,tranche_3,tranche_4,proportionnelle',
             'niveau_id' => 'nullable|exists:niveaux,id',
             'type_frais_id' => 'nullable|exists:types_frais,id',
             'description' => 'nullable|string|max:500',
             'is_active' => 'nullable|boolean',
-        ]);
+        ];
+
+        if ($existant === null) {
+            $rules['etablissement_id'] = 'required|exists:etablissements,id';
+            $rules['annee_scolaire_id'] = 'nullable|exists:annees_scolaires,id';
+        }
+
+        $validated = $request->validate($rules);
+
+        $nomNettoye = trim((string) ($validated['nom'] ?? ''));
+        if ($nomNettoye === '') {
+            $catLabel = strtoupper($validated['categorie']) === 'BOURSE' ? 'Bourse' : 'Remise';
+            $valeurLabel = $validated['mode_calcul'] === 'pourcentage'
+                ? "{$validated['valeur']}%"
+                : number_format((float) $validated['valeur'], 0, '', ' ').' FCFA';
+            $nomNettoye = "{$catLabel} {$valeurLabel}";
+        }
+        $validated['nom'] = $nomNettoye;
 
         if (empty($validated['code'])) {
-            $prefix = $validated['type'] === 'bourse' ? 'BRS' : 'REM';
-            $slug = strtoupper(substr(preg_replace('/[^A-Za-z0-9]/', '', Str::ascii($validated['nom'])), 0, 6) ?: 'STD');
-            $validated['code'] = "{$prefix}-{$slug}-".random_int(100, 999);
+            if ($existant !== null) {
+                $validated['code'] = $existant->code;
+            } else {
+                $prefix = $validated['type'] === 'bourse' ? 'BRS' : 'REM';
+                $slug = strtoupper(substr(preg_replace('/[^A-Za-z0-9]/', '', Str::ascii($validated['nom'])), 0, 6) ?: 'STD');
+                $validated['code'] = "{$prefix}-{$slug}-".random_int(100, 999);
+            }
+        }
+
+        if (empty($validated['base_calcul'])) {
+            $validated['base_calcul'] = $existant?->base_calcul ?: 'total_scolarite';
         }
 
         if (empty($validated['cible_imputation'])) {
-            $validated['cible_imputation'] = 'derniere_tranche';
+            $validated['cible_imputation'] = $existant?->cible_imputation ?: 'derniere_tranche';
         }
+
+        return $validated;
+    }
+
+    /**
+     * Crée un modèle de bourse ou de remise avec sa base de calcul et sa tranche cible par défaut.
+     *
+     * Génère automatiquement le libellé ou le code interne si non renseigné et accepte les
+     * catégories personnalisées telles que « Paiement en avance (avant rentrée) ».
+     *
+     * @param  Request  $request  Requête contenant les paramètres du modèle
+     * @return RedirectResponse Redirection avec message de confirmation
+     */
+    public function storeBourseRemise(Request $request): RedirectResponse
+    {
+        $validated = $this->validerDonneesBourseRemise($request);
 
         BourseRemise::create($validated);
 
@@ -1519,30 +1901,15 @@ class FinanceController extends Controller implements HasMiddleware
     }
 
     /**
-     * Met à jour une bourse ou remise et sa règle d'imputation.
+     * Met à jour une bourse ou remise ainsi que sa base de calcul et sa règle d'imputation.
+     *
+     * @param  Request  $request  Requête contenant les modifications
+     * @param  BourseRemise  $bourseRemise  Modèle ciblé
+     * @return RedirectResponse Redirection avec message de confirmation
      */
     public function updateBourseRemise(Request $request, BourseRemise $bourseRemise): RedirectResponse
     {
-        $validated = $request->validate([
-            'code' => 'nullable|string|max:50',
-            'nom' => 'required|string|max:150',
-            'type' => 'required|in:bourse,remise',
-            'categorie' => 'required|string|max:100',
-            'mode_calcul' => 'required|in:pourcentage,montant_fixe',
-            'valeur' => 'required|numeric|min:0.01',
-            'cible_imputation' => 'nullable|in:derniere_tranche,tranche_1,tranche_2,tranche_3,tranche_4,proportionnelle',
-            'niveau_id' => 'nullable|exists:niveaux,id',
-            'type_frais_id' => 'nullable|exists:types_frais,id',
-            'description' => 'nullable|string|max:500',
-            'is_active' => 'nullable|boolean',
-        ]);
-
-        if (empty($validated['code'])) {
-            $validated['code'] = $bourseRemise->code;
-        }
-        if (empty($validated['cible_imputation'])) {
-            $validated['cible_imputation'] = $bourseRemise->cible_imputation ?: 'derniere_tranche';
-        }
+        $validated = $this->validerDonneesBourseRemise($request, $bourseRemise);
 
         $bourseRemise->update($validated);
 
@@ -1843,9 +2210,50 @@ class FinanceController extends Controller implements HasMiddleware
     {
         abort_if(! request()->user()?->can('options_financieres.manage|finances.manage') && ! request()->user()?->hasRole('super-admin'), 403);
 
-        $financeService->annulerSouscriptionOptionnelle($souscription);
+        try {
+            $financeService->annulerSouscriptionOptionnelle($souscription);
 
-        return back()->with('success', 'Souscription au service optionnel annulée avec succès. Le compte élève a été réactualisé.');
+            return back()->with('success', 'Souscription au service optionnel annulée avec succès. Le compte élève a été réactualisé.');
+        } catch (InvalidArgumentException $e) {
+            return back()->with('error', $e->getMessage())->withErrors(['error' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Applique en lot un frais optionnel (ex: Inscription Première CDE ou Première TI)
+     * à tous les élèves d'une classe donnée afin de calculer immédiatement leur total à verser avant l'encaissement.
+     */
+    public function storeSouscriptionOptionnelleClasse(Request $request, FinanceService $financeService): RedirectResponse
+    {
+        abort_if(! $request->user()?->can('options_financieres.manage|finances.manage') && ! $request->user()?->hasRole('super-admin'), 403);
+
+        $validated = $request->validate([
+            'classe_id' => 'required|exists:classes,id',
+            'frais_scolaire_id' => 'required|exists:frais_scolaires,id',
+            'annee_scolaire_id' => 'nullable|exists:annees_scolaires,id',
+        ]);
+
+        $classe = Classe::findOrFail($validated['classe_id']);
+        $etablissementId = (int) $classe->etablissement_id;
+        $anneeId = ! empty($validated['annee_scolaire_id'])
+            ? (int) $validated['annee_scolaire_id']
+            : (int) (AnneeScolaire::where('is_current', true)->value('id') ?? AnneeScolaire::latest()->value('id'));
+
+        try {
+            $nbAppliques = $financeService->souscrireFraisOptionnelPourClasse(
+                (int) $validated['classe_id'],
+                (int) $validated['frais_scolaire_id'],
+                $anneeId,
+                $etablissementId
+            );
+
+            return back()->with(
+                'success',
+                "Frais optionnel appliqué à {$nbAppliques} élève(s) de la classe « {$classe->nom} ». Les montants exigibles ont été recalculés."
+            );
+        } catch (InvalidArgumentException $e) {
+            return back()->with('error', $e->getMessage())->withErrors(['error' => $e->getMessage()]);
+        }
     }
 
     /**
@@ -1853,9 +2261,15 @@ class FinanceController extends Controller implements HasMiddleware
      */
     public function dossierFinancierEleve(CompteFinancierEleve $compte, FinanceService $financeService): JsonResponse
     {
-        abort_if(! request()->user()?->can('finances.view|finances.manage') && ! request()->user()?->hasRole('super-admin'), 403);
+        $user = request()->user();
+        abort_if(! $user?->can('finances.view|finances.manage') && ! $user?->hasRole('super-admin'), 403);
 
         $donnees = $financeService->obtenirEcheancierEleve($compte);
+        $donnees['can_edit_versements'] = (bool) (
+            $user?->hasRole('super-admin')
+            || $user?->can('finances.manage')
+            || $user?->can('versements.edit')
+        );
 
         return response()->json($donnees);
     }
@@ -1912,10 +2326,30 @@ class FinanceController extends Controller implements HasMiddleware
      *     mode_paiement: ?string
      * }
      */
+    /**
+     * Valide et résout les filtres d'état PDF communs (période, établissement ou multi-campus global, structure pédagogique).
+     *
+     * @return array{
+     *     etablissement: ?Etablissement,
+     *     etablissement_id: ?int,
+     *     is_global: bool,
+     *     annee: ?AnneeScolaire,
+     *     date_debut: ?string,
+     *     date_fin: ?string,
+     *     section_id: ?int,
+     *     cycle_id: ?int,
+     *     niveau_id: ?int,
+     *     classe_id: ?int,
+     *     caisse_id: ?int,
+     *     mode_paiement: ?string,
+     *     categorie: ?string,
+     *     eleve_id: ?int
+     * }
+     */
     private function resoudreFiltresEtatsPdf(Request $request): array
     {
         $request->validate([
-            'etablissement_id' => 'nullable|integer|exists:etablissements,id',
+            'etablissement_id' => 'nullable',
             'annee_scolaire_id' => 'nullable|integer|exists:annees_scolaires,id',
             'date_debut' => 'nullable|date',
             'date_fin' => 'nullable|date',
@@ -1925,19 +2359,30 @@ class FinanceController extends Controller implements HasMiddleware
             'classe_id' => 'nullable|integer|exists:classes,id',
             'caisse_id' => 'nullable|integer|exists:caisses,id',
             'mode_paiement' => 'nullable|in:especes,cheque,virement,mobile_money_manuel',
+            'categorie' => 'nullable|string|max:100',
+            'eleve_id' => 'nullable|integer|exists:eleves,id',
+            'categorie_frais_id' => 'nullable|integer|exists:categories_frais,id',
+            'type_frais_id' => 'nullable|integer|exists:types_frais,id',
+            'mode_filtre_frais' => 'nullable|in:tous,solde,uniquement_palier,partiel,non_paye',
         ]);
 
         $context = $this->resolveEtablissementContext($request);
+        $rawEtabId = $request->input('etablissement_id');
+        $isSuperAdmin = (bool) $context['isSuperAdmin'];
+        $canAccessAll = (bool) ($context['canAccessAll'] ?? $isSuperAdmin);
+        $isGlobal = ($rawEtabId === 'all' || empty($rawEtabId) && $canAccessAll) && $canAccessAll;
+
         if (
             $request->filled('etablissement_id')
-            && ! $context['isSuperAdmin']
+            && $rawEtabId !== 'all'
+            && ! $canAccessAll
             && $request->integer('etablissement_id') !== (int) $context['etablissementId']
         ) {
             abort(403, "Accès refusé : vous n'êtes pas autorisé à consulter les états financiers d'un autre établissement.");
         }
 
-        $etablissement = $context['selectedEtablissement'];
-        $etablissementId = (int) ($etablissement?->id ?? 0);
+        $etablissement = $isGlobal ? null : ($request->filled('etablissement_id') && $rawEtabId !== 'all' ? Etablissement::find((int) $rawEtabId) : $context['selectedEtablissement']);
+        $etablissementId = $isGlobal ? null : (int) ($etablissement?->id ?? 0);
 
         $annee = $request->filled('annee_scolaire_id')
             ? AnneeScolaire::find($request->integer('annee_scolaire_id'))
@@ -1946,6 +2391,7 @@ class FinanceController extends Controller implements HasMiddleware
         return [
             'etablissement' => $etablissement,
             'etablissement_id' => $etablissementId,
+            'is_global' => $isGlobal,
             'annee' => $annee,
             'date_debut' => $request->filled('date_debut') ? (string) $request->input('date_debut') : null,
             'date_fin' => $request->filled('date_fin') ? (string) $request->input('date_fin') : null,
@@ -1955,13 +2401,18 @@ class FinanceController extends Controller implements HasMiddleware
             'classe_id' => $request->filled('classe_id') ? $request->integer('classe_id') : null,
             'caisse_id' => $request->filled('caisse_id') ? $request->integer('caisse_id') : null,
             'mode_paiement' => $request->filled('mode_paiement') ? (string) $request->input('mode_paiement') : null,
+            'categorie' => $request->filled('categorie') ? (string) $request->input('categorie') : null,
+            'eleve_id' => $request->filled('eleve_id') ? $request->integer('eleve_id') : null,
+            'categorie_frais_id' => $request->filled('categorie_frais_id') ? $request->integer('categorie_frais_id') : null,
+            'type_frais_id' => $request->filled('type_frais_id') ? $request->integer('type_frais_id') : null,
+            'mode_filtre_frais' => $request->filled('mode_filtre_frais') ? (string) $request->input('mode_filtre_frais') : 'tous',
         ];
     }
 
     /**
-     * Génère le Journal Détaillé des Encaissements (PDF A4 Paysage), filtrable par période et hiérarchie scolaire.
+     * 01. Génère le Journal des Versements (PDF A4 Paysage), conforme au document officiel du concurrent.
      */
-    public function imprimerJournalDetaille(Request $request, FinanceService $financeService): Response
+    public function imprimerJournalVersements(Request $request, FinanceService $financeService): Response
     {
         abort_if(! $request->user()?->can('finances.etats|finances.manage') && ! $request->user()?->hasRole('super-admin'), 403);
 
@@ -1976,27 +2427,64 @@ class FinanceController extends Controller implements HasMiddleware
             $f['section_id'],
             $f['cycle_id'],
             $f['niveau_id'],
-            $f['classe_id']
+            $f['classe_id'],
+            $f['categorie_frais_id'],
+            $f['type_frais_id']
         );
 
-        $pdf = Pdf::loadView('finances.journal_detaille', array_merge($data, [
+        $pdf = Pdf::loadView('finances.journal_versements', array_merge($data, [
             'etablissement' => $f['etablissement'],
             'annee' => $f['annee'],
         ]))->setPaper('a4', 'landscape');
 
-        return $pdf->stream('Journal_Detaille_Encaissements.pdf');
+        return $pdf->stream('Journal_Versements.pdf');
     }
 
     /**
-     * Génère le Journal Synthétique de Caisse (PDF A4 Portrait), filtrable par période et hiérarchie scolaire.
+     * Génère le Journal Détaillé des Encaissements (alias vers le Journal des Versements).
      */
-    public function imprimerJournalSynthetique(Request $request, FinanceService $financeService): Response
+    public function imprimerJournalDetaille(Request $request, FinanceService $financeService): Response
+    {
+        return $this->imprimerJournalVersements($request, $financeService);
+    }
+
+    /**
+     * 02. Génère le Journal Résumé des Versements (PDF A4 Portrait), ventilé par Section / Niveau / Classe.
+     */
+    public function imprimerJournalResume(Request $request, FinanceService $financeService): Response
     {
         abort_if(! $request->user()?->can('finances.etats|finances.manage') && ! $request->user()?->hasRole('super-admin'), 403);
 
         $f = $this->resoudreFiltresEtatsPdf($request);
 
-        $data = $financeService->obtenirJournalSynthetique(
+        $data = $financeService->obtenirJournalResume(
+            $f['etablissement_id'],
+            $f['date_debut'],
+            $f['date_fin'],
+            $f['section_id'],
+            $f['cycle_id'],
+            $f['niveau_id'],
+            $f['classe_id']
+        );
+
+        $pdf = Pdf::loadView('finances.journal_resume', array_merge($data, [
+            'etablissement' => $f['etablissement'],
+            'annee' => $f['annee'],
+        ]))->setPaper('a4', 'portrait');
+
+        return $pdf->stream('Journal_Resume_Versements.pdf');
+    }
+
+    /**
+     * 03. Génère le Journal des Versements par Catégories (PDF A4 Paysage), avec sous-totaux et total en toutes lettres.
+     */
+    public function imprimerJournalParCategories(Request $request, FinanceService $financeService): Response
+    {
+        abort_if(! $request->user()?->can('finances.etats|finances.manage') && ! $request->user()?->hasRole('super-admin'), 403);
+
+        $f = $this->resoudreFiltresEtatsPdf($request);
+
+        $data = $financeService->obtenirJournalParCategories(
             $f['etablissement_id'],
             $f['date_debut'],
             $f['date_fin'],
@@ -2005,19 +2493,107 @@ class FinanceController extends Controller implements HasMiddleware
             $f['section_id'],
             $f['cycle_id'],
             $f['niveau_id'],
+            $f['classe_id'],
+            $f['categorie_frais_id'],
+            $f['type_frais_id']
+        );
+
+        $pdf = Pdf::loadView('finances.journal_categories', array_merge($data, [
+            'etablissement' => $f['etablissement'],
+            'annee' => $f['annee'],
+        ]))->setPaper('a4', 'landscape');
+
+        return $pdf->stream('Journal_Versements_Par_Categories.pdf');
+    }
+
+    /**
+     * 04. Génère le Bilan Résumé des Recouvrements (PDF A4 Paysage), avec effectifs et taux de recouvrement.
+     */
+    public function imprimerBilanResumeRecouvrement(Request $request, FinanceService $financeService): Response
+    {
+        abort_if(! $request->user()?->can('finances.etats|finances.manage') && ! $request->user()?->hasRole('super-admin'), 403);
+
+        $f = $this->resoudreFiltresEtatsPdf($request);
+
+        $data = $financeService->obtenirBilanResumeRecouvrement(
+            $f['etablissement_id'],
+            $f['annee']?->id ?? 0,
+            $f['section_id'],
+            $f['cycle_id'],
+            $f['niveau_id'],
             $f['classe_id']
         );
 
-        $pdf = Pdf::loadView('finances.journal_synthetique', array_merge($data, [
+        $pdf = Pdf::loadView('finances.bilan_resume', array_merge($data, [
+            'etablissement' => $f['etablissement'],
+            'annee' => $f['annee'],
+        ]))->setPaper('a4', 'landscape');
+
+        return $pdf->stream('Bilan_Resume_Recouvrement.pdf');
+    }
+
+    /**
+     * 05. Génère le Bilan Détaillé des Versements (PDF A4 Paysage), nominatif par élève et par classe.
+     *
+     * Transmet les filtres de périmètre (établissement, année scolaire, section, cycle, niveau, classe)
+     * dans l'ordre attendu par `FinanceService::obtenirBilanDetailleVersements()`.
+     *
+     * @param  Request  $request  Requête HTTP portant les paramètres de filtrage de l'état
+     * @param  FinanceService  $financeService  Service de calcul et d'extraction financière
+     * @return Response Document PDF en flux HTTP
+     */
+    public function imprimerBilanDetailleVersements(Request $request, FinanceService $financeService): Response
+    {
+        abort_if(! $request->user()?->can('finances.etats|finances.manage') && ! $request->user()?->hasRole('super-admin'), 403);
+
+        $f = $this->resoudreFiltresEtatsPdf($request);
+
+        // L'état cumulatif annuel filtre par périmètre hiérarchique (section -> cycle -> niveau -> classe).
+        $data = $financeService->obtenirBilanDetailleVersements(
+            $f['etablissement_id'],
+            $f['annee']?->id ?? 0,
+            $f['section_id'],
+            $f['cycle_id'],
+            $f['niveau_id'],
+            $f['classe_id']
+        );
+
+        $pdf = Pdf::loadView('finances.bilan_detaille', array_merge($data, [
+            'etablissement' => $f['etablissement'],
+            'annee' => $f['annee'],
+        ]))->setPaper('a4', 'landscape');
+
+        return $pdf->stream('Bilan_Detaille_Versements.pdf');
+    }
+
+    /**
+     * 06. Génère le Bilan des Réductions et Bourses Scolaires (PDF A4 Portrait), nominatif avec motifs.
+     */
+    public function imprimerBilanReductionsBourses(Request $request, FinanceService $financeService): Response
+    {
+        abort_if(! $request->user()?->can('finances.etats|finances.manage') && ! $request->user()?->hasRole('super-admin'), 403);
+
+        $f = $this->resoudreFiltresEtatsPdf($request);
+
+        $data = $financeService->obtenirBilanReductionsBourses(
+            $f['etablissement_id'],
+            $f['annee']?->id ?? 0,
+            $f['section_id'],
+            $f['cycle_id'],
+            $f['niveau_id'],
+            $f['classe_id']
+        );
+
+        $pdf = Pdf::loadView('finances.bilan_reductions', array_merge($data, [
             'etablissement' => $f['etablissement'],
             'annee' => $f['annee'],
         ]))->setPaper('a4', 'portrait');
 
-        return $pdf->stream('Journal_Synthetique_Caisse.pdf');
+        return $pdf->stream('Bilan_Reductions_Bourses.pdf');
     }
 
     /**
-     * Génère la Liste des Élèves Insolvables (PDF A4 Paysage), filtrable par période et hiérarchie scolaire.
+     * 07. Génère la Liste des Élèves Insolvables (PDF A4 Paysage), enrichie pour les relances officielles.
      */
     public function imprimerListeInsolvables(Request $request, FinanceService $financeService): Response
     {
@@ -2050,6 +2626,59 @@ class FinanceController extends Controller implements HasMiddleware
     }
 
     /**
+     * 08. Génère le Relevé Individuel des Versements d'un Élève (PDF A4 Portrait), conforme au relevé individuel du concurrent.
+     */
+    public function imprimerReleveIndividuelEleve(Request $request, FinanceService $financeService): Response
+    {
+        abort_if(! $request->user()?->can('finances.etats|finances.manage') && ! $request->user()?->hasRole('super-admin'), 403);
+
+        $f = $this->resoudreFiltresEtatsPdf($request);
+
+        $eleveId = $f['eleve_id'];
+        if (! $eleveId) {
+            abort(400, "Veuillez sélectionner un élève pour imprimer son relevé individuel de versements.");
+        }
+
+        $data = $financeService->obtenirReleveIndividuelEleve($eleveId, $f['annee']?->id ?? 0);
+
+        $pdf = Pdf::loadView('finances.releve_eleve', array_merge($data, [
+            'etablissement' => $f['etablissement'] ?? $data['etablissement'],
+            'annee' => $f['annee'],
+        ]))->setPaper('a4', 'portrait');
+
+        return $pdf->stream('Releve_Versements_Eleve_'.$data['eleve']->matricule.'.pdf');
+    }
+
+    /**
+     * Génère le Journal Synthétique de Caisse (PDF A4 Portrait), filtrable par période et hiérarchie scolaire.
+     */
+    public function imprimerJournalSynthetique(Request $request, FinanceService $financeService): Response
+    {
+        abort_if(! $request->user()?->can('finances.etats|finances.manage') && ! $request->user()?->hasRole('super-admin'), 403);
+
+        $f = $this->resoudreFiltresEtatsPdf($request);
+
+        $data = $financeService->obtenirJournalSynthetique(
+            $f['etablissement_id'],
+            $f['date_debut'],
+            $f['date_fin'],
+            $f['caisse_id'],
+            $f['mode_paiement'],
+            $f['section_id'],
+            $f['cycle_id'],
+            $f['niveau_id'],
+            $f['classe_id']
+        );
+
+        $pdf = Pdf::loadView('finances.journal_synthetique', array_merge($data, [
+            'etablissement' => $f['etablissement'],
+            'annee' => $f['annee'],
+        ]))->setPaper('a4', 'portrait');
+
+        return $pdf->stream('Journal_Synthetique_Caisse.pdf');
+    }
+
+    /**
      * Génère la Liste des Élèves en Règle (PDF A4 Portrait), filtrable par période et hiérarchie scolaire.
      */
     public function imprimerListeEnRegle(Request $request, FinanceService $financeService): Response
@@ -2079,5 +2708,72 @@ class FinanceController extends Controller implements HasMiddleware
         ]))->setPaper('a4', 'portrait');
 
         return $pdf->stream('Liste_Eleves_En_Regle.pdf');
+    }
+
+    /**
+     * Génère l'État officiel des Recettes Diverses et Encaissements Libres (PDF A4 Paysage),
+     * filtrable par période, caisse, mode de règlement et catégorie.
+     */
+    public function imprimerEtatRecettesDiverses(Request $request, FinanceService $financeService): Response
+    {
+        abort_if(! $request->user()?->can('finances.etats|finances.manage') && ! $request->user()?->hasRole('super-admin'), 403);
+
+        $f = $this->resoudreFiltresEtatsPdf($request);
+
+        $data = $financeService->obtenirEtatRecettesDiverses(
+            $f['etablissement_id'],
+            $f['date_debut'],
+            $f['date_fin'],
+            $f['caisse_id'],
+            $f['mode_paiement'],
+            $f['categorie']
+        );
+
+        $pdf = Pdf::loadView('finances.recettes_diverses', array_merge($data, [
+            'etablissement' => $f['etablissement'],
+            'annee' => $f['annee'],
+        ]))->setPaper('a4', 'landscape');
+
+        return $pdf->stream('Etat_Recettes_Diverses.pdf');
+    }
+
+    /**
+     * 09. Génère l'État Nominatif de Suivi par Catégorie, Frais précis & Palier atteint (PDF A4 Paysage).
+     *
+     * Permet d'isoler tous les élèves concernés par une catégorie (ex: Scolarité, Frais d'Examen)
+     * ou ayant payé un frais / palier précis (ex: uniquement l'Inscription, uniquement la 1ère Tranche).
+     *
+     * @param  Request  $request  Requête HTTP portant les filtres hiérarchiques et cibles de frais
+     * @param  FinanceService  $financeService  Service de calcul financier
+     * @return Response Document PDF en flux HTTP
+     */
+    public function imprimerSuiviParFrais(Request $request, FinanceService $financeService): Response
+    {
+        abort_if(! $request->user()?->can('finances.etats|finances.manage') && ! $request->user()?->hasRole('super-admin'), 403);
+
+        $f = $this->resoudreFiltresEtatsPdf($request);
+
+        if ($f['etablissement_id'] && $f['annee']) {
+            $financeService->synchroniserComptesEtablissement($f['etablissement_id'], (int) $f['annee']->id);
+        }
+
+        $data = $financeService->obtenirSuiviParFraisOuCategorie(
+            $f['etablissement_id'],
+            $f['annee']?->id ?? 0,
+            $f['categorie_frais_id'],
+            $f['type_frais_id'],
+            $f['mode_filtre_frais'],
+            $f['section_id'],
+            $f['cycle_id'],
+            $f['niveau_id'],
+            $f['classe_id']
+        );
+
+        $pdf = Pdf::loadView('finances.suivi_frais', array_merge($data, [
+            'etablissement' => $f['etablissement'],
+            'annee' => $f['annee'],
+        ]))->setPaper('a4', 'landscape');
+
+        return $pdf->stream('Suivi_Frais_Palier.pdf');
     }
 }

@@ -49,9 +49,18 @@ export default function SouscriptionOptionModal({
     const [montant, setMontant] = useState<string>('');
     const [observations, setObservations] = useState<string>('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    // Conservation du dernier compte pour laisser Radix Dialog exécuter sa fermeture complète
+    const [displayCompte, setDisplayCompte] = useState<CompteFinancierEleve | null>(compte);
+    const activeCompte = compte ?? displayCompte;
+
+    React.useEffect(() => {
+        if (compte) {
+            setDisplayCompte(compte);
+        }
+    }, [compte]);
 
     // Filtrer les options adaptées au niveau de l'élève (ou globales)
-    const niveauId = compte?.inscription?.classe?.niveau_id;
+    const niveauId = activeCompte?.inscription?.classe?.niveau_id;
     const optionsApplicables = React.useMemo(() => {
         return fraisOptionnels.filter(f => !f.niveau_id || f.niveau_id === niveauId);
     }, [fraisOptionnels, niveauId]);
@@ -116,12 +125,11 @@ export default function SouscriptionOptionModal({
         });
     };
 
-    if (!compte) return null;
-
-    const souscriptionsActives = (compte.souscriptions_optionnelles || []).filter(s => s.statut === 'actif');
+    const souscriptionsActives = (activeCompte?.souscriptions_optionnelles || []).filter(s => s.statut === 'actif');
 
     return (
-        <Dialog open={isOpen} onOpenChange={onClose}>
+        <Dialog open={Boolean(isOpen && compte)} onOpenChange={open => !open && onClose()}>
+            {activeCompte && (
             <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2 text-slate-800 dark:text-slate-100">
@@ -134,14 +142,14 @@ export default function SouscriptionOptionModal({
                 <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3 rounded-lg flex items-center justify-between text-xs">
                     <div>
                         <span className="font-bold text-slate-900 dark:text-slate-100">
-                            {compte.eleve?.nom} {compte.eleve?.prenom}
+                            {activeCompte.eleve?.nom} {activeCompte.eleve?.prenom}
                         </span>
                         <div className="text-slate-500">
-                            Matricule : <span className="font-mono font-semibold">{compte.eleve?.matricule}</span> | Classe : {compte.inscription?.classe?.nom ?? 'N/A'}
+                            Matricule : <span className="font-mono font-semibold">{activeCompte.eleve?.matricule}</span> | Classe : {activeCompte.inscription?.classe?.nom ?? 'N/A'}
                         </div>
                     </div>
                     <Badge variant="outline" className="font-mono">
-                        Net dû : {Number(compte.montant_net_exigible).toLocaleString('fr-FR')} FCFA
+                        Net dû : {Number(activeCompte.montant_net_exigible).toLocaleString('fr-FR')} FCFA
                     </Badge>
                 </div>
 
@@ -272,6 +280,7 @@ export default function SouscriptionOptionModal({
                     </DialogFooter>
                 </form>
             </DialogContent>
+            )}
         </Dialog>
     );
 }

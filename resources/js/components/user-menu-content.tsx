@@ -21,7 +21,12 @@ export function UserMenuContent({ user }: Props) {
     const { t } = useTranslation();
     const cleanup = useMobileNavigation();
 
+    /**
+     * Annule les requêtes/prefetches en vol puis vide le cache client avant la déconnexion
+     * afin d'éviter qu'une requête GET concurrente n'écrase les nouveaux cookies session/XSRF.
+     */
     const handleLogout = () => {
+        router.cancelAll();
         cleanup();
         router.flushAll();
     };

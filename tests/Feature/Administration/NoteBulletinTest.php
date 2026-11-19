@@ -42,7 +42,7 @@ use Tests\TestCase;
  * - La génération des exports PDF (individuel et classe complète).
  */
 beforeEach(function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     Role::firstOrCreate(['name' => 'super-admin', 'guard_name' => 'web']);
     Role::firstOrCreate(['name' => 'enseignant', 'guard_name' => 'web']);
 
@@ -300,11 +300,13 @@ beforeEach(function () {
 });
 
 test('les invites sont rediriges vers la page de connexion', function () {
+    /** @var TestCase $this */
     $this->get('/administration/notes')->assertRedirect('/login');
     $this->get('/administration/bulletins')->assertRedirect('/login');
 });
 
 test('l administrateur peut acceder a la page de saisie des notes et aux bulletins', function () {
+    /** @var TestCase $this */
     $this->actingAs($this->adminUser)
         ->get('/administration/notes')
         ->assertOk()
@@ -317,6 +319,7 @@ test('l administrateur peut acceder a la page de saisie des notes et aux bulleti
 });
 
 test('la grille de saisie charge les eleves de la classe avec getGrille', function () {
+    /** @var TestCase $this */
     $this->actingAs($this->adminUser)
         ->getJson("/administration/notes/grille?attribution_id={$this->attributionMath->id}&evaluation_id={$this->seq1->id}")
         ->assertOk()
@@ -332,6 +335,7 @@ test('la grille de saisie charge les eleves de la classe avec getGrille', functi
 });
 
 test('un enseignant ne peut pas acceder a une attribution qui ne lui est pas affectee', function () {
+    /** @var TestCase $this */
     $otherTeacher = User::factory()->create();
     $otherTeacher->assignRole('enseignant');
 
@@ -341,6 +345,7 @@ test('un enseignant ne peut pas acceder a une attribution qui ne lui est pas aff
 });
 
 test('enregistrement des notes avec calcul automatique des cotes APC', function () {
+    /** @var TestCase $this */
     $payload = [
         'attribution_id' => $this->attributionMath->id,
         'evaluation_id' => $this->seq1->id,
@@ -388,6 +393,7 @@ test('enregistrement des notes avec calcul automatique des cotes APC', function 
 });
 
 test('verrouillage et deverrouillage de la session de notes', function () {
+    /** @var TestCase $this */
     // 1. Saisie d'une note
     Note::create([
         'inscription_id' => $this->inscription1->id,
@@ -421,6 +427,7 @@ test('verrouillage et deverrouillage de la session de notes', function () {
 });
 
 test('le moteur de calcul calculTrimestre produit les moyennes, rangs et statistiques officielles', function () {
+    /** @var TestCase $this */
     // Évaluation 1 : KAMGA (Math: 18, Fran: 14), NDONGO (Math: 12, Fran: 16)
     Note::create([
         'inscription_id' => $this->inscription1->id,
@@ -516,6 +523,7 @@ test('le moteur de calcul calculTrimestre produit les moyennes, rangs et statist
 });
 
 test('une note eliminatoire disqualifie automatiquement l eleve des distinctions honorifiques (Gesco 4.3)', function () {
+    /** @var TestCase $this */
     // Math a un seuil éliminatoire de 6.00.
     // Donnons à l'élève 1 une note de 5.0 en Math (éliminatoire), mais 20.0 en Français.
     // Moyenne = (5*4 + 20*4) / 8 = (20 + 80) / 8 = 100 / 8 = 12.50 (normalement éligible au Tableau d'Honneur).
@@ -546,6 +554,7 @@ test('une note eliminatoire disqualifie automatiquement l eleve des distinctions
 });
 
 test('generation et telechargement du bulletin officiel en PDF individuel et cahier de classe', function () {
+    /** @var TestCase $this */
     // Renseigner des notes
     Note::create([
         'inscription_id' => $this->inscription1->id,
@@ -557,19 +566,19 @@ test('generation et telechargement du bulletin officiel en PDF individuel et cah
 
     // 1. Prévisualisation HTML du bulletin en mode APC (présence de la colonne Compétences APC)
     $this->actingAs($this->adminUser)
-        ->get("/administration/bulletins/previsualiser/{$this->inscription1->id}/{$this->periode->id}?mode=avec_competences")
+        ->get("/administration/bulletins/previsualiser/{$this->inscription1->id}/{$this->periode->id}?mode=avec_competences&format=html")
         ->assertOk()
-        ->assertSee('BULLETIN SCOLAIRE')
-        ->assertSee('Compétences Évaluées (APC)')
+        ->assertSee('BULLETIN TRIMESTRIEL DE NOTES')
+        ->assertSee('Compétences APC')
         ->assertSee('KAMGA Arthur');
 
     // 2. Prévisualisation HTML du bulletin en mode Standard (absence de la colonne Compétences APC)
     $this->etablissement->update(['mode_bulletin_defaut' => 'sans_competences']);
     $this->actingAs($this->adminUser)
-        ->get("/administration/bulletins/previsualiser/{$this->inscription1->id}/{$this->periode->id}")
+        ->get("/administration/bulletins/previsualiser/{$this->inscription1->id}/{$this->periode->id}?format=html")
         ->assertOk()
-        ->assertSee('BULLETIN SCOLAIRE')
-        ->assertDontSee('Compétences Évaluées (APC)');
+        ->assertSee('BULLETIN TRIMESTRIEL DE NOTES')
+        ->assertDontSee('Compétences APC');
 
     // 3. Téléchargement PDF individuel
     $pdfResponse = $this->actingAs($this->adminUser)
@@ -587,6 +596,7 @@ test('generation et telechargement du bulletin officiel en PDF individuel et cah
 });
 
 test('enregistrement des donnees disciplinaires pour le bulletin', function () {
+    /** @var TestCase $this */
     $this->actingAs($this->adminUser)
         ->postJson('/administration/bulletins/discipline', [
             'inscription_id' => $this->inscription1->id,
@@ -614,6 +624,7 @@ test('enregistrement des donnees disciplinaires pour le bulletin', function () {
 });
 
 test('calcul et generation du bulletin sequentiel avec troncature de competence longue', function () {
+    /** @var TestCase $this */
     // Note avec une compétence longue dépassant 75 caractères
     $competenceLongue = 'Capacité à résoudre des problèmes complexes d\'algèbre linéaire et de géométrie vectorielle dans l\'espace tridimensionnel';
 
@@ -643,9 +654,9 @@ test('calcul et generation du bulletin sequentiel avec troncature de competence 
 
     // Prévisualisation HTML du bulletin séquentiel
     $this->actingAs($this->adminUser)
-        ->get("/administration/bulletins/previsualiser/{$this->inscription1->id}/{$this->periode->id}?type_bulletin=sequentiel&evaluation_id={$this->seq1->id}&mode=avec_competences")
+        ->get("/administration/bulletins/previsualiser/{$this->inscription1->id}/{$this->periode->id}?type_bulletin=sequentiel&evaluation_id={$this->seq1->id}&mode=avec_competences&format=html")
         ->assertOk()
-        ->assertSee('ÉVALUATION SÉQUENTIELLE')
+        ->assertSee('BULLETIN DE NOTES / REPORT CARD')
         ->assertSee('Séquence 1')
         ->assertSee('KAMGA Arthur');
 
@@ -658,6 +669,7 @@ test('calcul et generation du bulletin sequentiel avec troncature de competence 
 });
 
 test('calcul et generation du bulletin annuel avec synthese et decision du conseil', function () {
+    /** @var TestCase $this */
     // Note pour Kamga (Moyenne >= 10 => Admis(e))
     Note::create([
         'inscription_id' => $this->inscription1->id,
@@ -700,17 +712,17 @@ test('calcul et generation du bulletin annuel avec synthese et decision du conse
     $ndongo = collect($resultat['eleves'])->firstWhere('inscription_id', $this->inscription2->id);
 
     expect($kamga['moyenne_generale'])->toBe(14.0)
-        ->and($kamga['decision_finale'])->toContain('Admis(e)')
+        ->and($kamga['decision_finale'])->toContain('Promu(e)')
         ->and($ndongo['moyenne_generale'])->toBe(8.5)
-        ->and($ndongo['decision_finale'])->toContain('redoublement');
+        ->and($ndongo['decision_finale'])->toContain('Redouble');
 
     // Prévisualisation HTML du bulletin annuel
     $this->actingAs($this->adminUser)
-        ->get("/administration/bulletins/previsualiser/{$this->inscription1->id}?type_bulletin=annuel&mode=avec_competences")
+        ->get("/administration/bulletins/previsualiser/{$this->inscription1->id}?type_bulletin=annuel&mode=avec_competences&format=html")
         ->assertOk()
-        ->assertSee('BULLETIN SCOLAIRE ANNUEL')
+        ->assertSee('BULLETIN ANNUEL DE NOTES')
         ->assertSee('DÉCISION DU CONSEIL')
-        ->assertSee('Admis(e)');
+        ->assertSee('Promu(e)');
 
     // Téléchargement PDF annuel
     $pdfResp = $this->actingAs($this->adminUser)
@@ -721,6 +733,7 @@ test('calcul et generation du bulletin annuel avec synthese et decision du conse
 });
 
 test('les pages d administration notes et bulletins se chargent correctement sans double layout', function () {
+    /** @var TestCase $this */
     // Vérifie le rendu du composant Inertia pour /administration/notes
     $this->actingAs($this->adminUser)
         ->get('/administration/notes')
@@ -734,3 +747,41 @@ test('les pages d administration notes et bulletins se chargent correctement san
         ->assertInertia(fn ($page) => $page->component('administration/bulletins/index'));
 });
 
+test('telechargement PDF groupe annuel sequentiel et trimestriel de la classe via telechargerClassePdf', function () {
+    /** @var TestCase $this */
+    // Préparation minimale d'une note afin de disposer de moyennes calculées pour le cahier annuel de classe
+    Note::create([
+        'inscription_id' => $this->inscription1->id,
+        'attribution_id' => $this->attributionMath->id,
+        'evaluation_id' => $this->seq1->id,
+        'valeur_note' => 15.0,
+        'statut_presence' => 'present',
+    ]);
+
+    // 1. Export annuel groupé avec annee_id explicite (vérifie la définition de $resultat dans la branche annuelle)
+    $annuelAvecId = $this->actingAs($this->adminUser)
+        ->get("/administration/bulletins/classe-pdf/{$this->classe->id}?type_bulletin=annuel&annee_id={$this->annee->id}&mode=avec_competences");
+
+    $annuelAvecId->assertOk();
+    expect($annuelAvecId->headers->get('content-type'))->toBe('application/pdf');
+
+    // 2. Export annuel groupé sans annee_id explicite (repli automatique sur l'année scolaire courante)
+    $annuelSansId = $this->actingAs($this->adminUser)
+        ->get("/administration/bulletins/classe-pdf/{$this->classe->id}?type_bulletin=annuel&mode=sans_competences");
+
+    $annuelSansId->assertOk();
+    expect($annuelSansId->headers->get('content-type'))->toBe('application/pdf');
+
+    // 3. Exports groupés séquentiel et trimestriel
+    $sequentiel = $this->actingAs($this->adminUser)
+        ->get("/administration/bulletins/classe-pdf/{$this->classe->id}?type_bulletin=sequentiel&evaluation_id={$this->seq1->id}&mode=sans_competences");
+
+    $sequentiel->assertOk();
+    expect($sequentiel->headers->get('content-type'))->toBe('application/pdf');
+
+    $trimestriel = $this->actingAs($this->adminUser)
+        ->get("/administration/bulletins/classe-pdf/{$this->classe->id}/{$this->periode->id}?type_bulletin=trimestriel&mode=avec_competences");
+
+    $trimestriel->assertOk();
+    expect($trimestriel->headers->get('content-type'))->toBe('application/pdf');
+});

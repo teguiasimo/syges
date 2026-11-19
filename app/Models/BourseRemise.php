@@ -25,6 +25,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $categorie ('excellence', 'sociale', 'fratrie', 'personnel', 'autre')
  * @property string $mode_calcul ('pourcentage', 'montant_fixe')
  * @property float $valeur Pourcentage ou montant fixe en FCFA
+ * @property string $base_calcul Assiette de calcul pour le mode pourcentage ('total_scolarite', 'tranche_ciblee')
  * @property string $cible_imputation Tranche cible par défaut ('derniere_tranche', 'tranche_1', 'tranche_2', 'tranche_3', 'proportionnelle')
  * @property int|null $niveau_id Niveau cible (si spécifique)
  * @property int|null $type_frais_id Type de frais cible (si spécifique)
@@ -56,6 +57,7 @@ class BourseRemise extends Model
         'categorie',
         'mode_calcul',
         'valeur',
+        'base_calcul',
         'cible_imputation',
         'niveau_id',
         'type_frais_id',

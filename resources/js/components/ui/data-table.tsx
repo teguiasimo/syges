@@ -262,10 +262,17 @@ export function DataTable<TData, TValue>({
                         {table.getHeaderGroups().map((headerGroup) => (
                             <TableRow key={headerGroup.id} className="hover:bg-transparent border-b-2 border-slate-200/80 dark:border-slate-700">
                                 {headerGroup.headers.map((header) => {
-                                    const explicitSize = header.column.columnDef.size;
+                                    const isSelectCol = header.column.id === 'select';
+                                    const explicitSize = isSelectCol ? 48 : header.column.columnDef.size;
                                     const meta = header.column.columnDef.meta as any;
                                     const colStyle: React.CSSProperties = {
-                                        ...(explicitSize ? { width: `${explicitSize}px`, minWidth: `${explicitSize}px` } : {}),
+                                        ...(explicitSize
+                                            ? {
+                                                  width: `${explicitSize}px`,
+                                                  minWidth: `${explicitSize}px`,
+                                                  ...(explicitSize <= 100 ? { maxWidth: `${explicitSize}px` } : {}),
+                                              }
+                                            : {}),
                                         ...(meta?.style || {}),
                                     };
                                     return (
@@ -273,7 +280,8 @@ export function DataTable<TData, TValue>({
                                             key={header.id}
                                             style={Object.keys(colStyle).length > 0 ? colStyle : undefined}
                                             className={cn(
-                                                "text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200 py-3 px-4",
+                                                "text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200 py-3",
+                                                isSelectCol ? "w-12 min-w-12 max-w-12 text-center px-1 whitespace-nowrap" : "px-4",
                                                 meta?.headerClassName
                                             )}
                                         >
@@ -298,17 +306,28 @@ export function DataTable<TData, TValue>({
                                     className="hover:bg-muted/30 transition-colors"
                                 >
                                     {row.getVisibleCells().map((cell) => {
-                                        const explicitSize = cell.column.columnDef.size;
+                                        const isSelectCol = cell.column.id === 'select';
+                                        const explicitSize = isSelectCol ? 48 : cell.column.columnDef.size;
                                         const meta = cell.column.columnDef.meta as any;
                                         const colStyle: React.CSSProperties = {
-                                            ...(explicitSize ? { width: `${explicitSize}px`, minWidth: `${explicitSize}px` } : {}),
+                                            ...(explicitSize
+                                                ? {
+                                                      width: `${explicitSize}px`,
+                                                      minWidth: `${explicitSize}px`,
+                                                      ...(explicitSize <= 100 ? { maxWidth: `${explicitSize}px` } : {}),
+                                                  }
+                                                : {}),
                                             ...(meta?.style || {}),
                                         };
                                         return (
                                             <TableCell
                                                 key={cell.id}
                                                 style={Object.keys(colStyle).length > 0 ? colStyle : undefined}
-                                                className={cn("py-3 text-sm px-4", meta?.className)}
+                                                className={cn(
+                                                    "py-3 text-sm",
+                                                    isSelectCol ? "w-12 min-w-12 max-w-12 text-center px-1 whitespace-nowrap" : "px-4",
+                                                    meta?.className
+                                                )}
                                             >
                                                 {flexRender(
                                                     cell.column.columnDef.cell,

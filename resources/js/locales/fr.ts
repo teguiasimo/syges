@@ -77,6 +77,8 @@ export const fr = {
         // Modules individuels
         institution_title: 'Institution & Campus',
         institution_desc: 'Matières, niveaux, cycles, classes et établissements.',
+        login_appearance_title: 'Apparence & Identité',
+        login_appearance_desc: 'Photos du carrousel, logo (connexion & menu latéral), favicon et contacts.',
 
         periodes_title: 'Années & Périodes Scolaires',
         periodes_desc: 'Années, trimestres, séquences et paramètres d\'évaluation.',
@@ -109,8 +111,11 @@ export const fr = {
         progression_desc: 'Consignation des séances de cours, contrôle horaire ministériel et visa hiérarchique du censeur (Aurore §5.1.8).',
 
 
-        finances_title: 'Caisse & Paiements Scolaires',
-        finances_desc: 'Guichet d\'encaissement, comptes courants élèves, reçus infalsifiables, journal de caisse et verrou de solvabilité.',
+        finances_title: 'Finances & Tarifs',
+        finances_desc: 'Types de frais, grille tarifaire, remises, bourses et paramétrage financier.',
+
+        guichet_scolarites_title: 'Guichet & Scolarités',
+        guichet_scolarites_desc: 'Guichet d\'encaissement par classe, comptes courants élèves, reçus infalsifiables et verrou de solvabilité.',
 
         discipline_title: 'Absences, Retards & Discipline',
         discipline_desc: 'Pointage d\'assiduité, justifications, sanctions disciplinaires et contrôle de déchéance des mentions honorifiques.',

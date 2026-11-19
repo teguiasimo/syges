@@ -462,10 +462,21 @@ class PortailParentTest extends TestCase
      */
     public function test_telechargement_recu_caisse_pdf(): void
     {
+        $capturedData = null;
+        view()->composer('finances.recu_caisse', function ($view) use (&$capturedData): void {
+            $capturedData = $view->getData();
+        });
+
         $response = $this->actingAs($this->parentUser)
             ->get(route('portail.recu.download', $this->versement1->id));
 
         $response->assertStatus(200);
         $this->assertEquals('application/pdf', $response->headers->get('content-type'));
+        $this->assertIsArray($capturedData);
+        $renderedHtml = view('finances.recu_caisse', $capturedData)->render();
+        $this->assertStringContainsString('Exemplaire Parent / Élève', $renderedHtml);
+        $this->assertStringContainsString('Souche Administration / Caisse', $renderedHtml);
+        $this->assertMatchesRegularExpression('/\/MediaBox\s*\[\s*0(\.0+)?\s+0(\.0+)?\s+595\.280*\s+841\.890*\s*\]/', $response->getContent());
+        $this->assertMatchesRegularExpression('/\/Count\s+1\b/', $response->getContent());
     }
 }

@@ -254,7 +254,7 @@ class PeriodeEvaluationController extends Controller implements HasMiddleware
         abort_unless($request->user()->can('periodes.manage'), 403, 'Permission requise : periodes.manage');
 
         $context = $this->resolveEtablissementContext($request);
-        $etablissementId = $context['isSuperAdmin']
+        $etablissementId = ($context['canAccessAll'] ?? $context['isSuperAdmin'])
             ? ($request->input('etablissement_id') ?? $context['etablissementId'])
             : $context['etablissementId'];
 
@@ -294,7 +294,7 @@ class PeriodeEvaluationController extends Controller implements HasMiddleware
         ]);
 
         $context = $this->resolveEtablissementContext($request);
-        $etablissementId = $context['isSuperAdmin']
+        $etablissementId = ($context['canAccessAll'] ?? $context['isSuperAdmin'])
             ? ($validated['etablissement_id'] ?? $context['etablissementId'])
             : $context['etablissementId'];
         $validated['etablissement_id'] = $etablissementId;
@@ -325,7 +325,7 @@ class PeriodeEvaluationController extends Controller implements HasMiddleware
         abort_unless($request->user()->can('periodes.manage'), 403, 'Permission requise : periodes.manage');
 
         $context = $this->resolveEtablissementContext($request);
-        if (! $context['isSuperAdmin'] && (int) $periode->etablissement_id !== (int) $context['etablissementId']) {
+        if (! ($context['canAccessAll'] ?? $context['isSuperAdmin']) && (int) $periode->etablissement_id !== (int) $context['etablissementId']) {
             abort(403, 'Accès non autorisé : vous ne pouvez modifier que les périodes de votre établissement.');
         }
 
@@ -364,7 +364,7 @@ class PeriodeEvaluationController extends Controller implements HasMiddleware
         abort_unless($request->user()->can('periodes.manage'), 403, 'Permission requise : periodes.manage');
 
         $context = $this->resolveEtablissementContext($request);
-        if (! $context['isSuperAdmin'] && (int) $periode->etablissement_id !== (int) $context['etablissementId']) {
+        if (! ($context['canAccessAll'] ?? $context['isSuperAdmin']) && (int) $periode->etablissement_id !== (int) $context['etablissementId']) {
             abort(403, 'Accès non autorisé : vous ne pouvez supprimer que les périodes de votre établissement.');
         }
 
@@ -403,7 +403,7 @@ class PeriodeEvaluationController extends Controller implements HasMiddleware
 
         $context = $this->resolveEtablissementContext($request);
         $periode = Periode::findOrFail($validated['periode_id']);
-        if (! $context['isSuperAdmin'] && (int) $periode->etablissement_id !== (int) $context['etablissementId']) {
+        if (! ($context['canAccessAll'] ?? $context['isSuperAdmin']) && (int) $periode->etablissement_id !== (int) $context['etablissementId']) {
             abort(403, 'Accès non autorisé : vous ne pouvez ajouter des évaluations que pour votre établissement.');
         }
 
@@ -436,7 +436,7 @@ class PeriodeEvaluationController extends Controller implements HasMiddleware
         abort_unless($request->user()->can('periodes.manage'), 403, 'Permission requise : periodes.manage');
 
         $context = $this->resolveEtablissementContext($request);
-        if (! $context['isSuperAdmin'] && (int) $evaluation->periode?->etablissement_id !== (int) $context['etablissementId']) {
+        if (! ($context['canAccessAll'] ?? $context['isSuperAdmin']) && (int) $evaluation->periode?->etablissement_id !== (int) $context['etablissementId']) {
             abort(403, 'Accès non autorisé : vous ne pouvez modifier que les évaluations de votre établissement.');
         }
 
@@ -480,7 +480,7 @@ class PeriodeEvaluationController extends Controller implements HasMiddleware
         abort_unless($request->user()->can('periodes.manage'), 403, 'Permission requise : periodes.manage');
 
         $context = $this->resolveEtablissementContext($request);
-        if (! $context['isSuperAdmin'] && (int) $evaluation->periode?->etablissement_id !== (int) $context['etablissementId']) {
+        if (! ($context['canAccessAll'] ?? $context['isSuperAdmin']) && (int) $evaluation->periode?->etablissement_id !== (int) $context['etablissementId']) {
             abort(403, 'Accès non autorisé : vous ne pouvez supprimer que les évaluations de votre établissement.');
         }
 
@@ -520,7 +520,7 @@ class PeriodeEvaluationController extends Controller implements HasMiddleware
         abort_unless($canLock, 403, 'Permission requise : periodes.lock ou evaluations.lock');
 
         $context = $this->resolveEtablissementContext($request);
-        if (! $context['isSuperAdmin'] && (int) $evaluation->periode?->etablissement_id !== (int) $context['etablissementId']) {
+        if (! ($context['canAccessAll'] ?? $context['isSuperAdmin']) && (int) $evaluation->periode?->etablissement_id !== (int) $context['etablissementId']) {
             abort(403, 'Accès non autorisé : vous ne pouvez verrouiller que les évaluations de votre établissement.');
         }
 

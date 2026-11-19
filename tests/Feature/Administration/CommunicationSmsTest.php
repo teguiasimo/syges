@@ -8,17 +8,14 @@ use App\Models\CompteFinancierEleve;
 use App\Models\Cycle;
 use App\Models\Eleve;
 use App\Models\Etablissement;
-use App\Models\HistoriqueSms;
 use App\Models\Inscription;
 use App\Models\Institution;
 use App\Models\Niveau;
 use App\Models\Section;
-use App\Models\SmsCampagne;
 use App\Models\SmsConfiguration;
 use App\Models\User;
 use App\Services\SmsService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Validation\ValidationException;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -40,18 +37,23 @@ class CommunicationSmsTest extends TestCase
     use RefreshDatabase;
 
     public ?User $unauthorizedUser = null;
+
     protected User $operatorUser;
+
     public ?User $adminUser = null;
+
     public ?Etablissement $etablissement = null;
+
     public ?AnneeScolaire $anneeScolaire = null;
+
     public ?Classe $classe = null;
+
     public ?Inscription $inscription1 = null;
+
     public ?Inscription $inscription2 = null;
 
     /**
      * Initialise l'environnement de test pour les communications SMS.
-     *
-     * @return void
      */
     protected function setUp(): void
     {
@@ -92,6 +94,10 @@ class CommunicationSmsTest extends TestCase
             'telephone' => '237222334455',
             'statut' => 'actif',
         ]);
+
+        // Rattacher les utilisateurs de test au campus afin de passer le filtrage Multi-Tenant
+        $this->operatorUser->update(['etablissement_id' => $this->etablissement->id]);
+        $this->adminUser->update(['etablissement_id' => $this->etablissement->id]);
 
         $this->anneeScolaire = AnneeScolaire::create([
             'nom' => '2026-2027',
@@ -197,8 +203,6 @@ class CommunicationSmsTest extends TestCase
 
     /**
      * Teste le contrôle d'accès RBAC sur l'espace de communication.
-     *
-     * @return void
      */
     public function test_controle_acces_rbac_communication(): void
     {
@@ -235,8 +239,6 @@ class CommunicationSmsTest extends TestCase
 
     /**
      * Teste le nettoyage et la conversion stricte GSM 7-bit (Gesco 14.4).
-     *
-     * @return void
      */
     public function test_conversion_gsm7_et_calcul_segments(): void
     {
@@ -250,21 +252,19 @@ class CommunicationSmsTest extends TestCase
         $this->assertEquals("Eleve absent a l'ecole le 15/09 : recu a l'accueil avec assiduite & ponctualite - coeur d'or.", $texteNettoye);
 
         // B. Vérification du calcul des segments SMS
-        $court = "Bonjour parent, reunion de rentree prevue ce vendredi a 15h.";
+        $court = 'Bonjour parent, reunion de rentree prevue ce vendredi a 15h.';
         $this->assertEquals(1, $smsService->calculerSegments($court));
 
         // Message de plus de 160 caractères
-        $long = str_repeat("A", 161);
+        $long = str_repeat('A', 161);
         $this->assertEquals(2, $smsService->calculerSegments($long));
 
-        $tresLong = str_repeat("B", 310); // 310 car. / 153 car. par segment UDH = 3 segments
+        $tresLong = str_repeat('B', 310); // 310 car. / 153 car. par segment UDH = 3 segments
         $this->assertEquals(3, $smsService->calculerSegments($tresLong));
     }
 
     /**
      * Teste la normalisation E.164 des numéros de téléphone pour l'Afrique Centrale.
-     *
-     * @return void
      */
     public function test_normalisation_telephone_e164(): void
     {
@@ -286,8 +286,6 @@ class CommunicationSmsTest extends TestCase
 
     /**
      * Teste l'envoi d'un SMS direct unitaire avec débit des crédits.
-     *
-     * @return void
      */
     public function test_envoi_sms_direct_et_debit_credits(): void
     {
@@ -320,8 +318,6 @@ class CommunicationSmsTest extends TestCase
 
     /**
      * Teste le déclenchement des notifications automatiques événementielles.
-     *
-     * @return void
      */
     public function test_notification_automatique_evenementielle(): void
     {
@@ -350,8 +346,6 @@ class CommunicationSmsTest extends TestCase
 
     /**
      * Teste la diffusion d'une campagne de masse ciblée sur les parents insolvables (Gesco 14.2.B).
-     *
-     * @return void
      */
     public function test_campagne_masse_cible_insolvables(): void
     {
@@ -386,8 +380,6 @@ class CommunicationSmsTest extends TestCase
 
     /**
      * Teste le rejet d'une campagne si le solde de crédits est insuffisant.
-     *
-     * @return void
      */
     public function test_rejet_campagne_solde_insuffisant(): void
     {
@@ -413,8 +405,6 @@ class CommunicationSmsTest extends TestCase
 
     /**
      * Teste la mise à jour de la passerelle SMS et le rechargement du solde (Gesco 14.1).
-     *
-     * @return void
      */
     public function test_configuration_passerelle_et_rechargement_solde(): void
     {

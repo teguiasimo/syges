@@ -13,16 +13,10 @@ import {
     ChevronRight,
     Home,
     MapPin,
-    Mail,
     Phone,
-    Globe,
     FileText,
     Printer,
-    CheckCircle2,
-    XCircle,
     ArrowUpDown,
-    Check,
-    FolderTree,
     Shield,
     Sliders,
     Lock,
@@ -66,6 +60,7 @@ interface InstitutionItem {
     code: string;
     sigle?: string | null;
     logo?: string | null;
+    logo_filigrane?: string | null;
     nom: string;
     nom_en?: string | null;
     devise?: string | null;
@@ -100,13 +95,18 @@ interface EtablissementItem {
     nom_chef_etablissement?: string | null;
     titre_chef?: string | null;
     titre_chef_en?: string | null;
+    titre_responsable_classe?: string | null;
+    titre_responsable_classe_en?: string | null;
     email?: string | null;
     telephone_1?: string | null;
     telephone_2?: string | null;
     adresse?: string | null;
     logo?: string | null;
+    logo_filigrane?: string | null;
     effective_logo?: string | null;
+    effective_filigrane?: string | null;
     logo_url?: string | null;
+    filigrane_url?: string | null;
     sections_count?: number;
 }
 
@@ -279,12 +279,16 @@ export default function InstitutionIndex({
         nom_chef_etablissement: string;
         titre_chef: string;
         titre_chef_en: string;
+        titre_responsable_classe: string;
+        titre_responsable_classe_en: string;
         email: string;
         telephone_1: string;
         telephone_2: string;
         adresse: string;
         logo: string;
         logo_file: File | null;
+        logo_filigrane: string;
+        logo_filigrane_file: File | null;
     }
 
     const initialEtablissementFormValues: EtablissementFormData = {
@@ -297,47 +301,67 @@ export default function InstitutionIndex({
         nom_chef_etablissement: '',
         titre_chef: '',
         titre_chef_en: '',
+        titre_responsable_classe: '',
+        titre_responsable_classe_en: '',
         email: '',
         telephone_1: '',
         telephone_2: '',
         adresse: '',
         logo: '',
         logo_file: null,
+        logo_filigrane: '',
+        logo_filigrane_file: null,
     };
 
     const etablissementForm = useForm<EtablissementFormData>(initialEtablissementFormValues);
 
-    // Prévisualisation du logo du campus et référence vers l'input fichier
+    // Prévisualisation des logos (principal + filigrane) du campus et références vers les inputs fichier
     const [etablissementLogoPreview, setEtablissementLogoPreview] = useState<string | null>(null);
+    const [etablissementFiligranePreview, setEtablissementFiligranePreview] = useState<string | null>(null);
     const etablissementFileInputRef = React.useRef<HTMLInputElement | null>(null);
+    const etablissementFiligraneInputRef = React.useRef<HTMLInputElement | null>(null);
 
     /**
-     * Gestion du téléversement du logo propre à l'établissement avec contrôle de taille et prévisualisation.
+     * Valide la taille d'une image (<= 2 Mo) et met à jour le champ et son aperçu pour le campus.
      *
      * @param {React.ChangeEvent<HTMLInputElement>} e Événement de sélection de fichier.
+     * @param {'logo_file' | 'logo_filigrane_file'} field Champ fichier Inertia cible.
+     * @param {React.Dispatch<React.SetStateAction<string | null>>} setPreview Mutateur d'aperçu.
      */
-    const handleEtablissementLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleEtablissementImageChange = (
+        e: React.ChangeEvent<HTMLInputElement>,
+        field: 'logo_file' | 'logo_filigrane_file',
+        setPreview: React.Dispatch<React.SetStateAction<string | null>>
+    ) => {
         const file = e.target.files?.[0];
-        if (file) {
-            if (file.size > 2 * 1024 * 1024) {
-                toast.error('Le fichier est trop volumineux. Taille maximale : 2 Mo.');
-                return;
-            }
-            etablissementForm.setData('logo_file', file);
-            const previewUrl = URL.createObjectURL(file);
-            setEtablissementLogoPreview(previewUrl);
+        if (!file) return;
+        if (file.size > 2 * 1024 * 1024) {
+            toast.error('Le fichier est trop volumineux. Taille maximale : 2 Mo.');
+            return;
         }
+        etablissementForm.setData(field, file);
+        setPreview(URL.createObjectURL(file));
     };
 
     /**
-     * Suppression du logo propre à l'établissement (l'établissement reprendra automatiquement le logo de l'institution).
+     * Suppression d'un visuel propre à l'établissement (repli automatique sur le visuel de l'institution).
+     *
+     * @param {'logo' | 'logo_filigrane'} pathField Champ chemin texte.
+     * @param {'logo_file' | 'logo_filigrane_file'} fileField Champ fichier multipart.
+     * @param {React.Dispatch<React.SetStateAction<string | null>>} setPreview Mutateur d'aperçu.
+     * @param {React.RefObject<HTMLInputElement | null>} inputRef Référence vers l'input fichier.
      */
-    const handleRemoveEtablissementLogo = () => {
-        etablissementForm.setData('logo', '');
-        etablissementForm.setData('logo_file', null);
-        setEtablissementLogoPreview(null);
-        if (etablissementFileInputRef.current) {
-            etablissementFileInputRef.current.value = '';
+    const handleRemoveEtablissementImage = (
+        pathField: 'logo' | 'logo_filigrane',
+        fileField: 'logo_file' | 'logo_filigrane_file',
+        setPreview: React.Dispatch<React.SetStateAction<string | null>>,
+        inputRef: React.RefObject<HTMLInputElement | null>
+    ) => {
+        etablissementForm.setData(pathField, '');
+        etablissementForm.setData(fileField, null);
+        setPreview(null);
+        if (inputRef.current) {
+            inputRef.current.value = '';
         }
     };
 
@@ -347,8 +371,12 @@ export default function InstitutionIndex({
     const resetEtablissementForm = () => {
         setEditingEtablissement(null);
         setEtablissementLogoPreview(null);
+        setEtablissementFiligranePreview(null);
         if (etablissementFileInputRef.current) {
             etablissementFileInputRef.current.value = '';
+        }
+        if (etablissementFiligraneInputRef.current) {
+            etablissementFiligraneInputRef.current.value = '';
         }
         etablissementForm.clearErrors();
         etablissementForm.setData(initialEtablissementFormValues);
@@ -370,6 +398,7 @@ export default function InstitutionIndex({
     const handleOpenEditEtablissement = (item: EtablissementItem) => {
         setEditingEtablissement(item);
         setEtablissementLogoPreview(item.logo || null);
+        setEtablissementFiligranePreview(item.logo_filigrane || null);
         etablissementForm.clearErrors();
         etablissementForm.setData({
             code: item.code,
@@ -381,12 +410,16 @@ export default function InstitutionIndex({
             nom_chef_etablissement: item.nom_chef_etablissement || '',
             titre_chef: item.titre_chef || '',
             titre_chef_en: item.titre_chef_en || '',
+            titre_responsable_classe: item.titre_responsable_classe || '',
+            titre_responsable_classe_en: item.titre_responsable_classe_en || '',
             email: item.email || '',
             telephone_1: item.telephone_1 || '',
             telephone_2: item.telephone_2 || '',
             adresse: item.adresse || '',
             logo: item.logo || '',
             logo_file: null,
+            logo_filigrane: item.logo_filigrane || '',
+            logo_filigrane_file: null,
         });
         setIsEtablissementModalOpen(true);
     };
@@ -1496,6 +1529,19 @@ export default function InstitutionIndex({
                                 {can.institutions_edit && (
                                     <Button
                                         size="sm"
+                                        variant="outline"
+                                        asChild
+                                        className="gap-2 cursor-pointer shadow-sm text-xs h-9"
+                                    >
+                                        <Link href="/administration/institution/login-appearance">
+                                            <ImageIcon className="size-3.5" />
+                                            <span>Apparence page login</span>
+                                        </Link>
+                                    </Button>
+                                )}
+                                {can.institutions_edit && (
+                                    <Button
+                                        size="sm"
                                         asChild
                                         className="gap-2 cursor-pointer bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm text-xs h-9"
                                     >
@@ -2126,7 +2172,7 @@ export default function InstitutionIndex({
                                 <Input
                                     value={etablissementForm.data.titre_chef}
                                     onChange={(e) => etablissementForm.setData('titre_chef', e.target.value)}
-                                    placeholder="Ex: Le Directeur, Le Proviseur, Le Principal"
+                                    placeholder="Ex: Le Directeur, La Directrice, Le Proviseur"
                                 />
                             </div>
                             <div className="space-y-1">
@@ -2134,7 +2180,26 @@ export default function InstitutionIndex({
                                 <Input
                                     value={etablissementForm.data.titre_chef_en}
                                     onChange={(e) => etablissementForm.setData('titre_chef_en', e.target.value)}
-                                    placeholder="Ex: The Director, The Principal"
+                                    placeholder="Ex: The Director, The Headmistress"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                                <Label className="text-xs font-semibold">Appellation du Titulaire de Classe (FR)</Label>
+                                <Input
+                                    value={etablissementForm.data.titre_responsable_classe}
+                                    onChange={(e) => etablissementForm.setData('titre_responsable_classe', e.target.value)}
+                                    placeholder="Ex: Le Maître / La Maîtresse, Le Professeur Principal"
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <Label className="text-xs font-semibold">Class Teacher Title (EN)</Label>
+                                <Input
+                                    value={etablissementForm.data.titre_responsable_classe_en}
+                                    onChange={(e) => etablissementForm.setData('titre_responsable_classe_en', e.target.value)}
+                                    placeholder="Ex: Class Teacher, Head Teacher"
                                 />
                             </div>
                         </div>
@@ -2175,7 +2240,7 @@ export default function InstitutionIndex({
                             <input
                                 type="file"
                                 ref={etablissementFileInputRef}
-                                onChange={handleEtablissementLogoChange}
+                                onChange={(e) => handleEtablissementImageChange(e, 'logo_file', setEtablissementLogoPreview)}
                                 accept="image/png,image/jpeg,image/jpg,image/webp,image/svg+xml"
                                 className="hidden"
                             />
@@ -2191,7 +2256,7 @@ export default function InstitutionIndex({
                                         />
                                         <button
                                             type="button"
-                                            onClick={handleRemoveEtablissementLogo}
+                                            onClick={() => handleRemoveEtablissementImage('logo', 'logo_file', setEtablissementLogoPreview, etablissementFileInputRef)}
                                             className="absolute inset-0 bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-xl cursor-pointer"
                                             title="Supprimer le logo (revenir au logo de l'institution)"
                                         >
@@ -2241,7 +2306,7 @@ export default function InstitutionIndex({
                                                 type="button"
                                                 variant="ghost"
                                                 size="sm"
-                                                onClick={handleRemoveEtablissementLogo}
+                                                onClick={() => handleRemoveEtablissementImage('logo', 'logo_file', setEtablissementLogoPreview, etablissementFileInputRef)}
                                                 className="cursor-pointer text-xs h-8 gap-1 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40"
                                             >
                                                 <Trash2 className="size-3.5" />
@@ -2260,6 +2325,99 @@ export default function InstitutionIndex({
                             </div>
                             {etablissementForm.errors.logo && (
                                 <p className="text-[11px] text-rose-500 font-medium">{etablissementForm.errors.logo}</p>
+                            )}
+                        </div>
+
+                        {/* Section Filigrane Officiel (Fond des États PDF du Campus) */}
+                        <div className="p-3 rounded-xl border border-dashed border-border bg-muted/20 space-y-2">
+                            <div className="flex items-center justify-between gap-2">
+                                <Label className="text-xs font-semibold">Logo Filigrane Officiel (Optionnel)</Label>
+                                {etablissementFiligranePreview ? (
+                                    <Badge variant="outline" className="text-[10px] text-emerald-700 bg-emerald-50 border-emerald-200 dark:text-emerald-300 dark:bg-emerald-950/40">
+                                        Filigrane propre
+                                    </Badge>
+                                ) : institution.logo_filigrane ? (
+                                    <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                                        Hérité de l'institution
+                                    </Badge>
+                                ) : null}
+                            </div>
+                            <input
+                                type="file"
+                                ref={etablissementFiligraneInputRef}
+                                onChange={(e) => handleEtablissementImageChange(e, 'logo_filigrane_file', setEtablissementFiligranePreview)}
+                                accept="image/png,image/jpeg,image/jpg,image/webp,image/svg+xml"
+                                className="hidden"
+                            />
+                            <div className="flex items-center gap-3">
+                                {etablissementFiligranePreview ? (
+                                    <div className="relative group size-14 shrink-0 rounded-xl border border-border bg-white dark:bg-slate-900 p-1 flex items-center justify-center overflow-hidden shadow-xs">
+                                        <img
+                                            src={etablissementFiligranePreview}
+                                            alt="Filigrane campus"
+                                            className="max-h-full max-w-full object-contain opacity-65"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => handleRemoveEtablissementImage('logo_filigrane', 'logo_filigrane_file', setEtablissementFiligranePreview, etablissementFiligraneInputRef)}
+                                            className="absolute inset-0 bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-xl cursor-pointer"
+                                            title="Supprimer le filigrane du campus"
+                                        >
+                                            <Trash2 className="size-4" />
+                                        </button>
+                                    </div>
+                                ) : institution.logo_filigrane ? (
+                                    <div
+                                        onClick={() => etablissementFiligraneInputRef.current?.click()}
+                                        className="relative group size-14 shrink-0 rounded-xl border-2 border-dashed border-border/80 hover:border-primary/60 bg-muted/20 p-1 flex items-center justify-center cursor-pointer transition-colors"
+                                        title="Filigrane hérité de l'institution (cliquer pour personnaliser)"
+                                    >
+                                        <img
+                                            src={institution.logo_filigrane}
+                                            alt="Filigrane institution (repli)"
+                                            className="max-h-full max-w-full object-contain opacity-45 group-hover:opacity-30 transition-opacity"
+                                        />
+                                    </div>
+                                ) : (
+                                    <div
+                                        onClick={() => etablissementFiligraneInputRef.current?.click()}
+                                        className="size-14 shrink-0 rounded-xl border-2 border-dashed border-border hover:border-primary/60 bg-background flex items-center justify-center cursor-pointer transition-colors"
+                                    >
+                                        <UploadCloud className="size-5 text-muted-foreground" />
+                                    </div>
+                                )}
+                                <div className="flex flex-col gap-1 min-w-0">
+                                    <div className="flex items-center gap-2">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => etablissementFiligraneInputRef.current?.click()}
+                                            className="cursor-pointer text-xs h-8 gap-1.5"
+                                        >
+                                            <UploadCloud className="size-3.5" />
+                                            <span>{etablissementFiligranePreview ? 'Changer' : 'Téléverser'}</span>
+                                        </Button>
+                                        {etablissementFiligranePreview && (
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => handleRemoveEtablissementImage('logo_filigrane', 'logo_filigrane_file', setEtablissementFiligranePreview, etablissementFiligraneInputRef)}
+                                                className="cursor-pointer text-xs h-8 gap-1 text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+                                            >
+                                                <Trash2 className="size-3.5" />
+                                                <span>Supprimer</span>
+                                            </Button>
+                                        )}
+                                    </div>
+                                    <p className="text-[11px] text-muted-foreground">
+                                        PNG transparent recommandé (max 2 Mo).
+                                    </p>
+                                </div>
+                            </div>
+                            {etablissementForm.errors.logo_filigrane && (
+                                <p className="text-[11px] text-rose-500 font-medium">{etablissementForm.errors.logo_filigrane}</p>
                             )}
                         </div>
 

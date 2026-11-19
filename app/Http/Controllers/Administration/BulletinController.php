@@ -74,13 +74,15 @@ class BulletinController extends Controller implements HasMiddleware
 
         /** @var User|null $user */
         $user = $request->user();
-        $isSuperAdmin = $user ? ($user->hasRole('super-admin') || $user->email === 'admin@gmail.com') : false;
+        $isSuperAdmin = $user ? $user->isSuperAdmin() : false;
+        $canAccessAll = $user ? $user->canAccessAllEtablissements() : false;
         $userPersonnel = $user?->personnel ?? ($user?->email ? Personnel::where('email', $user->email)->first() : null);
 
         $allEtablissements = Etablissement::select('id', 'nom', 'code', 'ordre_enseignement', 'mode_bulletin_defaut')->orderBy('nom')->get();
 
-        if (! $isSuperAdmin && $userPersonnel?->etablissement_id) {
-            $etablissementId = (int) $userPersonnel->etablissement_id;
+        $effectiveEtabId = $user?->getEffectiveEtablissementId();
+        if (! $canAccessAll && $effectiveEtabId) {
+            $etablissementId = (int) $effectiveEtabId;
             $etablissements = $allEtablissements->where('id', $etablissementId)->values();
         } else {
             $etablissementId = $request->query('etablissement_id')
@@ -180,7 +182,8 @@ class BulletinController extends Controller implements HasMiddleware
     {
         $classe = $inscription->classe()->with(['niveau.cycle.section.etablissement.institution', 'professeurPrincipal'])->firstOrFail();
         $mode = $request->query('mode', $classe->niveau->cycle->section->etablissement->mode_bulletin_defaut ?? 'sans_competences');
-        $type = $request->query('type_bulletin', 'sequentiel');
+        // Si une période est explicitement transmise dans l'URL sans paramètre `type_bulletin`, basculer sur le modèle trimestriel
+        $type = $request->query('type_bulletin', $periode !== null ? 'trimestriel' : 'sequentiel');
 
         if ($type === 'sequentiel') {
             $evaluationId = $request->query('evaluation_id');
@@ -261,7 +264,7 @@ class BulletinController extends Controller implements HasMiddleware
     {
         $classe = $inscription->classe()->with(['niveau.cycle.section.etablissement.institution', 'professeurPrincipal'])->firstOrFail();
         $mode = $request->query('mode', $classe->niveau->cycle->section->etablissement->mode_bulletin_defaut ?? 'sans_competences');
-        $type = $request->query('type_bulletin', 'sequentiel');
+        $type = $request->query('type_bulletin', $periode !== null ? 'trimestriel' : 'sequentiel');
 
         if ($type === 'sequentiel') {
             $evaluationId = $request->query('evaluation_id');
@@ -327,6 +330,11 @@ class BulletinController extends Controller implements HasMiddleware
 
     /**
      * Télécharge l'ensemble des bulletins de la classe dans un seul fichier PDF (Cahier de bulletins).
+     *
+     * @param  Request  $request  Requête HTTP précisant le type de bulletin, le mode et l'année/période/évaluation cible.
+     * @param  Classe  $classe  Classe dont le cahier de bulletins est exporté.
+     * @param  Periode|null  $periode  Période optionnelle issue de la route pour le format trimestriel.
+     * @return Response Réponse HTTP contenant le flux binaire PDF du cahier de classe.
      */
     public function telechargerClassePdf(Request $request, Classe $classe, ?Periode $periode = null): Response
     {
@@ -334,13 +342,16 @@ class BulletinController extends Controller implements HasMiddleware
             ->findOrFail($classe->id);
 
         $mode = $request->query('mode', $classeWithRel->niveau->cycle->section->etablissement->mode_bulletin_defaut ?? 'sans_competences');
-        $type = $request->query('type_bulletin', 'sequentiel');
+        $type = $request->query('type_bulletin', $periode !== null ? 'trimestriel' : 'sequentiel');
+        // Assainissement uniforme du code classe pour éviter les séparateurs de chemin interdits dans l'en-tête Content-Disposition
+        $safeClasseCode = str_replace(['/', '\\', ' '], '-', $classe->code);
 
         if ($type === 'sequentiel') {
             $evaluationId = $request->query('evaluation_id');
             $evaluation = Evaluation::with('periode.anneeScolaire')->findOrFail($evaluationId);
             $resultat = $this->calculationService->calculerSequentiel($classeWithRel, $evaluation, $mode);
-            $nomFichier = 'Cahier_Bulletins_Seq_'.$classe->code.'_'.$evaluation->code.'.pdf';
+            $safeEvalCode = str_replace(['/', '\\', ' '], '-', $evaluation->code);
+            $nomFichier = 'Cahier_Bulletins_Seq_'.$safeClasseCode.'_'.$safeEvalCode.'.pdf';
             $viewData = [
                 'eleves' => $resultat['eleves'],
                 'classe' => $resultat['classe'],
@@ -352,9 +363,10 @@ class BulletinController extends Controller implements HasMiddleware
                 'type_bulletin' => 'sequentiel',
             ];
         } elseif ($type === 'annuel') {
-            $anneeId = $request->query('annee_id');
+            // Résolution de l'année scolaire (paramètre explicite ou année courante par défaut) puis calcul des moyennes annuelles de la classe
+            $anneeId = $request->query('annee_id') ?: AnneeScolaire::current()?->id;
             $annee = AnneeScolaire::findOrFail($anneeId);
-            $safeClasseCode = str_replace(['/', '\\', ' '], '-', $classe->code);
+            $resultat = $this->calculationService->calculerAnnuel($classeWithRel, $annee, $mode);
             $safeAnneeCode = str_replace(['/', '\\', ' '], '-', $annee->code);
             $nomFichier = 'Cahier_Bulletins_Annuel_'.$safeClasseCode.'_'.$safeAnneeCode.'.pdf';
             $viewData = [
@@ -369,7 +381,8 @@ class BulletinController extends Controller implements HasMiddleware
         } else {
             $periode = $periode ?? Periode::with('anneeScolaire')->findOrFail($request->query('periode_id'));
             $resultat = $this->calculationService->calculerTrimestre($classeWithRel, $periode, null, $mode);
-            $nomFichier = 'Cahier_Bulletins_Trim_'.$classe->code.'_'.$periode->code.'.pdf';
+            $safePeriodeCode = str_replace(['/', '\\', ' '], '-', $periode->code);
+            $nomFichier = 'Cahier_Bulletins_Trim_'.$safeClasseCode.'_'.$safePeriodeCode.'.pdf';
             $viewData = [
                 'eleves' => $resultat['eleves'],
                 'classe' => $resultat['classe'],

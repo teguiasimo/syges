@@ -29,7 +29,7 @@ use function Pest\Laravel\actingAs;
  * - L'enregistrement d'une dépense avec génération automatique du numéro de pièce.
  * - La création d'une nouvelle catégorie de dépense.
  * - La mise à jour et la suppression d'une dépense.
- * - L'impression de la fiche de décharge / bon de décaissement (PDF A5 Paysage).
+ * - L'impression de la fiche de décharge / bon de décaissement (PDF A4 Portrait — 2 exemplaires/page).
  * - L'impression du bilan financier entrées/sorties de l'exercice (PDF A4 Portrait).
  */
 
@@ -254,11 +254,24 @@ test("on peut générer la fiche de décharge / bon de décaissement en PDF", fu
         'created_by' => $this->adminUser->id,
     ]);
 
+    $capturedData = null;
+    view()->composer('finances.fiche_decharge', function ($view) use (&$capturedData): void {
+        $capturedData = $view->getData();
+    });
+
     $response = $this->get(route('administration.finances.depenses.decharge-pdf', $depense));
 
     $response->assertOk();
     expect($response->headers->get('content-type'))->toBe('application/pdf');
     expect($response->headers->get('content-disposition'))->toContain('DECHARGE_DEP_2026_0003.pdf');
+    // Vérifie les 2 exemplaires A4 portrait sur une seule page (bénéficiaire + souche caisse)
+    expect($capturedData)->toBeArray();
+    $renderedHtml = view('finances.fiche_decharge', $capturedData)->render();
+    expect($renderedHtml)
+        ->toContain('Exemplaire Bénéficiaire')
+        ->toContain('Souche Caisse / Comptabilité');
+    expect($response->getContent())->toMatch('/\/MediaBox\s*\[\s*0(\.0+)?\s+0(\.0+)?\s+595\.280*\s+841\.890*\s*\]/');
+    expect($response->getContent())->toMatch('/\/Count\s+1\b/');
 });
 
 test("on peut générer le bilan financier Entrées/Sorties en PDF", function () {

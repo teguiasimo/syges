@@ -46,10 +46,11 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-import type {
-    ClasseWithAttributions,
-    EnseignantWithWorkload,
-    MatiereNiveauRef,
+import {
+    getClasseTitulaireLabel,
+    type ClasseWithAttributions,
+    type EnseignantWithWorkload,
+    type MatiereNiveauRef,
 } from '@/types/attribution';
 import { ProfesseurPrincipalModal } from './modals/professeur-principal-modal';
 
@@ -799,11 +800,11 @@ export default function AttributionsGrillePage({
                             </span>
                         </div>
 
-                        {/* 2. Professeur Principal */}
+                        {/* 2. Titulaire de Classe (Professeur Principal / Maître / Maîtresse) */}
                         <div className="space-y-1 sm:col-span-1 lg:col-span-2 border-t sm:border-t-0 sm:border-l sm:pl-4 border-border">
                             <div className="flex items-center justify-between">
                                 <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground block">
-                                    Professeur Principal
+                                    {getClasseTitulaireLabel(selectedClasse)}
                                 </span>
                                 {can.prof_principal && (
                                     <button
@@ -833,7 +834,7 @@ export default function AttributionsGrillePage({
                                     onClick={() => setIsPPModalOpen(true)}
                                     className="text-xs text-amber-600 hover:underline font-medium inline-flex items-center gap-1 cursor-pointer pt-0.5"
                                 >
-                                    <Plus className="size-3" /> Désigner le professeur principal
+                                    <Plus className="size-3" /> Désigner le {getClasseTitulaireLabel(selectedClasse).toLowerCase()}
                                 </button>
                             )}
                         </div>

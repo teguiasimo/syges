@@ -55,19 +55,21 @@ class DispenseEleveController extends Controller implements HasMiddleware
     public function index(Request $request): Response
     {
         $user = Auth::user();
-        $isSuperAdmin = $user ? ($user->hasRole('super-admin') || $user->email === 'admin@gmail.com') : false;
+        $isSuperAdmin = $user ? $user->isSuperAdmin() : false;
+        $canAccessAll = $user ? $user->canAccessAllEtablissements() : false;
+        $effectiveEtabId = $user?->getEffectiveEtablissementId();
 
         $etablissementsQuery = Etablissement::with([
             'institution',
             'sections.cycles.niveaux.classes',
         ]);
 
-        if (! $isSuperAdmin && $user?->personnel?->etablissement_id) {
-            $etablissementsQuery->where('id', $user->personnel->etablissement_id);
+        if (! $canAccessAll && $effectiveEtabId) {
+            $etablissementsQuery->where('id', $effectiveEtabId);
         }
 
         $etablissements = $etablissementsQuery->get();
-        $selectedEtabId = (int) $request->input('etablissement_id', $etablissements->first()?->id);
+        $selectedEtabId = (int) ($request->input('etablissement_id') ?: ($request->session()->get('current_etablissement_id') ?: $etablissements->first()?->id));
 
         $anneeActive = AnneeScolaire::where('is_current', true)->first() ?? AnneeScolaire::latest()->first();
         $selectedAnneeId = (int) $request->input('annee_scolaire_id', $anneeActive?->id);

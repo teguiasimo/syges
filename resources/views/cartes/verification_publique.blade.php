@@ -252,7 +252,7 @@
                     </tr>
                     <tr>
                         <td class="data-label">Sexe :</td>
-                        <td class="data-val">{{ $eleve->sexe === 'F' ? 'Féminin' : 'Masculin' }}</td>
+                        <td class="data-val">{{ $eleve->sexe === 'F' ? 'Féminin' : ($eleve->sexe === 'M' ? 'Masculin' : 'Non défini') }}</td>
                     </tr>
                     <tr>
                         <td class="data-label">Contact Parent / Tuteur :</td>

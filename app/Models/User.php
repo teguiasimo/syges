@@ -41,7 +41,7 @@ use Spatie\Permission\Traits\HasRoles;
  * @method bool hasRole(string|int|array|\Spatie\Permission\Contracts\Role|\Illuminate\Support\Collection $roles, ?string $guard = null)
  * @method bool can(string $ability, array|mixed $arguments = [])
  */
-#[Fillable(['name', 'email', 'password', 'login', 'is_active', 'etablissement_id'])]
+#[Fillable(['name', 'email', 'password', 'login', 'is_active', 'etablissement_id', 'has_global_access'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -51,7 +51,8 @@ class User extends Authenticatable
     /**
      * Actions automatiques au cycle de vie du modèle User.
      * Garantit l'étanchéité multi-tenant : si un utilisateur n'est pas Super-Admin
-     * et n'a pas d'établissement direct, synchronise son établissement depuis sa fiche Personnel.
+     * et n'a pas d'établissement direct, synchronise son établissement depuis sa fiche Personnel
+     * (et désactive `has_global_access` s'il est rattaché à un campus spécifique).
      *
      * @return void
      */
@@ -59,13 +60,21 @@ class User extends Authenticatable
     {
         static::saving(function (User $user) {
             if ($user->etablissement_id === null && ! $user->isSuperAdmin()) {
-                $personnelEtabId = Personnel::withoutGlobalScope(EtablissementScope::class)
-                    ->where('user_id', $user->id)
-                    ->value('etablissement_id');
+                // Rechercher la fiche Personnel liée uniquement si l'utilisateur existe déjà en base
+                // afin d'éviter que where('user_id', null) n'associe un personnel sans compte lors d'un User::create().
+                $personnelEtabId = $user->exists && $user->id
+                    ? Personnel::withoutGlobalScope(EtablissementScope::class)
+                        ->where('user_id', $user->id)
+                        ->value('etablissement_id')
+                    : null;
 
                 if ($personnelEtabId) {
                     $user->etablissement_id = (int) $personnelEtabId;
+                    $user->has_global_access = false;
                 }
+            } elseif ($user->etablissement_id !== null && $user->has_global_access && ! $user->isSuperAdmin()) {
+                // Un compte rattaché à un campus unique ne peut pas conserver simultanément l'accès global.
+                $user->has_global_access = false;
             }
         });
     }
@@ -79,6 +88,7 @@ class User extends Authenticatable
     {
         return [
             'etablissement_id' => 'integer',
+            'has_global_access' => 'boolean',
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_active' => 'boolean',
@@ -131,6 +141,58 @@ class User extends Authenticatable
     }
 
     /**
+     * Récupère sans déclencher le Global Scope EtablissementScope l'identifiant du campus lié à la fiche Personnel.
+     *
+     * @return int|null Identifiant du campus de la fiche Personnel, ou null si absent.
+     */
+    protected function getEffectivePersonnelEtablissementId(): ?int
+    {
+        if ($this->relationLoaded('personnel')) {
+            return $this->personnel?->etablissement_id !== null
+                ? (int) $this->personnel->etablissement_id
+                : null;
+        }
+
+        if (! $this->exists || ! $this->id) {
+            return null;
+        }
+
+        $etabId = Personnel::withoutGlobalScope(EtablissementScope::class)
+            ->where('user_id', $this->id)
+            ->value('etablissement_id');
+
+        return $etabId !== null ? (int) $etabId : null;
+    }
+
+    /**
+     * Détermine si l'utilisateur possède une vue transversale sur l'ensemble des établissements du groupe.
+     * C'est le cas pour le Super Administrateur, pour tout compte non rattaché à un campus disposant
+     * explicitement de `has_global_access = true`, ainsi que par rétrocompatibilité pour les secrétaires
+     * transversales sans établissement assigné.
+     *
+     * @return bool True si l'utilisateur peut basculer entre tous les campus et consulter les états globaux.
+     */
+    public function canAccessAllEtablissements(): bool
+    {
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+
+        // Un compte déjà verrouillé sur un campus direct ne dispose pas d'accès global multi-campus.
+        if ($this->etablissement_id !== null) {
+            return false;
+        }
+
+        // Accès global explicite attribué par le Super-Admin OU rôle secrétaire transversal hérité :
+        // exige toujours qu'aucune fiche Personnel rattachée à un campus unique ne verrouille ce compte.
+        if ((bool) $this->has_global_access || $this->hasRole(['secretaire', 'secretaire-general'])) {
+            return $this->getEffectivePersonnelEtablissementId() === null;
+        }
+
+        return false;
+    }
+
+    /**
      * Récupère l'identifiant d'établissement effectif du compte.
      * Donne priorité à `etablissement_id` direct sur le User, puis à sa fiche Personnel.
      * Utilise withoutGlobalScope pour éviter toute récursion infinie lors de l'application de EtablissementScope.
@@ -141,12 +203,6 @@ class User extends Authenticatable
             return $this->etablissement_id;
         }
 
-        if ($this->relationLoaded('personnel')) {
-            return $this->personnel?->etablissement_id;
-        }
-
-        return Personnel::withoutGlobalScope(EtablissementScope::class)
-            ->where('user_id', $this->id)
-            ->value('etablissement_id');
+        return $this->getEffectivePersonnelEtablissementId();
     }
 }

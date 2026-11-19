@@ -12,10 +12,10 @@ use Inertia\Response;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
- * Contrôleur exclusif du Gestionnaire de Versions SemVer et de Mise à Jour Système distante (GitHub).
+ * Contrôleur du Gestionnaire de Versions SemVer et de Mise à Jour Système distante (GitHub).
  *
- * Strictement réservé au compte Super Administrateur (`super-admin` / `superadmin`).
- * Tout autre rôle (y compris le compte Administrateur d'établissement `admin`) reçoit un refus `403`.
+ * Accessible au Super Administrateur racine (`super-admin` / `superadmin`) ainsi qu'aux rôles
+ * disposant explicitement de la permission `system.update` accordée par le Super Administrateur.
  */
 class SystemUpdateController extends Controller
 {
@@ -31,7 +31,8 @@ class SystemUpdateController extends Controller
     ) {}
 
     /**
-     * Vérifie rigoureusement que l'utilisateur connecté est le Super Administrateur racine.
+     * Vérifie que l'utilisateur connecté est Super Administrateur ou dispose explicitement
+     * de la permission `system.update`.
      *
      * @param  Request  $request  Requête HTTP entrante.
      */
@@ -40,9 +41,9 @@ class SystemUpdateController extends Controller
         $user = $request->user();
 
         abort_unless(
-            $user !== null && $user->isSuperAdmin(),
+            $user !== null && ($user->isSuperAdmin() || $user->can('system.update')),
             403,
-            'Accès strictement réservé au Super Administrateur de la plateforme SYGES.'
+            'Accès non autorisé : la permission « system.update » ou le rôle Super Administrateur est requis.'
         );
     }
 

@@ -11,7 +11,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { User, Phone, HeartPulse, GraduationCap, Upload, X } from 'lucide-react';
 import { SearchableSelect, type SearchableOption } from '@/components/ui/searchable-select';
@@ -60,7 +59,7 @@ export function CreateEleveModal({
         matricule_national: '',
         nom: '',
         prenom: '',
-        sexe: 'M',
+        sexe: '',
         date_naissance: '',
         lieu_naissance: '',
         nationalite: 'CAMEROUNAISE',
@@ -164,12 +163,6 @@ export function CreateEleveModal({
             return;
         }
 
-        if (!formData.telephone_parent.trim()) {
-            setErrors({ telephone_parent: 'Le téléphone principal du parent est obligatoire (identifiant SMS/portail).' });
-            setActiveTab('parents');
-            return;
-        }
-
         if (!selectedClasseId) {
             setErrors({ classe_id: 'Veuillez sélectionner la classe d\'affectation de l\'élève.' });
             setActiveTab('scolarite');
@@ -206,7 +199,7 @@ export function CreateEleveModal({
                     matricule_national: '',
                     nom: '',
                     prenom: '',
-                    sexe: 'M',
+                    sexe: '',
                     date_naissance: '',
                     lieu_naissance: '',
                     nationalite: 'CAMEROUNAISE',
@@ -346,23 +339,30 @@ export function CreateEleveModal({
 
                                 {/* Champs d'identification */}
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-1 w-full">
+                                    {/* Matricule interne non cliquable : généré automatiquement côté serveur */}
                                     <div>
                                         <div className="flex items-center justify-between mb-1">
-                                            <Label htmlFor="matricule">Matricule Interne</Label>
+                                            <span className="text-sm font-medium leading-none text-slate-700 dark:text-slate-300">
+                                                Matricule Interne
+                                            </span>
                                             <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                                                 Automatique
                                             </span>
                                         </div>
-                                        <Input
-                                            id="matricule"
-                                            readOnly
-                                            tabIndex={-1}
-                                            value={formData.matricule}
-                                            placeholder="ex: 26-0001 (Attribué automatiquement)"
-                                            className="font-mono mt-1 bg-slate-100/80 dark:bg-slate-900/60 text-slate-500 dark:text-slate-400 cursor-not-allowed border-dashed focus-visible:ring-0 select-none"
-                                        />
+                                        <div className="mt-1 cursor-not-allowed select-none">
+                                            <Input
+                                                id="matricule"
+                                                readOnly
+                                                disabled
+                                                aria-readonly="true"
+                                                tabIndex={-1}
+                                                value={formData.matricule}
+                                                placeholder="ex: ESP-PRI-2026-0001 (Automatique)"
+                                                className="font-mono bg-slate-100/80 dark:bg-slate-900/60 text-slate-500 dark:text-slate-400 border-dashed focus-visible:ring-0 pointer-events-none select-none disabled:opacity-90"
+                                            />
+                                        </div>
                                         <p className="text-[10px] text-muted-foreground mt-1">
-                                            Format officiel court <code>[YY]-[0001]</code> attribué à l'enregistrement.
+                                            Format officiel <code>[CODE_CAMPUS]-[ANNÉE]-[0001]</code> attribué à l'enregistrement.
                                         </p>
                                         {errors.matricule && <p className="text-xs text-destructive mt-1">{errors.matricule}</p>}
                                     </div>
@@ -408,7 +408,7 @@ export function CreateEleveModal({
 
                                     <div>
                                         <Label htmlFor="sexe">
-                                            Sexe <span className="text-destructive">*</span>
+                                            Sexe <span className="text-[10px] font-normal text-muted-foreground">(Optionnel)</span>
                                         </Label>
                                         <select
                                             id="sexe"
@@ -416,6 +416,7 @@ export function CreateEleveModal({
                                             onChange={(e) => setFormData({ ...formData, sexe: e.target.value })}
                                             className="w-full mt-1 h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                                         >
+                                            <option value="">Non défini (À compléter)</option>
                                             <option value="M">Masculin (M)</option>
                                             <option value="F">Féminin (F)</option>
                                         </select>
@@ -464,14 +465,13 @@ export function CreateEleveModal({
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div className="sm:col-span-2">
                                     <Label htmlFor="telephone_parent">
-                                        Téléphone Principal Parent/Tuteur <span className="text-destructive">* (SMS & Portail)</span>
+                                        Téléphone Principal Parent/Tuteur <span className="text-[10px] font-normal text-muted-foreground">(Optionnel - SMS & Portail)</span>
                                     </Label>
                                     <Input
                                         id="telephone_parent"
                                         value={formData.telephone_parent}
                                         onChange={(e) => setFormData({ ...formData, telephone_parent: e.target.value })}
                                         placeholder="Ex: +237 699 00 11 22"
-                                        required
                                         className="mt-1 font-mono"
                                     />
                                     {errors.telephone_parent && (

@@ -1,1 +1,0 @@
-function e(e){switch(e){case`tranche_1`:return`1ère tranche`;case`tranche_2`:return`2ème tranche`;case`tranche_3`:return`3ème tranche`;case`tranche_4`:return`4ème tranche`;case`proportionnelle`:return`Répartition proportionnelle`;default:return`Dernière tranche`}}export{e as t};

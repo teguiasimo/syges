@@ -253,6 +253,7 @@
     </style>
 </head>
 <body>
+    @include('partials.watermark', ['etablissement' => $etablissement ?? null])
 
     <!-- En-tête officiel bilingue MINESEC -->
     <table class="header-table">
@@ -402,7 +403,7 @@
                     <td class="cell-num">{{ $el['numero'] }}</td>
                     <td class="cell-mat">{{ $el['matricule'] }}</td>
                     <td class="cell-nom">{{ $el['nom_complet'] }}</td>
-                    <td class="cell-sexe">{{ $el['sexe'] }}</td>
+                    <td class="cell-sexe">{{ $el['sexe'] ?: '-' }}</td>
                     @foreach($attributions as $attr)
                         @php
                             $noteData = $el['notes'][$attr->id] ?? null;
@@ -491,7 +492,7 @@
     <table class="sign-table">
         <tr>
             <td>
-                <div class="sign-role">Le Professeur Principal</div>
+                <div class="sign-role">{{ $etablissement->titre_responsable_classe ?? 'Le Professeur Principal' }}</div>
                 <div style="font-size: 6pt; color: #64748b;">(Nom, Visa & Date)</div>
             </td>
             <td>
@@ -499,7 +500,7 @@
                 <div style="font-size: 6pt; color: #64748b;">(Vérification des saisies & Visa)</div>
             </td>
             <td>
-                <div class="sign-role">Le Chef d'Établissement</div>
+                <div class="sign-role">{{ $etablissement->titre_chef ?? "Le Chef d'Établissement" }}</div>
                 <div style="font-size: 6pt; color: #64748b;">(Approbation pour tirage des bulletins)</div>
             </td>
         </tr>

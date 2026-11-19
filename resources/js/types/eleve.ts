@@ -18,6 +18,10 @@ export interface EtablissementRef {
     nom_chef_etablissement?: string | null;
     titre_chef?: string | null;
     titre_chef_en?: string | null;
+    titre_responsable_classe?: string | null;
+    titre_responsable_classe_en?: string | null;
+    logo_filigrane?: string | null;
+    effective_filigrane?: string | null;
     sections?: SectionRef[];
 }
 
@@ -90,7 +94,7 @@ export interface Eleve {
     nom: string;
     prenom?: string | null;
     nom_complet: string;
-    sexe: 'M' | 'F';
+    sexe: 'M' | 'F' | null;
     date_naissance?: string | null;
     lieu_naissance?: string | null;
     nationalite: string;
@@ -133,6 +137,7 @@ export interface EleveStats {
     totalInscrits: number;
     totalFilles: number;
     totalGarcons: number;
+    totalNonDefinis?: number;
     totalRedoublants: number;
     totalEnAttente: number;
     nonInscritsCount: number;

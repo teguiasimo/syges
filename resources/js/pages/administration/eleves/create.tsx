@@ -82,7 +82,7 @@ export default function CreateEleve({
         matricule_national: '',
         nom: '',
         prenom: '',
-        sexe: 'M' as 'M' | 'F',
+        sexe: '' as '' | 'M' | 'F',
         date_naissance: '',
         lieu_naissance: '',
         nationalite: 'CAMEROUNAISE',
@@ -194,7 +194,7 @@ export default function CreateEleve({
             matricule_national: '',
             nom: '',
             prenom: '',
-            sexe: 'M',
+            sexe: '' as '' | 'M' | 'F',
             date_naissance: '',
             lieu_naissance: '',
             nationalite: 'CAMEROUNAISE',
@@ -225,9 +225,6 @@ export default function CreateEleve({
         const newErrors: Record<string, string> = {};
         if (!formData.nom.trim()) {
             newErrors.nom = 'Le nom de famille est obligatoire.';
-        }
-        if (!formData.telephone_parent.trim()) {
-            newErrors.telephone_parent = 'Le téléphone principal du parent est obligatoire (identifiant SMS/portail).';
         }
         if (!selectedClasseId) {
             newErrors.classe_id = 'Veuillez sélectionner la classe d\'affectation de l\'élève.';
@@ -536,16 +533,19 @@ export default function CreateEleve({
 
                                 <div>
                                     <Label htmlFor="sexe" className="text-xs font-semibold">
-                                        Genre <span className="text-rose-500">*</span>
+                                        Genre <span className="text-[10px] font-normal text-muted-foreground">(Optionnel)</span>
                                     </Label>
                                     <Select
-                                        value={formData.sexe}
-                                        onValueChange={(val: 'M' | 'F') => setFormData({ ...formData, sexe: val })}
+                                        value={formData.sexe || 'NONE'}
+                                        onValueChange={(val: string) =>
+                                            setFormData({ ...formData, sexe: (val === 'NONE' ? '' : val) as '' | 'M' | 'F' })
+                                        }
                                     >
                                         <SelectTrigger id="sexe" className="mt-1 h-9 text-sm">
-                                            <SelectValue placeholder="Genre" />
+                                            <SelectValue placeholder="Non défini (À compléter)" />
                                         </SelectTrigger>
                                         <SelectContent>
+                                            <SelectItem value="NONE">Non défini (À compléter)</SelectItem>
                                             <SelectItem value="M">Masculin (Garçon)</SelectItem>
                                             <SelectItem value="F">Féminin (Fille)</SelectItem>
                                         </SelectContent>
@@ -569,26 +569,30 @@ export default function CreateEleve({
                                     )}
                                 </div>
 
-                                {/* ─── Ligne 3 : Matricules partagés équitablement sur 2×2 cols ─── */}
+                                {/* ─── Ligne 3 : Matricules partagés équitablement sur 2×2 cols (matricule interne non cliquable) ─── */}
                                 <div className="col-span-2">
                                     <div className="flex items-center justify-between mb-1">
-                                        <Label htmlFor="matricule" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                        <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                                             Matricule interne
-                                        </Label>
+                                        </span>
                                         <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                                             Attribué automatiquement
                                         </span>
                                     </div>
-                                    <Input
-                                        id="matricule"
-                                        readOnly
-                                        tabIndex={-1}
-                                        value={formData.matricule}
-                                        placeholder="ex: 26-0001 (Attribué automatiquement par le système)"
-                                        className="h-9 text-sm font-mono uppercase bg-slate-100/80 dark:bg-slate-900/60 text-slate-500 dark:text-slate-400 cursor-not-allowed border-dashed focus-visible:ring-0 select-none"
-                                    />
+                                    <div className="cursor-not-allowed select-none">
+                                        <Input
+                                            id="matricule"
+                                            readOnly
+                                            disabled
+                                            aria-readonly="true"
+                                            tabIndex={-1}
+                                            value={formData.matricule}
+                                            placeholder="ex: ESP-PRI-2026-0001 (Attribué automatiquement)"
+                                            className="h-9 text-sm font-mono uppercase bg-slate-100/80 dark:bg-slate-900/60 text-slate-500 dark:text-slate-400 border-dashed focus-visible:ring-0 pointer-events-none select-none disabled:opacity-90"
+                                        />
+                                    </div>
                                     <p className="text-[11px] text-muted-foreground mt-1">
-                                        Format officiel court <code>[YY]-[0001]</code>. Généré et garanti unique par le système pour respecter la nomenclature de l'établissement.
+                                        Format officiel structuré <code>[CODE_CAMPUS]-[ANNÉE]-[0001]</code>. Généré et garanti unique selon l'établissement de la classe choisie.
                                     </p>
                                     {errors.matricule && (
                                         <p className="text-rose-500 text-xs mt-1">{errors.matricule}</p>
@@ -808,11 +812,10 @@ export default function CreateEleve({
                                 {/* Ligne 2 : Coordonnées de contact \u2014 Téléphone | Email | Adresse */}
                                 <div>
                                     <Label htmlFor="telephone_parent" className="text-xs font-semibold">
-                                        Téléphone parent / tuteur <span className="text-rose-500">*</span>
+                                        Téléphone parent / tuteur
                                     </Label>
                                     <Input
                                         id="telephone_parent"
-                                        required
                                         value={formData.telephone_parent}
                                         onChange={(e) => setFormData({ ...formData, telephone_parent: e.target.value })}
                                         placeholder="ex : 699 00 11 22"

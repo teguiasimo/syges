@@ -68,6 +68,7 @@ export default function TarifModal({
         ordre_priorite: '',
         libelle_tranche: '',
         montant: '',
+        obligatoire: true,
         date_limite: '',
     });
 
@@ -91,6 +92,7 @@ export default function TarifModal({
                         : '',
                 libelle_tranche: tarifToEdit.libelle_tranche ?? '',
                 montant: String(Number(tarifToEdit.montant)),
+                obligatoire: tarifToEdit.obligatoire !== false,
                 date_limite: formatDateForInput(tarifToEdit.date_limite),
             });
         } else {
@@ -104,6 +106,7 @@ export default function TarifModal({
                 ordre_priorite: '',
                 libelle_tranche: '',
                 montant: '',
+                obligatoire: true,
                 date_limite: '',
             });
         }
@@ -257,7 +260,7 @@ export default function TarifModal({
                                 <SelectContent>
                                     {typesFrais.map((tf) => (
                                         <SelectItem key={tf.id} value={String(tf.id)}>
-                                            {tf.libelle} ({tf.obligatoire ? 'Obligatoire' : 'Optionnel'})
+                                            {tf.libelle}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
@@ -316,6 +319,29 @@ export default function TarifModal({
                                 onChange={(e) => setData('date_limite', e.target.value)}
                             />
                         </div>
+                    </div>
+
+                    {/* Caractère d'Exigibilité sur ce niveau */}
+                    <div className="space-y-1 min-w-0">
+                        <Label htmlFor="tarif_obligatoire" className="text-xs font-semibold">
+                            Caractère d'Exigibilité pour ce niveau
+                        </Label>
+                        <Select
+                            value={data.obligatoire ? 'true' : 'false'}
+                            onValueChange={(val) => setData('obligatoire', val === 'true')}
+                        >
+                            <SelectTrigger id="tarif_obligatoire" className="h-9 text-xs">
+                                <SelectValue placeholder="Choisir..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="true">
+                                    Obligatoire (dû d'office par tous les élèves de ce niveau)
+                                </SelectItem>
+                                <SelectItem value="false">
+                                    Optionnel (facturé uniquement sur souscription individuelle de l'élève)
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
                     </div>
 
                     {/* Série & Priorité optionnelles */}

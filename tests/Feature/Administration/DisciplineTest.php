@@ -2,11 +2,21 @@
 
 namespace Tests\Feature\Administration;
 
+use App\Models\AnneeScolaire;
 use App\Models\Assiduite;
-use App\Models\DisciplineBulletin;
-use App\Models\SanctionDisciplinaire;
+use App\Models\Classe;
+use App\Models\Cycle;
+use App\Models\Eleve;
+use App\Models\Etablissement;
+use App\Models\Inscription;
+use App\Models\Institution;
+use App\Models\Matiere;
+use App\Models\Niveau;
+use App\Models\Periode;
+use App\Models\Section;
 use App\Models\User;
 use App\Services\DisciplineService;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -25,7 +35,7 @@ use Tests\TestCase;
  */
 class DisciplineTest extends TestCase
 {
-    use \Illuminate\Foundation\Testing\RefreshDatabase;
+    use RefreshDatabase;
 
     public ?User $unauthorizedUser = null;
 
@@ -49,12 +59,12 @@ class DisciplineTest extends TestCase
         ]);
 
         // Structure académique
-        $this->institution = \App\Models\Institution::firstOrCreate(
+        $this->institution = Institution::firstOrCreate(
             ['code' => 'INST-DISC'],
             ['nom' => 'Institution Discipline', 'sigle' => 'IND']
         );
 
-        $this->etablissement = \App\Models\Etablissement::firstOrCreate(
+        $this->etablissement = Etablissement::firstOrCreate(
             ['code' => 'ETAB-DISC'],
             [
                 'institution_id' => $this->institution->id,
@@ -65,22 +75,25 @@ class DisciplineTest extends TestCase
             ]
         );
 
-        $this->section = \App\Models\Section::firstOrCreate(
+        // Rattacher le compte de test au campus afin de respecter le cloisonnement multi-tenant EtablissementScope
+        $this->adminUser->update(['etablissement_id' => $this->etablissement->id]);
+
+        $this->section = Section::firstOrCreate(
             ['code' => 'SEC-FR-DISC', 'etablissement_id' => $this->etablissement->id],
             ['nom' => 'Section Francophone']
         );
 
-        $this->cycle = \App\Models\Cycle::firstOrCreate(
+        $this->cycle = Cycle::firstOrCreate(
             ['code' => 'CYC-1-DISC', 'section_id' => $this->section->id],
             ['nom' => 'Premier Cycle', 'ordre' => 1]
         );
 
-        $this->niveau = \App\Models\Niveau::firstOrCreate(
+        $this->niveau = Niveau::firstOrCreate(
             ['code' => 'NIV-4-DISC', 'cycle_id' => $this->cycle->id],
             ['nom' => '4ème Discipline', 'ordre' => 1]
         );
 
-        $this->annee = \App\Models\AnneeScolaire::firstOrCreate(
+        $this->annee = AnneeScolaire::firstOrCreate(
             ['code' => '2026-2027'],
             [
                 'nom' => 'Année 2026-2027',
@@ -91,22 +104,22 @@ class DisciplineTest extends TestCase
             ]
         );
 
-        $this->classe = \App\Models\Classe::firstOrCreate(
+        $this->classe = Classe::firstOrCreate(
             ['code' => '4E-DISC', 'niveau_id' => $this->niveau->id],
             ['nom' => '4ème A Discipline', 'capacite_max' => 50, 'is_active' => true]
         );
 
-        $this->periode = \App\Models\Periode::firstOrCreate(
+        $this->periode = Periode::firstOrCreate(
             ['code' => 'TRIM-1-DISC', 'annee_scolaire_id' => $this->annee->id],
             ['nom' => '1er Trimestre', 'ordre' => 1, 'date_debut' => '2026-09-01', 'date_fin' => '2026-11-30']
         );
 
-        $this->matiere = \App\Models\Matiere::firstOrCreate(
+        $this->matiere = Matiere::firstOrCreate(
             ['code' => 'MATH-DISC'],
             ['nom' => 'Mathématiques', 'code_matiere' => 'MATH']
         );
 
-        $this->eleve1 = \App\Models\Eleve::firstOrCreate(
+        $this->eleve1 = Eleve::firstOrCreate(
             ['matricule' => 'DISC-EL-001'],
             [
                 'nom' => 'KAMGA',
@@ -116,7 +129,7 @@ class DisciplineTest extends TestCase
             ]
         );
 
-        $this->inscription1 = \App\Models\Inscription::firstOrCreate(
+        $this->inscription1 = Inscription::firstOrCreate(
             [
                 'eleve_id' => $this->eleve1->id,
                 'annee_scolaire_id' => $this->annee->id,

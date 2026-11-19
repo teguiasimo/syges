@@ -112,4 +112,63 @@ class EtablissementSwitchTest extends TestCase
 
         $response->assertForbidden();
     }
+
+    /**
+     * Vérifie que le basculement global supprime l'ancien ?etablissement_id de l'URL précédente
+     * afin que le sélecteur d'en-tête ne soit pas écrasé par un paramètre d'URL résiduel.
+     */
+    public function test_switch_strips_stale_etablissement_query_param_on_redirect(): void
+    {
+        $response = $this->actingAs($this->superAdmin)
+            ->from("/dashboard?etablissement_id={$this->etablissementA->id}&annee_id=5")
+            ->post(route('context.switch-etablissement'), [
+                'etablissement_id' => $this->etablissementB->id,
+            ]);
+
+        $response->assertRedirect('/dashboard?annee_id=5');
+        $response->assertSessionHas('current_etablissement_id', $this->etablissementB->id);
+        $response->assertSessionHas('current_etablissement_scope', 'single');
+    }
+
+    /**
+     * Vérifie que le Super Admin peut activer « Tous les établissements » ('all') sans corrompre l'ID campus numérique.
+     */
+    public function test_super_admin_can_switch_to_all_etablissements_preserving_numeric_fallback(): void
+    {
+        $response = $this->actingAs($this->superAdmin)
+            ->withSession(['current_etablissement_id' => $this->etablissementB->id])
+            ->from("/dashboard?etablissement_id={$this->etablissementB->id}")
+            ->post(route('context.switch-etablissement'), [
+                'etablissement_id' => 'all',
+            ]);
+
+        $response->assertRedirect('/dashboard');
+        $response->assertSessionHas('current_etablissement_scope', 'all');
+        $response->assertSessionHas('current_etablissement_id', $this->etablissementB->id);
+    }
+
+    /**
+     * Vérifie qu'un personnel local ne peut pas activer la vue consolidée « Tous les établissements ».
+     */
+    public function test_campus_staff_cannot_switch_to_all_etablissements(): void
+    {
+        $staffUser = User::factory()->create(['is_active' => true]);
+        Personnel::create([
+            'user_id' => $staffUser->id,
+            'etablissement_id' => $this->etablissementA->id,
+            'nom' => 'KAMGA',
+            'prenom' => 'Paul',
+            'matricule' => 'STF-002',
+            'telephone' => '+237 600 00 00 01',
+            'statut' => 'Actif',
+        ]);
+
+        $response = $this->actingAs($staffUser)
+            ->from('/dashboard')
+            ->post(route('context.switch-etablissement'), [
+                'etablissement_id' => 'all',
+            ]);
+
+        $response->assertForbidden();
+    }
 }

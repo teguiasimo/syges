@@ -9,6 +9,7 @@ use App\Models\Periode;
 use App\Models\SeanceEmploiTemps;
 use App\Models\User;
 use App\Models\VersementCaisse;
+use App\Scopes\EtablissementScope;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Response;
@@ -51,10 +52,15 @@ class PortailParentService
      */
     public function getEnfantsRattaches(User $user): Collection
     {
+        $inscriptionRelation = fn ($q) => $q->tousEtablissements()
+            ->where('statut', 'validee')
+            ->latest('date_inscription')
+            ->with(['classe' => fn ($cq) => $cq->tousEtablissements()->with('niveau')]);
+
         // 1. Profil Administrateur ou Direction (permet d'inspecter ou prévisualiser n'importe quel élève)
         if ($user->hasRole('super-admin') || $user->hasRole('admin') || $user->hasRole('directeur-etudes') || $user->can('eleves.view')) {
             return Eleve::where('is_active', true)
-                ->with(['inscriptions' => fn ($q) => $q->where('statut', 'validee')->latest('date_inscription')->with('classe.niveau')])
+                ->with(['inscriptions' => $inscriptionRelation])
                 ->take(30)
                 ->get();
         }
@@ -68,7 +74,7 @@ class PortailParentService
         ]);
 
         return Eleve::where('is_active', true)
-            ->where(function ($query) use ($identifiants, $user) {
+            ->where(function ($query) use ($identifiants) {
                 foreach ($identifiants as $id) {
                     if (! empty($id)) {
                         $query->orWhere('telephone_parent', 'like', "%{$id}%")
@@ -76,8 +82,21 @@ class PortailParentService
                     }
                 }
             })
-            ->with(['inscriptions' => fn ($q) => $q->where('statut', 'validee')->latest('date_inscription')->with('classe.niveau')])
+            ->with(['inscriptions' => $inscriptionRelation])
             ->get();
+    }
+
+    /**
+     * Vérifie que l'utilisateur connecté est autorisé à consulter les données portail d'un élève
+     * (soit en tant que membre de l'équipe de direction/administration autorisé, soit en tant que parent rattaché).
+     *
+     * @param User $user Utilisateur authentifié
+     * @param int $eleveId Identifiant de l'élève concerné
+     * @return bool True si la consultation est autorisée
+     */
+    public function userCanAccessEleve(User $user, int $eleveId): bool
+    {
+        return $this->getEnfantsRattaches($user)->contains('id', $eleveId);
     }
 
     /**
@@ -92,14 +111,14 @@ class PortailParentService
     {
         $annee = $anneeId ? AnneeScolaire::find($anneeId) : (AnneeScolaire::current() ?? AnneeScolaire::latest()->first());
 
-        // Inscription active de l'élève
-        $inscription = Inscription::with(['classe.niveau.cycle.section.etablissement', 'compteFinancier.versements'])
+        // Résolution directe sans EtablissementScope car un compte parent a généralement `etablissement_id = null`
+        $inscriptionBase = Inscription::tousEtablissements()
             ->where('eleve_id', $eleve->id)
             ->where('statut', 'validee')
             ->where('annee_scolaire_id', $annee?->id)
             ->first();
 
-        if (! $inscription) {
+        if (! $inscriptionBase) {
             return [
                 'eleve' => $eleve,
                 'inscription' => null,
@@ -112,132 +131,141 @@ class PortailParentService
             ];
         }
 
-        $classe = $inscription->classe;
-        $etablissement = $classe->niveau->cycle->section->etablissement;
+        // Contextualise l'ensemble des lectures suivantes sur le campus de l'inscription de l'enfant
+        return EtablissementScope::withEtablissementOverride(
+            $inscriptionBase->etablissement_id,
+            function () use ($eleve, $annee, $periodeId, $inscriptionBase): array {
+                $inscription = Inscription::with(['classe.niveau.cycle.section.etablissement', 'compteFinancier.versements'])
+                    ->findOrFail($inscriptionBase->id);
 
-        // 1. Périodes et Évaluations
-        $periodes = Periode::where('annee_scolaire_id', $annee->id)
-            ->orderBy('ordre')
-            ->get();
+                $classe = $inscription->classe;
+                $etablissement = $classe->niveau->cycle->section->etablissement;
 
-        $activePeriode = $periodeId ? Periode::find($periodeId) : $periodes->first();
+                // 1. Périodes et Évaluations
+                $periodes = Periode::where('annee_scolaire_id', $annee->id)
+                    ->orderBy('ordre')
+                    ->get();
 
-        // 2. Résultats Académiques (Notes, moyennes, rangs via BulletinCalculationService)
-        $donneesClasse = $activePeriode
-            ? $this->bulletinService->calculerTrimestre($classe, $activePeriode)
-            : $this->bulletinService->calculerAnnuel($classe, $annee);
+                $activePeriode = $periodeId ? Periode::find($periodeId) : $periodes->first();
 
-        $donneesEleve = collect($donneesClasse['eleves'] ?? [])
-            ->firstWhere('inscription_id', $inscription->id);
+                // 2. Résultats Académiques (Notes, moyennes, rangs via BulletinCalculationService)
+                $donneesClasse = $activePeriode
+                    ? $this->bulletinService->calculerTrimestre($classe, $activePeriode)
+                    : $this->bulletinService->calculerAnnuel($classe, $annee);
 
-        // 3. Emploi du Temps Dynamique de la classe (Gesco 13 & 16.2)
-        $emploiDuTemps = SeanceEmploiTemps::with(['attribution.matiere', 'attribution.personnel', 'salle'])
-            ->where('classe_id', $classe->id)
-            ->where('annee_scolaire_id', $annee->id)
-            ->where('statut', '!=', 'annule')
-            ->orderBy('jour_semaine')
-            ->orderBy('heure_debut')
-            ->get()
-            ->map(function ($seance) {
-                return [
-                    'id' => $seance->id,
-                    'jour_semaine' => $seance->jour_semaine,
-                    'jour_libelle' => $seance->jour_libelle,
-                    'heure_debut' => substr((string) $seance->heure_debut, 0, 5),
-                    'heure_fin' => substr((string) $seance->heure_fin, 0, 5),
-                    'plage_horaire' => $seance->plage_horaire,
-                    'matiere_nom' => $seance->attribution?->matiere?->nom ?? 'Cours',
-                    'matiere_code' => $seance->attribution?->matiere?->code ?? 'N/A',
-                    'enseignant_nom' => $seance->enseignantActuel?->nom_complet ?? 'Non assigné',
-                    'salle_nom' => $seance->salle?->nom ?? 'Salle classe',
-                    'statut' => $seance->statut,
-                    'is_annule' => $seance->isAnnule(),
+                $donneesEleve = collect($donneesClasse['eleves'] ?? [])
+                    ->firstWhere('inscription_id', $inscription->id);
+
+                // 3. Emploi du Temps Dynamique de la classe (Gesco 13 & 16.2)
+                $emploiDuTemps = SeanceEmploiTemps::with(['attribution.matiere', 'attribution.personnel', 'salle'])
+                    ->where('classe_id', $classe->id)
+                    ->where('annee_scolaire_id', $annee->id)
+                    ->where('statut', '!=', 'annule')
+                    ->orderBy('jour_semaine')
+                    ->orderBy('heure_debut')
+                    ->get()
+                    ->map(function ($seance) {
+                        return [
+                            'id' => $seance->id,
+                            'jour_semaine' => $seance->jour_semaine,
+                            'jour_libelle' => $seance->jour_libelle,
+                            'heure_debut' => substr((string) $seance->heure_debut, 0, 5),
+                            'heure_fin' => substr((string) $seance->heure_fin, 0, 5),
+                            'plage_horaire' => $seance->plage_horaire,
+                            'matiere_nom' => $seance->attribution?->matiere?->nom ?? 'Cours',
+                            'matiere_code' => $seance->attribution?->matiere?->code ?? 'N/A',
+                            'enseignant_nom' => $seance->enseignantActuel?->nom_complet ?? 'Non assigné',
+                            'salle_nom' => $seance->salle?->nom ?? 'Salle classe',
+                            'statut' => $seance->statut,
+                            'is_annule' => $seance->isAnnule(),
+                        ];
+                    });
+
+                // 4. Assiduité & Discipline (Gesco 12 & 16.2)
+                $disciplineData = [
+                    'absences_justifiees' => (int) ($donneesEleve['discipline']['absences_justifiees'] ?? 0),
+                    'absences_non_justifiees' => (int) ($donneesEleve['discipline']['absences_non_justifiees'] ?? 0),
+                    'consignes' => (int) ($donneesEleve['discipline']['consignes'] ?? 0),
+                    'sanctions' => $inscription->sanctionsDisciplinaires ?? [],
                 ];
-            });
 
-        // 4. Assiduité & Discipline (Gesco 12 & 16.2)
-        $disciplineData = [
-            'absences_justifiees' => (int) ($donneesEleve['discipline']['absences_justifiees'] ?? 0),
-            'absences_non_justifiees' => (int) ($donneesEleve['discipline']['absences_non_justifiees'] ?? 0),
-            'consignes' => (int) ($donneesEleve['discipline']['consignes'] ?? 0),
-            'sanctions' => $inscription->sanctionsDisciplinaires ?? [],
-        ];
+                // 5. Volet Financier (Gesco 11 & 16.2)
+                $compte = $inscription->compteFinancier;
+                $versements = $compte ? $compte->versements()->where('statut', 'valide')->latest('date_versement')->get() : collect();
 
-        // 5. Volet Financier (Gesco 11 & 16.2)
-        $compte = $inscription->compteFinancier;
-        $versements = $compte ? $compte->versements()->where('statut', 'valide')->latest('date_versement')->get() : collect();
-
-        $financesData = [
-            'compte_id' => $compte?->id,
-            'debit_initial' => (float) ($compte?->debit_initial ?? 0),
-            'remise_bourse' => (float) ($compte?->remise_bourse ?? 0),
-            'montant_net_exigible' => (float) ($compte?->montant_net_exigible ?? 0),
-            'total_paye' => (float) ($compte?->total_paye ?? 0),
-            'solde_restant' => (float) ($compte?->solde_restant ?? 0),
-            'statut_financier' => $compte?->statut_financier ?? 'en_attente',
-            'versements' => $versements->map(function ($v) {
-                return [
-                    'id' => $v->id,
-                    'numero_recu' => $v->reference_recu,
-                    'date_versement' => $v->date_versement?->format('d/m/Y') ?? 'N/A',
-                    'montant' => (float) $v->montant_total,
-                    'mode_paiement' => ucfirst(str_replace('_', ' ', $v->mode_paiement ?? 'Espèces')),
-                    'motif' => $v->observations ?? 'Paiement scolarité',
+                $financesData = [
+                    'compte_id' => $compte?->id,
+                    'debit_initial' => (float) ($compte?->debit_initial ?? 0),
+                    'remise_bourse' => (float) ($compte?->remise_bourse ?? 0),
+                    'montant_net_exigible' => (float) ($compte?->montant_net_exigible ?? 0),
+                    'total_paye' => (float) ($compte?->total_paye ?? 0),
+                    'solde_restant' => (float) ($compte?->solde_restant ?? 0),
+                    'statut_financier' => $compte?->statut_financier ?? 'en_attente',
+                    'versements' => $versements->map(function ($v) {
+                        return [
+                            'id' => $v->id,
+                            'numero_recu' => $v->reference_recu,
+                            'date_versement' => $v->date_versement?->format('d/m/Y') ?? 'N/A',
+                            'montant' => (float) $v->montant_total,
+                            'mode_paiement' => ucfirst(str_replace('_', ' ', $v->mode_paiement ?? 'Espèces')),
+                            'motif' => $v->observations ?? 'Paiement scolarité',
+                        ];
+                    }),
                 ];
-            }),
-        ];
 
-        // 6. Application du Verrou Visuel de Solvabilité (Gesco 11.5 & 16.3)
-        $verrouActif = (bool) ($etablissement->verrou_solvabilite_actif ?? false);
-        $soldeRestant = (float) ($compte?->solde_restant ?? 0);
-        $isBloque = $verrouActif && ($soldeRestant > 0);
+                // 6. Application du Verrou Visuel de Solvabilité (Gesco 11.5 & 16.3)
+                $verrouActif = (bool) ($etablissement->verrou_solvabilite_actif ?? false);
+                $soldeRestant = (float) ($compte?->solde_restant ?? 0);
+                $isBloque = $verrouActif && ($soldeRestant > 0);
 
-        $nomEnfant = trim("{$eleve->nom} {$eleve->prenom}");
-        $messageVerrou = $isBloque
-            ? "Accès restreint. Veuillez régulariser le solde financier de {$nomEnfant} auprès de l'intendance pour débloquer le bulletin."
-            : null;
+                $nomEnfant = trim("{$eleve->nom} {$eleve->prenom}");
+                $messageVerrou = $isBloque
+                    ? "Accès restreint. Veuillez régulariser le solde financier de {$nomEnfant} auprès de l'intendance pour débloquer le bulletin."
+                    : null;
 
-        return [
-            'eleve' => [
-                'id' => $eleve->id,
-                'matricule' => $eleve->matricule,
-                'matricule_national' => $eleve->matricule_national,
-                'nom' => $eleve->nom,
-                'prenom' => $eleve->prenom,
-                'nom_complet' => $nomEnfant,
-                'sexe' => $eleve->sexe,
-                'date_naissance' => $eleve->date_naissance?->format('d/m/Y'),
-                'lieu_naissance' => $eleve->lieu_naissance,
-                'photo_url' => $eleve->photo_url,
-            ],
-            'inscription' => [
-                'id' => $inscription->id,
-                'statut' => $inscription->statut,
-                'is_redoublant' => (bool) $inscription->is_redoublant,
-            ],
-            'classe' => [
-                'id' => $classe->id,
-                'nom' => $classe->nom,
-                'professeur_principal' => $classe->professeurPrincipal?->nom_complet ?? 'Non assigné',
-            ],
-            'annee_scolaire' => [
-                'id' => $annee->id,
-                'nom' => $annee->nom,
-            ],
-            'periodes' => $periodes,
-            'active_periode_id' => $activePeriode?->id,
-            'academique' => $donneesEleve,
-            'statistiques_classe' => $donneesClasse['statistiques_classe'] ?? [],
-            'emploi_du_temps' => $emploiDuTemps,
-            'discipline' => $disciplineData,
-            'finances' => $financesData,
-            'verrou_solvabilite' => [
-                'est_bloque' => $isBloque,
-                'verrou_actif' => $verrouActif,
-                'solde_restant' => $soldeRestant,
-                'message' => $messageVerrou,
-            ],
-        ];
+                return [
+                    'eleve' => [
+                        'id' => $eleve->id,
+                        'matricule' => $eleve->matricule,
+                        'matricule_national' => $eleve->matricule_national,
+                        'nom' => $eleve->nom,
+                        'prenom' => $eleve->prenom,
+                        'nom_complet' => $nomEnfant,
+                        'sexe' => $eleve->sexe,
+                        'date_naissance' => $eleve->date_naissance?->format('d/m/Y'),
+                        'lieu_naissance' => $eleve->lieu_naissance,
+                        'photo_url' => $eleve->photo_url,
+                    ],
+                    'inscription' => [
+                        'id' => $inscription->id,
+                        'statut' => $inscription->statut,
+                        'is_redoublant' => (bool) $inscription->is_redoublant,
+                    ],
+                    'classe' => [
+                        'id' => $classe->id,
+                        'nom' => $classe->nom,
+                        'professeur_principal' => $classe->professeurPrincipal?->nom_complet ?? 'Non assigné',
+                    ],
+                    'annee_scolaire' => [
+                        'id' => $annee->id,
+                        'nom' => $annee->nom,
+                    ],
+                    'periodes' => $periodes,
+                    'active_periode_id' => $activePeriode?->id,
+                    'academique' => $donneesEleve,
+                    'statistiques_classe' => $donneesClasse['statistiques_classe'] ?? [],
+                    'emploi_du_temps' => $emploiDuTemps,
+                    'discipline' => $disciplineData,
+                    'finances' => $financesData,
+                    'verrou_solvabilite' => [
+                        'est_bloque' => $isBloque,
+                        'verrou_actif' => $verrouActif,
+                        'solde_restant' => $soldeRestant,
+                        'message' => $messageVerrou,
+                    ],
+                ];
+            }
+        );
     }
 
     /**

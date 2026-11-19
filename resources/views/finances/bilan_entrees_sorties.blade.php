@@ -145,36 +145,15 @@
 <body>
 
     <!-- En-tête officiel camerounais -->
-    <table class="header-table">
-        <tr>
-            <td class="header-left">
-                <strong>RÉPUBLIQUE DU CAMEROUN</strong><br>
-                <em>Paix - Travail - Patrie</em><br>
-                MINISTÈRE DES ENSEIGNEMENTS SECONDAIRES
-            </td>
-            <td class="header-center">
-                @php
-                    $logoSrc = $etablissement->getEffectiveLogoBase64();
-                @endphp
-                @if($logoSrc)
-                    <img src="{{ $logoSrc }}" alt="Logo" style="max-height: 48px; max-width: 80px; object-fit: contain; margin-bottom: 2px;"><br>
-                @endif
-                <div class="school-name">{{ $etablissement->nom }}</div>
-                <div class="school-sub">{{ $etablissement->devise ?? 'Discipline - Travail - Succès' }}</div>
-                <div class="school-sub">{{ $etablissement->adresse ?? '' }} - Tél: {{ $etablissement->telephone_1 ?? '' }}</div>
-            </td>
-            <td class="header-right">
-                <strong>REPUBLIC OF CAMEROON</strong><br>
-                <em>Peace - Work - Fatherland</em><br>
-                MINISTRY OF SECONDARY EDUCATION
-            </td>
-        </tr>
-    </table>
+    @include('finances.partials.header', ['serviceTitle' => "Direction Financière & Comptabilité"])
 
     <!-- Bannière -->
     <div class="banner">
         <div class="banner-title">COMPTE D'EXPLOITATION & BILAN FINANCIER SYNTHÉTIQUE</div>
         <div class="banner-sub">
+            @if(!empty($is_global))
+                <strong style="color: #065f46;">CONSOLIDATION TOUS ÉTABLISSEMENTS • COMPLEXE SCOLAIRE</strong> | 
+            @endif
             ANNÉE SCOLAIRE : {{ $annee->session ?? ($annee->code ?? $annee->nom) }}
             @if(!empty($date_debut) || !empty($date_fin))
                 | PÉRIODE : {{ $date_debut ?? 'Début année' }} AU {{ $date_fin ?? $date_generation }}
@@ -261,8 +240,8 @@
                 [ Signature & Cachet ]
             </td>
             <td>
-                <div class="sig-title">Le Chef d'Établissement (Proviseur / Principal)</div>
-                <strong>{{ $etablissement->nom_chef_etablissement ?? 'La Direction' }}</strong>
+                <div class="sig-title">{{ !empty($is_global) ? 'Le Fondateur / Direction Générale' : 'Le Chef d\'Établissement (Proviseur / Principal)' }}</div>
+                <strong>{{ $etablissement ? ($etablissement->nom_chef_etablissement ?? 'La Direction') : ($institution->nom_fondateur ?? 'La Direction Générale') }}</strong>
             </td>
         </tr>
     </table>

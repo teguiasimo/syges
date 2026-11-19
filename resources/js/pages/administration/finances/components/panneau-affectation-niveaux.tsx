@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { router } from '@inertiajs/react';
 import {
-    ArrowLeft,
     Calendar,
     CheckCircle2,
     CheckSquare,
@@ -74,7 +73,6 @@ export default function PanneauAffectationNiveaux({
 }: PanneauAffectationNiveauxProps) {
     const [searchFrais, setSearchFrais] = useState<string>('');
     const [selectedCategorieFilter, setSelectedCategorieFilter] = useState<string>('all');
-    const [caractereFilter, setCaractereFilter] = useState<'all' | 'obligatoire' | 'optionnel'>('all');
     const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
 
     const [searchNiveau, setSearchNiveau] = useState<string>('');
@@ -84,6 +82,7 @@ export default function PanneauAffectationNiveaux({
     const [selectedNiveauIds, setSelectedNiveauIds] = useState<number[]>([]);
     const [showSerieInput, setShowSerieInput] = useState<boolean>(false);
     const [serie, setSerie] = useState<string>('');
+    const [isObligatoire, setIsObligatoire] = useState<boolean>(true);
     const [submitting, setSubmitting] = useState<boolean>(false);
 
     /**
@@ -100,7 +99,7 @@ export default function PanneauAffectationNiveaux({
     }, [preselectedTypeFrais]);
 
     /**
-     * Frais du catalogue filtrés par texte de recherche, catégorie et caractère (obligatoire / optionnel).
+     * Frais du catalogue filtrés par texte de recherche et catégorie.
      */
     const filteredTypesFrais = useMemo(() => {
         const terme = searchFrais.trim().toLowerCase();
@@ -113,13 +112,6 @@ export default function PanneauAffectationNiveaux({
                 return false;
             }
 
-            if (caractereFilter === 'obligatoire' && !tf.obligatoire) {
-                return false;
-            }
-            if (caractereFilter === 'optionnel' && tf.obligatoire) {
-                return false;
-            }
-
             if (terme !== '') {
                 const libelle = tf.libelle.toLowerCase();
                 const catNom = (tf.categorie_frais?.nom ?? '').toLowerCase();
@@ -129,7 +121,7 @@ export default function PanneauAffectationNiveaux({
 
             return true;
         });
-    }, [typesFrais, searchFrais, selectedCategorieFilter, caractereFilter]);
+    }, [typesFrais, searchFrais, selectedCategorieFilter]);
 
     /**
      * Regroupe les frais filtrés par Catégorie de Frais pour une lecture structurée et aérée.
@@ -322,6 +314,7 @@ export default function PanneauAffectationNiveaux({
                 type_frais_ids: selectedTypeFraisIds,
                 niveau_ids: selectedNiveauIds,
                 serie: showSerieInput && serie.trim() !== '' ? serie.trim() : null,
+                obligatoire: isObligatoire,
             },
             {
                 preserveScroll: true,
@@ -362,11 +355,11 @@ export default function PanneauAffectationNiveaux({
                             ⇄
                         </span>
                         <h4 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100">
-                            Espace d'Affectation Multi-Niveaux (Vue Pleine Largeur)
+                            Espace d'Affectation Multi-Niveaux
                         </h4>
                     </div>
                     <p className="text-xs text-slate-500">
-                        Sélectionnez à gauche les frais configurés au Catalogue, puis cochez à droite les niveaux ou cycles entiers (ex : tout le Primaire <strong>SIL → CM2</strong>) sans aucune ressaisie.
+                        Sélectionnez à gauche les frais configurés au Catalogue, puis cochez à droite les niveaux ou cycles entiers.
                     </p>
                 </div>
 
@@ -379,15 +372,6 @@ export default function PanneauAffectationNiveaux({
                         className="h-9 text-xs font-semibold border-emerald-300 text-emerald-700 hover:bg-emerald-50"
                     >
                         <Plus className="w-3.5 h-3.5 mr-1" /> Nouveau Frais au Catalogue
-                    </Button>
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={onClosePanel}
-                        className="h-9 text-xs font-semibold text-slate-600 hover:text-slate-900"
-                    >
-                        <ArrowLeft className="w-3.5 h-3.5 mr-1" /> Voir le tableau des tarifs
                     </Button>
                 </div>
             </div>
@@ -458,29 +442,6 @@ export default function PanneauAffectationNiveaux({
                                             <X className="w-3.5 h-3.5" />
                                         </button>
                                     )}
-                                </div>
-
-                                <div className="inline-flex rounded-lg border border-slate-200 dark:border-slate-800 p-0.5 bg-slate-50 dark:bg-slate-900 shrink-0 self-start">
-                                    {(
-                                        [
-                                            { id: 'all', label: 'Tous' },
-                                            { id: 'obligatoire', label: 'Obligatoires' },
-                                            { id: 'optionnel', label: 'Optionnels' },
-                                        ] as const
-                                    ).map((opt) => (
-                                        <button
-                                            key={opt.id}
-                                            type="button"
-                                            onClick={() => setCaractereFilter(opt.id)}
-                                            className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors cursor-pointer ${
-                                                caractereFilter === opt.id
-                                                    ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 shadow-2xs'
-                                                    : 'text-slate-500 hover:text-slate-800'
-                                            }`}
-                                        >
-                                            {opt.label}
-                                        </button>
-                                    ))}
                                 </div>
                             </div>
 
@@ -653,15 +614,6 @@ export default function PanneauAffectationNiveaux({
                                                                             >
                                                                                 Priorité #{tf.ordre_priorite ?? 10}
                                                                             </Badge>
-                                                                            {tf.obligatoire ? (
-                                                                                <Badge className="bg-emerald-600/15 text-emerald-800 dark:text-emerald-300 border-emerald-200 text-[10px] px-1.5 py-0 font-semibold">
-                                                                                    Obligatoire
-                                                                                </Badge>
-                                                                            ) : (
-                                                                                <Badge className="bg-sky-100 text-sky-800 dark:bg-sky-950/60 dark:text-sky-300 border-sky-200 text-[10px] px-1.5 py-0 font-semibold">
-                                                                                    Optionnel
-                                                                                </Badge>
-                                                                            )}
                                                                         </div>
 
                                                                         {(tf.description ||
@@ -934,6 +886,37 @@ export default function PanneauAffectationNiveaux({
                                 <span className="text-sm font-black text-emerald-700 dark:text-emerald-400 tabular-nums">
                                     {montantUnitaireSelectionne.toLocaleString('fr-FR')} FCFA / élève
                                 </span>
+                            </div>
+
+                            {/* Caractère d'exigibilité pour ce rattachement */}
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-emerald-200/80 dark:border-emerald-800/80 text-xs">
+                                <span className="font-semibold text-slate-700 dark:text-slate-200">
+                                    Caractère d'exigibilité :
+                                </span>
+                                <div className="inline-flex rounded-lg border border-slate-300 dark:border-slate-700 p-0.5 bg-white dark:bg-slate-900">
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsObligatoire(true)}
+                                        className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-colors cursor-pointer ${
+                                            isObligatoire
+                                                ? 'bg-emerald-600 text-white shadow-2xs'
+                                                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                                        }`}
+                                    >
+                                        Obligatoire (tous)
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsObligatoire(false)}
+                                        className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-colors cursor-pointer ${
+                                            !isObligatoire
+                                                ? 'bg-sky-600 text-white shadow-2xs'
+                                                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                                        }`}
+                                    >
+                                        Optionnel (souscription)
+                                    </button>
+                                </div>
                             </div>
 
                             <div className="text-[11px] text-slate-600 dark:text-slate-400">

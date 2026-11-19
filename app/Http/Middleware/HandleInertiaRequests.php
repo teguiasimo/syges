@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Models\Etablissement;
 use App\Models\Personnel;
+use App\Services\LoginAppearanceService;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 use Spatie\Permission\Models\Permission;
@@ -41,6 +42,7 @@ class HandleInertiaRequests extends Middleware
     {
         $user = $request->user();
         $isSuperAdmin = $user ? $user->isSuperAdmin() : false;
+        $canAccessAll = $isSuperAdmin || ($user ? $user->canAccessAllEtablissements() : false);
 
         $currentEtablissement = null;
         $availableEtablissements = [];
@@ -48,8 +50,8 @@ class HandleInertiaRequests extends Middleware
         if ($user) {
             $allEtablissements = Etablissement::select('id', 'nom', 'code', 'ordre_enseignement')->orderBy('nom')->get();
 
-            if ($isSuperAdmin) {
-                // Pour le Super Admin : lecture depuis la session ou défaut sur le premier établissement
+            if ($canAccessAll) {
+                // Pour le Super Admin ou Secrétaire transversale : lecture depuis la session ou défaut sur le premier établissement
                 $sessionEtabId = $request->session()->get('current_etablissement_id');
                 $currentEtablissement = $sessionEtabId
                     ? $allEtablissements->firstWhere('id', $sessionEtabId)
@@ -84,6 +86,7 @@ class HandleInertiaRequests extends Middleware
                 'user' => $user ? [
                     ...$user->toArray(),
                     'is_super_admin' => $isSuperAdmin,
+                    'can_access_all_etablissements' => $canAccessAll,
                     'roles' => $user->roles->pluck('name')->toArray(),
                     'permissions' => $isSuperAdmin
                         ? Permission::pluck('name')->toArray()
@@ -94,6 +97,12 @@ class HandleInertiaRequests extends Middleware
                 'success' => $request->session()->get('success'),
                 'error' => $request->session()->get('error'),
             ],
+            // Identité visuelle partagée de la barre latérale (après connexion) et du favicon navigateur
+            'appBranding' => fn () => app(LoginAppearanceService::class)->getAppBranding(),
+            // Configuration visuelle et diaporama de l'écran de connexion (partagée uniquement sur les pages d'authentification / visiteur)
+            'loginAppearance' => (! $user || $request->routeIs('login', 'password.*', 'register', 'verification.*', 'two-factor.*'))
+                ? fn () => app(LoginAppearanceService::class)->getPublicPayload()
+                : null,
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
     }

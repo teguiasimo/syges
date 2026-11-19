@@ -84,6 +84,9 @@ export interface ClasseWithAttributions {
                     id: number;
                     nom: string;
                     code: string;
+                    ordre_enseignement?: string;
+                    titre_responsable_classe?: string | null;
+                    titre_responsable_classe_en?: string | null;
                 };
             };
         };
@@ -196,4 +199,23 @@ export interface AttributionsPageProps {
         etablissement_id?: string;
         classe_id?: string;
     };
+}
+
+/**
+ * Retourne le libellé configuré pour le titulaire d'une classe selon son établissement
+ * (ex: "Maître / Maîtresse" au primaire/maternelle, ou "Professeur Principal" au secondaire).
+ *
+ * @param {ClasseWithAttributions | null | undefined} classe Classe concernée.
+ * @returns {string} Libellé lisible sans article défini initial pour l'interface.
+ */
+export function getClasseTitulaireLabel(classe: ClasseWithAttributions | null | undefined): string {
+    const etab = classe?.niveau?.cycle?.section?.etablissement;
+    const raw = etab?.titre_responsable_classe?.trim();
+    if (raw) {
+        return raw.replace(/^(Le|La|L'|The)\s+/i, '');
+    }
+    if (etab?.ordre_enseignement && ['Maternelle', 'Primaire'].includes(etab.ordre_enseignement)) {
+        return 'Maître / Maîtresse';
+    }
+    return 'Professeur Principal';
 }

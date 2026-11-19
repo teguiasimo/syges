@@ -55,6 +55,8 @@ interface ClasseOption {
 }
 
 interface StatistiquesPageProps {
+    supportsAllEtablissements?: boolean;
+    isAllEtablissements?: boolean;
     etablissements: EtablissementOption[];
     currentEtablissement: EtablissementOption | null;
     annees: AnneeOption[];
@@ -155,6 +157,8 @@ const bordereauColumns: ColumnDef<LigneBordereauOfficiel>[] = [
  * @returns {JSX.Element}
  */
 export default function StatistiquesIndex({
+    supportsAllEtablissements = false,
+    isAllEtablissements = false,
     etablissements,
     currentEtablissement,
     annees,
@@ -169,11 +173,19 @@ export default function StatistiquesIndex({
 }: StatistiquesPageProps) {
     const activeTab = filters.tab || 'demographie';
 
+    /**
+     * Met à jour les filtres actifs de la page Statistiques tout en conservant le périmètre courant
+     * (campus spécifique ou vue consolidée « Tous les établissements »).
+     *
+     * @param {Record<string, string | number | null | undefined>} params Paramètres à fusionner dans la requête Inertia.
+     */
     const handleNavigation = (params: Record<string, string | number | null | undefined>) => {
+        const activeEtabParam = isAllEtablissements ? 'all' : currentEtablissement?.id;
+
         router.get(
             '/administration/statistiques',
             {
-                etablissement_id: currentEtablissement?.id,
+                etablissement_id: activeEtabParam,
                 annee_id: currentAnneeId,
                 classe_id: selectedClasseId,
                 tab: activeTab,
@@ -205,13 +217,18 @@ export default function StatistiquesIndex({
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
                         {etablissements.length > 1 && (
                             <Select
-                                value={currentEtablissement?.id.toString()}
-                                onValueChange={(val) => handleNavigation({ etablissement_id: val })}
+                                value={isAllEtablissements ? 'all' : currentEtablissement?.id.toString()}
+                                onValueChange={(val) => handleNavigation({ etablissement_id: val, classe_id: null })}
                             >
-                                <SelectTrigger className="w-full sm:w-48 h-9 text-xs sm:text-sm">
+                                <SelectTrigger className="w-full sm:w-52 h-9 text-xs sm:text-sm">
                                     <SelectValue placeholder="Établissement" />
                                 </SelectTrigger>
                                 <SelectContent>
+                                    {supportsAllEtablissements && (
+                                        <SelectItem value="all">
+                                            Tous les établissements
+                                        </SelectItem>
+                                    )}
                                     {etablissements.map((etab) => (
                                         <SelectItem key={etab.id} value={etab.id.toString()}>
                                             {etab.nom}
@@ -370,10 +387,10 @@ export default function StatistiquesIndex({
                                             </SelectContent>
                                         </Select>
 
-                                        {currentEtablissement && (
+                                        {(currentEtablissement || isAllEtablissements) && (
                                             <Button size="sm" className="gap-1.5 w-full sm:w-auto" asChild>
                                                 <a
-                                                    href={`/administration/statistiques/bordereau?etablissement_id=${currentEtablissement.id}&annee_id=${currentAnneeId}${selectedClasseId ? `&classe_id=${selectedClasseId}` : ''}`}
+                                                    href={`/administration/statistiques/bordereau?etablissement_id=${isAllEtablissements ? 'all' : currentEtablissement?.id}&annee_id=${currentAnneeId}${selectedClasseId ? `&classe_id=${selectedClasseId}` : ''}`}
                                                     target="_blank"
                                                     rel="noreferrer"
                                                 >

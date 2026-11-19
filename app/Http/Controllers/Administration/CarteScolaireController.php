@@ -52,7 +52,8 @@ class CarteScolaireController extends Controller implements HasMiddleware
     {
         /** @var User|null $user */
         $user = Auth::user();
-        $isSuperAdmin = $user ? $user->isSuperAdmin() : false;
+        $canAccessAll = $user ? $user->canAccessAllEtablissements() : false;
+        $effectiveEtabId = $user?->getEffectiveEtablissementId();
 
         // Année scolaire active ou sélectionnée
         $anneeActive = AnneeScolaire::where('is_current', true)->first() ?? AnneeScolaire::latest()->first();
@@ -64,12 +65,12 @@ class CarteScolaireController extends Controller implements HasMiddleware
             'institution',
         ]);
 
-        if (! $isSuperAdmin && $user?->personnel?->etablissement_id) {
-            $etablissementsQuery->where('id', $user->personnel->etablissement_id);
+        if (! $canAccessAll && $effectiveEtabId) {
+            $etablissementsQuery->where('id', $effectiveEtabId);
         }
 
         $etablissements = $etablissementsQuery->get();
-        $selectedEtabId = (int) $request->input('etablissement_id', $etablissements->first()?->id);
+        $selectedEtabId = (int) ($request->input('etablissement_id') ?: ($request->session()->get('current_etablissement_id') ?: $etablissements->first()?->id));
 
         // Filtres hiérarchiques
         $classeId = $request->input('classe_id');
@@ -289,7 +290,7 @@ class CarteScolaireController extends Controller implements HasMiddleware
             'nom_complet' => mb_strtoupper($eleve->nom) . ' ' . ($eleve->prenom ?? ''),
             'date_naissance' => $eleve->date_naissance ? $eleve->date_naissance->format('d-m-Y') : '---',
             'lieu_naissance' => $eleve->lieu_naissance ?: '---',
-            'sexe' => $eleve->sexe ?: 'M',
+            'sexe' => $eleve->sexe ?: '--',
             'classe_nom' => $inscription->classe?->nom ?? '---',
             'photo_url' => $eleve->photo_url,
             'photo_base64' => $photoBase64,

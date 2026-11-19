@@ -170,6 +170,7 @@
     </style>
 </head>
 <body>
+    @include('partials.watermark', ['etablissement' => $etablissement ?? null])
 
     <!-- En-tête -->
     <table class="header-table">
@@ -276,7 +277,7 @@
                     <td>
                         <strong>{{ $res['nom'] }}</strong> {{ $res['prenom'] }}
                     </td>
-                    <td style="text-align: center;">{{ $res['sexe'] }}</td>
+                    <td style="text-align: center;">{{ $res['sexe'] ?? '-' }}</td>
                     <td style="text-align: right; padding-right: 8px;">
                         {{ number_format($res['total_points'], 1, ',', ' ') }}
                     </td>
@@ -310,7 +311,7 @@
     <table class="sign-table">
         <tr>
             <td>
-                <div class="sign-role">Le Professeur Principal</div>
+                <div class="sign-role">{{ $etablissement->titre_responsable_classe ?? 'Le Professeur Principal' }}</div>
                 <div>Visa & Observations</div>
             </td>
             <td>
@@ -318,7 +319,7 @@
                 <div>Vérification & Conformité</div>
             </td>
             <td>
-                <div class="sign-role">Le Chef d'Établissement</div>
+                <div class="sign-role">{{ $etablissement->titre_chef ?? "Le Chef d'Établissement" }}</div>
                 <div>Approbation & Cachet Officiel</div>
             </td>
         </tr>

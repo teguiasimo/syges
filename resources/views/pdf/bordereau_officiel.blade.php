@@ -6,7 +6,7 @@
     <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('favicon-32x32.png') }}?v=syges3">
     <link rel="shortcut icon" href="{{ asset('favicon.ico') }}?v=syges3">
     <meta charset="UTF-8">
-    <title>Bordereau Officiel des Examens - {{ $classe ? $classe->nom : $etablissement->nom }}</title>
+    <title>Bordereau Officiel des Examens - {{ $classe ? $classe->nom : (($isAllEtablissements ?? false) ? 'Tous les établissements' : $etablissement->nom) }}</title>
     <style>
         @page {
             size: A4 landscape;
@@ -94,6 +94,7 @@
     </style>
 </head>
 <body>
+    @include('partials.watermark', ['etablissement' => $etablissement ?? null])
     <!-- En-tête officiel MINESEC / MINEDUB -->
     <table class="header-table">
         <tr>
@@ -102,8 +103,16 @@
                 <div style="font-size: 6.5pt; font-style: italic;">Paix – Travail – Patrie</div>
                 <div class="uppercase" style="font-size: 6.5pt;">MINISTÈRE DES ENSEIGNEMENTS SECONDAIRES</div>
                 <div class="uppercase" style="font-size: 6.5pt;">{{ $etablissement->institution?->delegation_regionale ?? 'DÉLÉGATION RÉGIONALE DES ENSEIGNEMENTS SECONDAIRES' }}</div>
-                <div class="bold uppercase" style="font-size: 8pt; color: #1e3a8a; margin-top: 3px;">{{ $etablissement->nom }}</div>
-                <div style="font-size: 6.5pt;">Code Établissement : <strong>{{ $etablissement->code ?? 'N/A' }}</strong></div>
+                <div class="bold uppercase" style="font-size: 8pt; color: #1e3a8a; margin-top: 3px;">
+                    {{ ($isAllEtablissements ?? false) ? ($etablissement->institution?->nom ?? $etablissement->nom) : $etablissement->nom }}
+                </div>
+                <div style="font-size: 6.5pt;">
+                    @if($isAllEtablissements ?? false)
+                        Périmètre : <strong>Tous les établissements</strong>
+                    @else
+                        Code Établissement : <strong>{{ $etablissement->code ?? 'N/A' }}</strong>
+                    @endif
+                </div>
             </td>
             <td style="width: 20%;" class="text-center">
                 @php
@@ -160,7 +169,7 @@
                     <td class="text-center bold">{{ $el['matricule'] }}</td>
                     <td class="text-center bold" style="color: #1e3a8a;">{{ $el['matricule_ministere'] }}</td>
                     <td class="bold">{{ $el['nom_complet'] }}</td>
-                    <td class="text-center">{{ $el['sexe'] }}</td>
+                    <td class="text-center">{{ $el['sexe'] ?: '-' }}</td>
                     <td class="text-center">{{ $el['date_naissance'] }}</td>
                     <td>{{ $el['lieu_naissance'] }}</td>
                     <td class="text-center">{{ $el['statut_candidat'] }}</td>
@@ -183,12 +192,12 @@
                 <div>(Nom, Date & Signature)</div>
             </td>
             <td>
-                <div class="bold uppercase">Le Professeur Principal</div>
+                <div class="bold uppercase">{{ $etablissement->titre_responsable_classe ?? 'Le Professeur Principal' }}</div>
                 <div class="signature-box"></div>
                 <div>(Nom, Date & Signature)</div>
             </td>
             <td>
-                <div class="bold uppercase">Le Chef d'Établissement</div>
+                <div class="bold uppercase">{{ $etablissement->titre_chef ?? "Le Chef d'Établissement" }}</div>
                 <div class="signature-box"></div>
                 <div>(Signature & Sceau officiel)</div>
             </td>

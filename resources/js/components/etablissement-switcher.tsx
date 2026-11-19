@@ -42,17 +42,21 @@ export function EtablissementSwitcher({ className }: EtablissementSwitcherProps)
     const { props } = usePage<{
         currentEtablissement?: EtablissementItem | null;
         availableEtablissements?: EtablissementItem[];
+        supportsAllEtablissements?: boolean;
+        isAllEtablissements?: boolean;
     }>();
 
     const currentEtablissement = props.currentEtablissement;
     const availableEtablissements = props.availableEtablissements || [];
+    const supportsAllEtablissements = Boolean(props.supportsAllEtablissements && availableEtablissements.length > 1);
+    const isAllSelected = Boolean(supportsAllEtablissements && props.isAllEtablissements);
 
-    if (!currentEtablissement) {
+    if (!currentEtablissement && !isAllSelected) {
         return null;
     }
 
     // Cas d'un seul établissement disponible (ex: Personnel restreint à son campus)
-    if (availableEtablissements.length <= 1) {
+    if (availableEtablissements.length <= 1 && currentEtablissement) {
         return (
             <div
                 className={cn(
@@ -68,16 +72,20 @@ export function EtablissementSwitcher({ className }: EtablissementSwitcherProps)
     }
 
     /**
-     * Déclenche la bascule d'établissement actif pour la session de travail.
+     * Déclenche la bascule d'établissement actif (ou vers la vue consolidée « Tous les établissements ») pour la session de travail.
      *
-     * @param {number} etablissementId Identifiant du nouvel établissement choisi.
+     * @param {number | 'all'} target Identifiant numérique du campus ou 'all' pour agréger tout le complexe.
      */
-    const handleSwitchEtablissement = (etablissementId: number) => {
-        if (etablissementId === currentEtablissement.id) return;
+    const handleSwitchEtablissement = (target: number | 'all') => {
+        if (target === 'all') {
+            if (isAllSelected) return;
+        } else if (!isAllSelected && currentEtablissement && target === currentEtablissement.id) {
+            return;
+        }
 
         router.post(
             '/switch-etablissement',
-            { etablissement_id: etablissementId },
+            { etablissement_id: target },
             {
                 preserveScroll: true,
                 preserveState: false,
@@ -98,11 +106,13 @@ export function EtablissementSwitcher({ className }: EtablissementSwitcherProps)
                 >
                     <School className="size-4 text-primary shrink-0" />
                     <span className="truncate max-w-21.25 sm:max-w-45 md:max-w-60">
-                        {currentEtablissement.nom}
+                        {isAllSelected ? 'Tous les établissements' : currentEtablissement?.nom}
                     </span>
-                    <Badge variant="outline" className="hidden md:inline-flex text-[9px] px-1.5 py-0 bg-background/60 font-mono">
-                        {currentEtablissement.code}
-                    </Badge>
+                    {!isAllSelected && currentEtablissement?.code && (
+                        <Badge variant="outline" className="hidden md:inline-flex text-[9px] px-1.5 py-0 bg-background/60 font-mono">
+                            {currentEtablissement.code}
+                        </Badge>
+                    )}
                     <ChevronDown className="size-3.5 text-primary/70 shrink-0" />
                 </button>
             </DropdownMenuTrigger>
@@ -113,8 +123,31 @@ export function EtablissementSwitcher({ className }: EtablissementSwitcherProps)
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator className="my-1" />
 
+                {supportsAllEtablissements && (
+                    <>
+                        <DropdownMenuItem
+                            onClick={() => handleSwitchEtablissement('all')}
+                            className={cn(
+                                'flex items-center justify-between px-2.5 py-2 rounded-lg text-xs font-medium cursor-pointer transition-colors',
+                                isAllSelected
+                                    ? 'bg-primary/10 text-primary font-bold'
+                                    : 'text-foreground hover:bg-muted'
+                            )}
+                        >
+                            <div className="flex items-center gap-2 min-w-0">
+                                <School className={cn('size-4 shrink-0', isAllSelected ? 'text-primary' : 'text-muted-foreground')} />
+                                <span className="truncate block font-semibold">Tous les établissements</span>
+                            </div>
+                            {isAllSelected && (
+                                <Check className="size-4 text-primary shrink-0 ml-2" />
+                            )}
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator className="my-1" />
+                    </>
+                )}
+
                 {availableEtablissements.map((etab) => {
-                    const isSelected = etab.id === currentEtablissement.id;
+                    const isSelected = !isAllSelected && currentEtablissement?.id === etab.id;
                     return (
                         <DropdownMenuItem
                             key={etab.id}

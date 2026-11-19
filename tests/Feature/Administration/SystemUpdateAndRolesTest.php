@@ -12,7 +12,9 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Process;
+use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
 /**
@@ -92,7 +94,7 @@ test('local admin cannot delete students or access system update endpoints', fun
     $this->postJson(route('administration.system-update.backup'))->assertForbidden();
 });
 
-test('superadmin can access system update dashboard and roles controller blocks system.update assignment to non super-admin', function () {
+test('superadmin can grant system.update to admin role while non-superadmin cannot escalate to system.update', function () {
     /** @var TestCase $this */
     $this->seed(DatabaseSeeder::class);
 
@@ -102,16 +104,38 @@ test('superadmin can access system update dashboard and roles controller blocks 
     $this->get(route('administration.system-update.index'))
         ->assertOk();
 
-    // Tenter d'attribuer `system.update` au rôle `admin` : doit être filtré automatiquement
+    // 1. Un utilisateur non Super-Admin disposant de `roles.edit` ne peut pas s'auto-octroyer `system.update`
+    $delegatedManager = User::factory()->create(['is_active' => true]);
+    $delegatedManager->givePermissionTo(['roles.view', 'roles.edit']);
     $adminRole = Role::findByName('admin');
-    $this->put(route('administration.roles.update', $adminRole), [
-        'display_name' => 'Administrateur',
-        'permissions' => ['eleves.view', 'system.update'],
-    ])->assertRedirect();
+
+    $this->actingAs($delegatedManager)
+        ->put(route('administration.roles.update', $adminRole), [
+            'permissions' => ['eleves.view', 'system.update'],
+        ])
+        ->assertRedirect();
 
     $adminRole->refresh();
     expect($adminRole->hasPermissionTo('eleves.view'))->toBeTrue()
         ->and($adminRole->hasPermissionTo('system.update'))->toBeFalse();
+
+    // 2. Le Super Administrateur peut attribuer explicitement `system.update` au rôle `admin`
+    $this->actingAs($superAdmin)
+        ->put(route('administration.roles.update', $adminRole), [
+            'permissions' => ['eleves.view', 'system.update'],
+        ])
+        ->assertRedirect();
+
+    $adminRole->refresh();
+    expect($adminRole->hasPermissionTo('system.update'))->toBeTrue();
+
+    // 3. Un administrateur muni du rôle `admin` mis à jour accède désormais à la page de mise à jour & sauvegarde
+    $localAdmin = User::factory()->create(['is_active' => true]);
+    $localAdmin->assignRole($adminRole);
+
+    $this->actingAs($localAdmin)
+        ->get(route('administration.system-update.index'))
+        ->assertOk();
 });
 
 test('database backup service exports valid sql, quotes edge-case strings, sends developer email and prevents path traversal', function () {
@@ -261,4 +285,46 @@ test('system update service ignores untagged commits and updates cleanly only to
     } finally {
         File::deleteDirectory($baseTemp);
     }
+});
+
+test('incremental v2 rbac migration creates missing finance permissions safely and preserves custom delegations', function () {
+    /** @var TestCase $this */
+    $this->seed(DatabaseSeeder::class);
+
+    // Simuler une instance v1.1.4 : supprimer les nouvelles permissions financières & rôle caissier, mais conserver `system.update` sur `admin`
+    $adminRole = Role::findByName('admin');
+    $adminRole->givePermissionTo('system.update');
+    Role::where('name', 'caissier')->delete();
+
+    $newPermNames = [
+        'finances.etats',
+        'frais.configure',
+        'versements.edit',
+        'recettes_diverses.create',
+        'bourses.attribuer',
+        'dispenses_financieres.manage',
+        'options_financieres.manage',
+        'finances.verrou_solvabilite',
+    ];
+    Permission::whereIn('name', $newPermNames)->delete();
+    app()[PermissionRegistrar::class]->forgetCachedPermissions();
+
+    $migration = require database_path('migrations/2026_11_19_030000_sync_finances_rbac_permissions_for_v2.php');
+    $migration->up();
+
+    app()[PermissionRegistrar::class]->forgetCachedPermissions();
+    $adminRole->refresh();
+    $intendantRole = Role::findByName('intendant');
+    $caissierRole = Role::where('name', 'caissier')->first();
+
+    foreach ($newPermNames as $permName) {
+        expect(Permission::where('name', $permName)->exists())->toBeTrue()
+            ->and($intendantRole->hasPermissionTo($permName))->toBeTrue();
+    }
+
+    expect($caissierRole)->not->toBeNull()
+        ->and($caissierRole->hasPermissionTo('finances.etats'))->toBeTrue()
+        ->and($adminRole->hasPermissionTo('system.update'))->toBeTrue()
+        ->and($adminRole->hasPermissionTo('versements.edit'))->toBeTrue()
+        ->and($adminRole->hasPermissionTo('frais.configure'))->toBeFalse();
 });

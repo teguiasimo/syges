@@ -20,7 +20,7 @@ import {
     SearchableSelect,
     type SearchableOption,
 } from '@/components/ui/searchable-select';
-import { Printer, FileText, School, Users, CheckCircle2, Calendar } from 'lucide-react';
+import { Printer, FileText, School, Calendar } from 'lucide-react';
 
 interface ImprimerListesModalProps {
     open: boolean;
@@ -33,12 +33,17 @@ interface ImprimerListesModalProps {
 }
 
 /**
+ * Types de documents officiels générables depuis la modale d'impression des listes d'élèves.
+ */
+type DocumentType = 'definitive' | 'provisoire' | 'fiche_appel' | 'fiche_appel_journaliere';
+
+/**
  * Modale intuitive de génération et d'impression des états et listes administratives officielles.
  *
  * Permet d'éditer au choix :
  * - La liste définitive ou provisoire d'une classe ciblée.
- * - La liste consolidée de tous les élèves d'un niveau complet (ex: toutes les 6èmes, 5èmes, etc.).
- * - La fiche d'appel mensuelle d'émargement de classe.
+ * - La liste consolidée de tous les élèves d'un niveau complet.
+ * - La fiche d'appel journalière (Lundi–Vendredi) ou la fiche d'appel horaire (8 séances/jour).
  * - Le répertoire officiel récapitulatif des classes de l'établissement.
  *
  * @param {ImprimerListesModalProps} props
@@ -47,8 +52,8 @@ interface ImprimerListesModalProps {
 export function ImprimerListesModal({
     open,
     onOpenChange,
-    classes = [],
-    niveaux = [],
+    classes,
+    niveaux,
     selectedClasseId,
     selectedAnneeId,
     selectedEtabId,
@@ -56,7 +61,7 @@ export function ImprimerListesModal({
     const [scope, setScope] = useState<'classe' | 'niveau' | 'repertoire'>('classe');
     const [targetClasse, setTargetClasse] = useState<string>(selectedClasseId || (classes[0]?.id ? String(classes[0].id) : ''));
     const [targetNiveau, setTargetNiveau] = useState<string>(niveaux[0]?.id ? String(niveaux[0].id) : '');
-    const [documentType, setDocumentType] = useState<'definitive' | 'provisoire' | 'fiche_appel'>('definitive');
+    const [documentType, setDocumentType] = useState<DocumentType>('definitive');
 
     // Synchroniser avec la classe active si sélectionnée
     useEffect(() => {
@@ -65,6 +70,13 @@ export function ImprimerListesModal({
             setScope('classe');
         }
     }, [selectedClasseId]);
+
+    // Réinitialiser sur Liste Définitive si l'utilisateur bascule vers « Par Niveau » alors qu'une fiche d'appel était sélectionnée
+    useEffect(() => {
+        if (scope === 'niveau' && (documentType === 'fiche_appel' || documentType === 'fiche_appel_journaliere')) {
+            setDocumentType('definitive');
+        }
+    }, [scope, documentType]);
 
     // Formatage des options de classe pour SearchableSelect
     const classeOptions: SearchableOption[] = classes.map((cls) => ({
@@ -81,8 +93,10 @@ export function ImprimerListesModal({
 
         if (scope === 'classe') {
             if (!targetClasse) return;
-            if (documentType === 'fiche_appel') {
-                url = `/administration/documents/fiche-appel/${targetClasse}?annee_id=${selectedAnneeId}`;
+            if (documentType === 'fiche_appel_journaliere') {
+                url = `/administration/documents/fiche-appel/${targetClasse}?annee_id=${selectedAnneeId}&mode=journaliere`;
+            } else if (documentType === 'fiche_appel') {
+                url = `/administration/documents/fiche-appel/${targetClasse}?annee_id=${selectedAnneeId}&mode=horaire`;
             } else {
                 url = `/administration/documents/liste-eleves/${targetClasse}?type=${documentType}&annee_id=${selectedAnneeId}`;
             }
@@ -102,14 +116,14 @@ export function ImprimerListesModal({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-lg">
+            <DialogContent className="sm:max-w-xl">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2 text-base sm:text-lg font-bold text-slate-800 dark:text-slate-100">
                         <Printer className="size-5 text-teal-600 shrink-0" />
-                        <span>Imprimer les Listes & Fiches d'Élèves</span>
+                        <span>Imprimer les Listes &amp; Fiches d'Élèves</span>
                     </DialogTitle>
                     <DialogDescription>
-                        Édition des états officiels au format PDF certifié (Ministère des Enseignements Secondaires).
+                        Édition des états officiels au format PDF certifié.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -281,26 +295,55 @@ export function ImprimerListesModal({
                                 </Button>
 
                                 {scope === 'classe' && (
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        onClick={() => setDocumentType('fiche_appel')}
-                                        className={`sm:col-span-2 h-auto p-2.5 justify-start text-left cursor-pointer transition-all ${
-                                            documentType === 'fiche_appel'
-                                                ? 'border-sky-600 bg-sky-50/60 dark:bg-sky-950/40 text-sky-950 dark:text-sky-200 font-semibold shadow-2xs'
-                                                : 'hover:bg-muted/50 text-muted-foreground'
-                                        }`}
-                                    >
-                                        <div className="flex items-start gap-2">
-                                            <Calendar className="size-4 text-sky-600 mt-0.5 shrink-0" />
-                                            <div>
-                                                <div className="text-xs font-bold text-foreground">Fiche d'Appel Mensuelle (Émargement)</div>
-                                                <div className="text-[11px] font-normal text-muted-foreground">
-                                                    Format paysage avec colonnes de pointage pour les enseignants
+                                    <>
+                                        {/* Modèle 1 : Fiche d'Appel Journalière sans créneaux horaires (Lundi -> Vendredi) */}
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            onClick={() => setDocumentType('fiche_appel_journaliere')}
+                                            className={`h-auto p-2.5 justify-start text-left cursor-pointer transition-all ${
+                                                documentType === 'fiche_appel_journaliere'
+                                                    ? 'border-teal-600 bg-teal-50/60 dark:bg-teal-950/40 text-teal-950 dark:text-teal-200 font-semibold shadow-2xs'
+                                                    : 'hover:bg-muted/50 text-muted-foreground'
+                                            }`}
+                                        >
+                                            <div className="flex items-start gap-2">
+                                                <Calendar className="size-4 text-teal-600 mt-0.5 shrink-0" />
+                                                <div>
+                                                    <div className="text-xs font-bold text-foreground">
+                                                        Fiche d'Appel Journalière
+                                                    </div>
+                                                    <div className="text-[11px] font-normal text-muted-foreground">
+                                                        Lundi à Vendredi (1 case / jour, 1 semaine / page)
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    </Button>
+                                        </Button>
+
+                                        {/* Modèle 2 : Fiche d'Appel Horaire existante à 8 créneaux */}
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            onClick={() => setDocumentType('fiche_appel')}
+                                            className={`h-auto p-2.5 justify-start text-left cursor-pointer transition-all ${
+                                                documentType === 'fiche_appel'
+                                                    ? 'border-sky-600 bg-sky-50/60 dark:bg-sky-950/40 text-sky-950 dark:text-sky-200 font-semibold shadow-2xs'
+                                                    : 'hover:bg-muted/50 text-muted-foreground'
+                                            }`}
+                                        >
+                                            <div className="flex items-start gap-2">
+                                                <Calendar className="size-4 text-sky-600 mt-0.5 shrink-0" />
+                                                <div>
+                                                    <div className="text-xs font-bold text-foreground">
+                                                        Fiche d'Appel Horaire
+                                                    </div>
+                                                    <div className="text-[11px] font-normal text-muted-foreground">
+                                                        Grille détaillée (8 créneaux horaires / jour)
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </Button>
+                                    </>
                                 )}
                             </div>
                         </div>

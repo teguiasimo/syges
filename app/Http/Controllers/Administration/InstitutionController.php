@@ -103,10 +103,10 @@ class InstitutionController extends Controller implements HasMiddleware
         // Résolution hermétique du contexte multi-établissement selon les droits de l'utilisateur
         $context = $this->resolveEtablissementContext($request, null, ['sections']);
         $etablissements = $context['etablissements'];
-        $isSuperAdmin = $context['isSuperAdmin'];
+        $canAccessAll = (bool) ($context['canAccessAll'] ?? $context['isSuperAdmin']);
 
         // Si l'utilisateur est local (Directeur, Censeur, etc.), son accès est borné à son campus
-        if (! $isSuperAdmin && $context['etablissementId']) {
+        if (! $canAccessAll && $context['etablissementId']) {
             if ($etablissementId && (int) $etablissementId !== (int) $context['etablissementId']) {
                 abort(403, 'Accès non autorisé à la structure d\'un autre établissement.');
             }
@@ -298,6 +298,8 @@ class InstitutionController extends Controller implements HasMiddleware
             'devise_en' => ['nullable', 'string', 'max:150'],
             'logo' => ['nullable', 'string', 'max:255'],
             'logo_file' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,svg,webp', 'max:2048'],
+            'logo_filigrane' => ['nullable', 'string', 'max:255'],
+            'logo_filigrane_file' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,svg,webp', 'max:2048'],
             'email' => ['nullable', 'email', 'max:100'],
             'telephone_1' => ['nullable', 'string', 'max:30'],
             'telephone_2' => ['nullable', 'string', 'max:30'],
@@ -327,12 +329,9 @@ class InstitutionController extends Controller implements HasMiddleware
             }
         }
 
-        // Traitement de l'upload de logo avec stockage public
-        if ($request->hasFile('logo_file')) {
-            $path = $request->file('logo_file')->store('logos', 'public');
-            $validated['logo'] = Storage::url($path);
-        }
-        unset($validated['logo_file']);
+        // Traitement uniforme de l'upload ou de la suppression du logo et du filigrane officiel
+        $this->processImageUpload($request, $validated, 'logo', 'logo_file', 'logos');
+        $this->processImageUpload($request, $validated, 'logo_filigrane', 'logo_filigrane_file', 'logos/filigranes');
 
         if ($institution) {
             $institution->update($validated);
@@ -368,20 +367,21 @@ class InstitutionController extends Controller implements HasMiddleware
             'nom_chef_etablissement' => ['nullable', 'string', 'max:120'],
             'titre_chef' => ['nullable', 'string', 'max:100'],
             'titre_chef_en' => ['nullable', 'string', 'max:100'],
+            'titre_responsable_classe' => ['nullable', 'string', 'max:100'],
+            'titre_responsable_classe_en' => ['nullable', 'string', 'max:100'],
             'email' => ['nullable', 'email', 'max:100'],
             'telephone_1' => ['nullable', 'string', 'max:30'],
             'telephone_2' => ['nullable', 'string', 'max:30'],
             'adresse' => ['nullable', 'string', 'max:150'],
             'logo' => ['nullable', 'string', 'max:255'],
             'logo_file' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,svg,webp', 'max:2048'],
+            'logo_filigrane' => ['nullable', 'string', 'max:255'],
+            'logo_filigrane_file' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,svg,webp', 'max:2048'],
         ]);
 
-        // Traitement du téléversement du logo propre à l'établissement (autonomie du campus)
-        if ($request->hasFile('logo_file')) {
-            $path = $request->file('logo_file')->store('logos/etablissements', 'public');
-            $validated['logo'] = Storage::url($path);
-        }
-        unset($validated['logo_file']);
+        // Traitement du téléversement du logo et du filigrane propres au campus
+        $this->processImageUpload($request, $validated, 'logo', 'logo_file', 'logos/etablissements');
+        $this->processImageUpload($request, $validated, 'logo_filigrane', 'logo_filigrane_file', 'logos/filigranes');
 
         $validated['institution_id'] = $institution->id;
         $validated['mode_bulletin_defaut'] = 'sans_competences';
@@ -403,7 +403,7 @@ class InstitutionController extends Controller implements HasMiddleware
         abort_unless($request->user()->can('etablissements.manage'), 403, 'Permission requise : etablissements.manage');
 
         $context = $this->resolveEtablissementContext($request);
-        if (! $context['isSuperAdmin'] && (int) $etablissement->id !== (int) $context['etablissementId']) {
+        if (! ($context['canAccessAll'] ?? $context['isSuperAdmin']) && (int) $etablissement->id !== (int) $context['etablissementId']) {
             abort(403, 'Accès non autorisé aux paramètres d\'un autre établissement.');
         }
 
@@ -417,22 +417,21 @@ class InstitutionController extends Controller implements HasMiddleware
             'nom_chef_etablissement' => ['nullable', 'string', 'max:120'],
             'titre_chef' => ['nullable', 'string', 'max:100'],
             'titre_chef_en' => ['nullable', 'string', 'max:100'],
+            'titre_responsable_classe' => ['nullable', 'string', 'max:100'],
+            'titre_responsable_classe_en' => ['nullable', 'string', 'max:100'],
             'email' => ['nullable', 'email', 'max:100'],
             'telephone_1' => ['nullable', 'string', 'max:30'],
             'telephone_2' => ['nullable', 'string', 'max:30'],
             'adresse' => ['nullable', 'string', 'max:150'],
             'logo' => ['nullable', 'string', 'max:255'],
             'logo_file' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,svg,webp', 'max:2048'],
+            'logo_filigrane' => ['nullable', 'string', 'max:255'],
+            'logo_filigrane_file' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,svg,webp', 'max:2048'],
         ]);
 
-        // Traitement du téléversement ou de la suppression du logo propre au campus
-        if ($request->hasFile('logo_file')) {
-            $path = $request->file('logo_file')->store('logos/etablissements', 'public');
-            $validated['logo'] = Storage::url($path);
-        } elseif ($request->exists('logo') && empty($validated['logo'])) {
-            $validated['logo'] = null;
-        }
-        unset($validated['logo_file']);
+        // Traitement du téléversement ou de la suppression du logo et du filigrane propres au campus
+        $this->processImageUpload($request, $validated, 'logo', 'logo_file', 'logos/etablissements');
+        $this->processImageUpload($request, $validated, 'logo_filigrane', 'logo_filigrane_file', 'logos/filigranes');
 
         $etablissement->update($validated);
 
@@ -457,7 +456,7 @@ class InstitutionController extends Controller implements HasMiddleware
         abort_unless($request->user()->can('etablissements.manage'), 403, 'Permission requise : etablissements.manage');
 
         $context = $this->resolveEtablissementContext($request);
-        if (! $context['isSuperAdmin'] && (int) $etablissement->id !== (int) $context['etablissementId']) {
+        if (! ($context['canAccessAll'] ?? $context['isSuperAdmin']) && (int) $etablissement->id !== (int) $context['etablissementId']) {
             abort(403, 'Accès non autorisé aux paramètres d\'un autre établissement.');
         }
 
@@ -480,7 +479,7 @@ class InstitutionController extends Controller implements HasMiddleware
         abort_unless($request->user()->can('etablissements.manage'), 403, 'Permission requise : etablissements.manage');
 
         $context = $this->resolveEtablissementContext($request);
-        if (! $context['isSuperAdmin'] && (int) $etablissement->id !== (int) $context['etablissementId']) {
+        if (! ($context['canAccessAll'] ?? $context['isSuperAdmin']) && (int) $etablissement->id !== (int) $context['etablissementId']) {
             abort(403, 'Accès non autorisé aux paramètres d\'un autre établissement.');
         }
 
@@ -495,12 +494,16 @@ class InstitutionController extends Controller implements HasMiddleware
             'nom_chef_etablissement' => ['nullable', 'string', 'max:120'],
             'titre_chef' => ['nullable', 'string', 'max:100'],
             'titre_chef_en' => ['nullable', 'string', 'max:100'],
+            'titre_responsable_classe' => ['nullable', 'string', 'max:100'],
+            'titre_responsable_classe_en' => ['nullable', 'string', 'max:100'],
             'email' => ['nullable', 'email', 'max:100'],
             'telephone_1' => ['nullable', 'string', 'max:30'],
             'telephone_2' => ['nullable', 'string', 'max:30'],
             'adresse' => ['nullable', 'string', 'max:150'],
             'logo' => ['nullable', 'string', 'max:255'],
             'logo_file' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,svg,webp', 'max:2048'],
+            'logo_filigrane' => ['nullable', 'string', 'max:255'],
+            'logo_filigrane_file' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,svg,webp', 'max:2048'],
 
             // Paramètres Pédagogiques & Bulletins (Module 10)
             'mode_bulletin_defaut' => ['required', 'string', 'in:sans_competences,avec_competences'],
@@ -519,14 +522,9 @@ class InstitutionController extends Controller implements HasMiddleware
             'date_limite_bonus' => ['nullable', 'date'],
         ]);
 
-        // Traitement du téléversement du logo du campus depuis les paramètres
-        if ($request->hasFile('logo_file')) {
-            $path = $request->file('logo_file')->store('logos/etablissements', 'public');
-            $validated['logo'] = Storage::url($path);
-        } elseif ($request->exists('logo') && empty($validated['logo'])) {
-            $validated['logo'] = null;
-        }
-        unset($validated['logo_file']);
+        // Traitement du téléversement du logo et du filigrane depuis les paramètres avancés
+        $this->processImageUpload($request, $validated, 'logo', 'logo_file', 'logos/etablissements');
+        $this->processImageUpload($request, $validated, 'logo_filigrane', 'logo_filigrane_file', 'logos/filigranes');
 
         $etablissement->update($validated);
 
@@ -565,7 +563,7 @@ class InstitutionController extends Controller implements HasMiddleware
         abort_unless($request->user()->can('structures.manage'), 403, 'Permission requise : structures.manage');
 
         $context = $this->resolveEtablissementContext($request);
-        if (! $context['isSuperAdmin'] && (int) $request->input('etablissement_id') !== (int) $context['etablissementId']) {
+        if (! ($context['canAccessAll'] ?? $context['isSuperAdmin']) && (int) $request->input('etablissement_id') !== (int) $context['etablissementId']) {
             abort(403, 'Action non autorisée sur un autre établissement.');
         }
 
@@ -650,7 +648,7 @@ class InstitutionController extends Controller implements HasMiddleware
         abort_unless($request->user()->can('structures.manage'), 403, 'Permission requise : structures.manage');
 
         $context = $this->resolveEtablissementContext($request);
-        if (! $context['isSuperAdmin'] && (int) $section->etablissement_id !== (int) $context['etablissementId']) {
+        if (! ($context['canAccessAll'] ?? $context['isSuperAdmin']) && (int) $section->etablissement_id !== (int) $context['etablissementId']) {
             abort(403, 'Action non autorisée sur un autre établissement.');
         }
 
@@ -710,7 +708,7 @@ class InstitutionController extends Controller implements HasMiddleware
         abort_unless($request->user()->can('structures.manage'), 403, 'Permission requise : structures.manage');
 
         $context = $this->resolveEtablissementContext(request());
-        if (! $context['isSuperAdmin'] && (int) $section->etablissement_id !== (int) $context['etablissementId']) {
+        if (! ($context['canAccessAll'] ?? $context['isSuperAdmin']) && (int) $section->etablissement_id !== (int) $context['etablissementId']) {
             abort(403, 'Action non autorisée sur un autre établissement.');
         }
 
@@ -1306,5 +1304,33 @@ class InstitutionController extends Controller implements HasMiddleware
         $action = $classe->is_active ? 'réactivée' : 'désactivée';
 
         return back()->with('success', "La classe « {$classe->nom} » a été {$action} avec succès.");
+    }
+
+    /**
+     * Traite uniformément le téléversement ou l'effacement d'une image (logo ou filigrane)
+     * sur le disque public sans dupliquer la logique entre Institution et Établissement.
+     *
+     * @param  Request  $request  Requête HTTP entrante contenant potentiellement le fichier.
+     * @param  array<string, mixed>  &$validated  Tableau des données validées à enrichir/nettoyer.
+     * @param  string  $field  Nom de la colonne cible en base (ex: 'logo', 'logo_filigrane').
+     * @param  string  $fileField  Nom du champ fichier multipart (ex: 'logo_file', 'logo_filigrane_file').
+     * @param  string  $folder  Sous-répertoire cible dans `storage/app/public`.
+     * @return void
+     */
+    private function processImageUpload(
+        Request $request,
+        array &$validated,
+        string $field,
+        string $fileField,
+        string $folder
+    ): void {
+        if ($request->hasFile($fileField)) {
+            $path = $request->file($fileField)->store($folder, 'public');
+            $validated[$field] = Storage::url($path);
+        } elseif ($request->exists($field) && empty($validated[$field])) {
+            $validated[$field] = null;
+        }
+
+        unset($validated[$fileField]);
     }
 }

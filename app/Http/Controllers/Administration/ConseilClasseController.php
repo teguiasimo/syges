@@ -138,7 +138,7 @@ class ConseilClasseController extends Controller implements HasMiddleware
 
         $classe = Classe::with('niveau.cycle.section.etablissement')->findOrFail($validated['classe_id']);
         $context = $this->resolveEtablissementContext($request);
-        if (! $context['isSuperAdmin'] && (int) $classe->etablissement_id !== (int) $context['etablissementId']) {
+        if (! ($context['canAccessAll'] ?? $context['isSuperAdmin']) && (int) $classe->etablissement_id !== (int) $context['etablissementId']) {
             abort(403, 'Accès non autorisé à une classe d\'un autre établissement.');
         }
 
@@ -178,7 +178,7 @@ class ConseilClasseController extends Controller implements HasMiddleware
 
         $classe = Classe::with('niveau.cycle.section.etablissement')->findOrFail($validated['classe_id']);
         $context = $this->resolveEtablissementContext($request);
-        if (! $context['isSuperAdmin'] && (int) $classe->etablissement_id !== (int) $context['etablissementId']) {
+        if (! ($context['canAccessAll'] ?? $context['isSuperAdmin']) && (int) $classe->etablissement_id !== (int) $context['etablissementId']) {
             abort(403, 'Accès non autorisé à une classe d\'un autre établissement.');
         }
 
@@ -207,7 +207,7 @@ class ConseilClasseController extends Controller implements HasMiddleware
 
         $classe = Classe::with(['niveau.cycle.section.etablissement.institution', 'professeurPrincipal'])->findOrFail($request->integer('classe_id'));
         $context = $this->resolveEtablissementContext($request);
-        if (! $context['isSuperAdmin'] && (int) $classe->etablissement_id !== (int) $context['etablissementId']) {
+        if (! ($context['canAccessAll'] ?? $context['isSuperAdmin']) && (int) $classe->etablissement_id !== (int) $context['etablissementId']) {
             abort(403, 'Accès non autorisé à une classe d\'un autre établissement.');
         }
 

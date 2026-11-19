@@ -73,11 +73,12 @@ class AttributionController extends Controller implements HasMiddleware
         $context = $this->resolveEtablissementContext($request);
         $etablissements = $context['etablissements'];
         $etablissementId = $context['etablissementId'];
+        $canAccessAll = (bool) ($context['canAccessAll'] ?? $isSuperAdmin);
         $classeId = $request->query('classe_id');
 
         $requestedEtabId = $request->input('etablissement_id') ?? $request->query('etablissement_id');
         $filterEtabId = null;
-        if (! $isSuperAdmin) {
+        if (! $canAccessAll) {
             $filterEtabId = $etablissementId;
         } elseif ($requestedEtabId && $requestedEtabId !== 'all') {
             $filterEtabId = (int) $requestedEtabId;
@@ -86,7 +87,7 @@ class AttributionController extends Controller implements HasMiddleware
         // 4. Récupération des classes avec niveau, professeur principal et attributions pour l'année active
         $classesQuery = Classe::query()
             ->with([
-                'niveau.cycle.section.etablissement:id,nom,code',
+                'niveau.cycle.section.etablissement:id,nom,code,ordre_enseignement,titre_responsable_classe,titre_responsable_classe_en',
                 'professeurPrincipal:id,nom,prenom,matricule,telephone',
                 'attributions' => function ($q) use ($selectedAnneeId) {
                     $q->where('annee_scolaire_id', $selectedAnneeId)
@@ -114,7 +115,7 @@ class AttributionController extends Controller implements HasMiddleware
         $enseignantsQuery = Personnel::query()
             ->where(function ($q) {
                 $q->where('is_enseignant', true)
-                    ->orWhere('fonction_principale', 'Enseignant');
+                    ->orWhereIn('fonction_principale', ['Enseignant', 'Maître', 'Maîtresse', 'Maitre', 'Maitresse']);
             })
             ->where('statut', 'Actif')
             ->with([
@@ -240,7 +241,7 @@ class AttributionController extends Controller implements HasMiddleware
             'can' => $can,
             'filters' => [
                 'annee_scolaire_id' => $selectedAnneeId,
-                'etablissement_id' => $requestedEtabId ?: ($isSuperAdmin ? 'all' : (string) $filterEtabId),
+                'etablissement_id' => $requestedEtabId ?: ($canAccessAll ? 'all' : (string) $filterEtabId),
                 'classe_id' => $classeId ?? '',
             ],
         ]);
@@ -270,10 +271,11 @@ class AttributionController extends Controller implements HasMiddleware
         $context = $this->resolveEtablissementContext($request);
         $etablissements = $context['etablissements'];
         $etablissementId = $context['etablissementId'];
+        $canAccessAll = (bool) ($context['canAccessAll'] ?? $isSuperAdmin);
 
         $requestedEtabId = $request->input('etablissement_id') ?? $request->query('etablissement_id');
         $filterEtabId = null;
-        if (! $isSuperAdmin) {
+        if (! $canAccessAll) {
             $filterEtabId = $etablissementId;
         } elseif ($requestedEtabId && $requestedEtabId !== 'all') {
             $filterEtabId = (int) $requestedEtabId;
@@ -282,7 +284,7 @@ class AttributionController extends Controller implements HasMiddleware
         // 3. Classes actives disponibles
         $classesQuery = Classe::query()
             ->with([
-                'niveau.cycle.section.etablissement:id,nom,code',
+                'niveau.cycle.section.etablissement:id,nom,code,ordre_enseignement,titre_responsable_classe,titre_responsable_classe_en',
                 'professeurPrincipal:id,nom,prenom,matricule,telephone',
                 'attributions' => function ($q) use ($selectedAnneeId) {
                     $q->where('annee_scolaire_id', $selectedAnneeId)
@@ -326,7 +328,7 @@ class AttributionController extends Controller implements HasMiddleware
         $enseignantsQuery = Personnel::query()
             ->where(function ($q) {
                 $q->where('is_enseignant', true)
-                    ->orWhere('fonction_principale', 'Enseignant');
+                    ->orWhereIn('fonction_principale', ['Enseignant', 'Maître', 'Maîtresse', 'Maitre', 'Maitresse']);
             })
             ->where('statut', 'Actif')
             ->with([
@@ -410,7 +412,7 @@ class AttributionController extends Controller implements HasMiddleware
             'can' => $can,
             'filters' => [
                 'annee_scolaire_id' => $selectedAnneeId,
-                'etablissement_id' => $requestedEtabId ?: ($isSuperAdmin ? 'all' : (string) $filterEtabId),
+                'etablissement_id' => $requestedEtabId ?: ($canAccessAll ? 'all' : (string) $filterEtabId),
                 'classe_id' => $selectedClasse?->id ? (string) $selectedClasse->id : '',
             ],
         ]);
@@ -547,11 +549,13 @@ class AttributionController extends Controller implements HasMiddleware
             'professeur_principal_id' => ['nullable', 'exists:personnels,id'],
         ]);
 
+        $classe->loadMissing('etablissement');
         $classe->update(['professeur_principal_id' => $validated['professeur_principal_id'] ?? null]);
 
         $profNom = $classe->professeurPrincipal ? $classe->professeurPrincipal->nom_complet : 'aucun';
+        $titreTitulaire = $classe->etablissement?->titre_responsable_classe ?: 'Professeur Principal';
 
-        return back()->with('success', "Professeur Principal de la classe {$classe->nom} défini : {$profNom}.");
+        return back()->with('success', "{$titreTitulaire} de la classe {$classe->nom} défini(e) : {$profNom}.");
     }
 
     /**

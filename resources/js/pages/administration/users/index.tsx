@@ -73,6 +73,10 @@ export interface UserItem {
     roles: string[];
     /** Libellés conviviaux des rôles pour l'affichage */
     rolesDisplay: string[];
+    /** Indique si le compte bénéficie d'un accès global multi-campus (explicitement activé ou Super-Admin) */
+    hasGlobalAccess?: boolean;
+    /** Valeur persistée en base de l'accès global multi-campus */
+    has_global_access?: boolean;
     /** Vrai si le compte est Super Administrateur */
     isSuperAdmin: boolean;
     /** Vrai s'il s'agit du compte actuellement connecté */
@@ -164,6 +168,13 @@ export default function UsersIndex({
     // Filtre par statut pour la barre d'outils
     const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('all');
 
+    // Campus initial par défaut à la création (campus actif en session, sinon premier campus disponible)
+    const defaultCreateEtabId = currentEtablissementId
+        ? String(currentEtablissementId)
+        : etablissements[0]
+          ? String(etablissements[0].id)
+          : '';
+
     // Formulaire de création
     const createForm = useForm({
         name: '',
@@ -171,7 +182,8 @@ export default function UsersIndex({
         email: '',
         password: '',
         password_confirmation: '',
-        etablissement_id: (currentEtablissementId ? String(currentEtablissementId) : '') as string,
+        etablissement_id: defaultCreateEtabId,
+        has_global_access: false as boolean,
         roles: [] as string[],
         is_active: true,
     });
@@ -184,6 +196,7 @@ export default function UsersIndex({
         password: '',
         password_confirmation: '',
         etablissement_id: '' as string,
+        has_global_access: false as boolean,
         roles: [] as string[],
     });
 
@@ -256,17 +269,25 @@ export default function UsersIndex({
     }, [availableRoles, userToEdit]);
 
     /**
-     * Ouvre la modale de modification en pré-remplissant les données de l'utilisateur.
+     * Ouvre la modale de modification en pré-remplissant les données de l'utilisateur
+     * (y compris l'indicateur explicite `has_global_access` multi-campus).
      */
     const handleOpenEdit = (user: UserItem) => {
         setUserToEdit(user);
+        const hasGlobal = Boolean(
+            user.hasGlobalAccess ||
+                user.has_global_access ||
+                (!user.etablissementId && user.roles.includes('secretaire'))
+        );
+
         editForm.setData({
             name: user.name,
             login: user.login,
             email: user.email,
             password: '',
             password_confirmation: '',
-            etablissement_id: user.etablissementId ? String(user.etablissementId) : '',
+            etablissement_id: hasGlobal ? '' : user.etablissementId ? String(user.etablissementId) : '',
+            has_global_access: hasGlobal,
             roles: [...user.roles],
         });
         editForm.clearErrors();
@@ -437,15 +458,37 @@ export default function UsersIndex({
                 },
                 cell: ({ row }) => {
                     const user = row.original;
-                    if (user.isSuperAdmin || !user.etablissementId) {
+                    const hasGlobal =
+                        user.isSuperAdmin ||
+                        Boolean(user.hasGlobalAccess) ||
+                        Boolean(user.has_global_access) ||
+                        (!user.etablissementId && user.roles.includes('secretaire'));
+
+                    if (hasGlobal) {
                         return (
                             <Badge
                                 variant="outline"
                                 className="text-[11px] font-medium py-0.5 px-2 bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/40 dark:text-teal-300 dark:border-teal-800 flex items-center gap-1 w-fit"
-                                title="Accès transversal à l'ensemble des campus (Super-Admin)"
+                                title={
+                                    user.isSuperAdmin
+                                        ? "Accès transversal à l'ensemble des campus (Super-Admin)"
+                                        : "Accès Global Multi-Campus attribué par le Super-Admin"
+                                }
                             >
                                 <Globe className="size-3 text-teal-600 shrink-0" />
                                 <span>Accès Global</span>
+                            </Badge>
+                        );
+                    }
+
+                    if (!user.etablissementId) {
+                        return (
+                            <Badge
+                                variant="outline"
+                                className="text-[11px] font-medium py-0.5 px-2 bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800 flex items-center gap-1 w-fit"
+                                title="Aucun campus assigné (compte bloqué par le cloisonnement multi-tenant jusqu'à affectation)"
+                            >
+                                <span>Non rattaché</span>
                             </Badge>
                         );
                     }
@@ -923,9 +966,13 @@ export default function UsersIndex({
                                 </Label>
                                 {isSuperAdmin ? (
                                     <Select
-                                        value={createForm.data.etablissement_id || 'none'}
+                                        value={createForm.data.has_global_access ? 'none' : createForm.data.etablissement_id}
                                         onValueChange={(val) =>
-                                            createForm.setData('etablissement_id', val === 'none' ? '' : val)
+                                            createForm.setData((prev) => ({
+                                                ...prev,
+                                                etablissement_id: val === 'none' ? '' : val,
+                                                has_global_access: val === 'none',
+                                            }))
                                         }
                                     >
                                         <SelectTrigger id="create-etablissement" className="h-9 text-sm">
@@ -934,7 +981,7 @@ export default function UsersIndex({
                                         <SelectContent>
                                             <SelectItem value="none">
                                                 <span className="font-semibold text-teal-600 dark:text-teal-400">
-                                                    Accès Global (Aucun campus spécifique / Super-Admin)
+                                                    Accès Global (Tous les campus du complexe)
                                                 </span>
                                             </SelectItem>
                                             {etablissements.map((etab) => (
@@ -1173,9 +1220,13 @@ export default function UsersIndex({
                                     Campus / Établissement
                                 </Label>
                                 <Select
-                                    value={editForm.data.etablissement_id || 'none'}
+                                    value={editForm.data.has_global_access ? 'none' : editForm.data.etablissement_id}
                                     onValueChange={(val) =>
-                                        editForm.setData('etablissement_id', val === 'none' ? '' : val)
+                                        editForm.setData((prev) => ({
+                                            ...prev,
+                                            etablissement_id: val === 'none' ? '' : val,
+                                            has_global_access: val === 'none',
+                                        }))
                                     }
                                 >
                                     <SelectTrigger id="edit-etablissement" className="h-9 text-sm">
@@ -1184,7 +1235,7 @@ export default function UsersIndex({
                                     <SelectContent>
                                         <SelectItem value="none">
                                             <span className="font-semibold text-teal-600 dark:text-teal-400">
-                                                Accès Global (Aucun campus spécifique)
+                                                Accès Global (Tous les campus du complexe)
                                             </span>
                                         </SelectItem>
                                         {etablissements.map((etab) => (

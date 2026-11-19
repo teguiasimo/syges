@@ -209,6 +209,7 @@
     </style>
 </head>
 <body>
+    @include('partials.watermark', ['etablissement' => $etablissement ?? null])
 
     <!-- En-tête officiel bilingue -->
     <table class="header-table">

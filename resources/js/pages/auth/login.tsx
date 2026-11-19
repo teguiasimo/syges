@@ -1,5 +1,5 @@
 import React from 'react';
-import { Form, Head } from '@inertiajs/react';
+import { Form, Head, usePage } from '@inertiajs/react';
 import { User, Lock, AlertCircle, ArrowRight, Phone, Mail } from 'lucide-react';
 import PasswordInput from '@/components/password-input';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,10 @@ import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { store } from '@/routes/login';
+import {
+    DEFAULT_LOGIN_BRANDING,
+    type LoginAppearancePayload,
+} from '@/types/login-appearance';
 
 /**
  * Propriétés transmises par Inertia.js à la page de connexion.
@@ -35,6 +39,18 @@ type Props = {
  * @returns {JSX.Element} Le formulaire d'authentification utilisateur enrichi.
  */
 export default function Login({ status }: Props) {
+    // Récupération des éventuels messages flash d'erreur et de la configuration d'apparence/contacts
+    const { props: pageProps } = usePage<{
+        flash?: { error?: string };
+        loginAppearance?: LoginAppearancePayload | null;
+    }>();
+    const flashError = pageProps.flash?.error;
+    const branding = pageProps.loginAppearance?.branding ?? DEFAULT_LOGIN_BRANDING;
+    const supportLabel = branding.support_label || DEFAULT_LOGIN_BRANDING.support_label;
+    const supportPhone = branding.support_phone?.trim() ?? '';
+    const supportEmail = branding.support_email?.trim() ?? '';
+    const supportPhoneHref = supportPhone ? `tel:${supportPhone.replace(/[^+\d]/g, '')}` : '';
+
     return (
         <>
             <Head title="Connexion à votre espace" />
@@ -45,8 +61,9 @@ export default function Login({ status }: Props) {
                 className="flex flex-col gap-5"
             >
                 {({ processing, errors }) => {
-                    // Vérification de la présence d'une erreur d'authentification
+                    // Vérification de la présence d'une erreur d'authentification ou de session
                     const hasAuthError = Boolean(errors.email || errors.password);
+                    const hasSessionBanner = Boolean(! hasAuthError && flashError);
 
                     return (
                         <>
@@ -63,6 +80,24 @@ export default function Login({ status }: Props) {
                                         </AlertTitle>
                                         <AlertDescription className="text-xs leading-relaxed text-red-600 dark:text-red-300">
                                             {errors.email || errors.password || "Identifiant ou mot de passe incorrect. Veuillez vérifier vos informations de connexion."}
+                                        </AlertDescription>
+                                    </div>
+                                </Alert>
+                            )}
+
+                            {/* Bannière d'avertissement lorsque la session de la page a expiré et été renouvelée */}
+                            {hasSessionBanner && (
+                                <Alert
+                                    variant="destructive"
+                                    className="border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-300 py-3 shadow-xs"
+                                >
+                                    <AlertCircle className="size-4.5 text-amber-600 dark:text-amber-400 mt-0.5" />
+                                    <div className="flex flex-col gap-0.5">
+                                        <AlertTitle className="font-bold text-sm">
+                                            Session actualisée
+                                        </AlertTitle>
+                                        <AlertDescription className="text-xs leading-relaxed text-amber-700 dark:text-amber-200">
+                                            {flashError}
                                         </AlertDescription>
                                     </div>
                                 </Alert>
@@ -172,27 +207,35 @@ export default function Login({ status }: Props) {
                                 </Button>
                             </div>
 
-                            {/* Ligne d'assistance rapide & contact direct */}
-                            <div className="mt-5 pt-4 border-t border-border/50 text-center text-xs text-muted-foreground">
-                                <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
-                                    <span className="text-muted-foreground/80">Besoin d'aide ?</span>
-                                    <a
-                                        href="tel:+237697449003"
-                                        className="inline-flex items-center gap-1 font-semibold text-foreground hover:text-indigo-600 transition-colors"
-                                    >
-                                        <Phone className="size-3 text-emerald-600 dark:text-emerald-400" />
-                                        <span>(+237) 697 44 90 03</span>
-                                    </a>
-                                    <span className="text-muted-foreground/40">•</span>
-                                    <a
-                                        href="mailto:teguiasimo@gmail.com"
-                                        className="inline-flex items-center gap-1 font-semibold text-foreground hover:text-indigo-600 transition-colors"
-                                    >
-                                        <Mail className="size-3 text-indigo-500" />
-                                        <span>teguiasimo@gmail.com</span>
-                                    </a>
+                            {/* Ligne d'assistance rapide & contact direct configurables */}
+                            {(supportPhone !== '' || supportEmail !== '') && (
+                                <div className="mt-5 pt-4 border-t border-border/50 text-center text-xs text-muted-foreground">
+                                    <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+                                        <span className="text-muted-foreground/80">{supportLabel}</span>
+                                        {supportPhone !== '' && (
+                                            <a
+                                                href={supportPhoneHref}
+                                                className="inline-flex items-center gap-1 font-semibold text-foreground hover:text-indigo-600 transition-colors"
+                                            >
+                                                <Phone className="size-3 text-emerald-600 dark:text-emerald-400" />
+                                                <span>{supportPhone}</span>
+                                            </a>
+                                        )}
+                                        {supportPhone !== '' && supportEmail !== '' && (
+                                            <span className="text-muted-foreground/40">•</span>
+                                        )}
+                                        {supportEmail !== '' && (
+                                            <a
+                                                href={`mailto:${supportEmail}`}
+                                                className="inline-flex items-center gap-1 font-semibold text-foreground hover:text-indigo-600 transition-colors"
+                                            >
+                                                <Mail className="size-3 text-indigo-500" />
+                                                <span>{supportEmail}</span>
+                                            </a>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
+                            )}
                         </>
                     );
                 }}

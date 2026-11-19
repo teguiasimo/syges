@@ -20,6 +20,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string|null $devise
  * @property string|null $devise_en
  * @property string|null $logo
+ * @property string|null $logo_filigrane
  * @property string|null $email
  * @property string|null $telephone_1
  * @property string|null $telephone_2
@@ -57,6 +58,7 @@ class Institution extends Model
         'devise',
         'devise_en',
         'logo',
+        'logo_filigrane',
         'email',
         'telephone_1',
         'telephone_2',
@@ -83,5 +85,63 @@ class Institution extends Model
     public function etablissements(): HasMany
     {
         return $this->hasMany(Etablissement::class);
+    }
+
+    /**
+     * Encode une image locale (public/ ou storage/app/public/) en Data URI Base64 pour DomPDF.
+     *
+     * Résout de manière uniforme les chemins publics (`/storage/...`, `/logo.png`) et les chemins
+     * relatifs sur le disque `public`, garantissant un rendu fiable avec ou sans lien symbolique.
+     *
+     * @param  string|null  $path  Chemin ou URL relative de l'image.
+     * @return string|null Data URI Base64 prête pour l'attribut HTML `src`, ou null si introuvable.
+     */
+    public static function resolveImageBase64(?string $path): ?string
+    {
+        if (empty($path)) {
+            return null;
+        }
+
+        // Supporte le cas où une Data URI est déjà fournie
+        if (str_starts_with($path, 'data:image/')) {
+            return $path;
+        }
+
+        $trimmed = ltrim($path, '/\\');
+        $storageRelative = preg_replace('#^/?storage/#i', '', $trimmed);
+
+        $candidates = array_unique(array_filter([
+            public_path($trimmed),
+            storage_path('app/public/'.$storageRelative),
+        ]));
+
+        foreach ($candidates as $candidate) {
+            if ($candidate && file_exists($candidate) && is_file($candidate)) {
+                $ext = strtolower(pathinfo($candidate, PATHINFO_EXTENSION)) ?: 'png';
+                $mime = match ($ext) {
+                    'jpg', 'jpeg' => 'image/jpeg',
+                    'gif' => 'image/gif',
+                    'webp' => 'image/webp',
+                    'svg' => 'image/svg+xml',
+                    default => 'image/png',
+                };
+                $content = @file_get_contents($candidate);
+                if ($content !== false) {
+                    return 'data:'.$mime.';base64,'.base64_encode($content);
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Retourne le filigrane officiel de l'institution encodé en Base64 pour les PDF consolidés.
+     *
+     * @return string|null Data URI Base64 du filigrane de l'institution ou null.
+     */
+    public function getEffectiveFiligraneBase64(): ?string
+    {
+        return self::resolveImageBase64($this->logo_filigrane);
     }
 }

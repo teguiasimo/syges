@@ -52,6 +52,7 @@ class FraisScolaire extends Model
         'ordre_priorite',
         'libelle_tranche',
         'montant',
+        'obligatoire',
         'date_limite',
     ];
 
@@ -64,6 +65,7 @@ class FraisScolaire extends Model
         'tranche_numero' => 'integer',
         'ordre_priorite' => 'integer',
         'montant' => 'float',
+        'obligatoire' => 'boolean',
         'date_limite' => 'date',
     ];
 

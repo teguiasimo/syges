@@ -194,14 +194,15 @@
     </style>
 </head>
 <body>
+    @include('partials.watermark', ['filigraneSrc' => $classe['etablissement']['filigrane_base64'] ?? null, 'skipWatermark' => $skipWatermark ?? false])
     {{-- En-tête Bilingue Officiel République du Cameroun --}}
     <table class="header-table">
         <tr>
             <td style="width: 38%;">
                 <div class="country-title">RÉPUBLIQUE DU CAMEROUN</div>
                 <div class="motto">Paix – Travail – Patrie</div>
-                <div class="delegation">{{ $classe['etablissement']['delegation_regionale'] ?? 'DÉLÉGATION RÉGIONALE DU CENTRE' }}</div>
-                <div class="delegation">{{ $classe['etablissement']['delegation_departementale'] ?? 'DÉLÉGATION DÉPARTEMENTALE DU MFOUNDI' }}</div>
+                <div class="delegation">{{ $classe['etablissement']['delegation_regionale'] ?? 'DÉLÉGATION RÉGIONALE DE L\'ÉDUCATION' }}</div>
+                <div class="delegation">{{ $classe['etablissement']['delegation_departementale'] ?? 'DÉLÉGATION DÉPARTEMENTALE DE L\'ÉDUCATION' }}</div>
                 <div class="school-name">{{ $classe['etablissement']['nom'] }}</div>
                 <div style="font-size: 6.5pt; color: #475569;">BP: {{ $classe['etablissement']['boite_postale'] ?? '---' }} | Tél: {{ $classe['etablissement']['telephone'] ?? '---' }}</div>
                 <div class="school-year" style="font-size: 6.8pt; font-weight: bold; color: #1e3a8a; margin-top: 1px;">ANNÉE SCOLAIRE : {{ preg_replace('/^\s*Ann[ée]e\s+scolaire\s*[:\-]?\s*/ui', '', $annee_scolaire['nom']) }}</div>
@@ -215,8 +216,8 @@
                     if (!$logoPath || !file_exists($logoPath)) {
                         $logoPath = file_exists(public_path('logo.png')) ? public_path('logo.png') : (file_exists(public_path('logo.jpg')) ? public_path('logo.jpg') : null);
                     }
-                    $logoSrc = null;
-                    if ($logoPath && file_exists($logoPath)) {
+                    $logoSrc = $classe['etablissement']['logo_base64'] ?? null;
+                    if (!$logoSrc && $logoPath && file_exists($logoPath)) {
                         $logoExt = strtolower(pathinfo($logoPath, PATHINFO_EXTENSION)) ?: 'png';
                         $logoSrc = 'data:image/' . ($logoExt === 'jpg' ? 'jpeg' : $logoExt) . ';base64,' . base64_encode(file_get_contents($logoPath));
                     }
@@ -504,11 +505,11 @@
                 <div class="signature-line">Date & Signature</div>
             </td>
             <td>
-                <div class="signature-title">Le Professeur Principal</div>
+                <div class="signature-title">{{ $classe['etablissement']['titre_responsable_classe'] ?? 'Le Professeur Principal' }}</div>
                 <div class="signature-line">{{ $classe['professeur_principal'] ?? 'Signature' }}</div>
             </td>
             <td>
-                <div class="signature-title">Le Chef d'Établissement</div>
+                <div class="signature-title">{{ $classe['etablissement']['titre_chef'] ?? "Le Chef d'Établissement" }}</div>
                 <div class="signature-line">{{ $classe['etablissement']['nom_chef'] ?? 'Signature & Cachet Numérique' }}</div>
             </td>
         </tr>

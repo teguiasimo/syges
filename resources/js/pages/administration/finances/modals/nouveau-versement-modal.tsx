@@ -20,7 +20,17 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { CompteFinancierEleve, ModePaiement, TypeFrais, FraisScolaire } from '@/types/finance';
+import {
+    CompteFinancierEleve,
+    FormatImpressionRecu,
+    ModePaiement,
+    TypeFrais,
+    FraisScolaire,
+    buildReceiptPrintUrl,
+    getPreferredReceiptFormat,
+    setPreferredReceiptFormat,
+} from '@/types/finance';
+import { formatDateForInput } from '@/lib/utils';
 import { Plus, Trash2, CheckCircle2, DollarSign } from 'lucide-react';
 
 interface NouveauVersementModalProps {
@@ -55,13 +65,19 @@ export default function NouveauVersementModal({
     preselectedCompteId,
 }: NouveauVersementModalProps) {
     const [selectedCompteId, setSelectedCompteId] = useState<string>(preselectedCompteId ? String(preselectedCompteId) : '');
+    const [receiptFormat, setReceiptFormat] = useState<FormatImpressionRecu>(() =>
+        getPreferredReceiptFormat()
+    );
     const [ventilations, setVentilations] = useState<VentilationItem[]>([
         { type_frais_id: null, frais_scolaire_id: null, libelle: 'Scolarité Tranche 1', montant: 0 },
     ]);
 
+    const aujourdhuiIso = formatDateForInput(new Date());
+
     const { data, setData, post, processing, errors, reset, transform } = useForm({
         compte_financier_id: '',
         montant_total: '',
+        date_versement: aujourdhuiIso,
         mode_paiement: 'especes' as ModePaiement,
         reference_paiement: '',
         payeur_nom: '',
@@ -80,6 +96,9 @@ export default function NouveauVersementModal({
     }, [preselectedCompteId]);
 
     const activeCompte = comptes.find((c) => String(c.id) === selectedCompteId);
+    const soldeRestantCompte = activeCompte ? Number(activeCompte.solde_restant || 0) : 0;
+    const totalSaisi = Number(data.montant_total || 0);
+    const depasseSoldeRestant = Boolean(activeCompte && totalSaisi > soldeRestantCompte + 0.01);
 
     // Mettre à jour le montant d'une ligne de ventilation
     const updateVentilation = (index: number, field: keyof VentilationItem, value: any) => {
@@ -113,6 +132,21 @@ export default function NouveauVersementModal({
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
+        if (activeCompte && soldeRestantCompte <= 0) {
+            toast.error('Ce compte élève est déjà totalement soldé (Reste à payer : 0 FCFA).', {
+                position: 'top-right',
+            });
+            return;
+        }
+
+        if (depasseSoldeRestant) {
+            toast.error(
+                `Le montant du versement (${totalSaisi.toLocaleString('fr-FR')} FCFA) doit être inférieur ou égal au reste à payer (${soldeRestantCompte.toLocaleString('fr-FR')} FCFA).`,
+                { position: 'top-right' }
+            );
+            return;
+        }
+
         const payloadVentilations = ventilations.map((v) => ({
             ...v,
             montant: Number(v.montant),
@@ -132,7 +166,7 @@ export default function NouveauVersementModal({
                 });
                 const dernierRecuId = page?.props?.flash?.dernier_recu_id;
                 if (dernierRecuId) {
-                    window.open(`/administration/finances/versements/${dernierRecuId}/recu`, '_blank');
+                    window.open(buildReceiptPrintUrl(dernierRecuId, receiptFormat), '_blank');
                 }
                 reset();
                 onOpenChange(false);
@@ -260,14 +294,41 @@ export default function NouveauVersementModal({
 
                         <div className="flex flex-wrap justify-end items-center gap-2 pt-1">
                             <span className="text-xs text-slate-500 uppercase font-semibold">Montant Total Encaissé :</span>
-                            <span className="text-base font-bold text-emerald-600 tabular-nums">
+                            <span
+                                className={`text-base font-bold tabular-nums ${
+                                    depasseSoldeRestant ? 'text-red-600' : 'text-emerald-600'
+                                }`}
+                            >
                                 {Number(data.montant_total || 0).toLocaleString('fr-FR')} FCFA
                             </span>
                         </div>
+                        {depasseSoldeRestant && (
+                            <p className="text-xs font-semibold text-red-600 text-right">
+                                Le montant saisi dépasse le reste à payer ({soldeRestantCompte.toLocaleString('fr-FR')} FCFA).
+                            </p>
+                        )}
                     </div>
 
-                    {/* Mode de règlement et référence */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Date, mode de règlement et référence */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div className="space-y-1 min-w-0">
+                            <Label htmlFor="date_versement">
+                                Date du versement <span className="text-red-500">*</span>
+                            </Label>
+                            <Input
+                                id="date_versement"
+                                type="date"
+                                min="2020-01-01"
+                                max={aujourdhuiIso}
+                                value={formatDateForInput(data.date_versement)}
+                                onChange={(e) => setData('date_versement', e.target.value)}
+                                required
+                            />
+                            {errors.date_versement && (
+                                <p className="text-xs text-red-500">{errors.date_versement}</p>
+                            )}
+                        </div>
+
                         <div className="space-y-1 min-w-0">
                             <Label htmlFor="mode_paiement">Mode de Paiement <span className="text-red-500">*</span></Label>
                             <Select
@@ -331,18 +392,62 @@ export default function NouveauVersementModal({
                         />
                     </div>
 
-                    <DialogFooter className="pt-2">
-                        <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => onOpenChange(false)}>
-                            Annuler
-                        </Button>
-                        <Button
-                            type="submit"
-                            disabled={processing || !selectedCompteId || Number(data.montant_total) <= 0}
-                            className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center gap-1.5"
-                        >
-                            <CheckCircle2 className="w-4 h-4 shrink-0" />
-                            {processing ? 'Encaissement en cours...' : 'Valider & Émettre le Reçu'}
-                        </Button>
+                    <DialogFooter className="pt-2 flex flex-wrap items-center justify-between gap-2">
+                        {/* Choix mémorisé du format de sortie caisse : Reçu A4 (2 exemplaires/page) vs Ticket thermique 80mm */}
+                        <div className="inline-flex items-center rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 p-0.5 text-xs">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setReceiptFormat('a4');
+                                    setPreferredReceiptFormat('a4');
+                                }}
+                                className={`px-2.5 py-1 rounded-sm font-semibold transition-colors cursor-pointer ${
+                                    receiptFormat === 'a4'
+                                        ? 'bg-emerald-600 text-white'
+                                        : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-slate-800'
+                                }`}
+                            >
+                                Reçu A4
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setReceiptFormat('ticket');
+                                    setPreferredReceiptFormat('ticket');
+                                }}
+                                className={`px-2.5 py-1 rounded-sm font-semibold transition-colors cursor-pointer ${
+                                    receiptFormat === 'ticket'
+                                        ? 'bg-emerald-600 text-white'
+                                        : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-slate-800'
+                                }`}
+                            >
+                                Ticket 80mm
+                            </button>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
+                            <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => onOpenChange(false)}>
+                                Annuler
+                            </Button>
+                            <Button
+                                type="submit"
+                                disabled={
+                                    processing ||
+                                    !selectedCompteId ||
+                                    Number(data.montant_total) <= 0 ||
+                                    soldeRestantCompte <= 0 ||
+                                    depasseSoldeRestant
+                                }
+                                className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center gap-1.5"
+                            >
+                                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                                {processing
+                                    ? 'Encaissement en cours...'
+                                    : receiptFormat === 'ticket'
+                                      ? 'Valider & Ticket 80mm'
+                                      : 'Valider & Émettre le Reçu'}
+                            </Button>
+                        </div>
                     </DialogFooter>
                 </form>
             </DialogContent>

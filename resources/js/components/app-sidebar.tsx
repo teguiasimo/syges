@@ -61,7 +61,8 @@ export function AppSidebar() {
                 p.startsWith('emplois_du_temps.') ||
                 p.startsWith('communication.') ||
                 p.startsWith('statistiques.') ||
-                p.startsWith('deliberations.')
+                p.startsWith('deliberations.') ||
+                p.startsWith('system.')
         );
 
     // Liste des éléments du menu principal filtrée et traduite avec icônes colorées

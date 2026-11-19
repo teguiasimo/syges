@@ -501,9 +501,15 @@ class BulletinCalculationService
                     'nom' => $etablissement->nom,
                     'nom_en' => $etablissement->nom_en,
                     'code' => $etablissement->code,
-                    // Logo effectif de l'établissement avec repli automatique sur l'institution faîtière
+                    // Logo effectif et filigrane de l'établissement avec repli automatique sur l'institution faîtière
                     'logo_url' => $etablissement->logo_url,
                     'logo' => $etablissement->effective_logo,
+                    'logo_base64' => $etablissement->getEffectiveLogoBase64(),
+                    'filigrane_base64' => $etablissement->getEffectiveFiligraneBase64(),
+                    'ministere_tutelle' => $etablissement->ministere_tutelle,
+                    'ministere_tutelle_en' => $etablissement->ministere_tutelle_en,
+                    'titre_responsable_classe' => $etablissement->titre_responsable_classe,
+                    'titre_responsable_classe_en' => $etablissement->titre_responsable_classe_en,
                     'boite_postale' => self::formaterBoitePostale($etablissement->institution?->boite_postale),
                     'telephone' => $etablissement->telephone_1 ?: $etablissement->institution->telephone_1,
                     'email' => $etablissement->email ?: $etablissement->institution->email,
@@ -1020,6 +1026,12 @@ class BulletinCalculationService
                     'sigle' => $etablissement->code,
                     'logo_url' => $etablissement->logo_url,
                     'logo' => $etablissement->logo ?: $etablissement->institution?->logo,
+                    'logo_base64' => $etablissement->getEffectiveLogoBase64(),
+                    'filigrane_base64' => $etablissement->getEffectiveFiligraneBase64(),
+                    'ministere_tutelle' => $etablissement->ministere_tutelle,
+                    'ministere_tutelle_en' => $etablissement->ministere_tutelle_en,
+                    'titre_responsable_classe' => $etablissement->titre_responsable_classe,
+                    'titre_responsable_classe_en' => $etablissement->titre_responsable_classe_en,
                     'ville' => $etablissement->ville ?: $etablissement->institution?->ville,
                     'boite_postale' => self::formaterBoitePostale($etablissement->institution?->boite_postale),
                     'telephone' => $etablissement->telephone_1 ?: ($etablissement->institution?->telephone_1 ?: '---'),
@@ -1119,24 +1131,10 @@ class BulletinCalculationService
             ? $etablissement->getSeuilCoefficientsMinimal($totalCoefficientsTheoriqueClasse)
             : round($totalCoefficientsTheoriqueClasse * 0.60, 2);
 
-        // Détermination dynamique des paliers pédagogiques pour la promotion de fin d'année
-        $niveauActuel = $classe->niveau;
-        $nomNiveauActuel = $niveauActuel ? mb_strtoupper($niveauActuel->nom, 'UTF-8') : 'CLASSE ACTUELLE';
-        $nomNiveauSuivant = 'CLASSE SUPÉRIEURE';
-        if ($niveauActuel) {
-            $niveauSuivant = Niveau::where('cycle_id', $niveauActuel->cycle_id)
-                ->where('ordre', '>', $niveauActuel->ordre)
-                ->orderBy('ordre')
-                ->first();
-            if (! $niveauSuivant) {
-                $niveauSuivant = Niveau::where('ordre', '>', $niveauActuel->ordre)
-                    ->orderBy('ordre')
-                    ->first();
-            }
-            if ($niveauSuivant) {
-                $nomNiveauSuivant = mb_strtoupper($niveauSuivant->nom, 'UTF-8');
-            }
-        }
+        // Détermination dynamique et non régressive des paliers pédagogiques pour la promotion de fin d'année
+        $libellesPromotion = $this->resoudreLibellesPromotion($classe);
+        $nomNiveauActuel = $libellesPromotion['actuel'];
+        $nomNiveauSuivant = $libellesPromotion['suivant'];
 
         $elevesData = [];
         $matieresStats = [];
@@ -1448,6 +1446,12 @@ class BulletinCalculationService
                     'sigle' => $etablissement->code,
                     'logo_url' => $etablissement->logo_url,
                     'logo' => $etablissement->logo ?: $etablissement->institution?->logo,
+                    'logo_base64' => $etablissement->getEffectiveLogoBase64(),
+                    'filigrane_base64' => $etablissement->getEffectiveFiligraneBase64(),
+                    'ministere_tutelle' => $etablissement->ministere_tutelle,
+                    'ministere_tutelle_en' => $etablissement->ministere_tutelle_en,
+                    'titre_responsable_classe' => $etablissement->titre_responsable_classe,
+                    'titre_responsable_classe_en' => $etablissement->titre_responsable_classe_en,
                     'ville' => $etablissement->ville ?: $etablissement->institution?->ville,
                     'boite_postale' => self::formaterBoitePostale($etablissement->institution?->boite_postale),
                     'telephone' => $etablissement->telephone_1 ?: ($etablissement->institution?->telephone_1 ?: '---'),
@@ -1477,5 +1481,170 @@ class BulletinCalculationService
             'stats_classe' => $statsClasse,
             'eleves' => array_values($elevesData),
         ];
+    }
+
+    /**
+     * Résout les libellés de niveau actuel (redoublement) et suivant (promotion)
+     * pour les mentions de fin d'année.
+     *
+     * Préserve intégralement la logique historique basée sur la table `niveaux`
+     * pour le secondaire et la maternelle, tout en gérant finement les niveaux
+     * primaires regroupés multi-classes (ex. Niveau 1 = SIL + CP, Level 1 = Class 1 + Class 2).
+     *
+     * @param  Classe  $classe  La classe pour laquelle le bulletin annuel est calculé
+     * @return array{actuel: string, suivant: string}
+     */
+    private function resoudreLibellesPromotion(Classe $classe): array
+    {
+        $niveauActuel = $classe->niveau;
+
+        if ($niveauActuel) {
+            $palierPrimaire = $this->resoudrePalierPrimaireRegroupe($classe, $niveauActuel);
+            if ($palierPrimaire !== null) {
+                return $palierPrimaire;
+            }
+        }
+
+        $nomNiveauActuel = $niveauActuel?->nom ?? $classe->nom;
+        $niveauSuivant = $niveauActuel ? $this->trouverNiveauSuivantStandard($niveauActuel) : null;
+
+        return [
+            'actuel' => $nomNiveauActuel,
+            'suivant' => $niveauSuivant ? $niveauSuivant->nom : 'CLASSE SUPÉRIEURE',
+        ];
+    }
+
+    /**
+     * Recherche le niveau supérieur selon la hiérarchie standard des niveaux
+     * (même cycle d'abord, puis même établissement pour le passage inter-cycles).
+     *
+     * @param  Niveau  $niveauActuel  Le niveau pédagogique courant
+     * @return Niveau|null
+     */
+    private function trouverNiveauSuivantStandard(Niveau $niveauActuel): ?Niveau
+    {
+        $niveauSuivant = Niveau::where('cycle_id', $niveauActuel->cycle_id)
+            ->where('ordre', '>', $niveauActuel->ordre)
+            ->orderBy('ordre')
+            ->first();
+
+        if (! $niveauSuivant) {
+            $niveauSuivant = Niveau::query()
+                ->when(
+                    $niveauActuel->etablissement_id !== null,
+                    fn ($q) => $q->where('etablissement_id', $niveauActuel->etablissement_id),
+                    fn ($q) => $q->whereNull('etablissement_id')
+                )
+                ->where('ordre', '>', $niveauActuel->ordre)
+                ->orderBy('ordre')
+                ->first();
+        }
+
+        return $niveauSuivant;
+    }
+
+    /**
+     * Détermine les libellés de promotion au palier exact lorsqu'une classe primaire
+     * appartient à un niveau administratif regroupé (ex. SIL et CP sous « Niveau 1 »).
+     *
+     * Retourne `null` pour toute classe secondaire, maternelle ou mono-niveau afin de
+     * ne jamais altérer le comportement standard.
+     *
+     * @param  Classe  $classe  La classe évaluée
+     * @param  Niveau  $niveauActuel  Le niveau parent de la classe
+     * @return array{actuel: string, suivant: string}|null
+     */
+    private function resoudrePalierPrimaireRegroupe(Classe $classe, Niveau $niveauActuel): ?array
+    {
+        $palierActuel = $this->extrairePalierPrimaire($classe->nom, $classe->code);
+        if ($palierActuel === null) {
+            return null;
+        }
+
+        $classesDuNiveau = $niveauActuel->relationLoaded('classes')
+            ? $niveauActuel->classes
+            : $niveauActuel->classes()->get(['id', 'nom', 'code']);
+
+        $paliersDistincts = $classesDuNiveau
+            ->map(fn (Classe $c) => $this->extrairePalierPrimaire($c->nom, $c->code))
+            ->filter()
+            ->map(fn (array $p) => $p['langue'] . ':' . $p['index'])
+            ->unique();
+
+        $nomNiveauNormalise = mb_strtoupper(trim($niveauActuel->nom), 'UTF-8');
+        $estNiveauRegroupe = $paliersDistincts->count() >= 2
+            || preg_match('/^(NIVEAU|LEVEL)\s*[1-3]$/u', $nomNiveauNormalise) === 1;
+
+        if (! $estNiveauRegroupe) {
+            return null;
+        }
+
+        $sequence = $palierActuel['langue'] === 'en'
+            ? ['CLASS 1', 'CLASS 2', 'CLASS 3', 'CLASS 4', 'CLASS 5', 'CLASS 6']
+            : ['SIL', 'CP', 'CE1', 'CE2', 'CM1', 'CM2'];
+
+        $suivant = $sequence[$palierActuel['index'] + 1] ?? null;
+
+        if ($suivant === null) {
+            // Fin de cycle primaire regroupé (CM2 ou CLASS 6) : rester dans le même cycle
+            // pour éviter tout basculement vers un niveau d'une autre section linguistique.
+            $niveauSuivantMemeCycle = Niveau::where('cycle_id', $niveauActuel->cycle_id)
+                ->where('ordre', '>', $niveauActuel->ordre)
+                ->orderBy('ordre')
+                ->first();
+
+            $suivant = $niveauSuivantMemeCycle?->nom ?? 'CLASSE SUPÉRIEURE';
+        }
+
+        return [
+            'actuel' => $palierActuel['label'],
+            'suivant' => $suivant,
+        ];
+    }
+
+    /**
+     * Identifie le palier primaire officiel (FR ou EN) à partir du nom ou du code d'une classe.
+     *
+     * @param  string|null  $nom  Le nom affiché de la classe (ex. "SIL", "CP A", "Class 2")
+     * @param  string|null  $code  Le code technique éventuel (ex. "CLASS-1")
+     * @return array{langue: 'fr'|'en', index: int, label: string}|null
+     */
+    private function extrairePalierPrimaire(?string $nom, ?string $code = null): ?array
+    {
+        $sequenceFr = ['SIL', 'CP', 'CE1', 'CE2', 'CM1', 'CM2'];
+        $sequenceEn = ['CLASS 1', 'CLASS 2', 'CLASS 3', 'CLASS 4', 'CLASS 5', 'CLASS 6'];
+
+        foreach ([$nom, $code] as $valeur) {
+            if (! is_string($valeur) || trim($valeur) === '') {
+                continue;
+            }
+
+            $normalise = preg_replace('/\s+/u', ' ', mb_strtoupper(trim($valeur), 'UTF-8')) ?? '';
+
+            if (preg_match('/^(SIL|CP|CE\s*1|CE\s*2|CM\s*1|CM\s*2)(?:\b|[\s\-_].*)$/u', $normalise, $matches) === 1) {
+                $cle = str_replace(' ', '', $matches[1]);
+                $index = array_search($cle, $sequenceFr, true);
+
+                if ($index !== false) {
+                    return [
+                        'langue' => 'fr',
+                        'index' => (int) $index,
+                        'label' => $sequenceFr[(int) $index],
+                    ];
+                }
+            }
+
+            if (preg_match('/^CLASS[\s\-_]*([1-6])(?:\b|[\s\-_].*|[A-Z].*)$/u', $normalise, $matches) === 1) {
+                $index = ((int) $matches[1]) - 1;
+
+                return [
+                    'langue' => 'en',
+                    'index' => $index,
+                    'label' => $sequenceEn[$index],
+                ];
+            }
+        }
+
+        return null;
     }
 }

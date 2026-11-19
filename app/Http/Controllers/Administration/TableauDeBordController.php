@@ -50,7 +50,7 @@ class TableauDeBordController extends Controller implements HasMiddleware
     public function index(Request $request, StatistiqueConseilService $statistiqueService): InertiaResponse
     {
         $user = $request->user();
-        $isSuperAdmin = $user ? ($user->hasRole('super-admin') || $user->email === 'admin@gmail.com') : false;
+        $isSuperAdmin = $user ? $user->isSuperAdmin() : false;
 
         /**
          * Principe Zero-Trust : Un utilisateur qui n'a aucun rôle ou dont le rôle ne possède aucune permission
@@ -61,6 +61,8 @@ class TableauDeBordController extends Controller implements HasMiddleware
         if (! $hasAccess) {
             return Inertia::render('dashboard', [
                 'hasAccess' => false,
+                'supportsAllEtablissements' => false,
+                'isAllEtablissements' => false,
                 'etablissements' => [],
                 'currentEtablissement' => null,
                 'annees' => [],
@@ -178,6 +180,8 @@ class TableauDeBordController extends Controller implements HasMiddleware
 
             return Inertia::render('dashboard', [
                 'hasAccess' => true,
+                'supportsAllEtablissements' => false,
+                'isAllEtablissements' => false,
                 'isEnseignantDashboard' => true,
                 'etablissements' => $etablissements,
                 'currentEtablissement' => $currentEtablissement,
@@ -199,18 +203,23 @@ class TableauDeBordController extends Controller implements HasMiddleware
             ]);
         }
 
+        $scope = $this->resolveStatsScope($request, $context);
+        $targetIds = $scope['targetIds'];
+
         // 1. Statistiques Démographiques (15.1)
-        $demographie = $statistiqueService->getStatistiquesDemographiques($etablissementId, $anneeId);
+        $demographie = $statistiqueService->getStatistiquesDemographiques($targetIds, $anneeId);
 
         // 2. Statistiques Pédagogiques & Décrochage (15.3)
-        $pedagogie = $statistiqueService->getStatistiquesPedagogiques($etablissementId, $anneeId);
+        $pedagogie = $statistiqueService->getStatistiquesPedagogiques($targetIds, $anneeId);
 
         // 3. Statistiques Financières (15.3)
-        $finances = $statistiqueService->getStatistiquesFinancieres($etablissementId, $anneeId);
+        $finances = $statistiqueService->getStatistiquesFinancieres($targetIds, $anneeId);
 
         return Inertia::render('dashboard', [
             'hasAccess' => true,
             'isEnseignantDashboard' => false,
+            'supportsAllEtablissements' => $scope['supportsAllEtablissements'],
+            'isAllEtablissements' => $scope['isAllEtablissements'],
             'etablissements' => $etablissements,
             'currentEtablissement' => $currentEtablissement,
             'annees' => $annees,
@@ -235,36 +244,61 @@ class TableauDeBordController extends Controller implements HasMiddleware
         $context = $this->resolveEtablissementContext($request, ['institution']);
         $etablissements = $context['etablissements'];
         $currentEtablissement = $context['selectedEtablissement'];
-        $etablissementId = $currentEtablissement?->id ?? 0;
+        $scope = $this->resolveStatsScope($request, $context);
+        $targetIds = $scope['targetIds'];
 
         $annees = AnneeScolaire::orderByDesc('date_debut')->get();
         $anneeActive = AnneeScolaire::current() ?? $annees->first();
         $anneeId = $request->integer('annee_id', $anneeActive?->id ?? 0);
 
-        $classes = Classe::whereHas('niveau.cycle.section', fn ($q) => $q->where('etablissement_id', $etablissementId))
+        $classes = Classe::with('niveau.cycle.section.etablissement')
+            ->whereHas('niveau.cycle.section', fn ($q) => $q->whereIn('etablissement_id', $targetIds))
             ->orderBy('nom')
             ->get();
 
-        $selectedClasseId = $request->integer('classe_id') ?: null;
+        // Sécurisation multi-campus : réinitialiser classe_id si la classe n'appartient pas au périmètre actif
+        $requestedClasseId = $request->integer('classe_id') ?: null;
+        $selectedClasseId = ($requestedClasseId && $classes->contains('id', $requestedClasseId))
+            ? $requestedClasseId
+            : null;
 
-        // Données complètes
-        $demographie = $statistiqueService->getStatistiquesDemographiques($etablissementId, $anneeId);
-        $pedagogie = $statistiqueService->getStatistiquesPedagogiques($etablissementId, $anneeId);
-        $finances = $statistiqueService->getStatistiquesFinancieres($etablissementId, $anneeId);
-        $listesOfficielles = $statistiqueService->getListesOfficiellesExamens($etablissementId, $selectedClasseId, $anneeId);
+        // Disambiguiser les noms de classes homonymes lorsque plusieurs établissements sont agrégés
+        $nameOccurrences = $scope['isAllEtablissements'] ? $classes->countBy('nom') : collect();
+        $classesOptions = $classes->map(function ($cls) use ($scope, $nameOccurrences) {
+            $etabCode = $cls->niveau?->cycle?->section?->etablissement?->code;
+            $nom = ($scope['isAllEtablissements'] && ($nameOccurrences->get($cls->nom, 0) > 1) && $etabCode)
+                ? "{$cls->nom} ({$etabCode})"
+                : $cls->nom;
+
+            return [
+                'id' => $cls->id,
+                'nom' => $nom,
+            ];
+        })->values();
+
+        // Données complètes sur le(s) campus sélectionné(s)
+        $demographie = $statistiqueService->getStatistiquesDemographiques($targetIds, $anneeId);
+        $pedagogie = $statistiqueService->getStatistiquesPedagogiques($targetIds, $anneeId);
+        $finances = $statistiqueService->getStatistiquesFinancieres($targetIds, $anneeId);
+        $listesOfficielles = $statistiqueService->getListesOfficiellesExamens($targetIds, $selectedClasseId, $anneeId);
 
         return Inertia::render('administration/statistiques/index', [
+            'supportsAllEtablissements' => $scope['supportsAllEtablissements'],
+            'isAllEtablissements' => $scope['isAllEtablissements'],
             'etablissements' => $etablissements,
             'currentEtablissement' => $currentEtablissement,
             'annees' => $annees,
             'currentAnneeId' => $anneeId,
-            'classes' => $classes,
+            'classes' => $classesOptions,
             'selectedClasseId' => $selectedClasseId,
             'demographie' => $demographie,
             'pedagogie' => $pedagogie,
             'finances' => $finances,
             'listesOfficielles' => $listesOfficielles,
-            'filters' => $request->only(['tab', 'classe_id']),
+            'filters' => [
+                ...$request->only(['tab']),
+                'classe_id' => $selectedClasseId,
+            ],
         ]);
     }
 
@@ -280,23 +314,72 @@ class TableauDeBordController extends Controller implements HasMiddleware
         abort_if(! $request->user()?->can('statistiques.view') && ! $request->user()?->hasRole('super-admin'), 403);
 
         $context = $this->resolveEtablissementContext($request, ['institution']);
+        $scope = $this->resolveStatsScope($request, $context);
+        $targetIds = $scope['targetIds'];
         $etablissement = $context['selectedEtablissement'] ?? Etablissement::with('institution')->findOrFail($context['etablissementId']);
+
         $classeId = $request->integer('classe_id') ?: null;
-        $classe = $classeId ? Classe::find($classeId) : null;
+        // Restreint la classe sélectionnée aux campus autorisés du périmètre actif
+        $classe = $classeId
+            ? Classe::whereHas('niveau.cycle.section', fn ($q) => $q->whereIn('etablissement_id', $targetIds))->find($classeId)
+            : null;
         $annee = AnneeScolaire::find($request->integer('annee_id')) ?? AnneeScolaire::current();
 
-        $eleves = $statistiqueService->getListesOfficiellesExamens($etablissement->id, $classeId, $annee?->id);
+        $eleves = $statistiqueService->getListesOfficiellesExamens($targetIds, $classe?->id, $annee?->id);
 
         $pdf = Pdf::loadView('pdf.bordereau_officiel', [
             'etablissement' => $etablissement,
+            'isAllEtablissements' => $scope['isAllEtablissements'],
             'classe' => $classe,
             'annee' => $annee,
             'eleves' => $eleves,
             'dateGeneration' => now()->format('d/m/Y H:i'),
         ])->setPaper('a4', 'landscape');
 
-        $nomFichier = 'Bordereau_Officiel_' . ($classe ? $classe->code : 'Etablissement') . '_' . date('Ymd_His') . '.pdf';
+        $prefixePortee = $classe ? $classe->code : ($scope['isAllEtablissements'] ? 'Tous_Etablissements' : 'Etablissement');
+        $nomFichier = 'Bordereau_Officiel_' . $prefixePortee . '_' . date('Ymd_His') . '.pdf';
 
         return $pdf->stream($nomFichier);
+    }
+
+    /**
+     * Détermine le périmètre effectif (campus unique ou « Tous les établissements ») pour le tableau de bord et les statistiques.
+     *
+     * @param Request $request Requête HTTP entrante.
+     * @param array<string, mixed> $context Contexte résolu par `resolveEtablissementContext`.
+     * @return array{
+     *     supportsAllEtablissements: bool,
+     *     isAllEtablissements: bool,
+     *     targetIds: array<int, int>
+     * }
+     */
+    protected function resolveStatsScope(Request $request, array $context): array
+    {
+        $etablissements = $context['etablissements'];
+        $canAccessAll = (bool) ($context['canAccessAll'] ?? $context['isSuperAdmin'] ?? false);
+        $supportsAll = $canAccessAll && $etablissements->count() > 1;
+        $requestedId = $request->query('etablissement_id') ?? $request->input('etablissement_id');
+
+        $isAll = false;
+        if ($supportsAll) {
+            if ($requestedId !== null && $requestedId !== '') {
+                $isAll = ($requestedId === 'all');
+                if ($request->hasSession()) {
+                    $request->session()->put('current_etablissement_scope', $isAll ? 'all' : 'single');
+                }
+            } elseif ($request->hasSession()) {
+                $isAll = $request->session()->get('current_etablissement_scope') === 'all';
+            }
+        }
+
+        $targetIds = $isAll
+            ? $etablissements->pluck('id')->map(fn ($id) => (int) $id)->values()->all()
+            : ($context['selectedEtablissement'] ? [(int) $context['selectedEtablissement']->id] : []);
+
+        return [
+            'supportsAllEtablissements' => $supportsAll,
+            'isAllEtablissements' => $isAll,
+            'targetIds' => $targetIds,
+        ];
     }
 }

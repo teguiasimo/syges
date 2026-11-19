@@ -9,7 +9,6 @@ import {
     CalendarDays,
     CalendarRange,
     CheckSquare,
-    Contact,
     CreditCard,
     Edit3,
     FileCheck,
@@ -17,9 +16,9 @@ import {
     FileText,
     Gavel,
     GraduationCap,
+    Image as ImageIcon,
     Layers,
     MessageSquare,
-    Receipt,
     RefreshCw,
     School,
     ShieldAlert,
@@ -77,7 +76,7 @@ export interface NavModuleGroup {
  * Ordre structurel & chronologique de mise en place :
  * 1. FONDATIONS & STRUCTURE (Priorité 1 : Structure & Campus, Années & Périodes, Matières & Coeffs)
  * 2. PERSONNEL & ENSEIGNEMENT (Priorité 2 : Personnel & RH, Attribution des Cours, Emplois du Temps)
- * 3. VIE SCOLAIRE & ÉLÈVES (Priorité 3 : Inscriptions, Caisse & Scolarités, Discipline & Absences)
+ * 3. VIE SCOLAIRE & ÉLÈVES (Priorité 3 : Inscriptions, Finances & Tarifs, Guichet & Scolarités, Discipline & Absences)
  * 4. PÉDAGOGIE & ÉVALUATIONS (Priorité 4 : Saisie des Notes, Bulletins Scolaires, Délibérations & Conseil)
  * 5. PILOTAGE & DIFFUSION (Priorité 5 : Statistiques ministérielles & Rapports, Diffusion SMS)
  * 6. SÉCURITÉ & SYSTÈME (Priorité 6 : Gestion des Utilisateurs, Rôles & Permissions RBAC)
@@ -94,6 +93,14 @@ const MODULE_GROUPS: NavModuleGroup[] = [
                 color: 'text-emerald-500 dark:text-emerald-400',
                 permission: 'institutions.view',
                 tooltip: 'Établissements, Cycles & Classes (Gesco 1)',
+            },
+            {
+                title: 'Apparence & Identité',
+                href: '/administration/institution/login-appearance',
+                icon: ImageIcon,
+                color: 'text-sky-500 dark:text-sky-400',
+                permission: 'institutions.edit',
+                tooltip: 'Carrousel login, logo du menu latéral, favicon & branding',
             },
             {
                 title: 'Années & Périodes',
@@ -155,20 +162,20 @@ const MODULE_GROUPS: NavModuleGroup[] = [
             },
 
             {
-                title: 'Guichet & Scolarités',
-                href: '/administration/finances/scolarites',
-                icon: CreditCard,
-                color: 'text-emerald-600 dark:text-emerald-400',
-                permission: 'finances.view',
-                tooltip: 'Encaissement par classe & Dossiers Financiers Élèves',
-            },
-            {
                 title: 'Finances & Tarifs',
                 href: '/administration/finances',
                 icon: Wallet,
                 color: 'text-teal-600 dark:text-teal-400',
                 permission: 'finances.view',
                 tooltip: 'Types de frais, Grille tarifaire, Remises & Journal (Gesco 11)',
+            },
+            {
+                title: 'Guichet & Scolarités',
+                href: '/administration/finances/scolarites',
+                icon: CreditCard,
+                color: 'text-emerald-600 dark:text-emerald-400',
+                permission: 'finances.view',
+                tooltip: 'Encaissement par classe & Dossiers Financiers Élèves',
             },
             {
                 title: 'Dépenses & Charges',
@@ -311,7 +318,6 @@ const MODULE_GROUPS: NavModuleGroup[] = [
                 icon: RefreshCw,
                 color: 'text-sky-500 dark:text-sky-400',
                 permission: 'system.update',
-                superAdminOnly: true,
                 tooltip: 'Gestionnaire de Versions SemVer & Mise à jour GitHub',
             },
         ],

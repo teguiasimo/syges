@@ -7,7 +7,6 @@ use App\Models\Attribution;
 use App\Models\Classe;
 use App\Models\CompteFinancierEleve;
 use App\Models\Cycle;
-use App\Models\DeliberationConseil;
 use App\Models\DisciplineBulletin;
 use App\Models\Eleve;
 use App\Models\Etablissement;
@@ -47,20 +46,27 @@ class StatistiqueConseilTest extends TestCase
     use RefreshDatabase;
 
     public ?User $unauthorizedUser = null;
+
     public ?User $directorUser = null;
+
     public ?User $adminUser = null;
+
     public ?Etablissement $etablissement = null;
+
     public ?AnneeScolaire $anneeScolaire = null;
+
     public ?Classe $classe = null;
+
     public ?Inscription $inscription1 = null;
+
     public ?Inscription $inscription2 = null;
+
     public ?Inscription $inscription3 = null;
+
     public ?Periode $trimestre1 = null;
 
     /**
      * Initialisation de l'environnement de test du Module 15.
-     *
-     * @return void
      */
     protected function setUp(): void
     {
@@ -106,6 +112,9 @@ class StatistiqueConseilTest extends TestCase
             'mode_bulletin_defaut' => 'sans_competences',
             'type_calcul_trimestre' => 'arithmetique',
         ]);
+
+        // Rattacher le directeur de test au campus principal pour respecter l'isolation EtablissementScope
+        $this->directorUser->update(['etablissement_id' => $this->etablissement->id]);
 
         $this->anneeScolaire = AnneeScolaire::create([
             'nom' => '2026-2027',
@@ -360,8 +369,6 @@ class StatistiqueConseilTest extends TestCase
 
     /**
      * Teste les contrôles d'accès RBAC pour les délibérations et statistiques.
-     *
-     * @return void
      */
     public function test_controle_acces_rbac_statistiques_et_deliberations(): void
     {
@@ -386,8 +393,6 @@ class StatistiqueConseilTest extends TestCase
 
     /**
      * Teste le calcul précis des KPIs démographiques et d'effectifs (Gesco 15.1).
-     *
-     * @return void
      */
     public function test_kpis_demographiques_et_parite(): void
     {
@@ -418,8 +423,6 @@ class StatistiqueConseilTest extends TestCase
 
     /**
      * Teste la détection précoce du risque de décrochage scolaire (Gesco 15.3).
-     *
-     * @return void
      */
     public function test_detection_eleves_en_decrochage_scolaire(): void
     {
@@ -446,8 +449,6 @@ class StatistiqueConseilTest extends TestCase
 
     /**
      * Teste la synthèse financière consolidée pour la Direction (Gesco 15.3).
-     *
-     * @return void
      */
     public function test_synthese_financiere_direction(): void
     {
@@ -475,8 +476,6 @@ class StatistiqueConseilTest extends TestCase
 
     /**
      * Teste l'attribution des mentions d'honneur et la déchéance d'office pour indiscipline (Gesco 15.2 & 12.4).
-     *
-     * @return void
      */
     public function test_attribution_mentions_et_decheance_indiscipline(): void
     {
@@ -506,8 +505,6 @@ class StatistiqueConseilTest extends TestCase
 
     /**
      * Teste la proposition automatique de passage (Étape A) et la validation humaine obligatoire (Étape B) (Gesco 2.6).
-     *
-     * @return void
      */
     public function test_moteur_promotion_et_validation_humaine_obligatoire(): void
     {
@@ -596,8 +593,6 @@ class StatistiqueConseilTest extends TestCase
 
     /**
      * Teste la génération du Procès-Verbal officiel en PDF (Gesco 15.2).
-     *
-     * @return void
      */
     public function test_generation_pv_conseil_classe_pdf(): void
     {
@@ -614,8 +609,6 @@ class StatistiqueConseilTest extends TestCase
 
     /**
      * Teste la génération du bordereau officiel d'examens ministériels en PDF (Gesco 15.1).
-     *
-     * @return void
      */
     public function test_generation_bordereau_examens_pdf(): void
     {
@@ -633,8 +626,6 @@ class StatistiqueConseilTest extends TestCase
     /**
      * Teste la préparation de délibération pour une classe sans notes ni élèves évalués.
      * Vérifie que la structure retournée est complète et empêche les erreurs de page blanche côté React.
-     *
-     * @return void
      */
     public function test_preparer_deliberation_classe_sans_eleves_retourne_structure_complete(): void
     {
@@ -665,4 +656,3 @@ class StatistiqueConseilTest extends TestCase
         $this->assertFalse($deliberation['toutes_validees']);
     }
 }
-

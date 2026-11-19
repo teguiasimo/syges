@@ -207,6 +207,7 @@
     </style>
 </head>
 <body>
+    @include('partials.watermark', ['etablissement' => $etablissement ?? null])
 
     <!-- En-tête bilingue officiel républicain -->
     <table class="header-table">
@@ -297,7 +298,7 @@
                 <div class="stats-val" style="color: #b91c1c;">{{ $stats['redoublants'] }}</div>
             </td>
             <td>
-                <div class="stats-label">Professeur Principal</div>
+                <div class="stats-label">{{ $etablissement->titre_responsable_classe ?? 'Professeur Principal' }}</div>
                 <div class="stats-val" style="font-size: 7.5pt; color: #334155;">
                     {{ $classe->professeurPrincipal ? ($classe->professeurPrincipal->nom . ' ' . $classe->professeurPrincipal->prenom) : 'Non assigné' }}
                 </div>
@@ -326,8 +327,8 @@
                     <td class="col-nom">
                         <strong>{{ mb_strtoupper($insc->eleve->nom) }}</strong> {{ $insc->eleve->prenom }}
                     </td>
-                    <td class="col-sexe" style="{{ $insc->eleve->sexe === 'F' ? 'color: #7c3aed;' : 'color: #0284c7;' }}">
-                        {{ $insc->eleve->sexe }}
+                    <td class="col-sexe" style="{{ $insc->eleve->sexe === 'F' ? 'color: #7c3aed;' : ($insc->eleve->sexe === 'M' ? 'color: #0284c7;' : 'color: #d97706;') }}">
+                        {{ $insc->eleve->sexe ?: '-' }}
                     </td>
                     <td class="col-naiss">
                         {{ $insc->eleve->date_naissance ? \Carbon\Carbon::parse($insc->eleve->date_naissance)->format('d-m-Y') : '---' }}

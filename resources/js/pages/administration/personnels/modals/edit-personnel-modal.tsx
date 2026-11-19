@@ -60,6 +60,7 @@ interface EditPersonnelModalProps {
  */
 const FONCTIONS_PREDEFINIES = [
     'Directeur',
+    'Directrice',
     'Proviseur',
     'Principal',
     'Chef d\'établissement',
@@ -69,6 +70,8 @@ const FONCTIONS_PREDEFINIES = [
     'Économe / Comptable',
     'Secrétaire',
     'Enseignant',
+    'Maître',
+    'Maîtresse',
     'Documentaliste / Bibliothécaire',
     'Infirmier(ère)',
     'Psychologue scolaire',
@@ -412,7 +415,14 @@ export function EditPersonnelModal({
                                 </Label>
                                 <Select
                                     value={data.fonction_principale}
-                                    onValueChange={(val) => setData('fonction_principale', val)}
+                                    onValueChange={(val) => {
+                                        const isTeacherFunction = ['Enseignant', 'Maître', 'Maîtresse', 'Maitre', 'Maitresse'].includes(val);
+                                        setData((prev) => ({
+                                            ...prev,
+                                            fonction_principale: val,
+                                            is_enseignant: isTeacherFunction ? true : prev.is_enseignant,
+                                        }));
+                                    }}
                                 >
                                     <SelectTrigger id="edit_fonction" className="mt-1 h-9 text-sm">
                                         <SelectValue placeholder="Choisir une fonction" />

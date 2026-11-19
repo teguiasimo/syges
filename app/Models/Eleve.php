@@ -21,7 +21,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $matricule_national Identifiant national MINESEC/MINEDUB
  * @property string $nom Nom de famille
  * @property string|null $prenom Prénom(s)
- * @property string $sexe 'M' ou 'F'
+ * @property string|null $sexe 'M', 'F' ou null (Non défini / À compléter)
  * @property Carbon|null $date_naissance
  * @property string|null $lieu_naissance
  * @property string $nationalite Nationalité (par défaut CAMEROUNAISE)
@@ -130,8 +130,11 @@ class Eleve extends Model
     }
 
     /**
-     * Vérifie si l'élève possède des données liées (financières, pédagogiques ou disciplinaires)
+     * Vérifie si l'élève possède des données liées actives (financières, pédagogiques ou disciplinaires)
      * qui interdisent sa suppression physique afin de préserver l'intégrité référentielle et comptable.
+     *
+     * Note métier : un versement préalablement annulé (`statut = 'annule'`) ou une option
+     * résiliée (`statut = 'annule'`) ne bloquent pas la suppression d'un dossier saisi par erreur.
      *
      * @return array<int, string> Liste lisible des dépendances bloquantes détectées (vide si supprimable)
      */
@@ -147,8 +150,9 @@ class Eleve extends Model
 
         $blockers = [];
 
-        // 1. Contrôle financier : versements, bourses/remises, dispenses financières, souscriptions optionnelles
-        $nbVersements = VersementCaisse::withoutGlobalScopes()
+        // 1. Contrôle financier : seuls les versements valides, bourses, dispenses, options actives et pénalités actives bloquent
+        $nbVersementsValides = VersementCaisse::withoutGlobalScopes()
+            ->where('statut', 'valide')
             ->where(function (Builder $q) use ($inscriptionIds, $compteIds) {
                 if ($inscriptionIds->isNotEmpty()) {
                     $q->whereIn('inscription_id', $inscriptionIds);
@@ -160,14 +164,14 @@ class Eleve extends Model
             ->when($inscriptionIds->isEmpty() && $compteIds->isEmpty(), fn (Builder $q) => $q->whereRaw('1 = 0'))
             ->count();
 
-        if ($nbVersements > 0) {
-            $blockers[] = "{$nbVersements} versement(s) financier(s)";
+        if ($nbVersementsValides > 0) {
+            $blockers[] = "{$nbVersementsValides} versement(s) financier(s) valide(s) (annulez-le(s) d'abord dans Finances)";
         }
 
         if ($compteIds->isNotEmpty()) {
             $nbBourses = EleveBourseRemise::whereIn('compte_financier_id', $compteIds)->count();
             if ($nbBourses > 0) {
-                $blockers[] = "{$nbBourses} bourse(s) ou remise(s) accordée(s)";
+                $blockers[] = "{$nbBourses} bourse(s) ou remise(s) attribuée(s)";
             }
 
             $nbDispensesFin = DispenseFinanciere::withoutGlobalScopes()
@@ -177,9 +181,18 @@ class Eleve extends Model
                 $blockers[] = "{$nbDispensesFin} dispense(s) financière(s)";
             }
 
-            $nbOptions = SouscriptionFraisOptionnel::whereIn('compte_financier_id', $compteIds)->count();
-            if ($nbOptions > 0) {
-                $blockers[] = "{$nbOptions} option(s) souscrite(s)";
+            $nbOptionsActives = SouscriptionFraisOptionnel::whereIn('compte_financier_id', $compteIds)
+                ->where('statut', 'actif')
+                ->count();
+            if ($nbOptionsActives > 0) {
+                $blockers[] = "{$nbOptionsActives} option(s) financière(s) active(s)";
+            }
+
+            $nbPenalitesActives = PenaliteEleve::whereIn('compte_financier_id', $compteIds)
+                ->where('statut', '!=', 'annule')
+                ->count();
+            if ($nbPenalitesActives > 0) {
+                $blockers[] = "{$nbPenalitesActives} pénalité(s) de retard active(s)";
             }
         }
 
@@ -198,6 +211,29 @@ class Eleve extends Model
             $nbSanctions = SanctionDisciplinaire::whereIn('inscription_id', $inscriptionIds)->count();
             if ($nbSanctions > 0) {
                 $blockers[] = "{$nbSanctions} sanction(s) disciplinaire(s)";
+            }
+
+            $nbConsignes = HeureConsigne::withoutGlobalScopes()
+                ->whereIn('inscription_id', $inscriptionIds)
+                ->count();
+            if ($nbConsignes > 0) {
+                $blockers[] = "{$nbConsignes} heure(s) de consigne";
+            }
+
+            $nbDisciplinesBulletins = DisciplineBulletin::whereIn('inscription_id', $inscriptionIds)
+                ->where(function (Builder $q) {
+                    $q->where('absences_justifiees', '>', 0)
+                        ->orWhere('absences_non_justifiees', '>', 0)
+                        ->orWhere('retards', '>', 0)
+                        ->orWhere('consignes', '>', 0)
+                        ->orWhere('avertissements_conduite', '>', 0)
+                        ->orWhere('blames_conduite', '>', 0)
+                        ->orWhere('exclusions_jours', '>', 0)
+                        ->orWhereNotNull('decision_conseil');
+                })
+                ->count();
+            if ($nbDisciplinesBulletins > 0) {
+                $blockers[] = "{$nbDisciplinesBulletins} synthèse(s) disciplinaire(s) de bulletin";
             }
 
             $nbDeliberations = DeliberationConseil::whereIn('inscription_id', $inscriptionIds)->count();
@@ -250,39 +286,69 @@ class Eleve extends Model
     }
 
     /**
-     * Génère un matricule unique pour un nouvel élève.
-     * Format officiel court et parlant : [YY]-[0001], ex: 26-0001 (pour l'année 2026/2027).
+     * Génère un matricule unique pour un nouvel élève selon la nomenclature de l'établissement.
      *
-     * @param  int|null  $anneeScolaireId  Identifiant de l'année scolaire pour extraire les 2 chiffres
-     * @param  string|null  $prefix  Préfixe optionnel si besoin
+     * Format officiel structuré : `{CODE_ETAB}-{YYYY}-{0001}`
+     * (ex : `ESP-PRI-2026-0283` ou `ESP-MAT-2026-0222`).
+     * Identifie instantanément le campus/ordre d'enseignement, l'année d'inscription (4 chiffres)
+     * et le numéro séquentiel incrémental unique.
+     *
+     * @param  int|null  $anneeScolaireId  Identifiant de l'année scolaire pour extraire les 4 chiffres
+     * @param  string|null  $prefix  Préfixe explicite optionnel (prioritaire sur le code campus)
+     * @param  int|null  $etablissementId  Identifiant du campus d'inscription pour récupérer son code officiel
      * @return string Le matricule unique formaté
      */
-    public static function generateNextMatricule(?int $anneeScolaireId = null, ?string $prefix = null): string
-    {
-        // 1. Détermine l'année sur 2 chiffres depuis l'année scolaire ou l'année active
+    public static function generateNextMatricule(
+        ?int $anneeScolaireId = null,
+        ?string $prefix = null,
+        ?int $etablissementId = null
+    ): string {
+        // 1. Détermine l'année d'inscription sur 4 chiffres depuis l'année scolaire ou l'année active
+        $annee = $anneeScolaireId ? AnneeScolaire::find($anneeScolaireId) : AnneeScolaire::current();
+        if (! $annee) {
+            $annee = AnneeScolaire::current();
+        }
+
         $yearCode = null;
-        if ($anneeScolaireId) {
-            $annee = AnneeScolaire::find($anneeScolaireId);
-            $yearCode = $annee?->date_debut ? $annee->date_debut->format('y') : null;
+        if ($annee?->date_debut) {
+            $yearCode = $annee->date_debut->format('Y');
+        } elseif ($annee?->code && preg_match('/(\d{4})/', (string) $annee->code, $yearMatches)) {
+            $yearCode = $yearMatches[1];
+        } else {
+            $yearCode = Carbon::now()->format('Y');
         }
 
-        if (! $yearCode) {
-            $currentAnnee = AnneeScolaire::current();
-            $yearCode = $currentAnnee?->date_debut ? $currentAnnee->date_debut->format('y') : Carbon::now()->format('y');
+        // 2. Détermine le code d'établissement / préfixe (ex: "ESP-PRI", "ESP-MAT")
+        $etabPrefix = null;
+        if (! empty($prefix)) {
+            $etabPrefix = strtoupper(trim($prefix));
+        } elseif ($etablissementId) {
+            $etablissement = Etablissement::find($etablissementId);
+            if ($etablissement && ! empty($etablissement->code)) {
+                $etabPrefix = strtoupper(trim((string) $etablissement->code));
+            } elseif ($etablissement && ! empty($etablissement->sigle)) {
+                $etabPrefix = strtoupper(trim((string) $etablissement->sigle));
+            }
         }
 
-        // 2. Base du matricule : ex: "26-" (ou avec préfixe optionnel si spécifié)
-        $base = $prefix ? strtoupper(trim($prefix)).$yearCode.'-' : $yearCode.'-';
+        $base = ($etabPrefix ?: 'GS').'-'.$yearCode.'-';
 
-        // 3. Trouve le dernier numéro incrémental attribué pour cette base
-        $lastRecord = static::where('matricule', 'like', $base.'%')
-            ->orderByDesc('matricule')
-            ->first();
+        // 3. Recherche le numéro séquentiel numérique maximal existant pour cette nomenclature
+        $pattern = '/^'.preg_quote($base, '/').'(\d+)$/';
+        $maxNum = 0;
 
-        $nextNum = 1;
-        if ($lastRecord && preg_match('/-(\d+)$/', $lastRecord->matricule, $matches)) {
-            $nextNum = ((int) $matches[1]) + 1;
-        }
+        static::where('matricule', 'like', $base.'%')
+            ->pluck('matricule')
+            ->each(function (string $matricule) use ($pattern, &$maxNum): void {
+                if (preg_match($pattern, $matricule, $matches)) {
+                    $num = (int) $matches[1];
+                    if ($num > $maxNum) {
+                        $maxNum = $num;
+                    }
+                }
+            });
+
+        $nextNum = $maxNum + 1;
 
         // 4. Boucle de garantie stricte d'unicité en base de données
         do {

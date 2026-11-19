@@ -34,16 +34,18 @@ interface EditEleveModalProps {
 export function EditEleveModal({ open, onOpenChange, eleve }: EditEleveModalProps) {
     const [loading, setLoading] = useState(false);
     const [activeTab, setActiveTab] = useState<'identite' | 'parents'>('identite');
-    const [formData, setFormData] = useState<Partial<Eleve> & { is_redoublant?: boolean; inscription_id?: number }>({});
+    const [formData, setFormData] = useState<Omit<Partial<Eleve>, 'sexe'> & { sexe?: 'M' | 'F' | '' | null; is_redoublant?: boolean; inscription_id?: number }>({});
 
+    /**
+     * Synchronise les champs éditables du formulaire à chaque changement d'élève sélectionné.
+     */
     useEffect(() => {
         if (eleve) {
             setFormData({
-                matricule: eleve.matricule || '',
                 matricule_national: eleve.matricule_national || '',
                 nom: eleve.nom || '',
                 prenom: eleve.prenom || '',
-                sexe: eleve.sexe || 'M',
+                sexe: eleve.sexe || '',
                 date_naissance: eleve.date_naissance || '',
                 lieu_naissance: eleve.lieu_naissance || '',
                 nationalite: eleve.nationalite || 'CAMEROUNAISE',
@@ -129,15 +131,27 @@ export function EditEleveModal({ open, onOpenChange, eleve }: EditEleveModalProp
                 <form onSubmit={handleSubmit} className="space-y-4 pt-2">
                     {activeTab === 'identite' && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 animate-in fade-in-50">
+                            {/* Matricule interne strictement non cliquable et non modifiable (lecture seule) */}
                             <div>
-                                <Label htmlFor="edit_matricule">Matricule Interne</Label>
-                                <Input
-                                    id="edit_matricule"
-                                    value={formData.matricule || ''}
-                                    onChange={(e) => setFormData({ ...formData, matricule: e.target.value })}
-                                    required
-                                    className="font-mono mt-1"
-                                />
+                                <div className="flex items-center justify-between mb-1">
+                                    <span className="text-sm font-medium leading-none text-slate-700 dark:text-slate-300">
+                                        Matricule Interne
+                                    </span>
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                                        Non modifiable
+                                    </span>
+                                </div>
+                                <div className="mt-1 cursor-not-allowed select-none">
+                                    <Input
+                                        id="edit_matricule"
+                                        value={eleve.matricule || ''}
+                                        readOnly
+                                        disabled
+                                        aria-readonly="true"
+                                        tabIndex={-1}
+                                        className="font-mono bg-slate-100/80 dark:bg-slate-900/60 text-slate-600 dark:text-slate-300 border-dashed focus-visible:ring-0 pointer-events-none select-none disabled:opacity-90"
+                                    />
+                                </div>
                             </div>
 
                             <div>
@@ -176,10 +190,11 @@ export function EditEleveModal({ open, onOpenChange, eleve }: EditEleveModalProp
                                 <Label htmlFor="edit_sexe">Sexe</Label>
                                 <select
                                     id="edit_sexe"
-                                    value={formData.sexe || 'M'}
-                                    onChange={(e) => setFormData({ ...formData, sexe: e.target.value as 'M' | 'F' })}
+                                    value={formData.sexe || ''}
+                                    onChange={(e) => setFormData({ ...formData, sexe: (e.target.value || '') as 'M' | 'F' | '' })}
                                     className="w-full mt-1 h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                                 >
+                                    <option value="">Non défini (À compléter)</option>
                                     <option value="M">Masculin (M)</option>
                                     <option value="F">Féminin (F)</option>
                                 </select>
@@ -234,12 +249,11 @@ export function EditEleveModal({ open, onOpenChange, eleve }: EditEleveModalProp
                     {activeTab === 'parents' && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 animate-in fade-in-50">
                             <div className="sm:col-span-2">
-                                <Label htmlFor="edit_telephone_parent">Téléphone Principal Parent/Tuteur *</Label>
+                                <Label htmlFor="edit_telephone_parent">Téléphone Principal Parent/Tuteur</Label>
                                 <Input
                                     id="edit_telephone_parent"
                                     value={formData.telephone_parent || ''}
                                     onChange={(e) => setFormData({ ...formData, telephone_parent: e.target.value })}
-                                    required
                                     className="mt-1 font-mono"
                                 />
                             </div>

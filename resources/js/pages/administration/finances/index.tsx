@@ -3,13 +3,13 @@ import { Head, Link, router } from '@inertiajs/react';
 import { type ColumnDef } from '@tanstack/react-table';
 import {
     AlertCircle,
+    ArrowLeft,
     Award,
     Building2,
     Calendar,
     CheckCircle2,
     CheckSquare,
     ChevronDown,
-    Compass,
     CreditCard,
     DollarSign,
     Edit,
@@ -23,7 +23,6 @@ import {
     Printer,
     Receipt,
     ShieldCheck,
-    SlidersHorizontal,
     Smartphone,
     Square,
     Tag,
@@ -34,11 +33,12 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { calculerSyntheseCategoriesGrille } from '@/lib/finance-categories';
-import { formatDate } from '@/lib/utils';
+import { formatDate, formatDateForInput } from '@/lib/utils';
 import { useConfirmDelete } from '@/components/confirm-delete-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { DataTable } from '@/components/ui/data-table';
 import {
     DropdownMenu,
@@ -65,9 +65,11 @@ import {
     CategorieFrais,
     ClotureCaisse,
     CompteFinancierEleve,
+    formatBaseCalculRemiseLabel,
     formatCibleImputationLabel,
     FraisScolaire,
     JournalDuJour,
+    ModePaiement,
     NiveauFinanceRef,
     ReglementDivers,
     TypeFrais,
@@ -76,10 +78,6 @@ import {
 import PanneauAffectationNiveaux from './components/panneau-affectation-niveaux';
 import AnnulerVersementModal from './modals/annuler-versement-modal';
 import ClotureCaisseModal from './modals/cloture-caisse-modal';
-import GenerateurEtatsFinanciersModal, {
-    type PeriodePreset,
-    type TypeEtatFinancier,
-} from './modals/generateur-etats-modal';
 import ModeleBourseModal from './modals/modele-bourse-modal';
 import NouveauReglementDiversModal from './modals/nouveau-reglement-divers-modal';
 import TarifModal from './modals/tarif-modal';
@@ -160,6 +158,7 @@ export default function FinancesIndex({
     const canConfigureFrais = can?.frais_configure ?? can?.manage ?? false;
     const canManageBourses = can?.bourses_manage ?? can?.manage ?? false;
     const canRecettesDiverses = can?.recettes_diverses_create ?? can?.versements_create ?? false;
+    const canEditVersements = can?.versements_edit ?? can?.manage ?? false;
     const canCancelVersements = can?.versements_cancel ?? can?.manage ?? false;
     const canCloture = can?.caisses_cloture ?? can?.manage ?? false;
     const canVerrouSolvabilite = can?.verrou_solvabilite ?? can?.manage ?? false;
@@ -206,26 +205,82 @@ export default function FinancesIndex({
     const [bourseToEdit, setBourseToEdit] = useState<BourseRemise | null>(null);
 
     const [isReglementDiversModalOpen, setIsReglementDiversModalOpen] = useState(false);
+    const [reglementToEdit, setReglementToEdit] = useState<ReglementDivers | null>(null);
     const [versementToCancel, setVersementToCancel] = useState<VersementCaisse | null>(null);
+    const [versementToEdit, setVersementToEdit] = useState<VersementCaisse | null>(null);
+    const [editVersMontant, setEditVersMontant] = useState<string>('');
+    const [editVersDate, setEditVersDate] = useState<string>('');
+    const [editVersMode, setEditVersMode] = useState<ModePaiement>('especes');
+    const [editVersRef, setEditVersRef] = useState<string>('');
+    const [editVersPayeur, setEditVersPayeur] = useState<string>('');
+    const [savingEditVersement, setSavingEditVersement] = useState<boolean>(false);
     const [selectedVersementIds, setSelectedVersementIds] = useState<number[]>([]);
     const [isBatchCancelModalOpen, setIsBatchCancelModalOpen] = useState<boolean>(false);
     const [isClotureModalOpen, setIsClotureModalOpen] = useState(false);
 
-    // Générateur d'états financiers multicritères (période date_debut/date_fin + hiérarchie scolaire)
-    const [isEtatsModalOpen, setIsEtatsModalOpen] = useState<boolean>(false);
-    const [etatInitialType, setEtatInitialType] = useState<TypeEtatFinancier>('journal_synthetique');
-    const [etatInitialPreset, setEtatInitialPreset] = useState<PeriodePreset>('mois');
+    /**
+     * Prépare l'édition rapide d'un versement de scolarité depuis l'onglet Historique & Reçus.
+     *
+     * @param {VersementCaisse} v Versement valide sélectionné
+     */
+    const openEditVersementForm = (v: VersementCaisse) => {
+        setVersementToEdit(v);
+        setEditVersMontant(String(Number(v.montant_total || 0)));
+        setEditVersDate(formatDateForInput(v.date_versement) || formatDateForInput(new Date()));
+        setEditVersMode((v.mode_paiement as ModePaiement) || 'especes');
+        setEditVersRef(v.reference_paiement || '');
+        setEditVersPayeur(v.payeur_nom || '');
+    };
 
     /**
-     * Ouvre la fenêtre modale du générateur d'états financiers avec un type d'état et une période pré-sélectionnés.
+     * Soumet la modification d'un versement de scolarité et recalcule le dossier élève.
+     *
+     * @param {React.FormEvent} e Événement formulaire
      */
-    const openGenerateurEtats = (
-        type: TypeEtatFinancier = 'journal_synthetique',
-        preset: PeriodePreset = 'mois'
-    ) => {
-        setEtatInitialType(type);
-        setEtatInitialPreset(preset);
-        setIsEtatsModalOpen(true);
+    const handleSaveEditVersement = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!versementToEdit) return;
+
+        const montant = Math.round((parseFloat(editVersMontant) || 0) * 100) / 100;
+        if (montant <= 0) {
+            toast.error('Veuillez saisir un montant valide supérieur à 0 FCFA.', {
+                position: 'top-right',
+            });
+            return;
+        }
+
+        setSavingEditVersement(true);
+        router.put(
+            `/administration/finances/versements/${versementToEdit.id}`,
+            {
+                montant_total: montant,
+                date_versement: editVersDate,
+                mode_paiement: editVersMode,
+                reference_paiement: editVersRef.trim() || null,
+                payeur_nom: editVersPayeur.trim() || null,
+                mode_allocation: 'auto',
+            },
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    toast.success(
+                        `Reçu ${versementToEdit.reference_recu} modifié (${montant.toLocaleString('fr-FR')} FCFA).`,
+                        {
+                            position: 'top-right',
+                            className: 'bg-emerald-600 text-white border-none',
+                        }
+                    );
+                    setVersementToEdit(null);
+                },
+                onError: (errors) => {
+                    const first = Object.values(errors)[0] as string;
+                    toast.error(first || 'Impossible de modifier ce versement.', {
+                        position: 'top-right',
+                    });
+                },
+                onFinish: () => setSavingEditVersement(false),
+            }
+        );
     };
 
     /**
@@ -435,20 +490,6 @@ export default function FinancesIndex({
             },
         },
         {
-            accessorKey: 'obligatoire',
-            header: 'Caractère',
-            cell: ({ row }) =>
-                row.original.obligatoire ? (
-                    <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-300 text-[10px] font-semibold">
-                        Obligatoire
-                    </Badge>
-                ) : (
-                    <Badge className="bg-sky-100 text-sky-800 dark:bg-sky-950/60 dark:text-sky-300 border-sky-300 text-[10px] font-semibold">
-                        Optionnel (à la carte)
-                    </Badge>
-                ),
-        },
-        {
             accessorKey: 'date_limite_defaut',
             header: 'Date Butoir',
             cell: ({ row }) => (
@@ -505,18 +546,6 @@ export default function FinancesIndex({
                                     </Badge>
                                 )}
                             </>
-                        )}
-                        {canConfigureFrais && (
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 px-1.5 text-[10px] font-bold text-emerald-700 hover:bg-emerald-50"
-                                title="Rattacher ce frais à un ou plusieurs niveaux dans l'espace pleine largeur"
-                                onClick={() => ouvrirAffectationPleineLargeur(row.original)}
-                            >
-                                + Niveaux
-                            </Button>
                         )}
                     </div>
                 );
@@ -665,9 +694,13 @@ export default function FinancesIndex({
                         <span className="font-semibold text-xs text-slate-800 dark:text-slate-200">
                             {libelle}
                         </span>
-                        {!row.original.type_frais?.obligatoire && (
-                            <Badge className="bg-sky-100 text-sky-800 border-sky-200 text-[10px]">
+                        {row.original.obligatoire === false ? (
+                            <Badge className="bg-sky-100 text-sky-800 dark:bg-sky-950/60 dark:text-sky-300 border-sky-300 text-[10px] font-semibold">
                                 Optionnel
+                            </Badge>
+                        ) : (
+                            <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-300 text-[10px] font-semibold">
+                                Obligatoire
                             </Badge>
                         )}
                     </div>
@@ -787,37 +820,41 @@ export default function FinancesIndex({
      */
     const boursesRemisesColumns = useMemo<ColumnDef<BourseRemise>[]>(() => [
         {
-            accessorKey: 'nom',
-            header: 'Libellé de la Remise / Bourse',
-            cell: ({ row }) => (
-                <div className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                    {row.original.nom}
-                </div>
-            ),
-        },
-        {
             accessorKey: 'categorie',
             header: 'Catégorie',
-            cell: ({ row }) => (
-                <Badge variant="outline" className="text-[10px]">
-                    {row.original.categorie}
-                </Badge>
-            ),
+            cell: ({ row }) => {
+                const isBourse = row.original.type === 'bourse' || row.original.categorie?.toUpperCase() === 'BOURSE';
+                return (
+                    <Badge
+                        className={
+                            isBourse
+                                ? 'bg-emerald-700 text-white text-[10px] font-bold'
+                                : 'bg-amber-600 text-white text-[10px] font-bold'
+                        }
+                    >
+                        {isBourse ? 'BOURSE' : 'REMISE'}
+                    </Badge>
+                );
+            },
         },
         {
-            accessorKey: 'type',
-            header: 'Nature',
-            cell: ({ row }) => (
-                <Badge
-                    className={
-                        row.original.type === 'bourse'
-                            ? 'bg-emerald-700 text-white text-[10px]'
-                            : 'bg-amber-600 text-white text-[10px]'
-                    }
-                >
-                    {row.original.type === 'bourse' ? "Bourse d'études" : 'Remise / Bonus'}
-                </Badge>
-            ),
+            accessorKey: 'nom',
+            header: 'Libellé de la Remise / Bourse',
+            cell: ({ row }) => {
+                const b = row.original;
+                return (
+                    <div className="space-y-0.5">
+                        <div className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                            {b.nom}
+                        </div>
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                            Imputation : {formatCibleImputationLabel(b.cible_imputation)}
+                            {b.mode_calcul === 'pourcentage' &&
+                                ` • Base : ${formatBaseCalculRemiseLabel(b.base_calcul)}`}
+                        </div>
+                    </div>
+                );
+            },
         },
         {
             accessorKey: 'valeur',
@@ -832,15 +869,6 @@ export default function FinancesIndex({
                     </div>
                 );
             },
-        },
-        {
-            id: 'imputation',
-            header: 'Imputation par défaut',
-            cell: ({ row }) => (
-                <span className="text-[11px] font-medium text-slate-600 dark:text-slate-400">
-                    Par élève • {formatCibleImputationLabel(row.original.cible_imputation)}
-                </span>
-            ),
         },
         ...(canManageBourses
             ? [
@@ -922,6 +950,13 @@ export default function FinancesIndex({
             ? [
                   {
                       id: 'select',
+                      size: 48,
+                      enableSorting: false,
+                      enableHiding: false,
+                      meta: {
+                          className: 'w-12 min-w-12 max-w-12 text-center px-1 whitespace-nowrap',
+                          headerClassName: 'w-12 min-w-12 max-w-12 text-center px-1 whitespace-nowrap',
+                      },
                       header: ({ table }) => {
                           const validFilteredIds = table
                               .getFilteredRowModel()
@@ -932,60 +967,58 @@ export default function FinancesIndex({
                               validFilteredIds.every((id) => selectedVersementIds.includes(id));
 
                           return (
-                              <button
-                                  type="button"
-                                  disabled={validFilteredIds.length === 0}
-                                  title={
-                                      allChecked
-                                          ? 'Tout décocher'
-                                          : `Cocher les ${validFilteredIds.length} reçus valides affichés`
-                                  }
-                                  onClick={() => {
-                                      if (allChecked) {
-                                          setSelectedVersementIds((prev) =>
-                                              prev.filter((id) => !validFilteredIds.includes(id))
-                                          );
-                                      } else {
-                                          setSelectedVersementIds((prev) =>
-                                              Array.from(new Set([...prev, ...validFilteredIds]))
-                                          );
+                              <div className="flex items-center justify-center">
+                                  <Checkbox
+                                      checked={allChecked}
+                                      disabled={validFilteredIds.length === 0}
+                                      onCheckedChange={() => {
+                                          if (allChecked) {
+                                              setSelectedVersementIds((prev) =>
+                                                  prev.filter((id) => !validFilteredIds.includes(id))
+                                              );
+                                          } else {
+                                              setSelectedVersementIds((prev) =>
+                                                  Array.from(new Set([...prev, ...validFilteredIds]))
+                                              );
+                                          }
+                                      }}
+                                      title={
+                                          allChecked
+                                              ? 'Tout décocher'
+                                              : `Cocher les ${validFilteredIds.length} reçus valides affichés`
                                       }
-                                  }}
-                                  className="flex items-center justify-center cursor-pointer disabled:opacity-30"
-                              >
-                                  {allChecked ? (
-                                      <CheckSquare className="w-4 h-4 text-red-600" />
-                                  ) : (
-                                      <Square className="w-4 h-4 text-slate-400" />
-                                  )}
-                              </button>
+                                      aria-label="Tout sélectionner"
+                                      className="border-slate-400 data-[state=checked]:bg-red-600 data-[state=checked]:border-red-600"
+                                  />
+                              </div>
                           );
                       },
                       cell: ({ row }) => {
                           const v = row.original;
                           if (v.statut !== 'valide') {
-                              return <span className="inline-block w-4" />;
+                              return (
+                                  <div className="flex items-center justify-center">
+                                      <span className="inline-block w-4 h-4" />
+                                  </div>
+                              );
                           }
                           const checked = selectedVersementIds.includes(v.id);
                           return (
-                              <button
-                                  type="button"
-                                  onClick={() =>
-                                      setSelectedVersementIds((prev) =>
-                                          prev.includes(v.id)
-                                              ? prev.filter((id) => id !== v.id)
-                                              : [...prev, v.id]
-                                      )
-                                  }
-                                  className="flex items-center justify-center cursor-pointer"
-                                  title="Sélectionner ce reçu pour une annulation groupée"
-                              >
-                                  {checked ? (
-                                      <CheckSquare className="w-4 h-4 text-red-600" />
-                                  ) : (
-                                      <Square className="w-4 h-4 text-slate-400 hover:text-slate-600" />
-                                  )}
-                              </button>
+                              <div className="flex items-center justify-center">
+                                  <Checkbox
+                                      checked={checked}
+                                      onCheckedChange={() =>
+                                          setSelectedVersementIds((prev) =>
+                                              prev.includes(v.id)
+                                                  ? prev.filter((id) => id !== v.id)
+                                                  : [...prev, v.id]
+                                          )
+                                      }
+                                      title="Sélectionner ce reçu pour une annulation groupée"
+                                      aria-label="Sélectionner pour annulation"
+                                      className="border-slate-400 data-[state=checked]:bg-red-600 data-[state=checked]:border-red-600"
+                                  />
+                              </div>
                           );
                       },
                   } satisfies ColumnDef<VersementCaisse>,
@@ -993,6 +1026,10 @@ export default function FinancesIndex({
             : []),
         {
             accessorKey: 'reference_recu',
+            meta: {
+                className: 'whitespace-nowrap font-mono',
+                headerClassName: 'whitespace-nowrap',
+            },
             header: 'N° Reçu',
             cell: ({ row }) => (
                 <span className="font-mono font-bold text-xs text-slate-800 dark:text-slate-200">
@@ -1002,6 +1039,10 @@ export default function FinancesIndex({
         },
         {
             accessorKey: 'date_versement',
+            meta: {
+                className: 'whitespace-nowrap',
+                headerClassName: 'whitespace-nowrap',
+            },
             header: 'Date',
             cell: ({ row }) => (
                 <span className="text-xs">{formatDate(row.original.date_versement)}</span>
@@ -1012,6 +1053,10 @@ export default function FinancesIndex({
             accessorFn: (row) =>
                 `${row.compte_financier?.eleve?.nom ?? ''} ${row.compte_financier?.eleve?.prenom ?? ''} ${row.compte_financier?.eleve?.matricule ?? ''} ${row.inscription?.classe?.nom ?? ''}`,
             header: 'Élève / Classe',
+            meta: {
+                className: 'w-full min-w-55',
+                headerClassName: 'w-full min-w-55',
+            },
             cell: ({ row }) => {
                 const eleve = row.original.compte_financier?.eleve;
                 const classe = row.original.inscription?.classe?.nom ?? 'N/A';
@@ -1070,13 +1115,36 @@ export default function FinancesIndex({
                         <Button
                             variant="ghost"
                             size="sm"
-                            className="h-7 text-xs flex items-center gap-1 text-slate-600 hover:text-emerald-700"
+                            className="h-7 text-xs px-2 flex items-center gap-1 text-slate-600 hover:text-emerald-700"
+                            title="Imprimer le reçu format A4"
                             onClick={() =>
                                 window.open(`/administration/finances/versements/${v.id}/recu`, '_blank')
                             }
                         >
-                            <Printer className="w-3.5 h-3.5" /> Reçu
+                            <Printer className="w-3.5 h-3.5" /> A4
                         </Button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-xs px-2 flex items-center gap-1 text-slate-600 hover:text-sky-700"
+                            title="Imprimer en ticket de caisse 80mm"
+                            onClick={() =>
+                                window.open(`/administration/finances/versements/${v.id}/recu?format=ticket`, '_blank')
+                            }
+                        >
+                            <Printer className="w-3.5 h-3.5" /> Ticket 80mm
+                        </Button>
+                        {canEditVersements && v.statut === 'valide' && (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 text-xs px-2 flex items-center gap-1 text-amber-700 hover:text-amber-900 hover:bg-amber-50 dark:text-amber-300"
+                                title="Modifier ce versement"
+                                onClick={() => openEditVersementForm(v)}
+                            >
+                                <Edit className="w-3.5 h-3.5" /> Modifier
+                            </Button>
+                        )}
                         {canCancelVersements && v.statut === 'valide' && (
                             <Button
                                 variant="ghost"
@@ -1091,7 +1159,7 @@ export default function FinancesIndex({
                 );
             },
         },
-    ], [canCancelVersements, selectedVersementIds]);
+    ], [canEditVersements, canCancelVersements, selectedVersementIds]);
 
     /**
      * 05. Colonnes TanStack Table pour les Recettes Diverses.
@@ -1138,7 +1206,7 @@ export default function FinancesIndex({
         },
         {
             accessorKey: 'libelle',
-            header: 'Désignation',
+            header: 'Commentaire',
             cell: ({ row }) => <span className="text-xs font-medium">{row.original.libelle}</span>,
         },
         {
@@ -1185,6 +1253,20 @@ export default function FinancesIndex({
                         >
                             <Printer className="w-3.5 h-3.5" /> Reçu
                         </Button>
+                        {canRecettesDiverses && r.statut === 'valide' && (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 text-xs flex items-center gap-1 text-slate-600 hover:text-emerald-700"
+                                title="Modifier cette recette diverse"
+                                onClick={() => {
+                                    setReglementToEdit(r);
+                                    setIsReglementDiversModalOpen(true);
+                                }}
+                            >
+                                <Edit className="w-3.5 h-3.5" /> Modifier
+                            </Button>
+                        )}
                         {canCancelVersements && r.statut === 'valide' && (
                             <Button
                                 variant="ghost"
@@ -1375,62 +1457,18 @@ export default function FinancesIndex({
                             </Select>
                         )}
 
-                        {/* Menu d'éditions et rapports PDF filtrables (dates + établissement/section/cycle/niveau/classe) */}
+                        {/* Bouton d'accès au Centre dédié des États & Rapports PDF */}
                         {canEtats && (
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        className="text-xs h-9 font-semibold flex items-center gap-1.5 border-sky-300 text-sky-800 hover:bg-sky-50 dark:border-sky-800 dark:text-sky-300"
-                                    >
-                                        <Printer className="w-4 h-4 shrink-0 text-sky-600" />
-                                        <span>États & Journaux (PDF)</span>
-                                        <ChevronDown className="w-3.5 h-3.5 opacity-60" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-64">
-                                    <DropdownMenuLabel className="text-xs text-slate-500">
-                                        États Filtrables (Dates & Niveau/Classe)
-                                    </DropdownMenuLabel>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem
-                                        className="text-xs flex items-center gap-2 cursor-pointer font-semibold text-emerald-700"
-                                        onClick={() => openGenerateurEtats('journal_synthetique', 'aujourdhui')}
-                                    >
-                                        <Calendar className="w-3.5 h-3.5 text-emerald-600" />
-                                        <span>État Journalier (Aujourd'hui)</span>
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                        className="text-xs flex items-center gap-2 cursor-pointer font-semibold text-teal-700"
-                                        onClick={() => openGenerateurEtats('journal_synthetique', 'mois')}
-                                    >
-                                        <FileSpreadsheet className="w-3.5 h-3.5 text-teal-600" />
-                                        <span>État Mensuel / Par Niveau (PDF)</span>
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                        className="text-xs flex items-center gap-2 cursor-pointer"
-                                        onClick={() => openGenerateurEtats('journal_detaille', 'mois')}
-                                    >
-                                        <FileText className="w-3.5 h-3.5 text-sky-600" />
-                                        <span>Journal Détaillé des Reçus (PDF)</span>
-                                    </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem
-                                        className="text-xs flex items-center gap-2 cursor-pointer text-red-600 font-medium"
-                                        onClick={() => openGenerateurEtats('liste_insolvables', 'annee')}
-                                    >
-                                        <AlertCircle className="w-3.5 h-3.5 text-red-600" />
-                                        <span>Liste des Insolvables (PDF)</span>
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                        className="text-xs flex items-center gap-2 cursor-pointer text-emerald-600 font-medium"
-                                        onClick={() => openGenerateurEtats('liste_en_regle', 'annee')}
-                                    >
-                                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                                        <span>Élèves en Règle (PDF)</span>
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
+                            <Button
+                                asChild
+                                variant="outline"
+                                className="text-xs h-9 font-semibold flex items-center gap-1.5 border-sky-300 text-sky-800 hover:bg-sky-50 dark:border-sky-800 dark:text-sky-300 shadow-2xs"
+                            >
+                                <Link href="/administration/finances/etats">
+                                    <Printer className="w-4 h-4 shrink-0 text-sky-600" />
+                                    <span>Centre des États & Rapports (PDF)</span>
+                                </Link>
+                            </Button>
                         )}
 
                         <Button
@@ -1445,16 +1483,6 @@ export default function FinancesIndex({
                                 Encaisser Scolarité ({comptes.length} élèves)
                             </Link>
                         </Button>
-
-                        {canRecettesDiverses && (
-                            <Button
-                                onClick={() => setIsReglementDiversModalOpen(true)}
-                                variant="outline"
-                                className="text-xs h-9 font-semibold flex-1 sm:flex-initial justify-center flex items-center gap-1.5 border-emerald-300 text-emerald-800 hover:bg-emerald-50"
-                            >
-                                <Receipt className="w-4 h-4 shrink-0" /> Recette Diverse
-                            </Button>
-                        )}
                     </div>
                 </div>
 
@@ -1556,41 +1584,6 @@ export default function FinancesIndex({
                     </Card>
                 </div>
 
-                {/* Bandeau repère du parcours sans répétition */}
-                <div className="p-3 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
-                    <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
-                        <Compass className="w-4 h-4 text-emerald-600 shrink-0" />
-                        <span className="font-bold text-slate-900 dark:text-slate-100">
-                            Parcours Rapide sans Répétition :
-                        </span>
-                    </div>
-                    <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5 text-[11px] font-medium">
-                        <div className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 shrink-0">
-                            <span className="w-4 h-4 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] font-bold">
-                                1
-                            </span>
-                            <span>Configurer les Frais au Catalogue (01)</span>
-                        </div>
-                        <span className="text-slate-400 font-bold">→</span>
-                        <div className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-sky-50 dark:bg-sky-950/60 text-sky-800 dark:text-sky-300 border border-sky-200 shrink-0">
-                            <span className="w-4 h-4 rounded-full bg-sky-600 text-white flex items-center justify-center text-[10px] font-bold">
-                                2
-                            </span>
-                            <span>Cocher les Niveaux en 1 clic (02)</span>
-                        </div>
-                        <span className="text-slate-400 font-bold">→</span>
-                        <Link
-                            href="/administration/finances/scolarites"
-                            className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 shrink-0 font-semibold"
-                        >
-                            <span className="w-4 h-4 rounded-full bg-amber-600 text-white flex items-center justify-center text-[10px] font-bold">
-                                3
-                            </span>
-                            <span>Encaisser par Classe & Dossier Élève</span>
-                        </Link>
-                    </div>
-                </div>
-
                 {/* 6 Onglets essentiels alignés par ordre logique */}
                 <div className="flex items-center overflow-x-auto overscroll-x-contain border-b border-slate-200 dark:border-slate-800 gap-1 sm:gap-2 text-xs sm:text-sm font-medium max-w-full scrollbar-none">
                     <button
@@ -1671,29 +1664,15 @@ export default function FinancesIndex({
                             <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                 <div className="min-w-0">
                                     <Badge className="bg-emerald-600 text-white text-[10px] font-bold uppercase tracking-wider">
-                                        Étape 1 sur 6 • Configuration Unique sans Répétition
+                                        Configuration des Frais
                                     </Badge>
                                     <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100 mt-1 flex items-center gap-2">
                                         <Tag className="w-5 h-5 text-emerald-600 shrink-0" />
                                         Catalogue des Frais ({typesFrais.length})
                                     </h3>
-                                    <p className="text-xs text-slate-600 dark:text-slate-400 max-w-3xl mt-0.5">
-                                        Configurez chaque frais une seule fois (ex: <strong>Inscription SIL - CM2</strong>, <strong>Tranche 1 SIL - CM2</strong>, <strong>CEPE</strong>, <strong>Fête</strong>) avec sa catégorie, son montant, sa priorité et sa date butoir, puis rattachez-le en un clic aux niveaux concernés.
-                                    </p>
                                 </div>
                                 {canConfigureFrais && (
                                     <div className="flex flex-wrap items-center gap-2 shrink-0">
-                                        {typesFrais.length > 0 && (
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                onClick={() => ouvrirAffectationPleineLargeur(null)}
-                                                className="text-xs h-9 font-semibold border-emerald-300 text-emerald-800 hover:bg-emerald-100/60 flex items-center gap-1.5"
-                                            >
-                                                <Layers className="w-4 h-4 shrink-0" />
-                                                Rattacher aux Niveaux
-                                            </Button>
-                                        )}
                                         <Button
                                             onClick={() => {
                                                 setTypeFraisToEdit(null);
@@ -1718,9 +1697,6 @@ export default function FinancesIndex({
                                             <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100">
                                                 Sous-module : Catégories de Frais ({categoriesFrais.length})
                                             </h4>
-                                            <p className="text-[11px] text-slate-500">
-                                                Sert à regrouper les frais (Scolarité, Frais d'Examen, Fête, Services...) et à obtenir le montant global par catégorie d'une classe ou d'un niveau.
-                                            </p>
                                         </div>
                                     </div>
 
@@ -1974,64 +1950,38 @@ export default function FinancesIndex({
                             <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
                                 <div className="min-w-0">
                                     <Badge className="bg-emerald-600 text-white text-[10px] font-bold uppercase tracking-wider">
-                                        Étape 2 sur 6 • Affectation Rapide Multi-Niveaux
+                                        Grille par Niveau
                                     </Badge>
                                     <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100 mt-1 flex items-center gap-2">
                                         <Layers className="w-5 h-5 text-emerald-600 shrink-0" />
                                         {grilleMode === 'affectation'
-                                            ? 'Espace Pleine Largeur : Rattacher des Frais du Catalogue aux Niveaux'
+                                            ? 'Rattacher des Frais du Catalogue aux Niveaux'
                                             : `Grille des Frais par Niveau (${tarifs.length})`}
                                     </h3>
-                                    <p className="text-xs text-slate-600 dark:text-slate-400 max-w-3xl mt-0.5">
-                                        {grilleMode === 'affectation'
-                                            ? 'Vue aérée en 2 colonnes côte à côte conçue pour gérer confortablement de nombreux frais et tous les niveaux du complexe scolaire.'
-                                            : 'Consultez la grille appliquée par niveau, filtrez par catégorie pour obtenir les montants globaux ou basculez vers l’espace pleine largeur pour rattacher plusieurs frais.'}
-                                    </p>
                                 </div>
                                 {canConfigureFrais && (
                                     <div className="flex flex-wrap items-center gap-2 shrink-0">
-                                        {/* Sélecteur de sous-vue : Grille & Synthèse vs Espace d'affectation 2 colonnes */}
-                                        <div className="inline-flex items-center p-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xs">
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    setGrilleMode('liste');
-                                                    setPreselectedTypeFraisForNiveaux(null);
-                                                }}
-                                                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors cursor-pointer ${
-                                                    grilleMode === 'liste'
-                                                        ? 'bg-emerald-600 text-white shadow-2xs'
-                                                        : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
-                                                }`}
-                                            >
-                                                Grille & Synthèse ({tarifs.length})
-                                            </button>
-                                            <button
+                                        {grilleMode === 'liste' ? (
+                                            <Button
                                                 type="button"
                                                 onClick={() => setGrilleMode('affectation')}
-                                                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer ${
-                                                    grilleMode === 'affectation'
-                                                        ? 'bg-emerald-600 text-white shadow-2xs'
-                                                        : 'text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30'
-                                                }`}
+                                                className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-9 font-semibold flex items-center gap-1.5 shadow-sm"
                                             >
-                                                <Plus className="w-3.5 h-3.5" />
+                                                <Plus className="w-4 h-4 shrink-0" />
                                                 Rattacher des Frais aux Niveaux
-                                            </button>
-                                        </div>
-
-                                        {grilleMode === 'liste' && (
+                                            </Button>
+                                        ) : (
                                             <Button
                                                 type="button"
                                                 variant="outline"
                                                 onClick={() => {
-                                                    setTarifToEdit(null);
-                                                    setIsTarifModalOpen(true);
+                                                    setGrilleMode('liste');
+                                                    setPreselectedTypeFraisForNiveaux(null);
                                                 }}
-                                                className="text-xs h-9 font-semibold border-slate-300 flex items-center gap-1.5 bg-white dark:bg-slate-900"
+                                                className="text-xs h-9 font-semibold border-slate-300 dark:border-slate-700 flex items-center gap-1.5 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-100"
                                             >
-                                                <SlidersHorizontal className="w-3.5 h-3.5" />
-                                                Ajout unitaire
+                                                <ArrowLeft className="w-4 h-4 shrink-0" />
+                                                Revenir à la Grille
                                             </Button>
                                         )}
                                     </div>
@@ -2254,15 +2204,12 @@ export default function FinancesIndex({
                             <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                 <div className="min-w-0">
                                     <Badge className="bg-amber-600 text-white text-[10px] font-bold uppercase tracking-wider">
-                                        Étape 3 sur 6 • Réductions Individuelles
+                                        Bourses & Remises
                                     </Badge>
                                     <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100 mt-1 flex items-center gap-2">
                                         <Award className="w-5 h-5 text-amber-600 shrink-0" />
                                         Modèles de Bourses, Bonus & Remises ({boursesRemises.length})
                                     </h3>
-                                    <p className="text-xs text-slate-600 dark:text-slate-400 max-w-3xl mt-0.5">
-                                        Créez vos modèles de réductions (ex: <strong>Paiement en avance -3 000 FCFA</strong>, Fratrie, Enfant du personnel). Ils s'attribuent ensuite au cas par cas dans le dossier de l'élève concerné.
-                                    </p>
                                 </div>
                                 {canManageBourses && (
                                     <Button
@@ -2296,15 +2243,12 @@ export default function FinancesIndex({
                             <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                 <div className="min-w-0">
                                     <Badge className="bg-emerald-600 text-white text-[10px] font-bold uppercase tracking-wider">
-                                        Étape 4 sur 6 • Suivi & Annulation des Reçus Scolarité
+                                        Versements Scolarité
                                     </Badge>
                                     <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100 mt-1 flex items-center gap-2">
                                         <Receipt className="w-5 h-5 text-emerald-600 shrink-0" />
                                         Historique des Versements Scolarité ({versements.length})
                                     </h3>
-                                    <p className="text-xs text-slate-600 dark:text-slate-400 max-w-3xl mt-0.5">
-                                        Consultez tous les reçus émis, réimprimez un duplicata PDF ou annulez une erreur de versement (à l'unité ou en cochant toutes les opérations d'un élève en une seule fois).
-                                    </p>
                                 </div>
                                 <Button
                                     asChild
@@ -2363,6 +2307,114 @@ export default function FinancesIndex({
                             </div>
                         )}
 
+                        {versementToEdit && canEditVersements && (
+                            <form
+                                onSubmit={handleSaveEditVersement}
+                                className="p-4 rounded-xl bg-amber-50/80 dark:bg-amber-950/30 border-2 border-amber-300 dark:border-amber-800 space-y-3 text-xs shadow-xs"
+                            >
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <div>
+                                        <h4 className="font-bold text-amber-950 dark:text-amber-100 flex items-center gap-1.5">
+                                            <Edit className="w-4 h-4 text-amber-700" />
+                                            Modifier le Reçu N° {versementToEdit.reference_recu} —{' '}
+                                            {versementToEdit.compte_financier?.eleve?.nom}{' '}
+                                            {versementToEdit.compte_financier?.eleve?.prenom}
+                                        </h4>
+                                        <p className="text-[11px] text-amber-800 dark:text-amber-300">
+                                            Montant initial :{' '}
+                                            <strong>
+                                                {Number(versementToEdit.montant_total).toLocaleString('fr-FR')} FCFA
+                                            </strong>{' '}
+                                            • Le solde de l'élève et les états financiers seront recalculés automatiquement.
+                                        </p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setVersementToEdit(null)}
+                                        className="text-slate-500 hover:text-slate-800 p-1 cursor-pointer"
+                                    >
+                                        <X className="w-4 h-4" />
+                                    </button>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
+                                    <div className="space-y-1">
+                                        <Label className="text-xs">
+                                            Nouveau montant (FCFA) <span className="text-red-500">*</span>
+                                        </Label>
+                                        <Input
+                                            type="number"
+                                            min="1"
+                                            value={editVersMontant}
+                                            onChange={(e) => setEditVersMontant(e.target.value)}
+                                            className="h-9 bg-white dark:bg-slate-900 font-bold tabular-nums"
+                                            required
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-xs">
+                                            Date du versement <span className="text-red-500">*</span>
+                                        </Label>
+                                        <Input
+                                            type="date"
+                                            max={formatDateForInput(new Date())}
+                                            value={formatDateForInput(editVersDate)}
+                                            onChange={(e) => setEditVersDate(e.target.value)}
+                                            className="h-9 bg-white dark:bg-slate-900 text-xs"
+                                            required
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-xs">Mode de règlement</Label>
+                                        <Select
+                                            value={editVersMode}
+                                            onValueChange={(v: ModePaiement) => setEditVersMode(v)}
+                                        >
+                                            <SelectTrigger className="h-9 bg-white dark:bg-slate-900 text-xs">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="especes">Espèces</SelectItem>
+                                                <SelectItem value="mobile_money_manuel">Orange / MTN Money</SelectItem>
+                                                <SelectItem value="virement">Virement bancaire</SelectItem>
+                                                <SelectItem value="cheque">Chèque</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-xs">Payeur / Parent</Label>
+                                        <Input
+                                            value={editVersPayeur}
+                                            onChange={(e) => setEditVersPayeur(e.target.value)}
+                                            placeholder="Nom du déposant"
+                                            className="h-9 bg-white dark:bg-slate-900 text-xs"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center justify-end gap-2">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setVersementToEdit(null)}
+                                        className="h-8 text-xs"
+                                    >
+                                        Annuler
+                                    </Button>
+                                    <Button
+                                        type="submit"
+                                        size="sm"
+                                        disabled={savingEditVersement}
+                                        className="h-8 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold"
+                                    >
+                                        <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" />
+                                        {savingEditVersement ? 'Enregistrement...' : 'Enregistrer la modification'}
+                                    </Button>
+                                </div>
+                            </form>
+                        )}
+
                         <DataTable
                             columns={versementsColumns}
                             data={versements}
@@ -2381,24 +2433,38 @@ export default function FinancesIndex({
                             <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                 <div className="min-w-0">
                                     <Badge className="bg-sky-600 text-white text-[10px] font-bold uppercase tracking-wider">
-                                        Étape 5 sur 6 • Recettes Annexes
+                                        Recettes Diverses
                                     </Badge>
                                     <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100 mt-1 flex items-center gap-2">
                                         <Wallet className="w-5 h-5 text-sky-600 shrink-0" />
                                         Recettes Diverses & Encaissements Libres ({reglementsDivers.length})
                                     </h3>
-                                    <p className="text-xs text-slate-600 dark:text-slate-400 max-w-3xl mt-0.5">
-                                        Encaissez les recettes hors scolarité (tenues, macarons, cantine libre, dons...) avec vos propres catégories personnalisées.
-                                    </p>
                                 </div>
-                                {canRecettesDiverses && (
+                                <div className="flex flex-wrap items-center gap-2 shrink-0">
                                     <Button
-                                        onClick={() => setIsReglementDiversModalOpen(true)}
-                                        className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-9 shrink-0 flex items-center gap-1.5 shadow-sm"
+                                        variant="outline"
+                                        size="sm"
+                                        asChild
+                                        className="h-9 text-xs border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 gap-1.5 cursor-pointer shadow-xs bg-white dark:bg-slate-900"
+                                        title="Consulter et imprimer l'état filtrable des recettes diverses dans le Centre des États"
                                     >
-                                        <Plus className="w-4 h-4 shrink-0" /> Nouvelle Recette Diverse
+                                        <Link href={`/administration/finances/etats?type=recettes_diverses&etablissement_id=${currentEtablissement?.id ?? ''}&annee_scolaire_id=${currentAnnee?.id ?? ''}`}>
+                                            <Printer className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
+                                            <span>État des Recettes Diverses</span>
+                                        </Link>
                                     </Button>
-                                )}
+                                    {canRecettesDiverses && (
+                                        <Button
+                                            onClick={() => {
+                                                setReglementToEdit(null);
+                                                setIsReglementDiversModalOpen(true);
+                                            }}
+                                            className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-9 flex items-center gap-1.5 shadow-sm"
+                                        >
+                                            <Plus className="w-4 h-4 shrink-0" /> Nouvelle Recette Diverse
+                                        </Button>
+                                    )}
+                                </div>
                             </div>
                         </div>
 
@@ -2420,15 +2486,12 @@ export default function FinancesIndex({
                             <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                 <div className="min-w-0">
                                     <Badge className="bg-slate-800 text-white text-[10px] font-bold uppercase tracking-wider">
-                                        Étape 6 sur 6 • Arrêté Journalier
+                                        Journal & Clôtures
                                     </Badge>
                                     <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100 mt-1 flex items-center gap-2">
                                         <Calendar className="w-5 h-5 text-slate-700 dark:text-slate-300 shrink-0" />
                                         Historique des Clôtures Journalières ({historiqueClotures.length})
                                     </h3>
-                                    <p className="text-xs text-slate-600 dark:text-slate-400 max-w-3xl mt-0.5">
-                                        En fin de journée, clôturez les encaissements afin de figer les écritures comptables et valider les totaux par mode de règlement.
-                                    </p>
                                 </div>
                                 {!journalDuJour.est_cloture && canCloture && (
                                     <Button
@@ -2489,9 +2552,13 @@ export default function FinancesIndex({
 
             <NouveauReglementDiversModal
                 isOpen={isReglementDiversModalOpen}
-                onClose={() => setIsReglementDiversModalOpen(false)}
+                onClose={() => {
+                    setIsReglementDiversModalOpen(false);
+                    setReglementToEdit(null);
+                }}
                 etablissementId={currentEtablissement?.id ?? 0}
                 categories={categoriesRecettes}
+                reglementToEdit={reglementToEdit}
             />
 
             <AnnulerVersementModal
@@ -2513,21 +2580,6 @@ export default function FinancesIndex({
                 journal={journalDuJour}
                 etablissementId={currentEtablissement?.id ?? 0}
             />
-
-            {canEtats && (
-                <GenerateurEtatsFinanciersModal
-                    open={isEtatsModalOpen}
-                    onOpenChange={setIsEtatsModalOpen}
-                    etablissements={etablissements}
-                    currentEtablissementId={currentEtablissement?.id ?? null}
-                    currentEtablissementNom={currentEtablissement?.nom ?? null}
-                    isSuperAdmin={isSuperAdmin}
-                    currentAnnee={currentAnnee}
-                    initialType={etatInitialType}
-                    initialPreset={etatInitialPreset}
-                    allowBilanEntreesSorties={can?.manage ?? false}
-                />
-            )}
 
             <ConfirmDialog />
         </>

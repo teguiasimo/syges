@@ -257,7 +257,7 @@ class RolePermissionController extends Controller implements HasMiddleware
         'system.update' => [
             'module' => 'system',
             'label' => 'Mettre à jour le système & sauvegarder la BDD',
-            'description' => 'Vérifier les versions taguées GitHub, sauvegarder la base SQL et exécuter le pipeline de mise à jour (exclusif Super Admin).',
+            'description' => 'Vérifier les versions taguées GitHub, sauvegarder la base SQL et exécuter le pipeline de mise à jour (attribuable par le Super Administrateur).',
         ],
 
         // ==========================================
@@ -784,6 +784,11 @@ class RolePermissionController extends Controller implements HasMiddleware
             'label' => 'Encaisser un versement de scolarité',
             'description' => 'Enregistrer un paiement physique au guichet et imprimer le reçu officiel numéroté.',
         ],
+        'versements.edit' => [
+            'module' => 'finances',
+            'label' => 'Modifier un versement enregistré',
+            'description' => 'Corriger directement un versement valide (montant, date, mode de paiement, payeur) avec recalcul automatique du dossier élève et des états financiers.',
+        ],
         'recettes_diverses.create' => [
             'module' => 'finances',
             'label' => 'Encaisser les recettes diverses hors scolarité',
@@ -876,7 +881,7 @@ class RolePermissionController extends Controller implements HasMiddleware
         'depenses.create' => [
             'module' => 'depenses',
             'label' => 'Enregistrer une dépense & décharge',
-            'description' => 'Créer un décaissement de caisse et imprimer la fiche de décharge certifiée (A5).',
+            'description' => 'Créer un décaissement de caisse et imprimer la fiche de décharge certifiée (A4).',
         ],
         'depenses.edit' => [
             'module' => 'depenses',
@@ -1222,6 +1227,14 @@ class RolePermissionController extends Controller implements HasMiddleware
         // Contrôle d'habilitation : consultation des rôles & permissions
         abort_unless($request->user()->can('roles.view'), 403, 'Accès non autorisé : vous ne disposez pas de la permission requise pour consulter les rôles.');
 
+        // Garantit que la permission 'versements.edit' est enregistrée en base même sur une instance déjà déployée
+        if (! Permission::where('name', 'versements.edit')->where('guard_name', 'web')->exists()) {
+            $permEditVersement = Permission::create(['name' => 'versements.edit', 'guard_name' => 'web']);
+            Role::whereIn('name', ['super-admin', 'intendant', 'admin'])->get()->each(
+                fn (Role $r) => $r->givePermissionTo($permEditVersement)
+            );
+        }
+
         // 1. Récupération des rôles existants avec le comptage des utilisateurs associés
         $roles = Role::with('permissions')
             ->withCount('users')
@@ -1337,10 +1350,13 @@ class RolePermissionController extends Controller implements HasMiddleware
             'guard_name' => 'web',
         ]);
 
-        // Synchronisation des permissions accordées (la mise à jour système reste exclusive au super-admin)
+        // Synchronisation des permissions accordées (seul le Super Administrateur peut accorder `system.update`)
         if (! empty($validated['permissions'])) {
-            $safePermissions = array_values(array_diff($validated['permissions'], ['system.update']));
-            $role->syncPermissions($safePermissions);
+            $requestedPermissions = $validated['permissions'];
+            if (! $request->user()?->isSuperAdmin()) {
+                $requestedPermissions = array_values(array_diff($requestedPermissions, ['system.update']));
+            }
+            $role->syncPermissions($requestedPermissions);
         }
 
         return redirect()->route('administration.roles.index')
@@ -1393,12 +1409,19 @@ class RolePermissionController extends Controller implements HasMiddleware
             }
         }
 
-        // Synchronisation des permissions (le super-admin conserve toujours toutes les permissions ; system.update lui est exclusif)
+        // Synchronisation des permissions (le super-admin conserve toujours toutes les permissions ; seul le super-admin peut octroyer/retirer `system.update`)
         if ($isSuperAdmin) {
             $role->syncPermissions(Permission::all());
         } else {
-            $safePermissions = array_values(array_diff($validated['permissions'] ?? [], ['system.update']));
-            $role->syncPermissions($safePermissions);
+            $requestedPermissions = $validated['permissions'] ?? [];
+            if (! $request->user()?->isSuperAdmin()) {
+                $hadSystemUpdate = $role->hasPermissionTo('system.update');
+                $requestedPermissions = array_values(array_diff($requestedPermissions, ['system.update']));
+                if ($hadSystemUpdate) {
+                    $requestedPermissions[] = 'system.update';
+                }
+            }
+            $role->syncPermissions($requestedPermissions);
         }
 
         $displayName = $this->roleLabels[$role->name] ?? $role->name;

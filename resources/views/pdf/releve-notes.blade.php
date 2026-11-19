@@ -113,6 +113,7 @@
     </style>
 </head>
 <body>
+    @include('partials.watermark', ['etablissement' => $etablissement ?? null])
 
     <!-- En-tête officiel bilingue de l'établissement -->
     <table class="header-table">
@@ -261,7 +262,7 @@
                     <td class="text-center bold">{{ $eleve['numero'] }}</td>
                     <td class="text-center font-mono">{{ $eleve['matricule'] }}</td>
                     <td class="bold uppercase text-left">{{ $eleve['nom_complet'] }}</td>
-                    <td class="text-center">{{ $eleve['sexe'] }}</td>
+                    <td class="text-center">{{ $eleve['sexe'] ?: '-' }}</td>
                     @foreach($evaluations as $eval)
                         <td class="text-center bold" style="font-size: 8pt; height: 16px;">
                             @if($mode === 'rempli')
@@ -309,7 +310,7 @@
                 </span>
             </td>
             <td>
-                <span class="bold">Le Professeur Principal</span><br>
+                <span class="bold">{{ $etablissement->titre_responsable_classe ?? 'Le Professeur Principal' }}</span><br>
                 <span style="font-size: 6.5pt;">Visa & Observations</span>
                 <div class="signature-box"></div>
             </td>

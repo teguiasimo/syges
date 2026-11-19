@@ -1,12 +1,26 @@
 // Components
-import { Form, Head } from '@inertiajs/react';
+import { Form, Head, router } from '@inertiajs/react';
 import TextLink from '@/components/text-link';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { logout } from '@/routes';
 import { send } from '@/routes/verification';
 
+/**
+ * Page de vérification d'adresse email post-inscription.
+ *
+ * @param {{ status?: string }} props - Message d'état optionnel après envoi du lien.
+ * @returns {JSX.Element} Formulaire de renvoi de lien et action de déconnexion.
+ */
 export default function VerifyEmail({ status }: { status?: string }) {
+    /**
+     * Annule les requêtes Inertia actives avant d'envoyer la déconnexion.
+     */
+    const handleLogout = () => {
+        router.cancelAll();
+        router.flushAll();
+    };
+
     return (
         <>
             <Head title="Email verification" />
@@ -28,6 +42,7 @@ export default function VerifyEmail({ status }: { status?: string }) {
 
                         <TextLink
                             href={logout()}
+                            onClick={handleLogout}
                             className="mx-auto block text-sm"
                         >
                             Log out

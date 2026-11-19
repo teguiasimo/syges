@@ -111,7 +111,8 @@ export function obtenirTarifsObligatoiresNiveau(
 
     const compatibles = tarifs.filter((f) => {
         if (Number(f.niveau_id) !== Number(niveauId)) return false;
-        if (!f.type_frais?.obligatoire) return false;
+        const estObligatoire = f.obligatoire !== false && (f.obligatoire === true || f.type_frais?.obligatoire !== false);
+        if (!estObligatoire) return false;
         const fSerie = f.serie?.trim() ? f.serie.trim().toUpperCase() : null;
         if (!fSerie) return true;
         return serieNorm !== null && fSerie === serieNorm;
@@ -179,10 +180,11 @@ export function calculerSyntheseCategoriesGrille(
     });
 
     tarifs.forEach((frais) => {
+        const estObligatoire = frais.obligatoire !== false && (frais.obligatoire === true || frais.type_frais?.obligatoire !== false);
         const resolu = resoudreCategorieFrais(
             frais,
             mapCategories,
-            frais.type_frais?.obligatoire ? 'Scolarité' : 'Transport & Services Annexes'
+            estObligatoire ? 'Scolarité' : 'Transport & Services Annexes'
         );
         const key = resolu.id !== null ? `cat_${resolu.id}` : `nom_${resolu.nom}`;
 
@@ -202,7 +204,7 @@ export function calculerSyntheseCategoriesGrille(
 
         const item = accumulateur.get(key)!;
         const montant = Number(frais.montant || 0);
-        if (frais.type_frais?.obligatoire) {
+        if (estObligatoire) {
             item.montantObligatoire += montant;
         } else {
             item.montantOptionnel += montant;
@@ -219,6 +221,274 @@ export function calculerSyntheseCategoriesGrille(
             ...rest,
             nbNiveaux: niveauxSet.size,
         }));
+}
+
+/**
+ * Mode de filtrage nominatif par frais ou par palier de paiement atteint.
+ */
+export type ModeFiltreFrais = 'tous' | 'solde' | 'uniquement_palier' | 'partiel' | 'non_paye';
+
+/**
+ * Ligne financière résolue pour un élève donné après imputation des dispenses, remises et paiements.
+ */
+export interface LigneAllocationEleve {
+    type: 'arrieres' | 'obligatoire' | 'optionnel' | 'penalite';
+    fraisScolaireId: number | null;
+    typeFraisId: number | null;
+    categorieKey: { id: number | null; nom: string; description: string | null };
+    libelle: string;
+    attendu: number;
+    paye: number;
+    restant: number;
+}
+
+/**
+ * Synthèse consolidée calculée sur les lignes filtrées d'une Catégorie ou d'un Frais précis.
+ */
+export interface SyntheseCibleSelection {
+    effectif: number;
+    attenduTotal: number;
+    payeTotal: number;
+    restantTotal: number;
+    tauxRecouvrement: number;
+}
+
+/**
+ * Alloue de manière déterministe les dispenses, remises/bourses et paiements d'un élève
+ * sur chacune de ses lignes de frais (obligatoires, optionnels, arriérés et pénalités).
+ *
+ * Réutilisé par la synthèse par catégorie ET par les filtres par frais / palier du Guichet Scolarité.
+ *
+ * @param {CompteFinancierEleve} compte Dossier financier de l'élève
+ * @param {FraisScolaire[]} tarifs Grille tarifaire complète de l'année active
+ * @param {Map<number, CategorieFrais>} mapCategories Dictionnaire des catégories par ID
+ * @param {Map<string, FraisScolaire[]>} [cacheTarifsParCle] Cache optionnel par (niveau, série)
+ * @returns {LigneAllocationEleve[]} Lignes ordonnées avec montants attendu, payé et restant
+ */
+export function allouerLignesCompteEleve(
+    compte: CompteFinancierEleve,
+    tarifs: FraisScolaire[],
+    mapCategories: Map<number, CategorieFrais>,
+    cacheTarifsParCle?: Map<string, FraisScolaire[]>
+): LigneAllocationEleve[] {
+    const classe = compte.inscription?.classe;
+    const niveauId = classe?.niveau_id ?? null;
+    const serie = classe?.serie ?? null;
+    const cleCache = `${niveauId ?? 0}::${serie?.trim().toUpperCase() ?? ''}`;
+
+    let fraisObligatoires: FraisScolaire[];
+    if (cacheTarifsParCle) {
+        if (!cacheTarifsParCle.has(cleCache)) {
+            cacheTarifsParCle.set(cleCache, obtenirTarifsObligatoiresNiveau(tarifs, niveauId, serie));
+        }
+        fraisObligatoires = cacheTarifsParCle.get(cleCache)!;
+    } else {
+        fraisObligatoires = obtenirTarifsObligatoiresNiveau(tarifs, niveauId, serie);
+    }
+
+    // 1. Dispenses par frais_scolaire_id
+    const dispensesMap = new Map<number, number>();
+    (compte.dispenses_financieres ?? []).forEach((d) => {
+        dispensesMap.set(Number(d.frais_scolaire_id), Number(d.montant_dispense || 0));
+    });
+
+    const montantsApresDispense = fraisObligatoires.map((f) => {
+        const brut = Number(f.montant || 0);
+        const disp = Math.min(brut, dispensesMap.get(Number(f.id)) ?? 0);
+        return Math.max(0, brut - disp);
+    });
+
+    // 2. Déduction de la remise totale sur les tranches obligatoires (cibles précises puis dernière tranche)
+    let remiseRestante = Math.max(0, Number(compte.remise_bourse || 0));
+    const montantsNetsObligatoires = [...montantsApresDispense];
+
+    (compte.bourses_remises ?? []).forEach((attr) => {
+        if (remiseRestante <= 0 || !attr.frais_scolaire_id) return;
+        const idx = fraisObligatoires.findIndex((f) => Number(f.id) === Number(attr.frais_scolaire_id));
+        if (idx >= 0) {
+            const ded = Math.min(remiseRestante, Number(attr.montant_calcule || 0), montantsNetsObligatoires[idx]);
+            montantsNetsObligatoires[idx] -= ded;
+            remiseRestante -= ded;
+        }
+    });
+
+    for (let i = montantsNetsObligatoires.length - 1; i >= 0 && remiseRestante > 0; i--) {
+        const ded = Math.min(remiseRestante, montantsNetsObligatoires[i]);
+        montantsNetsObligatoires[i] -= ded;
+        remiseRestante -= ded;
+    }
+
+    const lignesEleve: LigneAllocationEleve[] = [];
+
+    const arrieres = Number(compte.arrieres_anterieurs || 0);
+    if (arrieres > 0) {
+        lignesEleve.push({
+            type: 'arrieres',
+            fraisScolaireId: null,
+            typeFraisId: null,
+            categorieKey: { id: null, nom: 'Arriérés Antérieurs', description: null },
+            libelle: 'Arriérés Antérieurs',
+            attendu: arrieres,
+            paye: 0,
+            restant: arrieres,
+        });
+    }
+
+    fraisObligatoires.forEach((f, idx) => {
+        const attendu = montantsNetsObligatoires[idx];
+        const estDispenseTotale = (dispensesMap.get(Number(f.id)) ?? 0) > 0 && attendu <= 0;
+        if (attendu <= 0 && !estDispenseTotale) return;
+        lignesEleve.push({
+            type: 'obligatoire',
+            fraisScolaireId: Number(f.id),
+            typeFraisId: f.type_frais_id ? Number(f.type_frais_id) : null,
+            categorieKey: resoudreCategorieFrais(f, mapCategories, 'Scolarité'),
+            libelle: f.libelle_tranche || f.type_frais?.libelle || `Tranche ${f.tranche_numero}`,
+            attendu,
+            paye: 0,
+            restant: attendu,
+        });
+    });
+
+    (compte.souscriptions_optionnelles ?? []).forEach((sous) => {
+        if (sous.statut !== 'actif') return;
+        const attendu = Number(sous.montant || 0);
+        if (attendu <= 0) return;
+        lignesEleve.push({
+            type: 'optionnel',
+            fraisScolaireId: sous.frais_scolaire_id ? Number(sous.frais_scolaire_id) : null,
+            typeFraisId: sous.frais_scolaire?.type_frais_id ? Number(sous.frais_scolaire.type_frais_id) : null,
+            categorieKey: resoudreCategorieFrais(
+                sous.frais_scolaire,
+                mapCategories,
+                'Transport & Services Annexes'
+            ),
+            libelle: sous.frais_scolaire?.type_frais?.libelle || sous.frais_scolaire?.libelle_tranche || 'Option',
+            attendu,
+            paye: 0,
+            restant: attendu,
+        });
+    });
+
+    const totalPenalites = (compte.penalites ?? [])
+        .filter((p) => p.statut !== 'annule')
+        .reduce((acc, p) => acc + Number(p.montant || 0), 0);
+    if (totalPenalites > 0) {
+        lignesEleve.push({
+            type: 'penalite',
+            fraisScolaireId: null,
+            typeFraisId: null,
+            categorieKey: { id: null, nom: 'Pénalités de Retard', description: null },
+            libelle: 'Pénalités de Retard',
+            attendu: totalPenalites,
+            paye: 0,
+            restant: totalPenalites,
+        });
+    }
+
+    // 3. Répartition des versements valides en 2 passes (ciblée puis cascade par priorité)
+    let budgetPaye = Math.max(0, Number(compte.total_paye || 0));
+
+    (compte.versements ?? []).forEach((vers) => {
+        if (vers.statut !== 'valide') return;
+        (vers.ventilations ?? []).forEach((vent) => {
+            if (!vent.frais_scolaire_id || budgetPaye <= 0) return;
+            const cible = lignesEleve.find(
+                (l) => l.fraisScolaireId === Number(vent.frais_scolaire_id) && l.attendu > l.paye
+            );
+            if (cible) {
+                const affecte = Math.min(
+                    budgetPaye,
+                    Number(vent.montant || 0),
+                    cible.attendu - cible.paye
+                );
+                cible.paye += affecte;
+                budgetPaye -= affecte;
+            }
+        });
+    });
+
+    for (const ligne of lignesEleve) {
+        if (budgetPaye <= 0) break;
+        const manque = ligne.attendu - ligne.paye;
+        if (manque <= 0) continue;
+        const affecte = Math.min(budgetPaye, manque);
+        ligne.paye += affecte;
+        budgetPaye -= affecte;
+    }
+
+    lignesEleve.forEach((ligne) => {
+        ligne.restant = Math.max(0, ligne.attendu - ligne.paye);
+    });
+
+    return lignesEleve;
+}
+
+/**
+ * Évalue si les lignes d'un élève correspondent à un filtre par Catégorie / Type de Frais et Palier.
+ *
+ * @param {LigneAllocationEleve[]} lignesEleve Lignes déjà allouées pour le dossier élève
+ * @param {{ categorieFraisId: number | null; typeFraisId: number | null; modeFiltre: ModeFiltreFrais }} criteres Critères ciblés
+ * @returns {{ match: boolean; attendu: number; paye: number; restant: number }} Résultat du filtre et cumuls sur la cible
+ */
+export function evaluerCibleFraisEleve(
+    lignesEleve: LigneAllocationEleve[],
+    criteres: {
+        categorieFraisId: number | null;
+        typeFraisId: number | null;
+        modeFiltre: ModeFiltreFrais;
+    }
+): { match: boolean; attendu: number; paye: number; restant: number } {
+    const { categorieFraisId, typeFraisId, modeFiltre } = criteres;
+
+    const lignesCibles = lignesEleve.filter((l) => {
+        if (l.type !== 'obligatoire' && l.type !== 'optionnel') return false;
+        if (typeFraisId !== null && l.typeFraisId !== typeFraisId) return false;
+        if (categorieFraisId !== null && l.categorieKey.id !== categorieFraisId) return false;
+        return true;
+    });
+
+    if (lignesCibles.length === 0) {
+        return { match: false, attendu: 0, paye: 0, restant: 0 };
+    }
+
+    const attendu = lignesCibles.reduce((sum, l) => sum + l.attendu, 0);
+    const paye = lignesCibles.reduce((sum, l) => sum + l.paye, 0);
+    const restant = lignesCibles.reduce((sum, l) => sum + l.restant, 0);
+    const cibleSoldee = restant <= 0.01;
+
+    let match = true;
+    if (modeFiltre === 'solde') {
+        match = cibleSoldee;
+    } else if (modeFiltre === 'partiel') {
+        match = paye > 0.01 && restant > 0.01;
+    } else if (modeFiltre === 'non_paye') {
+        match = attendu > 0.01 && paye <= 0.01;
+    } else if (modeFiltre === 'uniquement_palier') {
+        if (!cibleSoldee) {
+            match = false;
+        } else {
+            const lignesOblig = lignesEleve.filter((l) => l.type === 'obligatoire');
+            let dernierIndex = -1;
+            lignesOblig.forEach((l, idx) => {
+                const hitType = typeFraisId !== null && l.typeFraisId === typeFraisId;
+                const hitCat = typeFraisId === null && categorieFraisId !== null && l.categorieKey.id === categorieFraisId;
+                if (hitType || hitCat) {
+                    dernierIndex = idx;
+                }
+            });
+            if (dernierIndex >= 0) {
+                for (let i = dernierIndex + 1; i < lignesOblig.length; i++) {
+                    if (lignesOblig[i].restant <= 0.01) {
+                        match = false;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    return { match, attendu, paye, restant };
 }
 
 /**
@@ -293,150 +563,18 @@ export function calculerSyntheseCategoriesGuichet(
         });
     }
 
-    // Cache des tarifs obligatoires par couple (niveau_id, serie)
     const cacheTarifsParCle = new Map<string, FraisScolaire[]>();
 
     comptes.forEach((compte) => {
-        const classe = compte.inscription?.classe;
-        const niveauId = classe?.niveau_id ?? null;
-        const serie = classe?.serie ?? null;
-        const cleCache = `${niveauId ?? 0}::${serie?.trim().toUpperCase() ?? ''}`;
+        const lignesEleve = allouerLignesCompteEleve(compte, tarifs, mapCategories, cacheTarifsParCle);
 
-        if (!cacheTarifsParCle.has(cleCache)) {
-            cacheTarifsParCle.set(cleCache, obtenirTarifsObligatoiresNiveau(tarifs, niveauId, serie));
-        }
-        const fraisObligatoires = cacheTarifsParCle.get(cleCache)!;
-
-        // 1. Dispenses par frais_scolaire_id
-        const dispensesMap = new Map<number, number>();
-        (compte.dispenses_financieres ?? []).forEach((d) => {
-            dispensesMap.set(Number(d.frais_scolaire_id), Number(d.montant_dispense || 0));
-        });
-
-        const montantsApresDispense = fraisObligatoires.map((f) => {
-            const brut = Number(f.montant || 0);
-            const disp = Math.min(brut, dispensesMap.get(Number(f.id)) ?? 0);
-            return Math.max(0, brut - disp);
-        });
-
-        // 2. Déduction de la remise totale sur les tranches obligatoires (en partant des tranches ciblées / dernière tranche)
-        let remiseRestante = Math.max(0, Number(compte.remise_bourse || 0));
-        const montantsNetsObligatoires = [...montantsApresDispense];
-
-        // Imputation prioritaire des attributions ciblant un frais_scolaire_id précis
-        (compte.bourses_remises ?? []).forEach((attr) => {
-            if (remiseRestante <= 0 || !attr.frais_scolaire_id) return;
-            const idx = fraisObligatoires.findIndex((f) => Number(f.id) === Number(attr.frais_scolaire_id));
-            if (idx >= 0) {
-                const ded = Math.min(remiseRestante, Number(attr.montant_calcule || 0), montantsNetsObligatoires[idx]);
-                montantsNetsObligatoires[idx] -= ded;
-                remiseRestante -= ded;
-            }
-        });
-
-        // Reliquat de remise imputé de la dernière tranche vers la première
-        for (let i = montantsNetsObligatoires.length - 1; i >= 0 && remiseRestante > 0; i--) {
-            const ded = Math.min(remiseRestante, montantsNetsObligatoires[i]);
-            montantsNetsObligatoires[i] -= ded;
-            remiseRestante -= ded;
-        }
-
-        // Construction des lignes ordonnées du dossier élève pour ventiler exactement ses paiements
-        interface LigneInterne {
-            fraisScolaireId: number | null;
-            entryKey: { id: number | null; nom: string; description: string | null };
-            attendu: number;
-            paye: number;
-        }
-
-        const lignesEleve: LigneInterne[] = [];
-
-        const arrieres = Number(compte.arrieres_anterieurs || 0);
-        if (arrieres > 0) {
-            lignesEleve.push({
-                fraisScolaireId: null,
-                entryKey: { id: null, nom: 'Arriérés Antérieurs', description: null },
-                attendu: arrieres,
-                paye: 0,
-            });
-        }
-
-        fraisObligatoires.forEach((f, idx) => {
-            const attendu = montantsNetsObligatoires[idx];
-            if (attendu <= 0) return;
-            lignesEleve.push({
-                fraisScolaireId: Number(f.id),
-                entryKey: resoudreCategorieFrais(f, mapCategories, 'Scolarité'),
-                attendu,
-                paye: 0,
-            });
-        });
-
-        (compte.souscriptions_optionnelles ?? []).forEach((sous) => {
-            if (sous.statut !== 'actif') return;
-            const attendu = Number(sous.montant || 0);
-            if (attendu <= 0) return;
-            lignesEleve.push({
-                fraisScolaireId: sous.frais_scolaire_id ? Number(sous.frais_scolaire_id) : null,
-                entryKey: resoudreCategorieFrais(
-                    sous.frais_scolaire,
-                    mapCategories,
-                    'Transport & Services Annexes'
-                ),
-                attendu,
-                paye: 0,
-            });
-        });
-
-        const totalPenalites = (compte.penalites ?? [])
-            .filter((p) => p.statut !== 'annule')
-            .reduce((acc, p) => acc + Number(p.montant || 0), 0);
-        if (totalPenalites > 0) {
-            lignesEleve.push({
-                fraisScolaireId: null,
-                entryKey: { id: null, nom: 'Pénalités de Retard', description: null },
-                attendu: totalPenalites,
-                paye: 0,
-            });
-        }
-
-        // 3. Répartition des versements valides en 2 passes (ciblée puis cascade par priorité)
-        let budgetPaye = Math.max(0, Number(compte.total_paye || 0));
-
-        (compte.versements ?? []).forEach((vers) => {
-            if (vers.statut !== 'valide') return;
-            (vers.ventilations ?? []).forEach((vent) => {
-                if (!vent.frais_scolaire_id || budgetPaye <= 0) return;
-                const cible = lignesEleve.find(
-                    (l) => l.fraisScolaireId === Number(vent.frais_scolaire_id) && l.attendu > l.paye
-                );
-                if (cible) {
-                    const affecte = Math.min(
-                        budgetPaye,
-                        Number(vent.montant || 0),
-                        cible.attendu - cible.paye
-                    );
-                    cible.paye += affecte;
-                    budgetPaye -= affecte;
-                }
-            });
-        });
-
-        for (const ligne of lignesEleve) {
-            if (budgetPaye <= 0) break;
-            const manque = ligne.attendu - ligne.paye;
-            if (manque <= 0) continue;
-            const affecte = Math.min(budgetPaye, manque);
-            ligne.paye += affecte;
-            budgetPaye -= affecte;
-        }
-
-        // 4. Consolidation dans l'accumulateur par Catégorie
+        // Consolidation dans l'accumulateur par Catégorie
         lignesEleve.forEach((ligne) => {
+            if (ligne.attendu <= 0 && ligne.paye <= 0) return;
             const entry = ensureEntry(
-                ligne.entryKey.id,
-                ligne.entryKey.nom,
-                ligne.entryKey.description
+                ligne.categorieKey.id,
+                ligne.categorieKey.nom,
+                ligne.categorieKey.description
             );
             entry.attenduGlobal += ligne.attendu;
             entry.encaisseGlobal += ligne.paye;

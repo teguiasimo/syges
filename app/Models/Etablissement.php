@@ -22,11 +22,16 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $ordre_enseignement
  * @property string|null $decret_creation
  * @property string|null $nom_chef_etablissement
+ * @property string|null $titre_chef
+ * @property string|null $titre_chef_en
+ * @property string|null $titre_responsable_classe
+ * @property string|null $titre_responsable_classe_en
  * @property string|null $email
  * @property string|null $telephone_1
  * @property string|null $telephone_2
  * @property string|null $adresse
  * @property string|null $logo
+ * @property string|null $logo_filigrane
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read \App\Models\Institution $institution
@@ -52,11 +57,14 @@ class Etablissement extends Model
         'nom_chef_etablissement',
         'titre_chef',
         'titre_chef_en',
+        'titre_responsable_classe',
+        'titre_responsable_classe_en',
         'email',
         'telephone_1',
         'telephone_2',
         'adresse',
         'logo',
+        'logo_filigrane',
         'mode_bulletin_defaut',
         'type_calcul_trimestre',
         'seuil_absences_decheance_mentions',
@@ -92,8 +100,12 @@ class Etablissement extends Model
     protected $appends = [
         'effective_logo',
         'logo_url',
+        'effective_filigrane',
+        'filigrane_url',
         'titre_chef',
         'titre_chef_en',
+        'titre_responsable_classe',
+        'titre_responsable_classe_en',
         'delegation_regionale',
         'delegation_regionale_en',
         'delegation_departementale',
@@ -184,9 +196,81 @@ class Etablissement extends Model
             'Le Proviseur' => 'The Principal',
             'Le Principal' => 'The Principal',
             'Le Directeur' => 'The Director',
-            'La Directrice' => 'The Directress',
+            'La Directrice' => 'The Headmistress',
             default => 'The Head of Institution',
         };
+    }
+
+    /**
+     * Détermine dynamiquement le libellé du responsable pédagogique d'une classe en français.
+     *
+     * Permet à chaque établissement d'utiliser sa propre terminologie :
+     * - Maternelle / Primaire (MINEDUB) : « Le Maître / La Maîtresse »
+     * - Secondaire (MINESEC) : « Le Professeur Principal »
+     *
+     * @param  string|null  $value  Valeur personnalisée configurée en base de données.
+     * @return string Libellé officiel du responsable de classe.
+     */
+    public function getTitreResponsableClasseAttribute(?string $value = null): string
+    {
+        if (! empty($value)) {
+            return $value;
+        }
+
+        $ordre = $this->ordre_enseignement ?? '';
+        if (in_array($ordre, ['Maternelle', 'Primaire'], true)) {
+            return 'Le Maître / La Maîtresse';
+        }
+
+        return 'Le Professeur Principal';
+    }
+
+    /**
+     * Détermine dynamiquement le libellé du responsable pédagogique d'une classe en anglais.
+     *
+     * @param  string|null  $value  Valeur personnalisée configurée en base de données.
+     * @return string Libellé officiel en anglais.
+     */
+    public function getTitreResponsableClasseEnAttribute(?string $value = null): string
+    {
+        if (! empty($value)) {
+            return $value;
+        }
+
+        $ordre = $this->ordre_enseignement ?? '';
+        if (in_array($ordre, ['Maternelle', 'Primaire'], true)) {
+            return 'Class Teacher';
+        }
+
+        return 'Class Master';
+    }
+
+    /**
+     * Accesseur pour le logo filigrane effectif avec repli automatique sur l'institution parente.
+     *
+     * @return string|null Chemin relatif ou URL du filigrane effectif, ou null s'il n'y en a aucun.
+     */
+    public function getEffectiveFiligraneAttribute(): ?string
+    {
+        if (! empty($this->attributes['logo_filigrane'] ?? null)) {
+            return $this->attributes['logo_filigrane'];
+        }
+
+        if (! empty($this->institution?->logo_filigrane)) {
+            return $this->institution->logo_filigrane;
+        }
+
+        return null;
+    }
+
+    /**
+     * Accesseur standardisé pour l'URL du filigrane de l'établissement.
+     *
+     * @return string|null URL ou chemin du filigrane effectif.
+     */
+    public function getFiligraneUrlAttribute(): ?string
+    {
+        return $this->effective_filigrane;
     }
 
     /**
@@ -239,21 +323,42 @@ class Etablissement extends Model
     public function getEffectiveLogoBase64(): ?string
     {
         $candidates = array_filter([
-            $this->logo_url ? public_path(ltrim($this->logo_url, '/\\')) : null,
-            ! empty($this->attributes['logo']) ? public_path(ltrim($this->attributes['logo'], '/\\')) : null,
-            $this->institution?->logo ? public_path(ltrim($this->institution->logo, '/\\')) : null,
-            public_path('logo.png'),
-            public_path('logo.jpg'),
+            $this->logo_url,
+            $this->attributes['logo'] ?? null,
+            $this->institution?->logo,
+            '/logo.png',
+            '/logo.jpg',
         ]);
 
-        foreach ($candidates as $path) {
-            if ($path && file_exists($path) && is_file($path)) {
-                $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION)) ?: 'png';
-                $mime = in_array($ext, ['jpg', 'jpeg']) ? 'image/jpeg' : 'image/png';
-                $content = @file_get_contents($path);
-                if ($content !== false) {
-                    return 'data:' . $mime . ';base64,' . base64_encode($content);
-                }
+        foreach ($candidates as $candidate) {
+            $encoded = Institution::resolveImageBase64($candidate);
+            if ($encoded !== null) {
+                return $encoded;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Retourne le filigrane effectif de l'établissement encodé en Base64 pour DomPDF.
+     *
+     * Vérifie d'abord le filigrane propre à l'établissement, puis celui de l'institution faîtière.
+     * Aucun repli invasif n'est appliqué s'il n'est pas configuré afin de préserver la sobriété des états.
+     *
+     * @return string|null Chaîne data URI Base64 ou null.
+     */
+    public function getEffectiveFiligraneBase64(): ?string
+    {
+        $candidates = array_filter([
+            $this->attributes['logo_filigrane'] ?? null,
+            $this->institution?->logo_filigrane,
+        ]);
+
+        foreach ($candidates as $candidate) {
+            $encoded = Institution::resolveImageBase64($candidate);
+            if ($encoded !== null) {
+                return $encoded;
             }
         }
 
@@ -401,12 +506,12 @@ class Etablissement extends Model
         return $this->attributes['ville']
             ?? $this->institution?->ville
             ?? $this->institution?->arrondissement
-            ?? 'Fongo-Tongo';
+            ?? '';
     }
 
     /**
      * Accesseur pour le sigle usuel de l'établissement.
-     * Renvoie en priorité le code court de l'établissement (ex: 'CES MEGUEU'),
+     * Renvoie en priorité le code court de l'établissement (ex: 'GSB ESPOIR'),
      * ou une abréviation déduite de son nom si le code n'est pas spécifié.
      *
      * @return string
@@ -418,7 +523,7 @@ class Etablissement extends Model
         }
 
         // Si aucun code n'est configuré, déduit le sigle depuis le nom
-        return $this->nom ? preg_replace('/\b(DE|DU|DES|D\'|ET|LA|LE|LES)\b/i', '', $this->nom) : 'CES MEGUEU';
+        return $this->nom ? preg_replace('/\b(DE|DU|DES|D\'|ET|LA|LE|LES)\b/i', '', $this->nom) : 'CAMPUS';
     }
 
     /**

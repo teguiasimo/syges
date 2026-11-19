@@ -9,11 +9,9 @@ import {
     CalendarRange,
     Briefcase,
     Layers,
-    KeyRound,
     FileSpreadsheet,
-    Database,
     ChevronRight,
-    Lock,
+    CreditCard,
     Edit3,
     FileText,
     Wallet,
@@ -23,10 +21,10 @@ import {
     Award,
     BarChart3,
     RefreshCw,
+    Image as ImageIcon,
 } from 'lucide-react';
 import { useTranslation } from '@/contexts/language-context';
 import { usePermission } from '@/hooks/use-permission';
-import { dashboard } from '@/routes';
 
 /**
  * Type définissant un module administratif affiché dans la grille.
@@ -69,7 +67,7 @@ type AdminModule = {
  * Hiérarchie chronologique et structurelle de mise en place :
  * 1. FONDATIONS & STRUCTURE (Structure & Campus, Années & Périodes, Matières & Coeffs)
  * 2. PERSONNEL & ENSEIGNEMENT (Personnel & RH, Attribution des Cours, Emplois du Temps)
- * 3. VIE SCOLAIRE & ÉLÈVES (Inscriptions, Caisse & Scolarités, Discipline & Absences)
+ * 3. VIE SCOLAIRE & ÉLÈVES (Inscriptions, Finances & Tarifs, Guichet & Scolarités, Discipline & Absences)
  * 4. PÉDAGOGIE & ÉVALUATIONS (Saisie des Notes, Bulletins Scolaires, Délibérations)
  * 5. PILOTAGE & DIFFUSION (Statistiques & Rapports, Communication SMS)
  * 6. SÉCURITÉ & SYSTÈME (Comptes Utilisateurs, Rôles & Permissions)
@@ -86,6 +84,16 @@ const adminModules: AdminModule[] = [
         bgColor: 'bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-100 dark:border-emerald-900/40',
         href: '/administration/institution',
         permission: 'institutions.view',
+        category: 'Fondations & Structure',
+    },
+    {
+        titleKey: 'admin.login_appearance_title',
+        descKey: 'admin.login_appearance_desc',
+        icon: ImageIcon,
+        color: 'text-sky-600 dark:text-sky-400',
+        bgColor: 'bg-sky-50 dark:bg-sky-950/50 border border-sky-100 dark:border-sky-900/40',
+        href: '/administration/institution/login-appearance',
+        permission: 'institutions.edit',
         category: 'Fondations & Structure',
     },
     {
@@ -160,9 +168,19 @@ const adminModules: AdminModule[] = [
         titleKey: 'admin.finances_title',
         descKey: 'admin.finances_desc',
         icon: Wallet,
+        color: 'text-teal-600 dark:text-teal-400',
+        bgColor: 'bg-teal-50 dark:bg-teal-950/50 border border-teal-100 dark:border-teal-900/40',
+        href: '/administration/finances',
+        permission: 'finances.view',
+        category: 'Vie Scolaire & Élèves',
+    },
+    {
+        titleKey: 'admin.guichet_scolarites_title',
+        descKey: 'admin.guichet_scolarites_desc',
+        icon: CreditCard,
         color: 'text-emerald-600 dark:text-emerald-400',
         bgColor: 'bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-100 dark:border-emerald-900/40',
-        href: '/administration/finances',
+        href: '/administration/finances/scolarites',
         permission: 'finances.view',
         category: 'Vie Scolaire & Élèves',
     },

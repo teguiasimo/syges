@@ -205,7 +205,7 @@ class DisciplineController extends Controller implements HasMiddleware
 
         $inscription = Inscription::findOrFail($validated['inscription_id']);
         $context = $this->resolveEtablissementContext($request);
-        if (! $context['isSuperAdmin'] && (int) $inscription->etablissement_id !== (int) $context['etablissementId']) {
+        if (! ($context['canAccessAll'] ?? $context['isSuperAdmin']) && (int) $inscription->etablissement_id !== (int) $context['etablissementId']) {
             abort(403, 'Action non autorisée sur un élève d\'un autre établissement.');
         }
 
@@ -230,7 +230,7 @@ class DisciplineController extends Controller implements HasMiddleware
 
         $assiduite->load('inscription');
         $context = $this->resolveEtablissementContext($request);
-        if (! $context['isSuperAdmin'] && (int) $assiduite->inscription?->etablissement_id !== (int) $context['etablissementId']) {
+        if (! ($context['canAccessAll'] ?? $context['isSuperAdmin']) && (int) $assiduite->inscription?->etablissement_id !== (int) $context['etablissementId']) {
             abort(403, 'Action non autorisée sur un événement d\'un autre établissement.');
         }
 
@@ -256,7 +256,7 @@ class DisciplineController extends Controller implements HasMiddleware
 
         $assiduite->load('inscription');
         $context = $this->resolveEtablissementContext(request());
-        if (! $context['isSuperAdmin'] && (int) $assiduite->inscription?->etablissement_id !== (int) $context['etablissementId']) {
+        if (! ($context['canAccessAll'] ?? $context['isSuperAdmin']) && (int) $assiduite->inscription?->etablissement_id !== (int) $context['etablissementId']) {
             abort(403, 'Action non autorisée sur un événement d\'un autre établissement.');
         }
 
@@ -293,7 +293,7 @@ class DisciplineController extends Controller implements HasMiddleware
 
         $inscription = Inscription::findOrFail($validated['inscription_id']);
         $context = $this->resolveEtablissementContext($request);
-        if (! $context['isSuperAdmin'] && (int) $inscription->etablissement_id !== (int) $context['etablissementId']) {
+        if (! ($context['canAccessAll'] ?? $context['isSuperAdmin']) && (int) $inscription->etablissement_id !== (int) $context['etablissementId']) {
             abort(403, 'Action non autorisée sur un élève d\'un autre établissement.');
         }
 
@@ -315,7 +315,7 @@ class DisciplineController extends Controller implements HasMiddleware
 
         $sanction->load('inscription');
         $context = $this->resolveEtablissementContext(request());
-        if (! $context['isSuperAdmin'] && (int) $sanction->inscription?->etablissement_id !== (int) $context['etablissementId']) {
+        if (! ($context['canAccessAll'] ?? $context['isSuperAdmin']) && (int) $sanction->inscription?->etablissement_id !== (int) $context['etablissementId']) {
             abort(403, 'Action non autorisée sur une sanction d\'un autre établissement.');
         }
 

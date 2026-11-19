@@ -142,6 +142,7 @@
     </style>
 </head>
 <body>
+    @include('partials.watermark', ['etablissement' => $etablissement ?? null])
 
     <!-- En-tête bilingue officiel -->
     <table class="header-table">
@@ -229,7 +230,7 @@
         @endif
         <br>
         Né(e) le : <span class="highlight">{{ $eleve->date_naissance ? \Carbon\Carbon::parse($eleve->date_naissance)->format('d-m-Y') : '---' }}</span> à <span class="highlight">{{ $eleve->lieu_naissance ?? '---' }}</span><br>
-        Sexe : <span class="highlight">{{ $eleve->sexe === 'F' ? 'Féminin' : 'Masculin' }}</span> &bull; Nationalité : <span class="highlight">{{ $eleve->nationalite ?? 'CAMEROUNAISE' }}</span><br>
+        Sexe : <span class="highlight">{{ $eleve->sexe === 'F' ? 'Féminin' : ($eleve->sexe === 'M' ? 'Masculin' : 'Non défini') }}</span> &bull; Nationalité : <span class="highlight">{{ $eleve->nationalite ?? 'CAMEROUNAISE' }}</span><br>
         <br>
         Qui était régulièrement inscrit(e) et suivait les enseignements dans la classe de : <span class="highlight">{{ $classe->nom }}</span> durant l'année scolaire <span class="highlight">{{ $annee->session ?? ($annee->code ?? $annee->nom) }}</span>,
         <br><br>

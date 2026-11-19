@@ -16,6 +16,7 @@ use App\Http\Controllers\Administration\EleveController;
 use App\Http\Controllers\Administration\EmploiDuTempsController;
 use App\Http\Controllers\Administration\FinanceController;
 use App\Http\Controllers\Administration\InstitutionController;
+use App\Http\Controllers\Administration\LoginAppearanceController;
 use App\Http\Controllers\Administration\MatiereController;
 use App\Http\Controllers\Administration\NoteController;
 use App\Http\Controllers\Administration\PeriodeEvaluationController;
@@ -32,7 +33,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 // Redirection par défaut de la racine vers la page de connexion dès le lancement
-Route::redirect('/', 'login')->name('home');
+Route::redirect('/', '/login')->name('home');
 
 /**
  * Routes directes de distribution des favicons officiels SYGES avec cache navigateur.
@@ -78,28 +79,77 @@ Route::post('locale', function (Request $request) {
 Route::middleware(['auth', 'verified'])->group(function () {
     /**
      * Bascule l'établissement actif pour la session de l'utilisateur (SaaS Multi-Tenant).
-     * Les Super Admins peuvent basculer librement vers n'importe quel campus de l'institution.
-     * Le personnel scolaire local est restreint à son établissement de rattachement.
+     * Les profils transversaux (Super-Admin et Secrétaire multi-établissements) peuvent basculer
+     * vers un campus précis ou activer le mode consolidé « all » (« Tous les établissements »).
+     * Le personnel scolaire local est strictement restreint à son établissement de rattachement.
      */
     Route::post('switch-etablissement', function (Request $request) {
         $user = $request->user();
-        $isSuperAdmin = $user ? $user->isSuperAdmin() : false;
+        $canAccessAll = $user ? ($user->isSuperAdmin() || $user->canAccessAllEtablissements()) : false;
 
-        $validated = $request->validate([
-            'etablissement_id' => ['required', 'exists:etablissements,id'],
+        $request->validate([
+            'etablissement_id' => ['required'],
         ]);
 
-        if (! $isSuperAdmin) {
-            $effectiveEtabId = $user ? $user->getEffectiveEtablissementId() : null;
-            if ($effectiveEtabId && (int) $effectiveEtabId !== (int) $validated['etablissement_id']) {
+        $requestedId = $request->input('etablissement_id');
+        $flashMessage = '';
+
+        if ($requestedId === 'all') {
+            if (! $canAccessAll) {
                 abort(403, 'Accès non autorisé : vous êtes assigné à un établissement spécifique.');
             }
+
+            // Active la vue consolidée sans altérer l'ID numérique de session utilisé par les autres modules
+            $request->session()->put('current_etablissement_scope', 'all');
+            if (! $request->session()->has('current_etablissement_id')) {
+                $fallbackEtabId = Etablissement::orderBy('nom')->value('id');
+                if ($fallbackEtabId) {
+                    $request->session()->put('current_etablissement_id', $fallbackEtabId);
+                }
+            }
+
+            $flashMessage = 'Périmètre actif basculé vers « Tous les établissements » avec succès.';
+        } else {
+            $validated = $request->validate([
+                'etablissement_id' => ['required', 'integer', 'exists:etablissements,id'],
+            ]);
+
+            if (! $canAccessAll) {
+                $effectiveEtabId = $user ? $user->getEffectiveEtablissementId() : null;
+                if (! $effectiveEtabId || (int) $effectiveEtabId !== (int) $validated['etablissement_id']) {
+                    abort(403, 'Accès non autorisé : vous êtes assigné à un établissement spécifique.');
+                }
+            }
+
+            // whereKey()->firstOrFail() garantit un type modèle unique (et non une Collection) à l'analyse statique
+            $etab = Etablissement::query()->whereKey($validated['etablissement_id'])->firstOrFail();
+            $request->session()->put('current_etablissement_id', $etab->id);
+            $request->session()->put('current_etablissement_scope', 'single');
+
+            $flashMessage = "Campus actif basculé vers « {$etab->nom} » avec succès.";
         }
 
-        $etab = Etablissement::findOrFail($validated['etablissement_id']);
-        $request->session()->put('current_etablissement_id', $etab->id);
+        // Nettoie un éventuel paramètre ?etablissement_id=... résiduel dans l'URL précédente
+        // afin que les filtres de page ne viennent pas annuler la sélection du sélecteur global.
+        $previousUrl = url()->previous();
+        $parts = parse_url($previousUrl);
+        if (is_array($parts) && isset($parts['query'])) {
+            parse_str($parts['query'], $queryParams);
+            unset($queryParams['etablissement_id']);
+            $path = $parts['path'] ?? '/';
+            if (str_contains($path, '/administration/statistiques') || str_contains($path, '/administration/eleves')) {
+                unset($queryParams['classe_id'], $queryParams['niveau_id'], $queryParams['cycle_id']);
+            }
+            $schemeHost = (isset($parts['scheme']) && isset($parts['host']))
+                ? $parts['scheme'] . '://' . $parts['host'] . (isset($parts['port']) ? ':' . $parts['port'] : '')
+                : '';
+            $newQuery = http_build_query($queryParams);
+            $targetUrl = $schemeHost . $path . ($newQuery !== '' ? '?' . $newQuery : '');
 
-        return back()->with('success', "Campus actif basculé vers « {$etab->nom} » avec succès.");
+            return redirect()->to($targetUrl)->with('success', $flashMessage);
+        }
+
+        return back()->with('success', $flashMessage);
     })->name('context.switch-etablissement');
 
     // Page du Tableau de bord exécutif (Module 15)
@@ -114,6 +164,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('institution', [InstitutionController::class, 'index'])->name('institution.index');
         Route::get('institution/edit', [InstitutionController::class, 'editInstitution'])->name('institution.edit');
         Route::match(['put', 'post'], 'institution', [InstitutionController::class, 'updateInstitution'])->name('institution.update');
+
+        // Personnalisation dynamique de l'écran de connexion (Carrousel photos, messages & branding)
+        Route::prefix('institution/login-appearance')->name('login-appearance.')->group(function () {
+            Route::get('/', [LoginAppearanceController::class, 'index'])->name('index');
+            Route::post('settings', [LoginAppearanceController::class, 'updateSettings'])->name('settings.update');
+            Route::post('settings/reset', [LoginAppearanceController::class, 'resetToDefaults'])->name('settings.reset');
+            Route::post('slides', [LoginAppearanceController::class, 'storeSlide'])->name('slides.store');
+            Route::post('slides/{slide}', [LoginAppearanceController::class, 'updateSlide'])->name('slides.update');
+            Route::post('slides/{slide}/reorder', [LoginAppearanceController::class, 'reorderSlide'])->name('slides.reorder');
+            Route::delete('slides/{slide}', [LoginAppearanceController::class, 'destroySlide'])->name('slides.destroy');
+        });
 
         // Établissements
         Route::post('etablissements', [InstitutionController::class, 'storeEtablissement'])->name('etablissements.store');
@@ -273,7 +334,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // Module 11 : Gestion de la Caisse & Paiements (Gesco 11 & Aurore)
         Route::get('finances', [FinanceController::class, 'index'])->name('finances.index');
         Route::get('finances/scolarites', [FinanceController::class, 'scolarites'])->name('finances.scolarites');
+        // Page dédiée au Centre des États & Rapports Financiers
+        Route::get('finances/etats', [FinanceController::class, 'etats'])->name('finances.etats');
         Route::post('finances/versements', [FinanceController::class, 'storeVersement'])->name('finances.versements.store');
+        Route::put('finances/versements/{versement}', [FinanceController::class, 'updateVersement'])->name('finances.versements.update');
         Route::post('finances/versements/annuler-lot', [FinanceController::class, 'annulerVersementsLot'])->name('finances.versements.annuler-lot');
         Route::get('finances/versements/{versement}/recu', [FinanceController::class, 'imprimerRecu'])->name('finances.versements.recu');
         Route::post('finances/versements/{versement}/annuler', [FinanceController::class, 'annulerVersement'])->name('finances.versements.annuler');
@@ -304,6 +368,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         // Règlements divers hors scolarité (Aurore §4.2)
         Route::post('finances/reglements-divers', [FinanceController::class, 'storeReglementDivers'])->name('finances.reglements-divers.store');
+        Route::put('finances/reglements-divers/{reglementDivers}', [FinanceController::class, 'updateReglementDivers'])->name('finances.reglements-divers.update');
         Route::post('finances/reglements-divers/{reglement}/annuler', [FinanceController::class, 'annulerReglementDivers'])->name('finances.reglements-divers.annuler');
         Route::get('finances/reglements-divers/{reglement}/recu', [FinanceController::class, 'imprimerRecuDivers'])->name('finances.reglements-divers.recu');
 
@@ -325,19 +390,29 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('finances/penalites/appliquer-echeances', [FinanceController::class, 'appliquerPenalitesRetard'])->name('finances.penalites.appliquer-echeances');
         Route::post('finances/penalites/{penalite}/annuler', [FinanceController::class, 'annulerPenaliteEleve'])->name('finances.penalites.annuler');
 
-        // Souscriptions aux Frais Optionnels (Bus, Cantine, Internat)
+        // Souscriptions aux Frais Optionnels (Bus, Cantine, Internat, Frais spécifiques par classe/série)
         Route::post('finances/souscriptions-optionnelles', [FinanceController::class, 'storeSouscriptionOptionnelle'])->name('finances.souscriptions-optionnelles.store');
+        Route::post('finances/souscriptions-optionnelles/classe', [FinanceController::class, 'storeSouscriptionOptionnelleClasse'])->name('finances.souscriptions-optionnelles.classe');
         Route::delete('finances/souscriptions-optionnelles/{souscription}', [FinanceController::class, 'destroySouscriptionOptionnelle'])->name('finances.souscriptions-optionnelles.destroy');
 
         // Dossier financier et échéancier de l'élève (API JSON)
         Route::get('finances/comptes/{compte}/dossier', [FinanceController::class, 'dossierFinancierEleve'])->name('finances.comptes.dossier');
 
-        // Éditions et États PDF Officiels (Journaux, Insolvables, En règle, Fiche élève)
+        // Éditions et États PDF Officiels (Journaux, Bilans, Insolvables, En règle, Fiche élève, Bilan réductions)
         Route::get('finances/comptes/{compte}/fiche-pdf', [FinanceController::class, 'imprimerFicheCompte'])->name('finances.comptes.fiche-pdf');
+        Route::get('finances/etats/journal-versements-pdf', [FinanceController::class, 'imprimerJournalVersements'])->name('finances.etats.journal-versements-pdf');
+        Route::get('finances/etats/journal-resume-pdf', [FinanceController::class, 'imprimerJournalResume'])->name('finances.etats.journal-resume-pdf');
+        Route::get('finances/etats/journal-categories-pdf', [FinanceController::class, 'imprimerJournalParCategories'])->name('finances.etats.journal-categories-pdf');
+        Route::get('finances/etats/bilan-resume-pdf', [FinanceController::class, 'imprimerBilanResumeRecouvrement'])->name('finances.etats.bilan-resume-pdf');
+        Route::get('finances/etats/bilan-detaille-pdf', [FinanceController::class, 'imprimerBilanDetailleVersements'])->name('finances.etats.bilan-detaille-pdf');
+        Route::get('finances/etats/bilan-reductions-pdf', [FinanceController::class, 'imprimerBilanReductionsBourses'])->name('finances.etats.bilan-reductions-pdf');
+        Route::get('finances/etats/insolvables-pdf', [FinanceController::class, 'imprimerListeInsolvables'])->name('finances.etats.insolvables-pdf');
+        Route::get('finances/etats/releve-eleve-pdf', [FinanceController::class, 'imprimerReleveIndividuelEleve'])->name('finances.etats.releve-eleve-pdf');
         Route::get('finances/etats/journal-detaille-pdf', [FinanceController::class, 'imprimerJournalDetaille'])->name('finances.etats.journal-detaille-pdf');
         Route::get('finances/etats/journal-synthetique-pdf', [FinanceController::class, 'imprimerJournalSynthetique'])->name('finances.etats.journal-synthetique-pdf');
-        Route::get('finances/etats/insolvables-pdf', [FinanceController::class, 'imprimerListeInsolvables'])->name('finances.etats.insolvables-pdf');
+        Route::get('finances/etats/recettes-diverses-pdf', [FinanceController::class, 'imprimerEtatRecettesDiverses'])->name('finances.etats.recettes-diverses-pdf');
         Route::get('finances/etats/en-regle-pdf', [FinanceController::class, 'imprimerListeEnRegle'])->name('finances.etats.en-regle-pdf');
+        Route::get('finances/etats/suivi-frais-pdf', [FinanceController::class, 'imprimerSuiviParFrais'])->name('finances.etats.suivi-frais-pdf');
 
         // Module Dépenses, Fiches de Décharge & Bilan Financier (Phase 1)
         Route::get('finances/depenses', [DepenseController::class, 'index'])->name('finances.depenses.index');

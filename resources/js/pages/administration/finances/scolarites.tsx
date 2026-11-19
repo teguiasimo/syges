@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Head, router } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
+import { toast } from 'sonner';
 import { type ColumnDef } from '@tanstack/react-table';
 import {
-    AlertCircle,
     Award,
     Building2,
     Bus,
@@ -21,7 +21,12 @@ import {
     Users,
     Wallet,
 } from 'lucide-react';
-import { calculerSyntheseCategoriesGuichet } from '@/lib/finance-categories';
+import {
+    allouerLignesCompteEleve,
+    calculerSyntheseCategoriesGuichet,
+    evaluerCibleFraisEleve,
+    type ModeFiltreFrais,
+} from '@/lib/finance-categories';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -46,10 +51,6 @@ import type {
     TypeFrais,
 } from '@/types/finance';
 import DossierFinancierModal from './modals/dossier-financier-modal';
-import GenerateurEtatsFinanciersModal, {
-    type PeriodePreset,
-    type TypeEtatFinancier,
-} from './modals/generateur-etats-modal';
 import ModeleBourseModal from './modals/modele-bourse-modal';
 
 /**
@@ -93,6 +94,7 @@ interface ScolaritesPageProps {
 export default function ScolaritesPage({
     comptes,
     categoriesFrais = [],
+    typesFrais = [],
     tarifs = [],
     fraisOptionnels = [],
     boursesRemises = [],
@@ -126,16 +128,20 @@ export default function ScolaritesPage({
     const [searchQuery, setSearchQuery] = useState<string>('');
     const [selectedStatut, setSelectedStatut] = useState<string>('all');
 
+    // Filtres analytiques par Catégorie de Frais, Frais précis (Inscription, Tranche 1...) et Condition / Palier
+    const [selectedCategorieFraisId, setSelectedCategorieFraisId] = useState<string>('all');
+    const [selectedTypeFraisId, setSelectedTypeFraisId] = useState<string>('all');
+    const [selectedModeFrais, setSelectedModeFrais] = useState<ModeFiltreFrais>('tous');
+
     // Modale du Dossier Financier Tout-en-Un (on garde l'ID pour toujours lire le compte à jour depuis `comptes`)
     const [openCompteId, setOpenCompteId] = useState<number | null>(() =>
         filters?.compte_id ? Number(filters.compte_id) : null
     );
     const [isModeleBourseModalOpen, setIsModeleBourseModalOpen] = useState(false);
 
-    // Générateur d'états financiers multicritères (pré-rempli avec la sélection hiérarchique active)
-    const [isEtatsModalOpen, setIsEtatsModalOpen] = useState(false);
-    const [etatInitialType, setEtatInitialType] = useState<TypeEtatFinancier>('journal_synthetique');
-    const [etatInitialPreset, setEtatInitialPreset] = useState<PeriodePreset>('mois');
+    // Application en 1 clic d'un frais optionnel du niveau à toute une classe (ex: Inscription P CDE sur Première CDE)
+    const [selectedBulkOptionId, setSelectedBulkOptionId] = useState<string>('');
+    const [isApplyingBulkOption, setIsApplyingBulkOption] = useState<boolean>(false);
 
     // Droits granulaires Spatie Permission résolus pour l'utilisateur courant
     const canEtats = can.etats ?? can.view;
@@ -143,18 +149,6 @@ export default function ScolaritesPage({
     const canManageDispenses = can.dispenses_manage ?? can.manage;
     const canManageOptions = can.options_manage ?? can.manage;
     const canConfigureFrais = can.frais_configure ?? can.manage;
-
-    /**
-     * Ouvre la fenêtre modale de génération d'états PDF pré-remplie avec les filtres actifs du guichet.
-     */
-    const openGenerateurEtats = (
-        type: TypeEtatFinancier = 'journal_synthetique',
-        preset: PeriodePreset = 'mois'
-    ) => {
-        setEtatInitialType(type);
-        setEtatInitialPreset(preset);
-        setIsEtatsModalOpen(true);
-    };
 
     /**
      * Réinitialise intelligemment la section lorsque l'établissement actif change.
@@ -247,7 +241,57 @@ export default function ScolaritesPage({
     }, [comptes]);
 
     /**
-     * Liste filtrée des comptes élèves selon la hiérarchie académique, la recherche et le statut.
+     * Rubriques de frais disponibles selon la catégorie éventuellement sélectionnée.
+     */
+    const availableTypesFrais = useMemo(() => {
+        if (selectedCategorieFraisId === 'all') {
+            return typesFrais;
+        }
+        const catIdNum = Number(selectedCategorieFraisId);
+        return typesFrais.filter((tf) => Number(tf.categorie_frais_id) === catIdNum);
+    }, [typesFrais, selectedCategorieFraisId]);
+
+    /**
+     * Évaluation par élève des montants attendus / payés / restants sur la catégorie ou le frais ciblé.
+     */
+    const evaluationsFraisParCompte = useMemo(() => {
+        const hasTargetFilter =
+            selectedCategorieFraisId !== 'all' || selectedTypeFraisId !== 'all';
+        if (!hasTargetFilter) {
+            return null;
+        }
+
+        const mapCategories = new Map<number, CategorieFrais>();
+        categoriesFrais.forEach((c) => mapCategories.set(c.id, c));
+        const cacheTarifs = new Map<string, FraisScolaire[]>();
+        const catIdNum = selectedCategorieFraisId !== 'all' ? Number(selectedCategorieFraisId) : null;
+        const typeIdNum = selectedTypeFraisId !== 'all' ? Number(selectedTypeFraisId) : null;
+
+        const map = new Map<number, { match: boolean; attendu: number; paye: number; restant: number }>();
+        comptes.forEach((compte) => {
+            const lignes = allouerLignesCompteEleve(compte, tarifs, mapCategories, cacheTarifs);
+            map.set(
+                compte.id,
+                evaluerCibleFraisEleve(lignes, {
+                    categorieFraisId: catIdNum,
+                    typeFraisId: typeIdNum,
+                    modeFiltre: selectedModeFrais,
+                })
+            );
+        });
+
+        return map;
+    }, [
+        comptes,
+        tarifs,
+        categoriesFrais,
+        selectedCategorieFraisId,
+        selectedTypeFraisId,
+        selectedModeFrais,
+    ]);
+
+    /**
+     * Liste filtrée des comptes élèves selon la hiérarchie académique, la recherche, le statut et le frais ciblé.
      */
     const filteredComptes = useMemo(() => {
         const allowedClasseIds = new Set(availableClasses.map((cl) => Number(cl.id)));
@@ -271,13 +315,29 @@ export default function ScolaritesPage({
                 return false;
             }
 
+            if (evaluationsFraisParCompte && !evaluationsFraisParCompte.get(c.id)?.match) {
+                return false;
+            }
+
             if (searchQuery.trim() !== '') {
-                const q = searchQuery.toLowerCase().trim();
-                const nom = (c.eleve?.nom || '').toLowerCase();
-                const prenom = (c.eleve?.prenom || '').toLowerCase();
-                const mat = (c.eleve?.matricule || '').toLowerCase();
-                const tel = (c.eleve?.telephone_parent || '').toLowerCase();
-                if (!nom.includes(q) && !prenom.includes(q) && !mat.includes(q) && !tel.includes(q)) {
+                const normalize = (val: string) =>
+                    val
+                        .normalize('NFD')
+                        .replace(/[\u0300-\u036f]/g, '')
+                        .toLowerCase();
+                const tokens = normalize(searchQuery).trim().split(/\s+/).filter(Boolean);
+                const haystack = normalize(
+                    [
+                        c.eleve?.nom,
+                        c.eleve?.prenom,
+                        c.eleve?.matricule,
+                        c.eleve?.telephone_parent,
+                    ]
+                        .filter(Boolean)
+                        .join(' '),
+                );
+                // Permet la recherche multi-mots insensible aux accents dans n'importe quel ordre ("Nom Prénom" ou "Prénom Nom")
+                if (!tokens.every((token) => haystack.includes(token))) {
                     return false;
                 }
             }
@@ -293,8 +353,31 @@ export default function ScolaritesPage({
         selectedSerie,
         selectedClasseId,
         selectedStatut,
+        evaluationsFraisParCompte,
         searchQuery,
     ]);
+
+    /**
+     * Synthèse financière calculée uniquement sur la catégorie ou le frais ciblé pour la sélection.
+     */
+    const statsCibleFrais = useMemo(() => {
+        if (!evaluationsFraisParCompte) {
+            return null;
+        }
+        let attendu = 0;
+        let paye = 0;
+        let restant = 0;
+        filteredComptes.forEach((c) => {
+            const ev = evaluationsFraisParCompte.get(c.id);
+            if (ev?.match) {
+                attendu += ev.attendu;
+                paye += ev.paye;
+                restant += ev.restant;
+            }
+        });
+        const taux = attendu > 0 ? Math.min(100, Math.round((paye / attendu) * 100)) : 0;
+        return { effectif: filteredComptes.length, attendu, paye, restant, taux };
+    }, [evaluationsFraisParCompte, filteredComptes]);
 
     /**
      * Indicateurs financiers consolidés en temps réel sur la sélection affichée.
@@ -371,6 +454,75 @@ export default function ScolaritesPage({
     );
 
     /**
+     * Classe actuellement sélectionnée dans le filtre (si une classe précise est filtrée).
+     */
+    const activeClasseObj = useMemo(
+        () =>
+            selectedClasseId !== 'all'
+                ? availableClasses.find((cl) => String(cl.id) === selectedClasseId) ?? null
+                : null,
+        [availableClasses, selectedClasseId]
+    );
+
+    /**
+     * Frais optionnels configurés sur le niveau de la classe sélectionnée (ex: Inscription P CDE, Inscription P TI...).
+     */
+    const optionsDuNiveauDeLaClasse = useMemo(() => {
+        if (!activeClasseObj) return [];
+        const nivId = Number(activeClasseObj.niveau_id);
+        return fraisOptionnels.filter(
+            (fo) => !fo.niveau_id || Number(fo.niveau_id) === nivId
+        );
+    }, [activeClasseObj, fraisOptionnels]);
+
+    /**
+     * Synchronise l'option par défaut lorsque la classe sélectionnée change.
+     */
+    useEffect(() => {
+        if (optionsDuNiveauDeLaClasse.length > 0) {
+            setSelectedBulkOptionId(String(optionsDuNiveauDeLaClasse[0].id));
+        } else {
+            setSelectedBulkOptionId('');
+        }
+    }, [activeClasseObj?.id, optionsDuNiveauDeLaClasse]);
+
+    /**
+     * Applique un frais optionnel du niveau à tous les élèves de la classe sélectionnée en 1 clic.
+     */
+    const handleApplyOptionToClasse = () => {
+        if (!activeClasseObj || !selectedBulkOptionId) return;
+
+        setIsApplyingBulkOption(true);
+        router.post(
+            '/administration/finances/souscriptions-optionnelles/classe',
+            {
+                classe_id: activeClasseObj.id,
+                frais_scolaire_id: Number(selectedBulkOptionId),
+            },
+            {
+                preserveScroll: true,
+                preserveState: true,
+                onSuccess: () => {
+                    toast.success(
+                        `Frais optionnel appliqué avec succès aux élèves de la classe ${activeClasseObj.nom} !`,
+                        {
+                            position: 'top-right',
+                            className: 'bg-emerald-600 text-white border-none',
+                        }
+                    );
+                },
+                onError: (errors) => {
+                    const first = Object.values(errors)[0] as string;
+                    toast.error(first || "Impossible d'appliquer ce frais optionnel à la classe.", {
+                        position: 'top-right',
+                    });
+                },
+                onFinish: () => setIsApplyingBulkOption(false),
+            }
+        );
+    };
+
+    /**
      * Changement d'établissement pour le Super-Administrateur.
      */
     const handleChangeEtablissement = (etabId: string) => {
@@ -391,6 +543,9 @@ export default function ScolaritesPage({
         setSelectedSerie('all');
         setSelectedClasseId('all');
         setSelectedStatut('all');
+        setSelectedCategorieFraisId('all');
+        setSelectedTypeFraisId('all');
+        setSelectedModeFrais('tous');
         setSearchQuery('');
     };
 
@@ -409,6 +564,16 @@ export default function ScolaritesPage({
         },
         {
             id: 'eleve_identite',
+            // Expose l'identité complète (ordre Nom Prénom, Prénom Nom, version désaccentuée, matricule et téléphone)
+            // afin que le filtre global de TanStack Table retrouve l'élève quelle que soit la saisie effectuée.
+            accessorFn: (row) => {
+                const el = row.eleve;
+                const base = [el?.nom, el?.prenom, el?.nom, el?.matricule, el?.telephone_parent]
+                    .filter(Boolean)
+                    .join(' ');
+                const unaccented = base.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                return unaccented !== base ? `${base} ${unaccented}` : base;
+            },
             header: 'Élève',
             cell: ({ row }) => {
                 const el = row.original.eleve;
@@ -428,6 +593,11 @@ export default function ScolaritesPage({
         },
         {
             id: 'classe_nom',
+            // Permet également de filtrer directement via la barre de recherche du tableau sur la classe ou le niveau.
+            accessorFn: (row) => {
+                const cl = row.inscription?.classe;
+                return [cl?.nom, cl?.niveau?.nom].filter(Boolean).join(' ');
+            },
             header: 'Classe',
             cell: ({ row }) => {
                 const cl = row.original.inscription?.classe;
@@ -531,9 +701,23 @@ export default function ScolaritesPage({
                     case 'solde':
                         return <Badge className="bg-emerald-600 text-white text-[10px]">Soldé</Badge>;
                     case 'en_regle_tranche_2':
-                        return <Badge className="bg-blue-600 text-white text-[10px]">En Règle T2</Badge>;
+                        return <Badge className="bg-blue-600 text-white text-[10px]">En Règle T2+</Badge>;
                     case 'en_regle_tranche_1':
                         return <Badge className="bg-sky-600 text-white text-[10px]">En Règle T1</Badge>;
+                    case 'inscrit_a_jour':
+                        return <Badge className="bg-teal-600 text-white text-[10px]">Inscrit (À jour)</Badge>;
+                    case 'acompte':
+                        return (
+                            <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-300 text-[10px]">
+                                Acompte / Partiel
+                            </Badge>
+                        );
+                    case 'en_attente':
+                        return (
+                            <Badge variant="outline" className="bg-slate-100 text-slate-700 border-slate-300 text-[10px]">
+                                En attente
+                            </Badge>
+                        );
                     default:
                         return <Badge variant="destructive" className="text-[10px]">Insolvable</Badge>;
                 }
@@ -606,45 +790,31 @@ export default function ScolaritesPage({
                     </div>
 
                     {canEtats && (
-                        <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex items-center gap-2">
                             <Button
-                                type="button"
+                                asChild
                                 variant="outline"
                                 size="sm"
-                                className="h-9 text-xs font-semibold text-sky-800 border-sky-300 hover:bg-sky-50 flex items-center gap-1.5"
-                                onClick={() => openGenerateurEtats('journal_synthetique', 'mois')}
+                                className="h-9 text-xs font-semibold text-sky-800 border-sky-300 hover:bg-sky-50 dark:border-sky-800 dark:text-sky-300 flex items-center gap-1.5 shadow-2xs"
                             >
-                                <FileSpreadsheet className="w-3.5 h-3.5 text-sky-600" />
-                                États & Journaux Filtrés (PDF)
-                            </Button>
-
-                            <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                className="h-9 text-xs font-semibold text-red-700 border-red-200 hover:bg-red-50 flex items-center gap-1.5"
-                                onClick={() => openGenerateurEtats('liste_insolvables', 'annee')}
-                            >
-                                <AlertCircle className="w-3.5 h-3.5 text-red-600" />
-                                Liste Insolvables (PDF)
-                            </Button>
-
-                            <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                className="h-9 text-xs font-semibold text-emerald-700 border-emerald-200 hover:bg-emerald-50 flex items-center gap-1.5"
-                                onClick={() => openGenerateurEtats('liste_en_regle', 'annee')}
-                            >
-                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                                Élèves en Règle (PDF)
+                                <Link
+                                    href={`/administration/finances/etats?${new URLSearchParams({
+                                        ...(selectedSectionId !== 'all' ? { section_id: selectedSectionId } : {}),
+                                        ...(selectedCycleId !== 'all' ? { cycle_id: selectedCycleId } : {}),
+                                        ...(selectedNiveauId !== 'all' ? { niveau_id: selectedNiveauId } : {}),
+                                        ...(selectedClasseId !== 'all' ? { classe_id: selectedClasseId } : {}),
+                                    }).toString()}`}
+                                >
+                                    <FileSpreadsheet className="w-4 h-4 text-sky-600" />
+                                    <span>Centre des États & Rapports (PDF)</span>
+                                </Link>
                             </Button>
                         </div>
                     )}
                 </div>
 
                 {/* Barre de filtrage hiérarchique en entonnoir : Établissement -> Section -> Cycle -> Niveau -> Série -> Classe */}
-                <Card className="border-slate-200 dark:border-slate-800 shadow-sm bg-gradient-to-b from-white to-slate-50/60 dark:from-slate-900 dark:to-slate-900/60">
+                <Card className="border-slate-200 dark:border-slate-800 shadow-sm bg-linear-to-b from-white to-slate-50/60 dark:from-slate-900 dark:to-slate-900/60">
                     <CardContent className="p-4 space-y-3.5">
                         <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-slate-200">
@@ -831,13 +1001,201 @@ export default function ScolaritesPage({
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Tous les statuts financiers</SelectItem>
-                                    <SelectItem value="insolvable">Insolvable / En attente</SelectItem>
+                                    <SelectItem value="insolvable">Insolvable (En retard)</SelectItem>
+                                    <SelectItem value="en_attente">En attente (avant échéance)</SelectItem>
+                                    <SelectItem value="acompte">Acompte / Partiel</SelectItem>
+                                    <SelectItem value="inscrit_a_jour">Inscrit (À jour)</SelectItem>
                                     <SelectItem value="en_regle_tranche_1">En Règle Tranche 1</SelectItem>
-                                    <SelectItem value="en_regle_tranche_2">En Règle Tranche 2</SelectItem>
+                                    <SelectItem value="en_regle_tranche_2">En Règle Tranche 2+</SelectItem>
                                     <SelectItem value="solde">Scolarité Soldée</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
+
+                        {/* Barre tertiaire : Filtrage analytique par Catégorie de frais, Frais précis & Palier atteint */}
+                        <div className="pt-2 border-t border-slate-200/80 dark:border-slate-800 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 items-end">
+                            <div className="space-y-1 min-w-0">
+                                <Label className="text-[11px] font-semibold text-slate-600 flex items-center gap-1">
+                                    <Tag className="w-3 h-3 text-sky-600" /> Catégorie de Frais
+                                </Label>
+                                <Select
+                                    value={selectedCategorieFraisId}
+                                    onValueChange={(val) => {
+                                        setSelectedCategorieFraisId(val);
+                                        setSelectedTypeFraisId('all');
+                                    }}
+                                >
+                                    <SelectTrigger className="h-9 text-xs bg-white dark:bg-slate-900">
+                                        <SelectValue placeholder="Toutes les catégories" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">Toutes les catégories</SelectItem>
+                                        {categoriesFrais.map((cat) => (
+                                            <SelectItem key={cat.id} value={String(cat.id)}>
+                                                {cat.nom}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="space-y-1 min-w-0">
+                                <Label className="text-[11px] font-semibold text-slate-600">
+                                    Frais / Rubrique Précis
+                                </Label>
+                                <Select value={selectedTypeFraisId} onValueChange={setSelectedTypeFraisId}>
+                                    <SelectTrigger className="h-9 text-xs bg-white dark:bg-slate-900">
+                                        <SelectValue placeholder="Tous les frais" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">Tous les frais</SelectItem>
+                                        {availableTypesFrais.map((tf) => (
+                                            <SelectItem key={tf.id} value={String(tf.id)}>
+                                                {tf.libelle}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="space-y-1 min-w-0">
+                                <Label className="text-[11px] font-semibold text-slate-600">
+                                    Condition / Palier de Paiement
+                                </Label>
+                                <Select
+                                    value={selectedModeFrais}
+                                    onValueChange={(val) => setSelectedModeFrais(val as ModeFiltreFrais)}
+                                    disabled={selectedCategorieFraisId === 'all' && selectedTypeFraisId === 'all'}
+                                >
+                                    <SelectTrigger className="h-9 text-xs bg-white dark:bg-slate-900">
+                                        <SelectValue placeholder="Condition..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="tous">Tous les élèves concernés</SelectItem>
+                                        <SelectItem value="uniquement_palier">
+                                            Payé uniquement jusqu'à ce palier
+                                        </SelectItem>
+                                        <SelectItem value="solde">Ayant soldé ce frais</SelectItem>
+                                        <SelectItem value="partiel">Paiement partiel (acompte)</SelectItem>
+                                        <SelectItem value="non_paye">Non encore payé (0 FCFA)</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div>
+                                {statsCibleFrais ? (
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => {
+                                            const params = new URLSearchParams();
+                                            if (currentEtablissement?.id) {
+                                                params.set('etablissement_id', String(currentEtablissement.id));
+                                            }
+                                            if (currentAnnee?.id) {
+                                                params.set('annee_scolaire_id', String(currentAnnee.id));
+                                            }
+                                            if (selectedSectionId !== 'all') params.set('section_id', selectedSectionId);
+                                            if (selectedCycleId !== 'all') params.set('cycle_id', selectedCycleId);
+                                            if (selectedNiveauId !== 'all') params.set('niveau_id', selectedNiveauId);
+                                            if (selectedClasseId !== 'all') params.set('classe_id', selectedClasseId);
+                                            if (selectedCategorieFraisId !== 'all') {
+                                                params.set('categorie_frais_id', selectedCategorieFraisId);
+                                            }
+                                            if (selectedTypeFraisId !== 'all') {
+                                                params.set('type_frais_id', selectedTypeFraisId);
+                                            }
+                                            params.set('mode_filtre_frais', selectedModeFrais);
+                                            window.open(
+                                                `/administration/finances/etats/suivi-frais-pdf?${params.toString()}`,
+                                                '_blank'
+                                            );
+                                        }}
+                                        className="w-full h-9 text-xs font-semibold text-sky-800 border-sky-300 bg-sky-50 hover:bg-sky-100 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-300 flex items-center justify-center gap-1.5"
+                                    >
+                                        <Printer className="w-3.5 h-3.5" />
+                                        Imprimer cette Liste (PDF)
+                                    </Button>
+                                ) : (
+                                    <p className="text-[11px] text-slate-400 italic pb-2">
+                                        Choisissez une catégorie ou un frais pour isoler le palier (ex : Inscription seule).
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+
+                        {statsCibleFrais && (
+                            <div className="rounded-lg border border-sky-200 dark:border-sky-900 bg-sky-50/70 dark:bg-sky-950/30 px-3 py-2 flex flex-wrap items-center justify-between gap-3 text-xs">
+                                <span className="font-bold text-sky-900 dark:text-sky-200">
+                                    Synthèse sur le frais / catégorie sélectionné ({statsCibleFrais.effectif} élève(s)) :
+                                </span>
+                                <div className="flex flex-wrap items-center gap-4 tabular-nums">
+                                    <span>
+                                        Attendu :{' '}
+                                        <strong>{statsCibleFrais.attendu.toLocaleString('fr-FR')} F</strong>
+                                    </span>
+                                    <span className="text-emerald-700 dark:text-emerald-400">
+                                        Encaissé :{' '}
+                                        <strong>{statsCibleFrais.paye.toLocaleString('fr-FR')} F</strong>
+                                    </span>
+                                    <span className="text-red-700 dark:text-red-400">
+                                        Reste :{' '}
+                                        <strong>{statsCibleFrais.restant.toLocaleString('fr-FR')} F</strong>
+                                    </span>
+                                    <Badge variant="outline" className="bg-white dark:bg-slate-900 text-[10px]">
+                                        Recouvrement {statsCibleFrais.taux} %
+                                    </Badge>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Barre d'affectation rapide d'un frais optionnel du niveau à toute la classe sélectionnée (ex: Première CDE vs Première TI) */}
+                        {canManageOptions && activeClasseObj && optionsDuNiveauDeLaClasse.length > 0 && (
+                            <div className="pt-2 border-t border-slate-200/80 dark:border-slate-800 flex flex-col lg:flex-row lg:items-center justify-between gap-2.5 text-xs">
+                                <div className="flex items-center gap-2 text-amber-900 dark:text-amber-200">
+                                    <Bus className="w-4 h-4 text-amber-600 shrink-0" />
+                                    <span>
+                                        <strong>
+                                            Frais optionnels du niveau ({activeClasseObj.niveauNom}) :
+                                        </strong>{' '}
+                                        Appliquer un frais optionnel (ex : Inscription spécifique à la série/classe) à
+                                        tous les élèves de <strong>{activeClasseObj.nom}</strong> en 1 clic :
+                                    </span>
+                                </div>
+
+                                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                                    <Select
+                                        value={selectedBulkOptionId}
+                                        onValueChange={setSelectedBulkOptionId}
+                                    >
+                                        <SelectTrigger className="h-8 text-xs bg-white dark:bg-slate-900 sm:w-72 border-amber-300 dark:border-amber-800">
+                                            <SelectValue placeholder="Choisir le frais optionnel..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {optionsDuNiveauDeLaClasse.map((opt) => (
+                                                <SelectItem key={opt.id} value={String(opt.id)}>
+                                                    {opt.type_frais?.libelle || opt.libelle_tranche} —{' '}
+                                                    {Number(opt.montant).toLocaleString('fr-FR')} FCFA
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        disabled={isApplyingBulkOption || !selectedBulkOptionId}
+                                        onClick={handleApplyOptionToClasse}
+                                        className="h-8 text-xs font-semibold bg-amber-600 hover:bg-amber-700 text-white shrink-0"
+                                    >
+                                        {isApplyingBulkOption
+                                            ? 'Application...'
+                                            : `Appliquer à toute la ${activeClasseObj.nom}`}
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
 
@@ -990,6 +1348,7 @@ export default function ScolaritesPage({
                 <DataTable
                     columns={columns}
                     data={filteredComptes}
+                    searchPlaceholder="Rechercher dans le tableau par nom, prénom, matricule ou classe..."
                     showColumnVisibilityToggle
                 />
             </div>
@@ -1003,6 +1362,7 @@ export default function ScolaritesPage({
                 fraisOptionnels={fraisOptionnels}
                 estCaisseCloturee={estCaisseCloturee}
                 canEncaisser={can.versements_create}
+                canModifierVersement={Boolean(can.versements_edit || can.manage)}
                 canManageBourses={canAttribuerBourses}
                 canManageDispenses={canManageDispenses}
                 canManageOptions={canManageOptions}
@@ -1021,26 +1381,6 @@ export default function ScolaritesPage({
                     etablissementId={currentEtablissement?.id ?? 0}
                     anneeId={currentAnnee?.id}
                     categories={categoriesBourses}
-                />
-            )}
-
-            {/* Générateur d'états financiers multicritères pré-rempli avec la sélection hiérarchique active */}
-            {canEtats && (
-                <GenerateurEtatsFinanciersModal
-                    open={isEtatsModalOpen}
-                    onOpenChange={setIsEtatsModalOpen}
-                    etablissements={etablissements}
-                    currentEtablissementId={currentEtablissement?.id ?? null}
-                    currentEtablissementNom={currentEtablissement?.nom ?? null}
-                    isSuperAdmin={isSuperAdmin}
-                    currentAnnee={currentAnnee}
-                    initialType={etatInitialType}
-                    initialPreset={etatInitialPreset}
-                    initialSectionId={selectedSectionId}
-                    initialCycleId={selectedCycleId}
-                    initialNiveauId={selectedNiveauId}
-                    initialClasseId={selectedClasseId}
-                    allowBilanEntreesSorties={can.manage}
                 />
             )}
         </>

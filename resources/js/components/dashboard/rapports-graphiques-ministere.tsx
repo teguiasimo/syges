@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { BarChart3, PieChart } from 'lucide-react';
@@ -61,6 +61,39 @@ function computeYAxis(classes: ClasseDensiteDetail[]) {
  */
 export function BarChartClasses({ classes }: BarChartClassesProps) {
     const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+    const containerRef = useRef<HTMLDivElement | null>(null);
+    // Largeur mesurée du conteneur pour adapter dynamiquement le viewBox SVG sur grands écrans
+    const [containerWidth, setContainerWidth] = useState<number>(960);
+
+    useEffect(() => {
+        const element = containerRef.current;
+        if (!element) {
+            return;
+        }
+
+        const updateWidth = () => {
+            if (element.clientWidth > 0) {
+                setContainerWidth(element.clientWidth);
+            }
+        };
+
+        updateWidth();
+
+        if (typeof ResizeObserver === 'undefined') {
+            window.addEventListener('resize', updateWidth);
+            return () => window.removeEventListener('resize', updateWidth);
+        }
+
+        const observer = new ResizeObserver((entries) => {
+            const width = entries[0]?.contentRect?.width;
+            if (width && width > 0) {
+                setContainerWidth(Math.round(width));
+            }
+        });
+
+        observer.observe(element);
+        return () => observer.disconnect();
+    }, []);
 
     if (!classes || classes.length === 0) {
         return (
@@ -73,21 +106,23 @@ export function BarChartClasses({ classes }: BarChartClassesProps) {
     // Calcul dynamique de l'échelle de l'axe Y basée sur les capacités configurées et effectifs
     const { yAxisMax, ySteps, maxCapacite } = computeYAxis(classes);
 
-    // Dimensions SVG adaptatives pour exploiter toute la largeur de l'écran
+    // Dimensions SVG adaptatives : épouse 100 % de la largeur sur écrans larges (sans bandes vides latérales)
     const totalBars = classes.length;
-    const svgWidth = Math.max(960, totalBars * 48 + 120);
-    const svgHeight = 275;
+    const minRequiredWidth = totalBars * 48 + 120;
+    const effectiveContainerWidth = Math.max(containerWidth, 700);
+    const svgWidth = Math.max(effectiveContainerWidth, minRequiredWidth);
+    const svgHeight = 288; // Correspond exactement à h-72 (18rem) pour un ratio 1:1 net
     const chartTopPadding = 25;
-    const chartBottomPadding = 70;
+    const chartBottomPadding = 74;
     const usableHeight = svgHeight - chartTopPadding - chartBottomPadding;
 
-    const xStart = 50;
-    const xEnd = svgWidth - 30;
+    const xStart = 46;
+    const xEnd = svgWidth - 24;
     const usableWidth = xEnd - xStart;
 
     return (
-        <div className="relative w-full overflow-x-auto">
-            <div className="min-w-175">
+        <div ref={containerRef} className="relative w-full overflow-x-auto">
+            <div className="w-full min-w-175">
                 {/* Légende du graphique enrichie avec la capacité d'accueil */}
                 <div className="mb-2 flex flex-wrap items-center justify-center gap-4 text-xs font-medium text-muted-foreground">
                     <div className="flex items-center gap-1.5">
@@ -100,8 +135,15 @@ export function BarChartClasses({ classes }: BarChartClassesProps) {
                     </div>
                 </div>
 
-                <div className="relative">
-                    <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} className="w-full h-72 overflow-visible">
+                <div className="relative w-full">
+                    <svg
+                        viewBox={`0 0 ${svgWidth} ${svgHeight}`}
+                        style={{
+                            width: minRequiredWidth > effectiveContainerWidth ? `${svgWidth}px` : '100%',
+                            height: '18rem',
+                        }}
+                        className="block overflow-visible"
+                    >
                         {/* Lignes de repère horizontales de l'axe Y */}
                         {ySteps.map((stepVal, idx) => {
                             const yPos = chartTopPadding + usableHeight - (stepVal / yAxisMax) * usableHeight;
@@ -144,7 +186,8 @@ export function BarChartClasses({ classes }: BarChartClassesProps) {
                         {/* Barres verticales des classes */}
                         {classes.map((cls, idx) => {
                             const slotWidth = usableWidth / totalBars;
-                            const barWidth = Math.min(36, Math.max(16, slotWidth * 0.45));
+                            // Élargir modérément les barres sur les très grands écrans pour une meilleure lisibilité
+                            const barWidth = Math.min(44, Math.max(16, slotWidth * 0.48));
                             const xCenter = xStart + idx * slotWidth + slotWidth / 2;
                             const xLeft = xCenter - barWidth / 2;
 

@@ -9,6 +9,8 @@ use App\Models\Classe;
 use App\Models\CompteFinancierEleve;
 use App\Models\Eleve;
 use App\Models\Inscription;
+use App\Models\VentilationVersement;
+use App\Models\VersementCaisse;
 use App\Services\FinanceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -17,6 +19,7 @@ use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -149,6 +152,9 @@ class EleveController extends Controller implements HasMiddleware
         $etablissements = $context['etablissements'];
         $scopedEtablissementId = $context['etablissementId'];
         $isSuperAdmin = $context['isSuperAdmin'];
+        $canAccessAll = (bool) ($context['canAccessAll'] ?? $isSuperAdmin);
+        $scope = $this->resolveElevesScope($request, $context);
+        $effectiveEtablissementId = $scope['effectiveEtablissementId'];
 
         // Récupération de toutes les années scolaires
         $anneesScolaires = AnneeScolaire::orderByDesc('date_debut')->get();
@@ -164,15 +170,15 @@ class EleveController extends Controller implements HasMiddleware
             $inscriptionsQuery->where('annee_scolaire_id', $selectedAnneeId);
         }
 
-        // Cloisonnement strict d'établissement :
-        // Pour un utilisateur local (non super-admin), forcé sur son campus assigné.
-        // Pour un super-administrateur, filtre optionnel selon la sélection.
-        if (! $isSuperAdmin) {
+        // Cloisonnement d'établissement synchronisé avec le sélecteur global d'en-tête :
+        // - Utilisateur local : forcé sur son campus assigné.
+        // - Profil transversal : filtré sur le campus actif en session (ou URL), ou tous les campus en mode consolidé.
+        if (! $canAccessAll) {
             if ($scopedEtablissementId) {
                 $inscriptionsQuery->where('etablissement_id', $scopedEtablissementId);
             }
-        } elseif ($etablissementId = $request->integer('etablissement_id')) {
-            $inscriptionsQuery->where('etablissement_id', $etablissementId);
+        } elseif ($effectiveEtablissementId) {
+            $inscriptionsQuery->where('etablissement_id', $effectiveEtablissementId);
         }
 
         // Filtre par Cycle
@@ -204,10 +210,14 @@ class EleveController extends Controller implements HasMiddleware
             $inscriptionsQuery->where('is_redoublant', $request->boolean('is_redoublant'));
         }
 
-        // Filtre par Sexe de l'élève
+        // Filtre par Sexe de l'élève (supporte 'M', 'F' et 'ND' pour Non défini / À compléter)
         if ($sexe = $request->input('sexe')) {
             $inscriptionsQuery->whereHas('eleve', function ($q) use ($sexe) {
-                $q->where('sexe', $sexe);
+                if ($sexe === 'ND') {
+                    $q->whereNull('sexe')->orWhere('sexe', '');
+                } else {
+                    $q->where('sexe', $sexe);
+                }
             });
         }
 
@@ -228,17 +238,18 @@ class EleveController extends Controller implements HasMiddleware
 
         // Calcul des statistiques globales pour l'année scolaire sélectionnée
         $statsBase = Inscription::where('annee_scolaire_id', $selectedAnneeId);
-        if (! $isSuperAdmin) {
+        if (! $canAccessAll) {
             if ($scopedEtablissementId) {
                 $statsBase->where('etablissement_id', $scopedEtablissementId);
             }
-        } elseif ($etablissementId = $request->integer('etablissement_id')) {
-            $statsBase->where('etablissement_id', $etablissementId);
+        } elseif ($effectiveEtablissementId) {
+            $statsBase->where('etablissement_id', $effectiveEtablissementId);
         }
 
         $totalInscrits = (clone $statsBase)->where('statut', 'validee')->count();
         $totalFilles = (clone $statsBase)->where('statut', 'validee')->whereHas('eleve', fn ($q) => $q->where('sexe', 'F'))->count();
         $totalGarcons = (clone $statsBase)->where('statut', 'validee')->whereHas('eleve', fn ($q) => $q->where('sexe', 'M'))->count();
+        $totalNonDefinis = (clone $statsBase)->where('statut', 'validee')->whereHas('eleve', fn ($q) => $q->whereNull('sexe')->orWhere('sexe', ''))->count();
         $totalRedoublants = (clone $statsBase)->where('statut', 'validee')->where('is_redoublant', true)->count();
         $totalEnAttente = (clone $statsBase)->where('statut', 'en_attente')->count();
 
@@ -264,16 +275,19 @@ class EleveController extends Controller implements HasMiddleware
             'anneesScolaires' => $anneesScolaires,
             'selectedAnneeId' => (int) $selectedAnneeId,
             'etablissements' => $etablissements,
+            'supportsAllEtablissements' => $scope['supportsAllEtablissements'],
+            'isAllEtablissements' => $scope['isAllEtablissements'],
             'stats' => [
                 'totalInscrits' => $totalInscrits,
                 'totalFilles' => $totalFilles,
                 'totalGarcons' => $totalGarcons,
+                'totalNonDefinis' => $totalNonDefinis,
                 'totalRedoublants' => $totalRedoublants,
                 'totalEnAttente' => $totalEnAttente,
                 'nonInscritsCount' => $nonInscritsCount,
             ],
             'filters' => [
-                'etablissement_id' => ! $isSuperAdmin ? (string) $scopedEtablissementId : $request->input('etablissement_id', ''),
+                'etablissement_id' => $effectiveEtablissementId ? (string) $effectiveEtablissementId : '',
                 'cycle_id' => $request->input('cycle_id', ''),
                 'niveau_id' => $request->input('niveau_id', ''),
                 'classe_id' => $request->input('classe_id', ''),
@@ -297,7 +311,7 @@ class EleveController extends Controller implements HasMiddleware
             'matricule_national' => ['nullable', 'string', 'max:50'],
             'nom' => ['required', 'string', 'max:150'],
             'prenom' => ['nullable', 'string', 'max:150'],
-            'sexe' => ['required', 'in:M,F'],
+            'sexe' => ['nullable', 'in:M,F'],
             'date_naissance' => ['nullable', 'date'],
             'lieu_naissance' => ['nullable', 'string', 'max:150'],
             'nationalite' => ['nullable', 'string', 'max:80'],
@@ -307,7 +321,7 @@ class EleveController extends Controller implements HasMiddleware
             'nom_pere' => ['nullable', 'string', 'max:150'],
             'nom_mere' => ['nullable', 'string', 'max:150'],
             'nom_tuteur' => ['nullable', 'string', 'max:150'],
-            'telephone_parent' => ['required', 'string', 'max:50'],
+            'telephone_parent' => ['nullable', 'string', 'max:50'],
             'email_parent' => ['nullable', 'email', 'max:150'],
             'adresse' => ['nullable', 'string', 'max:255'],
 
@@ -321,10 +335,21 @@ class EleveController extends Controller implements HasMiddleware
         ]);
 
         DB::transaction(function () use ($validated, $request) {
-            // Génération automatique du matricule interne unique s'il n'est pas fourni
-            $matricule = ! empty($validated['matricule'])
-                ? trim($validated['matricule'])
-                : Eleve::generateNextMatricule($validated['annee_scolaire_id'] ?? null);
+            // Résolution préalable du campus d'accueil pour contrôler le périmètre et structurer le matricule
+            $classe = Classe::with('niveau.cycle.section')->findOrFail($validated['classe_id']);
+            $etablissementId = (int) ($classe->etablissement_id ?? $classe->niveau?->cycle?->section?->etablissement_id);
+
+            $context = $this->resolveEtablissementContext($request);
+            if (! ($context['canAccessAll'] ?? $context['isSuperAdmin']) && $etablissementId !== (int) $context['etablissementId']) {
+                abort(403, 'Action non autorisée sur une classe d\'un autre établissement.');
+            }
+
+            // Génération systématique selon la nomenclature structurée : {CODE_ETAB}-{YYYY}-{0001}
+            $matricule = Eleve::generateNextMatricule(
+                (int) $validated['annee_scolaire_id'],
+                null,
+                $etablissementId ?: null
+            );
 
             // Gestion de l'upload de photo
             $photoUrl = null;
@@ -338,29 +363,20 @@ class EleveController extends Controller implements HasMiddleware
                 'matricule' => $matricule,
                 'matricule_national' => $validated['matricule_national'] ?? null,
                 'nom' => strtoupper(trim($validated['nom'])),
-                'prenom' => $validated['prenom'] ? trim($validated['prenom']) : null,
-                'sexe' => $validated['sexe'],
+                'prenom' => ! empty($validated['prenom']) ? trim($validated['prenom']) : null,
+                'sexe' => ! empty($validated['sexe']) ? $validated['sexe'] : null,
                 'date_naissance' => $validated['date_naissance'] ?? null,
                 'lieu_naissance' => $validated['lieu_naissance'] ?? null,
-                'nationalite' => $validated['nationalite'] ?: 'CAMEROUNAISE',
+                'nationalite' => ! empty($validated['nationalite']) ? trim((string) $validated['nationalite']) : 'CAMEROUNAISE',
                 'photo_url' => $photoUrl,
                 'nom_pere' => $validated['nom_pere'] ?? null,
                 'nom_mere' => $validated['nom_mere'] ?? null,
                 'nom_tuteur' => $validated['nom_tuteur'] ?? null,
-                'telephone_parent' => trim($validated['telephone_parent']),
+                'telephone_parent' => ! empty($validated['telephone_parent']) ? trim($validated['telephone_parent']) : null,
                 'email_parent' => $validated['email_parent'] ?? null,
                 'adresse' => $validated['adresse'] ?? null,
                 'is_active' => true,
             ]);
-
-            // Résolution de l'établissement rattaché à la classe
-            $classe = Classe::findOrFail($validated['classe_id']);
-            $etablissementId = $classe->etablissement_id;
-
-            $context = $this->resolveEtablissementContext($request);
-            if (! $context['isSuperAdmin'] && (int) $etablissementId !== (int) $context['etablissementId']) {
-                abort(403, 'Action non autorisée sur une classe d\'un autre établissement.');
-            }
 
             // Création de l'inscription scolaire avec son identifiant d'établissement
             $inscription = Inscription::create([
@@ -390,15 +406,16 @@ class EleveController extends Controller implements HasMiddleware
 
     /**
      * Met à jour les informations d'un élève dans la Base Globale.
+     *
+     * Le matricule interne de l'élève est strictement immuable (lecture seule) après sa création.
      */
     public function update(Request $request, Eleve $eleve): RedirectResponse
     {
         $validated = $request->validate([
-            'matricule' => ['required', 'string', 'max:50', 'unique:eleves,matricule,'.$eleve->id],
             'matricule_national' => ['nullable', 'string', 'max:50'],
             'nom' => ['required', 'string', 'max:150'],
             'prenom' => ['nullable', 'string', 'max:150'],
-            'sexe' => ['required', 'in:M,F'],
+            'sexe' => ['nullable', 'in:M,F'],
             'date_naissance' => ['nullable', 'date'],
             'lieu_naissance' => ['nullable', 'string', 'max:150'],
             'nationalite' => ['nullable', 'string', 'max:80'],
@@ -406,7 +423,7 @@ class EleveController extends Controller implements HasMiddleware
             'nom_pere' => ['nullable', 'string', 'max:150'],
             'nom_mere' => ['nullable', 'string', 'max:150'],
             'nom_tuteur' => ['nullable', 'string', 'max:150'],
-            'telephone_parent' => ['required', 'string', 'max:50'],
+            'telephone_parent' => ['nullable', 'string', 'max:50'],
             'email_parent' => ['nullable', 'email', 'max:150'],
             'adresse' => ['nullable', 'string', 'max:255'],
             'is_redoublant' => ['nullable'],
@@ -419,7 +436,9 @@ class EleveController extends Controller implements HasMiddleware
         }
 
         $validated['nom'] = strtoupper(trim($validated['nom']));
-        $validated['prenom'] = $validated['prenom'] ? trim($validated['prenom']) : null;
+        $validated['prenom'] = ! empty($validated['prenom']) ? trim($validated['prenom']) : null;
+        $validated['sexe'] = ! empty($validated['sexe']) ? $validated['sexe'] : null;
+        $validated['telephone_parent'] = ! empty($validated['telephone_parent']) ? trim($validated['telephone_parent']) : null;
 
         // Mise à jour éventuelle du statut / régime scolaire (redoublant / nouveau) sur l'inscription
         if ($request->has('is_redoublant')) {
@@ -450,26 +469,85 @@ class EleveController extends Controller implements HasMiddleware
     }
 
     /**
-     * Supprime un élève uniquement s'il ne possède aucun historique lié (versements, notes, cotes, discipline...).
+     * Supprime définitivement un élève uniquement s'il ne possède aucune opération active liée
+     * (versement valide, bourse/dispense/option active, note, assiduité, sanction, consigne, délibération...).
      *
-     * Préserve strictement l'intégrité référentielle comptable et pédagogique : tout élève ayant déjà
-     * effectué un versement, reçu une note ou un dossier disciplinaire est protégé contre la suppression.
+     * Autorise la suppression si d'éventuels versements saisis par erreur ont préalablement été
+     * annulés (`statut = 'annule'`), en purgeant proprement ces écritures annulées dans la transaction
+     * tout en conservant une trace complète dans le journal d'audit applicatif.
      *
+     * @param  Request  $request  Requête HTTP entrante pour l'identification de l'opérateur et du périmètre campus.
      * @param  Eleve  $eleve  Élève ciblé pour la suppression.
      * @return RedirectResponse Redirection avec confirmation ou motif explicite de blocage.
      */
-    public function destroy(Eleve $eleve): RedirectResponse
+    public function destroy(Request $request, Eleve $eleve): RedirectResponse
     {
+        $context = $this->resolveEtablissementContext($request);
+        if (! ($context['canAccessAll'] ?? $context['isSuperAdmin'])) {
+            $eleveEtabIds = Inscription::withoutGlobalScopes()
+                ->where('eleve_id', $eleve->id)
+                ->pluck('etablissement_id')
+                ->filter()
+                ->unique();
+
+            if ($eleveEtabIds->isNotEmpty() && ! $eleveEtabIds->contains((int) $context['etablissementId'])) {
+                abort(403, 'Action non autorisée sur un élève appartenant à un autre établissement.');
+            }
+        }
+
         $nom = $eleve->nom_complet;
+        $matricule = $eleve->matricule;
         $blockers = $eleve->getDeletionBlockers();
 
         if (! empty($blockers)) {
-            $message = "Suppression impossible : l'élève « {$nom} » est déjà lié à des opérations enregistrées (".implode(', ', $blockers)."). Pour conserver l'historique comptable et scolaire, veuillez plutôt modifier le statut de son inscription.";
+            $message = "Suppression impossible : l'élève « {$nom} » est encore lié à des opérations actives (".implode(', ', $blockers)."). Veuillez d'abord annuler ou retirer ces éléments (ex: annuler le versement en Caisse) avant de supprimer la fiche.";
 
             return back()->with('error', $message)->withErrors(['error' => $message]);
         }
 
-        DB::transaction(function () use ($eleve) {
+        $recusAnnulesPurges = [];
+
+        DB::transaction(function () use ($eleve, &$recusAnnulesPurges) {
+            $inscriptionIds = Inscription::withoutGlobalScopes()
+                ->where('eleve_id', $eleve->id)
+                ->pluck('id');
+
+            $compteIds = CompteFinancierEleve::withoutGlobalScopes()
+                ->where('eleve_id', $eleve->id)
+                ->pluck('id');
+
+            // Journaliser puis purger proprement les éventuels versements déjà annulés (`statut = 'annule'`)
+            if ($inscriptionIds->isNotEmpty() || $compteIds->isNotEmpty()) {
+                $versementsAnnules = VersementCaisse::withoutGlobalScopes()
+                    ->withTrashed()
+                    ->where(function ($q) use ($inscriptionIds, $compteIds) {
+                        if ($inscriptionIds->isNotEmpty()) {
+                            $q->whereIn('inscription_id', $inscriptionIds);
+                        }
+                        if ($compteIds->isNotEmpty()) {
+                            $q->orWhereIn('compte_financier_id', $compteIds);
+                        }
+                    })
+                    ->get();
+
+                if ($versementsAnnules->isNotEmpty()) {
+                    $recusAnnulesPurges = $versementsAnnules->map(fn (VersementCaisse $v) => [
+                        'id' => $v->id,
+                        'reference_recu' => $v->reference_recu,
+                        'montant_total' => (float) $v->montant_total,
+                        'statut' => $v->statut,
+                        'motif_annulation' => $v->motif_annulation,
+                        'annule_le' => $v->annule_le?->toIso8601String(),
+                    ])->values()->all();
+
+                    VentilationVersement::whereIn('versement_id', $versementsAnnules->pluck('id'))->delete();
+                    VersementCaisse::withoutGlobalScopes()
+                        ->withTrashed()
+                        ->whereIn('id', $versementsAnnules->pluck('id'))
+                        ->forceDelete();
+                }
+            }
+
             CompteFinancierEleve::withoutGlobalScopes()
                 ->where('eleve_id', $eleve->id)
                 ->delete();
@@ -479,7 +557,16 @@ class EleveController extends Controller implements HasMiddleware
             $eleve->delete();
         });
 
-        return back()->with('success', "L'élève {$nom} a été supprimé avec succès.");
+        Log::warning('Suppression définitive élève exécutée', [
+            'eleve_id' => $eleve->id,
+            'matricule' => $matricule,
+            'nom_complet' => $nom,
+            'operateur_user_id' => $request->user()?->id,
+            'operateur_nom' => $request->user()?->name,
+            'recus_annules_purges' => $recusAnnulesPurges,
+        ]);
+
+        return back()->with('success', "L'élève {$nom} ({$matricule}) a été supprimé avec succès.");
     }
 
     /**
@@ -517,7 +604,7 @@ class EleveController extends Controller implements HasMiddleware
         $etablissementId = $classe->etablissement_id;
 
         $context = $this->resolveEtablissementContext($request);
-        if (! $context['isSuperAdmin'] && (int) $etablissementId !== (int) $context['etablissementId']) {
+        if (! ($context['canAccessAll'] ?? $context['isSuperAdmin']) && (int) $etablissementId !== (int) $context['etablissementId']) {
             abort(403, 'Action non autorisée sur une classe d\'un autre établissement.');
         }
 
@@ -552,7 +639,7 @@ class EleveController extends Controller implements HasMiddleware
     public function updateStatut(Request $request, Inscription $inscription): RedirectResponse
     {
         $context = $this->resolveEtablissementContext($request);
-        if (! $context['isSuperAdmin'] && (int) $inscription->etablissement_id !== (int) $context['etablissementId']) {
+        if (! ($context['canAccessAll'] ?? $context['isSuperAdmin']) && (int) $inscription->etablissement_id !== (int) $context['etablissementId']) {
             abort(403, 'Action non autorisée sur une inscription d\'un autre établissement.');
         }
 
@@ -582,8 +669,8 @@ class EleveController extends Controller implements HasMiddleware
         $targetEtablissementId = $targetClasse->etablissement_id ?? $targetClasse->niveau?->cycle?->section?->etablissement_id;
         $context = $this->resolveEtablissementContext($request);
 
-        // Si non super-admin, vérifier que toutes les inscriptions sources appartiennent bien à son campus assigné
-        if (! $context['isSuperAdmin']) {
+        // Si accès restreint à un campus, vérifier que toutes les inscriptions sources appartiennent bien au campus assigné
+        if (! ($context['canAccessAll'] ?? $context['isSuperAdmin'])) {
             $unauthorizedSources = Inscription::whereIn('id', $validated['inscription_ids'])
                 ->where('etablissement_id', '!=', $context['etablissementId'])
                 ->exists();
@@ -657,9 +744,11 @@ class EleveController extends Controller implements HasMiddleware
             'ignorer_doublons' => ['nullable', 'boolean'],
         ]);
 
-        $targetClasse = Classe::findOrFail($validated['classe_id']);
+        $targetClasse = Classe::with('niveau.cycle.section')->findOrFail($validated['classe_id']);
+        $etablissementId = (int) ($targetClasse->etablissement_id ?? $targetClasse->niveau?->cycle?->section?->etablissement_id);
+
         $context = $this->resolveEtablissementContext($request);
-        if (! $context['isSuperAdmin'] && (int) $targetClasse->etablissement_id !== (int) $context['etablissementId']) {
+        if (! ($context['canAccessAll'] ?? $context['isSuperAdmin']) && $etablissementId !== (int) $context['etablissementId']) {
             abort(403, 'Action non autorisée sur une classe d\'un autre établissement.');
         }
 
@@ -672,7 +761,7 @@ class EleveController extends Controller implements HasMiddleware
         $ignored = 0;
         $ignorerDoublons = $request->boolean('ignorer_doublons', true);
 
-        DB::transaction(function () use ($lines, $validated, $ignorerDoublons, &$imported, &$ignored) {
+        DB::transaction(function () use ($lines, $validated, $etablissementId, $ignorerDoublons, &$imported, &$ignored) {
             foreach ($lines as $line) {
                 // Nettoyage uniquement des retours chariot pour préserver les colonnes vides initiales (ex: TSV sans matricule)
                 $line = rtrim($line, "\r\n");
@@ -711,11 +800,11 @@ class EleveController extends Controller implements HasMiddleware
                 $matriculeNat = ! empty($cols[1]) && $cols[1] !== '\N' ? $cols[1] : null;
                 $nom = ! empty($cols[2]) ? $cols[2] : (! empty($cols[1]) ? $cols[1] : null);
                 $prenom = ! empty($cols[3]) && $cols[3] !== '\N' ? $cols[3] : null;
-                $sexe = ! empty($cols[4]) && in_array(strtoupper($cols[4]), ['M', 'F']) ? strtoupper($cols[4]) : 'M';
+                $sexe = ! empty($cols[4]) && in_array(strtoupper($cols[4]), ['M', 'F']) ? strtoupper($cols[4]) : null;
                 $dateNaissRaw = ! empty($cols[5]) && $cols[5] !== '\N' ? $cols[5] : null;
                 $lieuNaiss = ! empty($cols[6]) && $cols[6] !== '\N' ? $cols[6] : null;
                 $isRedoublant = ! empty($cols[7]) && in_array(strtoupper($cols[7]), ['O', 'OUI', '1', 'TRUE']);
-                $telParent = ! empty($cols[8]) && $cols[8] !== '\N' ? $cols[8] : '+237 600 00 00 00';
+                $telParent = ! empty($cols[8]) && $cols[8] !== '\N' ? $cols[8] : null;
                 $adresse = ! empty($cols[9]) && $cols[9] !== '\N' ? $cols[9] : null;
                 $nomParent = ! empty($cols[10]) && $cols[10] !== '\N' ? $cols[10] : null;
                 $nationalite = ! empty($cols[11]) && $cols[11] !== '\N' ? $cols[11] : 'CAMEROUNAISE';
@@ -740,18 +829,26 @@ class EleveController extends Controller implements HasMiddleware
                     }
                 }
 
-                // Vérification des doublons par matricule ou (nom + prénom)
+                // Vérification des doublons par matricule ou génération selon la nomenclature {CODE_ETAB}-{YYYY}-{0001}
                 if ($matricule && Eleve::where('matricule', $matricule)->exists()) {
                     if ($ignorerDoublons) {
                         $ignored++;
 
                         continue;
                     }
-                    $matricule = Eleve::generateNextMatricule($validated['annee_scolaire_id'] ?? null);
+                    $matricule = Eleve::generateNextMatricule(
+                        (int) $validated['annee_scolaire_id'],
+                        null,
+                        $etablissementId ?: null
+                    );
                 }
 
                 if (! $matricule) {
-                    $matricule = Eleve::generateNextMatricule($validated['annee_scolaire_id'] ?? null);
+                    $matricule = Eleve::generateNextMatricule(
+                        (int) $validated['annee_scolaire_id'],
+                        null,
+                        $etablissementId ?: null
+                    );
                 }
 
                 // Création de l'Élève
@@ -769,9 +866,6 @@ class EleveController extends Controller implements HasMiddleware
                     'adresse' => $adresse,
                     'is_active' => true,
                 ]);
-
-                $targetClasse = Classe::find($validated['classe_id']);
-                $etablissementId = $targetClasse?->etablissement_id;
 
                 // Création de l'inscription avec son établissement
                 $inscription = Inscription::create([
@@ -881,7 +975,9 @@ class EleveController extends Controller implements HasMiddleware
         $selectedAnneeId = $request->integer('annee_scolaire_id') ?: AnneeScolaire::current()?->id;
         $context = $this->resolveEtablissementContext($request);
         $scopedEtablissementId = $context['etablissementId'];
-        $isSuperAdmin = $context['isSuperAdmin'];
+        $canAccessAll = (bool) ($context['canAccessAll'] ?? $context['isSuperAdmin']);
+        $scope = $this->resolveElevesScope($request, $context);
+        $effectiveEtablissementId = $scope['effectiveEtablissementId'];
 
         $inscriptionsQuery = Inscription::with([
             'eleve',
@@ -893,12 +989,12 @@ class EleveController extends Controller implements HasMiddleware
             $inscriptionsQuery->where('annee_scolaire_id', $selectedAnneeId);
         }
 
-        if (! $isSuperAdmin) {
+        if (! $canAccessAll) {
             if ($scopedEtablissementId) {
                 $inscriptionsQuery->where('etablissement_id', $scopedEtablissementId);
             }
-        } elseif ($etablissementId = $request->integer('etablissement_id')) {
-            $inscriptionsQuery->where('etablissement_id', $etablissementId);
+        } elseif ($effectiveEtablissementId) {
+            $inscriptionsQuery->where('etablissement_id', $effectiveEtablissementId);
         }
 
         if ($classeId = $request->integer('classe_id')) {
@@ -911,7 +1007,11 @@ class EleveController extends Controller implements HasMiddleware
 
         if ($sexe = $request->input('sexe')) {
             $inscriptionsQuery->whereHas('eleve', function ($q) use ($sexe) {
-                $q->where('sexe', $sexe);
+                if ($sexe === 'ND') {
+                    $q->whereNull('sexe')->orWhere('sexe', '');
+                } else {
+                    $q->where('sexe', $sexe);
+                }
             });
         }
 
@@ -1079,7 +1179,7 @@ class EleveController extends Controller implements HasMiddleware
         $etablissementId = $targetClasse->etablissement_id;
 
         $context = $this->resolveEtablissementContext($request);
-        if (! $context['isSuperAdmin'] && (int) $etablissementId !== (int) $context['etablissementId']) {
+        if (! ($context['canAccessAll'] ?? $context['isSuperAdmin']) && (int) $etablissementId !== (int) $context['etablissementId']) {
             abort(403, 'Action non autorisée sur une classe d\'un autre établissement.');
         }
 
@@ -1128,5 +1228,81 @@ class EleveController extends Controller implements HasMiddleware
         }
 
         return redirect()->route('administration.eleves.index')->with('success', $message);
+    }
+
+    /**
+     * Détermine le périmètre d'établissement effectif pour la liste et l'export des élèves.
+     *
+     * Synchronise la page avec le sélecteur global d'en-tête (`EtablissementSwitcher`) via la session
+     * (`current_etablissement_scope` et `current_etablissement_id`), tout en acceptant un paramètre
+     * explicite `?etablissement_id=` dans l'URL.
+     *
+     * @param  Request  $request  Requête HTTP entrante.
+     * @param  array<string, mixed>  $context  Contexte résolu par `resolveEtablissementContext`.
+     * @return array{
+     *     supportsAllEtablissements: bool,
+     *     isAllEtablissements: bool,
+     *     effectiveEtablissementId: int|null
+     * }
+     */
+    private function resolveElevesScope(Request $request, array $context): array
+    {
+        $etablissements = $context['etablissements'];
+        $canAccessAll = (bool) ($context['canAccessAll'] ?? $context['isSuperAdmin'] ?? false);
+        $scopedEtablissementId = $context['etablissementId'] ? (int) $context['etablissementId'] : null;
+
+        if (! $canAccessAll) {
+            return [
+                'supportsAllEtablissements' => false,
+                'isAllEtablissements' => false,
+                'effectiveEtablissementId' => $scopedEtablissementId,
+            ];
+        }
+
+        $supportsAll = $etablissements->count() > 1;
+        $requestedId = $request->query('etablissement_id') ?? $request->input('etablissement_id');
+
+        if ($requestedId === 'all') {
+            if ($request->hasSession()) {
+                $request->session()->put('current_etablissement_scope', 'all');
+            }
+
+            return [
+                'supportsAllEtablissements' => $supportsAll,
+                'isAllEtablissements' => true,
+                'effectiveEtablissementId' => null,
+            ];
+        }
+
+        if ($requestedId !== null && $requestedId !== '' && is_numeric($requestedId)) {
+            $effectiveId = (int) $requestedId;
+            if ($request->hasSession()) {
+                $request->session()->put('current_etablissement_id', $effectiveId);
+                $request->session()->put('current_etablissement_scope', 'single');
+            }
+
+            return [
+                'supportsAllEtablissements' => $supportsAll,
+                'isAllEtablissements' => false,
+                'effectiveEtablissementId' => $effectiveId,
+            ];
+        }
+
+        $sessionScope = $request->hasSession() ? $request->session()->get('current_etablissement_scope') : null;
+        $sessionEtabId = $request->hasSession() ? $request->session()->get('current_etablissement_id') : null;
+
+        if ($sessionScope === 'single' && $sessionEtabId && is_numeric($sessionEtabId)) {
+            return [
+                'supportsAllEtablissements' => $supportsAll,
+                'isAllEtablissements' => false,
+                'effectiveEtablissementId' => (int) $sessionEtabId,
+            ];
+        }
+
+        return [
+            'supportsAllEtablissements' => $supportsAll,
+            'isAllEtablissements' => true,
+            'effectiveEtablissementId' => null,
+        ];
     }
 }

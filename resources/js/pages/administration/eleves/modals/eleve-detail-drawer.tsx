@@ -101,7 +101,11 @@ export function EleveDetailDrawer({
                             </SheetTitle>
 
                             <SheetDescription className="text-xs text-muted-foreground mt-0.5">
-                                {eleve.sexe === 'M' ? 'Masculin (Garçon)' : 'Féminin (Fille)'}
+                                {eleve.sexe === 'M'
+                                    ? 'Masculin (Garçon)'
+                                    : eleve.sexe === 'F'
+                                    ? 'Féminin (Fille)'
+                                    : 'Sexe non défini (À compléter)'}
                                 {age !== null ? ` • ${age} ans` : ''}
                                 {eleve.date_naissance ? ` • Né(e) le ${formatDate(eleve.date_naissance)}` : ''}
                                 {eleve.lieu_naissance ? ` à ${eleve.lieu_naissance}` : ''}

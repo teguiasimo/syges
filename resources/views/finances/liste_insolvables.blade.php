@@ -116,25 +116,7 @@
 </head>
 <body>
 
-    <table class="header-table">
-        <tr>
-            <td class="header-left">
-                RÉPUBLIQUE DU CAMEROUN<br>
-                <em>Paix - Travail - Patrie</em><br>
-                MINISTÈRE DES ENSEIGNEMENTS SECONDAIRES
-            </td>
-            <td class="header-center">
-                <div class="school-name">{{ $etablissement->nom ?? 'SYGES COMPLEXE SCOLAIRE' }}</div>
-                <div class="school-sub">Recouvrement & Suivi de la Solvabilité</div>
-                <div class="school-sub">Année Scolaire : {{ $annee->code ?? '2026-2027' }}</div>
-            </td>
-            <td class="header-right">
-                REPUBLIC OF CAMEROON<br>
-                <em>Peace - Work - Fatherland</em><br>
-                MINISTRY OF SECONDARY EDUCATION
-            </td>
-        </tr>
-    </table>
+    @include('finances.partials.header', ['serviceTitle' => "Recouvrement & Suivi de la Solvabilité"])
 
     <div class="doc-banner">
         <div class="doc-title">État Nominatif des Élèves Insolvables (Échéances Échues)</div>
@@ -171,10 +153,29 @@
                 <tr>
                     <td class="text-center">{{ $idx + 1 }}</td>
                     <td class="font-bold" style="font-family: monospace;">{{ $e['matricule'] }}</td>
-                    <td class="font-bold">{{ $e['nom_complet'] }}</td>
-                    <td class="text-center">{{ $e['sexe'] }}</td>
+                    <td class="font-bold">
+                        {{ $e['nom_complet'] }}
+                        @if(!empty($e['date_naissance']))
+                            <div style="font-size: 6.5pt; color: #64748b; font-weight: normal;">
+                                Né(e) le {{ $e['date_naissance'] }} {{ $e['lieu_naissance'] ? 'à '.$e['lieu_naissance'] : '' }}
+                            </div>
+                        @endif
+                    </td>
+                    <td class="text-center">
+                        {{ $e['sexe'] ?? '-' }}
+                        <div style="font-size: 6.5pt; color: {{ ($e['redoublant'] ?? '') === 'R' ? '#dc2626' : '#64748b' }}; font-weight: bold;">
+                            {{ $e['redoublant'] ?? 'NR' }}
+                        </div>
+                    </td>
                     <td>{{ $e['classe'] }}</td>
-                    <td>{{ $e['contact_parent'] }}</td>
+                    <td>
+                        {{ $e['contact_parent'] }}
+                        @if(!empty($e['parent_tuteur']) && $e['parent_tuteur'] !== 'N/A')
+                            <div style="font-size: 6.5pt; color: #64748b;">
+                                ({{ $e['parent_tuteur'] }})
+                            </div>
+                        @endif
+                    </td>
                     <td class="text-right">{{ number_format($e['montant_net_exigible'], 0, ',', ' ') }} F</td>
                     <td class="text-right" style="color: #047857;">{{ number_format($e['total_paye'], 0, ',', ' ') }} F</td>
                     <td class="text-right" style="color: #0369a1;">{{ number_format($e['verse_periode'] ?? $e['total_paye'], 0, ',', ' ') }} F</td>

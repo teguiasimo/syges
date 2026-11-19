@@ -28,6 +28,7 @@ trait ScopesEtablissement
      * @param  array<int|string, mixed>|null  $withCount  Relations de comptage Eloquent optionnelles (ex: `['sections']`).
      * @return array{
      *     isSuperAdmin: bool,
+     *     canAccessAll: bool,
      *     personnel: Personnel|null,
      *     etablissementId: int|null,
      *     selectedEtablissement: Etablissement|null,
@@ -38,6 +39,7 @@ trait ScopesEtablissement
     {
         $user = $request->user();
         $isSuperAdmin = $user ? $user->isSuperAdmin() : false;
+        $canAccessAll = $isSuperAdmin || ($user ? $user->canAccessAllEtablissements() : false);
         $personnel = $user?->personnel ?? ($user?->email ? Personnel::where('email', $user->email)->first() : null);
         $userEtablissementId = $user?->getEffectiveEtablissementId() ?? $personnel?->etablissement_id;
 
@@ -51,7 +53,7 @@ trait ScopesEtablissement
         }
         $allEtablissements = $query->get();
 
-        if (! $isSuperAdmin) {
+        if (! $canAccessAll) {
             // Verrouillage strict : l'utilisateur local ne peut voir QUE son campus
             if ($userEtablissementId) {
                 $etablissementId = (int) $userEtablissementId;
@@ -65,17 +67,20 @@ trait ScopesEtablissement
                 $etablissements = collect();
             }
         } else {
-            // Super-Admin uniquement : navigation transversale sur l'ensemble des campus
+            // Navigation transversale (Super-Admin et Secrétaire Générale multi-établissements)
             $requestedId = $request->query('etablissement_id') ?? $request->input('etablissement_id');
 
-            if ($requestedId) {
+            // Ignorer la valeur « all » (mode consolidé multi-campus) afin de ne jamais corrompre l'ID numérique actif en session
+            if ($requestedId !== null && $requestedId !== '' && $requestedId !== 'all' && is_numeric($requestedId)) {
                 $etablissementId = (int) $requestedId;
                 if ($request->hasSession()) {
                     $request->session()->put('current_etablissement_id', $etablissementId);
                 }
             } else {
                 $sessionEtabId = $request->hasSession() ? $request->session()->get('current_etablissement_id') : null;
-                $etablissementId = $sessionEtabId ? (int) $sessionEtabId : $allEtablissements->first()?->id;
+                $etablissementId = ($sessionEtabId && is_numeric($sessionEtabId))
+                    ? (int) $sessionEtabId
+                    : $allEtablissements->first()?->id;
             }
 
             $selectedEtablissement = $etablissementId
@@ -86,6 +91,7 @@ trait ScopesEtablissement
 
         return [
             'isSuperAdmin' => $isSuperAdmin,
+            'canAccessAll' => $canAccessAll,
             'personnel' => $personnel,
             'etablissementId' => $etablissementId,
             'selectedEtablissement' => $selectedEtablissement,

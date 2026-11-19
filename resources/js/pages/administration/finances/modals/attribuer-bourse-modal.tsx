@@ -18,7 +18,12 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { BourseRemise, CompteFinancierEleve } from '@/types/finance';
+import {
+    BourseRemise,
+    CompteFinancierEleve,
+    formatBaseCalculRemiseLabel,
+    formatCibleImputationLabel,
+} from '@/types/finance';
 
 interface AttribuerBourseModalProps {
     isOpen: boolean;
@@ -30,8 +35,8 @@ interface AttribuerBourseModalProps {
 /**
  * Modal d'attribution directe d'une bourse ou d'une remise au compte scolaire d'un élève (Aurore §4.1.6).
  *
- * @param {AttribuerBourseModalProps} props
- * @returns {JSX.Element}
+ * @param {AttribuerBourseModalProps} props Propriétés du composant
+ * @returns {JSX.Element} Modale d'attribution de bourse ou remise
  */
 export default function AttribuerBourseModal({
     isOpen,
@@ -42,17 +47,38 @@ export default function AttribuerBourseModal({
     const [bourseRemiseId, setBourseRemiseId] = useState<string>('');
     const [motif, setMotif] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    // Conservation du dernier compte afin que Radix Dialog complète proprement sa fermeture sans démontage anticipé
+    const [displayCompte, setDisplayCompte] = useState<CompteFinancierEleve | null>(compte);
+    const activeCompte = compte ?? displayCompte;
+
+    React.useEffect(() => {
+        if (compte) {
+            setDisplayCompte(compte);
+        }
+    }, [compte]);
 
     const selectedModel = boursesRemises.find(b => b.id.toString() === bourseRemiseId);
 
-    // Calcul de l'estimation de la déduction
+    const baseNetteScolarite = React.useMemo(() => {
+        if (!activeCompte) return 0;
+        return Math.max(0, (activeCompte.debit_initial || 0) - (activeCompte.total_dispense || 0));
+    }, [activeCompte]);
+
+    const estPourcentageSurTrancheCiblee = Boolean(
+        selectedModel?.mode_calcul === 'pourcentage' && selectedModel?.base_calcul === 'tranche_ciblee'
+    );
+
+    // Calcul de l'estimation de la déduction (exacte pour montant fixe et pourcentage sur scolarité totale)
     const montantEstime = React.useMemo(() => {
-        if (!selectedModel || !compte) return 0;
+        if (!selectedModel || !activeCompte) return 0;
         if (selectedModel.mode_calcul === 'pourcentage') {
-            return Math.round(((compte.debit_initial || 0) * selectedModel.valeur) / 100);
+            if (selectedModel.base_calcul === 'tranche_ciblee') {
+                return 0;
+            }
+            return Math.min(baseNetteScolarite, Math.round((baseNetteScolarite * selectedModel.valeur) / 100));
         }
-        return Math.min(compte.debit_initial || 0, selectedModel.valeur);
-    }, [selectedModel, compte]);
+        return Math.min(baseNetteScolarite, selectedModel.valeur);
+    }, [selectedModel, activeCompte, baseNetteScolarite]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -73,24 +99,26 @@ export default function AttribuerBourseModal({
             },
             {
                 onSuccess: () => {
-                    toast.success('Bourse/Remise accordée avec succès.');
+                    toast.success('Bourse/Remise accordée avec succès.', {
+                        position: 'top-right',
+                        className: 'bg-emerald-600 text-white border-none',
+                    });
                     onClose();
                     setBourseRemiseId('');
                     setMotif('');
                 },
                 onError: (errors) => {
                     const first = Object.values(errors)[0] as string;
-                    toast.error(first || "Erreur lors de l'attribution.");
+                    toast.error(first || "Erreur lors de l'attribution.", { position: 'top-right' });
                 },
                 onFinish: () => setIsSubmitting(false),
             }
         );
     };
 
-    if (!compte) return null;
-
     return (
-        <Dialog open={isOpen} onOpenChange={open => !open && onClose()}>
+        <Dialog open={Boolean(isOpen && compte)} onOpenChange={open => !open && onClose()}>
+            {activeCompte && (
             <DialogContent className="max-w-md">
                 <DialogHeader>
                     <DialogTitle>Accorder une Bourse ou une Remise</DialogTitle>
@@ -98,13 +126,13 @@ export default function AttribuerBourseModal({
 
                 {/* Résumé du compte financier avec retour à la ligne adaptatif sur mobile */}
                 <div className="bg-slate-50 dark:bg-slate-900/60 p-3 rounded-lg border border-slate-200 dark:border-slate-800 text-sm space-y-1 my-1 min-w-0">
-                    <div className="wrap-break-word">Élève : <strong className="text-slate-900 dark:text-slate-100">{compte.eleve?.nom} {compte.eleve?.prenom}</strong></div>
+                    <div className="wrap-break-word">Élève : <strong className="text-slate-900 dark:text-slate-100">{activeCompte.eleve?.nom} {activeCompte.eleve?.prenom}</strong></div>
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs sm:text-sm">
-                        <span>Matricule : <span className="font-mono">{compte.eleve?.matricule}</span></span>
+                        <span>Matricule : <span className="font-mono">{activeCompte.eleve?.matricule}</span></span>
                         <span className="hidden sm:inline text-slate-400">|</span>
-                        <span>Classe : <strong>{compte.inscription?.classe?.nom}</strong></span>
+                        <span>Classe : <strong>{activeCompte.inscription?.classe?.nom}</strong></span>
                     </div>
-                    <div>Frais initiaux bruts : <strong className="text-blue-700 dark:text-blue-400 tabular-nums">{new Intl.NumberFormat('fr-FR').format(compte.debit_initial)} FCFA</strong></div>
+                    <div>Frais initiaux bruts : <strong className="text-blue-700 dark:text-blue-400 tabular-nums">{new Intl.NumberFormat('fr-FR').format(activeCompte.debit_initial)} FCFA</strong></div>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-4 py-2 min-w-0">
@@ -127,16 +155,30 @@ export default function AttribuerBourseModal({
                     </div>
 
                     {selectedModel && (
-                        <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-lg text-sm text-emerald-900 dark:text-emerald-200">
+                        <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-lg text-sm text-emerald-900 dark:text-emerald-200 space-y-1">
                             <div className="font-semibold flex flex-wrap items-center justify-between gap-2">
-                                <span>Déduction calculée :</span>
+                                <span>Déduction estimée :</span>
                                 <span className="text-base text-emerald-700 dark:text-emerald-400 font-bold tabular-nums">
-                                    - {new Intl.NumberFormat('fr-FR').format(montantEstime)} FCFA
+                                    {estPourcentageSurTrancheCiblee
+                                        ? `${selectedModel.valeur}% sur tranche ciblée`
+                                        : `- ${new Intl.NumberFormat('fr-FR').format(montantEstime)} FCFA`}
                                 </span>
                             </div>
-                            <div className="text-xs text-emerald-800 dark:text-emerald-300 mt-1 tabular-nums">
-                                Nouveau net exigible : {new Intl.NumberFormat('fr-FR').format(Math.max(0, (compte.debit_initial || 0) + (compte.arrieres_anterieurs || 0) - montantEstime))} FCFA
+                            <div className="text-xs text-emerald-800 dark:text-emerald-300 flex flex-wrap gap-x-2 gap-y-0.5">
+                                <span>
+                                    Imputation : <strong>{formatCibleImputationLabel(selectedModel.cible_imputation)}</strong>
+                                </span>
+                                {selectedModel.mode_calcul === 'pourcentage' && (
+                                    <span>
+                                        • Base : <strong>{formatBaseCalculRemiseLabel(selectedModel.base_calcul)}</strong>
+                                    </span>
+                                )}
                             </div>
+                            {!estPourcentageSurTrancheCiblee && (
+                                <div className="text-xs text-emerald-800 dark:text-emerald-300 tabular-nums">
+                                    Nouveau net exigible estimé : {new Intl.NumberFormat('fr-FR').format(Math.max(0, (activeCompte.debit_initial || 0) - (activeCompte.total_dispense || 0) + (activeCompte.arrieres_anterieurs || 0) - montantEstime))} FCFA
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -165,6 +207,7 @@ export default function AttribuerBourseModal({
                     </DialogFooter>
                 </form>
             </DialogContent>
+            )}
         </Dialog>
     );
 }

@@ -27,6 +27,39 @@ use Illuminate\Support\Facades\Auth;
 class EtablissementScope implements Scope
 {
     /**
+     * Contexte d'établissement temporaire autorisé par un service métier vérifié
+     * (ex. : consultation par un parent d'un enfant déjà authentifié sur un campus précis).
+     *
+     * @var int|null
+     */
+    protected static ?int $overrideEtablissementId = null;
+
+    /**
+     * Exécute un bloc de code en contextualisant temporairement le Global Scope sur un établissement donné.
+     * Restaure systématiquement l'état précédent via `finally` pour préserver l'isolation Multi-Tenant.
+     *
+     * @template TResult
+     * @param int|null $etablissementId Identifiant du campus cible (si null, exécution standard sans forçage)
+     * @param callable(): TResult $callback Traitement à exécuter dans ce contexte borné
+     * @return TResult
+     */
+    public static function withEtablissementOverride(?int $etablissementId, callable $callback): mixed
+    {
+        if ($etablissementId === null) {
+            return $callback();
+        }
+
+        $previous = self::$overrideEtablissementId;
+        self::$overrideEtablissementId = $etablissementId;
+
+        try {
+            return $callback();
+        } finally {
+            self::$overrideEtablissementId = $previous;
+        }
+    }
+
+    /**
      * Applique la restriction d'établissement sur la requête Eloquent.
      *
      * @param Builder $builder Le constructeur de requête Eloquent.
@@ -35,6 +68,13 @@ class EtablissementScope implements Scope
      */
     public function apply(Builder $builder, Model $model): void
     {
+        // Si un contexte borné vérifié est actif (ex. : Portail Parents après contrôle d'appartenance), on l'applique en priorité
+        if (self::$overrideEtablissementId !== null) {
+            $builder->where($model->qualifyColumn('etablissement_id'), self::$overrideEtablissementId);
+
+            return;
+        }
+
         // Si aucun utilisateur n'est authentifié (ex: commandes CLI de migration/seed), pas de restriction
         if (! Auth::check()) {
             return;
@@ -43,8 +83,8 @@ class EtablissementScope implements Scope
         /** @var User $user */
         $user = Auth::user();
 
-        // Le Super-Administrateur a une vue globale transversale
-        if ($user->isSuperAdmin()) {
+        // Le Super-Administrateur et les profils transversaux (ex: Secrétaire Générale globale) ont une vue multi-campus
+        if ($user->canAccessAllEtablissements()) {
             return;
         }
 

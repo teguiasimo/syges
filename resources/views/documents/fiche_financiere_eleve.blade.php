@@ -189,61 +189,8 @@
     </style>
 </head>
 <body>
-
-    <!-- En-tête officiel bilingue -->
-    <table class="header-table">
-        <tr>
-            <td class="header-left">
-                <strong>RÉPUBLIQUE DU CAMEROUN</strong><br>
-                <em>Paix – Travail – Patrie</em><br>
-                {{ $etablissement->ministere_tutelle ?? 'MINISTÈRE DES ENSEIGNEMENTS SECONDAIRES' }}<br>
-                @if($etablissement->delegation_regionale)
-                    {{ mb_strtoupper($etablissement->delegation_regionale, 'UTF-8') }}<br>
-                @endif
-                @if($etablissement->delegation_departementale)
-                    {{ mb_strtoupper($etablissement->delegation_departementale, 'UTF-8') }}<br>
-                @endif
-                @if($etablissement->arrondissement)
-                    {{ \Illuminate\Support\Str::startsWith(mb_strtoupper($etablissement->arrondissement, 'UTF-8'), 'ARRONDISSEMENT') ? mb_strtoupper($etablissement->arrondissement, 'UTF-8') : 'ARRONDISSEMENT DE ' . mb_strtoupper($etablissement->arrondissement, 'UTF-8') }}
-                @endif
-            </td>
-            <td class="header-center">
-                @php
-                    $logoSrc = ($etablissement && method_exists($etablissement, 'getEffectiveLogoBase64'))
-                        ? $etablissement->getEffectiveLogoBase64()
-                        : (file_exists(public_path('logo.png')) ? 'data:image/png;base64,' . base64_encode(file_get_contents(public_path('logo.png'))) : null);
-                @endphp
-                @if($logoSrc)
-                    <img src="{{ $logoSrc }}" alt="Logo" style="max-height: 75px; max-width: 90px; object-fit: contain;">
-                @else
-                    <div style="font-size: 20pt; font-weight: bold; color: #1e3a8a;">SYGES</div>
-                @endif
-            </td>
-            <td class="header-right">
-                <strong>REPUBLIC OF CAMEROON</strong><br>
-                <em>Peace – Work – Fatherland</em><br>
-                {{ $etablissement->ministere_tutelle_en ?? 'MINISTRY OF SECONDARY EDUCATION' }}<br>
-                @if($etablissement->delegation_regionale_en || $etablissement->delegation_regionale)
-                    {{ mb_strtoupper($etablissement->delegation_regionale_en ?? $etablissement->delegation_regionale, 'UTF-8') }}<br>
-                @endif
-                @if($etablissement->delegation_departementale_en || $etablissement->delegation_departementale)
-                    {{ mb_strtoupper($etablissement->delegation_departementale_en ?? $etablissement->delegation_departementale, 'UTF-8') }}<br>
-                @endif
-                @if($etablissement->arrondissement_en || $etablissement->arrondissement)
-                    @php
-                        $arrEn = $etablissement->arrondissement_en ?? $etablissement->arrondissement;
-                        $arrEnUpper = mb_strtoupper($arrEn, 'UTF-8');
-                    @endphp
-                    {{ \Illuminate\Support\Str::contains($arrEnUpper, 'SUB-DIVISION') ? $arrEnUpper : $arrEnUpper . ' SUB-DIVISION' }}
-                @endif
-            </td>
-        </tr>
-    </table>
-
-    <div style="text-align: center; margin-top: 2px; margin-bottom: 6px;">
-        <div class="school-name">{{ $etablissement->nom ?? 'ÉTABLISSEMENT SCOLAIRE' }}</div>
-        <div style="font-size: 7.5pt; color: #475569; font-weight: bold; text-transform: uppercase;">Service de l'Intendance &bull; Gestion Financière des Élèves</div>
-    </div>
+    {{-- En-tête officiel bilingue partagé (intègre le filigrane de l'établissement) --}}
+    @include('finances.partials.header', ['serviceTitle' => "Service de l'Intendance & Gestion Financière des Élèves"])
 
     <!-- Bannière Titre -->
     <div class="title-banner">
@@ -277,11 +224,11 @@
         <tr>
             <td>
                 <div class="kpi-title">Frais Exigibles Bruts</div>
-                <div class="kpi-val" style="color: #0f172a;">{{ number_format($compte?->total_debit ?? 0, 0, ',', ' ') }} FCFA</div>
+                <div class="kpi-val" style="color: #0f172a;">{{ number_format($compte?->debit_initial ?? 0, 0, ',', ' ') }} FCFA</div>
             </td>
             <td>
                 <div class="kpi-title">Bourses / Remises Déduites</div>
-                <div class="kpi-val" style="color: #047857;">- {{ number_format(($compte?->boursesRemises ? $compte->boursesRemises->sum('montant_deduit') : 0), 0, ',', ' ') }} FCFA</div>
+                <div class="kpi-val" style="color: #047857;">- {{ number_format(($compte?->remise_bourse ?? ($compte?->boursesRemises ? $compte->boursesRemises->sum('montant_calcule') : 0)), 0, ',', ' ') }} FCFA</div>
             </td>
             <td>
                 <div class="kpi-title">Total Encaissé</div>
@@ -289,21 +236,25 @@
             </td>
             <td>
                 <div class="kpi-title">Solde Net Restant</div>
-                <div class="kpi-val" style="color: {{ ($compte?->solde ?? 0) <= 0 ? '#15803d' : '#b91c1c' }};">
-                    {{ number_format($compte?->solde ?? 0, 0, ',', ' ') }} FCFA
+                <div class="kpi-val" style="color: {{ ($compte?->solde_restant ?? 0) <= 0 ? '#15803d' : '#b91c1c' }};">
+                    {{ number_format($compte?->solde_restant ?? 0, 0, ',', ' ') }} FCFA
                 </div>
             </td>
         </tr>
     </table>
 
     <!-- Bannière de Solvabilité -->
-    @if(($compte?->solde ?? 0) <= 0)
+    @if((float) ($compte?->debit_initial ?? 0) <= 0 && (float) ($compte?->montant_net_exigible ?? 0) <= 0 && (float) ($compte?->total_paye ?? 0) <= 0)
+        <div class="solvency-box" style="background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1;">
+            &bull; Tarification non encore configurée pour ce niveau &bull; En attente du paramétrage financier
+        </div>
+    @elseif(($compte?->solde_restant ?? 0) <= 0)
         <div class="solvency-box solvency-ok">
             &check; Situation Financière Régularisée &bull; Élève Solvable pour l'année scolaire en cours
         </div>
     @else
         <div class="solvency-box solvency-due">
-            &excl; Reste à payer : {{ number_format($compte?->solde ?? 0, 0, ',', ' ') }} FCFA &bull; Règlement attendu auprès de l'intendance
+            &excl; Reste à payer : {{ number_format($compte?->solde_restant ?? 0, 0, ',', ' ') }} FCFA &bull; Règlement attendu auprès de l'intendance
         </div>
     @endif
 
@@ -327,7 +278,7 @@
                         <td style="text-align: center;">{{ ucfirst($br->bourseRemise->type ?? 'remise') }}</td>
                         <td style="text-align: center;">{{ ($br->bourseRemise->mode_calcul ?? '') === 'pourcentage' ? 'Pourcentage (%)' : 'Montant Fixe' }}</td>
                         <td style="text-align: right;">{{ ($br->bourseRemise->mode_calcul ?? '') === 'pourcentage' ? ($br->bourseRemise->valeur ?? 0) . ' %' : number_format($br->bourseRemise->valeur ?? 0, 0, ',', ' ') . ' FCFA' }}</td>
-                        <td style="text-align: right; font-weight: bold; color: #047857;">- {{ number_format($br->montant_deduit ?? 0, 0, ',', ' ') }} FCFA</td>
+                        <td style="text-align: right; font-weight: bold; color: #047857;">- {{ number_format($br->montant_calcule ?? 0, 0, ',', ' ') }} FCFA</td>
                     </tr>
                 @endforeach
             </tbody>
@@ -348,13 +299,13 @@
             </tr>
         </thead>
         <tbody>
-            @forelse($compte->versements ?? [] as $v)
+            @forelse(($compte?->versements?->where('statut', 'valide') ?? []) as $v)
                 <tr>
                     <td style="text-align: center;">{{ \Carbon\Carbon::parse($v->date_versement)->format('d-m-Y') }}</td>
-                    <td style="text-align: center; font-family: monospace; font-weight: bold;">{{ $v->numero_recu }}</td>
+                    <td style="text-align: center; font-family: monospace; font-weight: bold;">{{ $v->reference_recu }}</td>
                     <td>{{ $v->caisse->nom ?? 'Caisse Principale' }}</td>
-                    <td style="text-align: center;">{{ $v->modePaiement->libelle ?? 'Espèces' }}</td>
-                    <td style="text-align: right; font-weight: bold; color: #1e3a8a;">{{ number_format($v->montant, 0, ',', ' ') }} FCFA</td>
+                    <td style="text-align: center;">{{ $v->mode_paiement ? strtoupper(str_replace('_', ' ', $v->mode_paiement)) : 'ESPÈCES' }}</td>
+                    <td style="text-align: right; font-weight: bold; color: #1e3a8a;">{{ number_format($v->montant_total, 0, ',', ' ') }} FCFA</td>
                     <td style="text-align: center; color: #15803d; font-weight: bold;">Validé</td>
                 </tr>
             @empty

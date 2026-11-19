@@ -7,10 +7,12 @@ use App\Models\BourseRemise;
 use App\Models\Caisse;
 use App\Models\CategorieFrais;
 use App\Models\Classe;
+use App\Models\ClotureCaisse;
 use App\Models\CompteFinancierEleve;
 use App\Models\Cycle;
 use App\Models\DispenseFinanciere;
 use App\Models\Eleve;
+use App\Models\EleveBourseRemise;
 use App\Models\Etablissement;
 use App\Models\FraisScolaire;
 use App\Models\Inscription;
@@ -322,6 +324,67 @@ class FinancesAvanceesComplexeTest extends TestCase
 
         $response->assertOk();
         $this->assertStringContainsString('application/pdf', $response->headers->get('content-type') ?? '');
+    }
+
+    /**
+     * Teste la suite officielle des 8 états financiers inspirés des standards scolaires camerounais.
+     */
+    public function test_telechargement_suite_officielle_8_etats_financiers_pdf(): void
+    {
+        // 01. Journal des versements
+        $res1 = $this->actingAs($this->adminUser)->get('/administration/finances/etats/journal-versements-pdf');
+        $res1->assertOk();
+        $this->assertStringContainsString('application/pdf', $res1->headers->get('content-type') ?? '');
+
+        // 02. Journal résumé des versements
+        $res2 = $this->actingAs($this->adminUser)->get('/administration/finances/etats/journal-resume-pdf');
+        $res2->assertOk();
+        $this->assertStringContainsString('application/pdf', $res2->headers->get('content-type') ?? '');
+
+        // 03. Journal des versements par catégories
+        $res3 = $this->actingAs($this->adminUser)->get('/administration/finances/etats/journal-categories-pdf');
+        $res3->assertOk();
+        $this->assertStringContainsString('application/pdf', $res3->headers->get('content-type') ?? '');
+
+        // 04. Bilan résumé des recouvrements
+        $res4 = $this->actingAs($this->adminUser)->get('/administration/finances/etats/bilan-resume-pdf');
+        $res4->assertOk();
+        $this->assertStringContainsString('application/pdf', $res4->headers->get('content-type') ?? '');
+
+        // 05. Bilan détaillé des versements
+        $res5 = $this->actingAs($this->adminUser)->get('/administration/finances/etats/bilan-detaille-pdf');
+        $res5->assertOk();
+        $this->assertStringContainsString('application/pdf', $res5->headers->get('content-type') ?? '');
+
+        // 06. Bilan des réductions et bourses
+        $res6 = $this->actingAs($this->adminUser)->get('/administration/finances/etats/bilan-reductions-pdf');
+        $res6->assertOk();
+        $this->assertStringContainsString('application/pdf', $res6->headers->get('content-type') ?? '');
+
+        // 07. Liste des insolvables (enrichie)
+        $res7 = $this->actingAs($this->adminUser)->get('/administration/finances/etats/insolvables-pdf');
+        $res7->assertOk();
+        $this->assertStringContainsString('application/pdf', $res7->headers->get('content-type') ?? '');
+
+        // 08. Relevé individuel des versements de l'élève
+        $res8 = $this->actingAs($this->adminUser)->get("/administration/finances/etats/releve-eleve-pdf?eleve_id={$this->eleve->id}");
+        $res8->assertOk();
+        $this->assertStringContainsString('application/pdf', $res8->headers->get('content-type') ?? '');
+    }
+
+    /**
+     * Teste la vision consolidée multi-campus « Complexe Scolaire Global » (etablissement_id = all).
+     */
+    public function test_etats_financiers_mode_complexe_scolaire_global(): void
+    {
+        // En tant que SuperAdmin, la vision 'all' consolide tous les établissements du complexe
+        $resPage = $this->actingAs($this->adminUser)->get('/administration/finances/etats?etablissement_id=all');
+        $resPage->assertOk();
+
+        // Édition consolidée du Bilan Résumé pour l'ensemble du complexe scolaire
+        $resPdf = $this->actingAs($this->adminUser)->get('/administration/finances/etats/bilan-resume-pdf?etablissement_id=all');
+        $resPdf->assertOk();
+        $this->assertStringContainsString('application/pdf', $resPdf->headers->get('content-type') ?? '');
     }
 
     /**
@@ -1071,6 +1134,33 @@ class FinancesAvanceesComplexeTest extends TestCase
 
         $this->assertDatabaseHas('categories_frais', ['id' => $categorie->id]);
 
+        // Si le frais est supprimé du catalogue (mis à la corbeille / soft-deleted),
+        // la catégorie n'a plus de frais actif (compteur = 0) et doit pouvoir être supprimée.
+        $typeFraisLie->delete();
+        $this->actingAs($this->adminUser)
+            ->delete("/administration/finances/categories-frais/{$categorie->id}")
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $this->assertDatabaseMissing('categories_frais', ['id' => $categorie->id]);
+        $this->assertNull($typeFraisLie->fresh()->categorie_frais_id);
+
+        // On recrée une catégorie et un frais rattaché pour la suite du test
+        $categorie = CategorieFrais::create([
+            'etablissement_id' => $this->etablissement->id,
+            'nom' => 'Catégorie Test Verrouillage 2',
+        ]);
+        $typeFraisLie = TypeFrais::create([
+            'etablissement_id' => $this->etablissement->id,
+            'categorie_frais_id' => $categorie->id,
+            'code' => 'INSC-VERR-2',
+            'libelle' => 'Inscription Verrouillée 2',
+            'obligatoire' => true,
+            'periodicite' => 'annuel',
+            'ordre_priorite' => 1,
+            'montant_defaut' => 15000,
+        ]);
+
         // 2. Frais du catalogue rattaché à un niveau -> suppression du TypeFrais bloquée
         $tarifSansPaiement = FraisScolaire::create([
             'annee_scolaire_id' => $this->anneeScolaire->id,
@@ -1659,5 +1749,664 @@ class FinancesAvanceesComplexeTest extends TestCase
                 'verrou_solvabilite_actif' => false,
             ])
             ->assertForbidden();
+    }
+
+    /**
+     * Teste que la page dédiée du Centre des États & Rapports Financiers (/administration/finances/etats)
+     * est accessible pour les profils autorisés (Intendant, Caissier, Super Admin) et protégée en multi-tenant.
+     */
+    public function test_page_dediee_etats_financiers_accessible_et_cloisonnee(): void
+    {
+        $this->actingAs($this->adminUser)
+            ->get('/administration/finances/etats')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('administration/finances/etats')
+                ->has('etablissements')
+                ->has('currentEtablissement')
+                ->has('caisses')
+                ->has('anneesScolaires')
+                ->has('can')
+            );
+
+        // Profil sans permission financière -> Rejet 403
+        $simpleUser = User::factory()->create([
+            'etablissement_id' => $this->etablissement->id,
+        ]);
+
+        $this->actingAs($simpleUser)
+            ->get('/administration/finances/etats')
+            ->assertForbidden();
+
+        // Utilisateur local avec permission finances.etats mais rattaché à son propre établissement
+        Permission::firstOrCreate(['name' => 'finances.etats', 'guard_name' => 'web']);
+        $localIntendant = User::factory()->create([
+            'etablissement_id' => $this->etablissement->id,
+        ]);
+        $localIntendant->givePermissionTo('finances.etats');
+
+        // Accès valide sur son campus
+        $this->actingAs($localIntendant)
+            ->get('/administration/finances/etats')
+            ->assertOk();
+
+        // Cloisonnement multi-tenant : tentative d'accès à un autre établissement sans être super-admin -> Rejet 403
+        $autreEtab = Etablissement::create([
+            'institution_id' => $this->etablissement->institution_id,
+            'nom' => 'Autre Campus Privé',
+            'code' => 'ACP',
+            'type' => 'primaire',
+        ]);
+
+        $this->actingAs($localIntendant)
+            ->get("/administration/finances/etats?etablissement_id={$autreEtab->id}")
+            ->assertForbidden();
+    }
+
+    /**
+     * Teste que le montant d'un versement est strictement rejeté s'il dépasse le reste à payer
+     * ou si le compte de l'élève est déjà soldé (reste à payer = 0 FCFA).
+     */
+    public function test_versement_rejete_si_montant_superieur_au_reste_a_payer_ou_compte_solde(): void
+    {
+        // Le compte initial a un exigible et un reste à payer de 50 000 FCFA.
+        // Tentative de verser 100 000 FCFA -> doit être rejetée avec erreur de validation
+        $responseTrop = $this->actingAs($this->adminUser)
+            ->post('/administration/finances/versements', [
+                'compte_financier_id' => $this->compte->id,
+                'montant_total' => 100000,
+                'mode_paiement' => 'especes',
+                'ventilations' => [
+                    [
+                        'frais_scolaire_id' => $this->fraisObligatoire->id,
+                        'libelle' => 'Scolarité Tranche 1',
+                        'montant' => 100000,
+                    ],
+                ],
+            ]);
+
+        $responseTrop->assertSessionHasErrors('error');
+        $this->compte->refresh();
+        $this->assertEquals(0, (float) $this->compte->total_paye);
+        $this->assertEquals(50000, (float) $this->compte->solde_restant);
+
+        // Versement exact de 50 000 FCFA -> autorisé et solde le compte
+        $responseExact = $this->actingAs($this->adminUser)
+            ->post('/administration/finances/versements', [
+                'compte_financier_id' => $this->compte->id,
+                'montant_total' => 50000,
+                'mode_paiement' => 'especes',
+                'ventilations' => [
+                    [
+                        'frais_scolaire_id' => $this->fraisObligatoire->id,
+                        'libelle' => 'Scolarité Tranche 1',
+                        'montant' => 50000,
+                    ],
+                ],
+            ]);
+
+        $responseExact->assertSessionHasNoErrors();
+        $this->compte->refresh();
+        $this->assertEquals(50000, (float) $this->compte->total_paye);
+        $this->assertEquals(0, (float) $this->compte->solde_restant);
+
+        // Tentative d'encaisser à nouveau 10 000 FCFA sur un compte déjà soldé (reste = 0) -> rejetée
+        $responseSolde = $this->actingAs($this->adminUser)
+            ->post('/administration/finances/versements', [
+                'compte_financier_id' => $this->compte->id,
+                'montant_total' => 10000,
+                'mode_paiement' => 'especes',
+                'ventilations' => [
+                    [
+                        'frais_scolaire_id' => $this->fraisObligatoire->id,
+                        'libelle' => 'Scolarité Tranche 1',
+                        'montant' => 10000,
+                    ],
+                ],
+            ]);
+
+        $responseSolde->assertSessionHasErrors('error');
+        $this->compte->refresh();
+        $this->assertEquals(50000, (float) $this->compte->total_paye);
+    }
+
+    /**
+     * Teste qu'un frais configuré au Catalogue (où types_frais.obligatoire = true par défaut)
+     * mais rattaché au niveau en mode Optionnel (frais_scolaires.obligatoire = false) :
+     * - remonte bien dans `frais_optionnels_niveau` du dossier élève,
+     * - peut être coché/appliqué individuellement ou à toute une classe (ex: Inscription P CDE vs P TI),
+     * - augmente immédiatement le montant net exigible et le reste à payer avant encaissement.
+     */
+    public function test_frais_optionnel_defini_au_niveau_et_souscription_individuelle_ou_par_classe(): void
+    {
+        // Catalogue : le frais a obligatoire = true par défaut dans types_frais
+        $typeInscriptionCde = TypeFrais::create([
+            'etablissement_id' => $this->etablissement->id,
+            'code' => 'INSC-P-CDE',
+            'libelle' => 'Inscription Première CDE',
+            'obligatoire' => true,
+            'ordre_priorite' => 2,
+        ]);
+
+        // Rattachement au niveau : configuré en OPTIONNEL (frais_scolaires.obligatoire = false)
+        $fraisOptionnelNiveau = FraisScolaire::create([
+            'etablissement_id' => $this->etablissement->id,
+            'annee_scolaire_id' => $this->anneeScolaire->id,
+            'niveau_id' => $this->classe->niveau_id,
+            'type_frais_id' => $typeInscriptionCde->id,
+            'libelle_tranche' => 'Inscription Première CDE',
+            'montant' => 25000,
+            'obligatoire' => false,
+        ]);
+
+        // 1. Vérifier que le dossier JSON de l'élève propose bien ce frais dans `frais_optionnels_niveau`
+        $dossierJson = $this->actingAs($this->adminUser)
+            ->getJson("/administration/finances/comptes/{$this->compte->id}/dossier")
+            ->assertOk();
+
+        $optionsNiveau = collect($dossierJson->json('frais_optionnels_niveau'));
+        $optCde = $optionsNiveau->firstWhere('frais_scolaire_id', $fraisOptionnelNiveau->id);
+        $this->assertNotNull($optCde);
+        $this->assertFalse($optCde['est_souscrit']);
+        $this->assertEquals(25000, (float) $optCde['montant_standard']);
+
+        // 2. Appliquer ce frais optionnel à toute la classe en 1 clic
+        $this->actingAs($this->adminUser)
+            ->post('/administration/finances/souscriptions-optionnelles/classe', [
+                'classe_id' => $this->classe->id,
+                'frais_scolaire_id' => $fraisOptionnelNiveau->id,
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $this->compte->refresh();
+        // Montant total à verser passe de 50 000 à 75 000 FCFA (50 000 obligatoire + 25 000 optionnel)
+        $this->assertEquals(75000, (float) $this->compte->montant_net_exigible);
+        $this->assertEquals(75000, (float) $this->compte->solde_restant);
+
+        // 3. L'élève peut désormais verser 75 000 FCFA (sans dépasser le reste à payer)
+        $this->actingAs($this->adminUser)
+            ->post('/administration/finances/versements', [
+                'compte_financier_id' => $this->compte->id,
+                'montant_total' => 75000,
+                'mode_paiement' => 'especes',
+                'ventilations' => [
+                    [
+                        'frais_scolaire_id' => $this->fraisObligatoire->id,
+                        'libelle' => 'Scolarité Tranche 1',
+                        'montant' => 50000,
+                    ],
+                    [
+                        'frais_scolaire_id' => $fraisOptionnelNiveau->id,
+                        'libelle' => 'Inscription Première CDE',
+                        'montant' => 25000,
+                    ],
+                ],
+            ])
+            ->assertSessionHasNoErrors();
+
+        $this->compte->refresh();
+        $this->assertEquals(75000, (float) $this->compte->total_paye);
+        $this->assertEquals(0, (float) $this->compte->solde_restant);
+        $this->assertEquals('solde', $this->compte->statut_financier);
+    }
+
+    /**
+     * Vérifie que l'insolvabilité dans les états repose strictement sur les échéances échues (`date_limite`),
+     * même lorsque `date_fin` n'est pas transmise, évitant ainsi d'afficher des élèves insolvables avant la rentrée.
+     */
+    public function test_insolvabilite_basee_uniquement_sur_echeances_echues_avant_et_apres_rentree(): void
+    {
+        // Fixe une échéance future (07-09-2026) sur le tarif obligatoire de test
+        $this->fraisObligatoire->update(['date_limite' => '2026-09-07']);
+
+        /** @var FinanceService $financeService */
+        $financeService = app(FinanceService::class);
+
+        // 1. Avant la rentrée (11 juillet 2026) avec date_fin explicite : 0 élève insolvable
+        $avantRentreeAvecDate = $financeService->obtenirListeInsolvables(
+            $this->etablissement->id,
+            $this->anneeScolaire->id,
+            null,
+            null,
+            null,
+            null,
+            null,
+            '2026-07-01',
+            '2026-07-11'
+        );
+        $this->assertEquals(0, $avantRentreeAvecDate['nombre_insolvables']);
+
+        // 2. Sans date_fin (horloge serveur le 11 juillet 2026) : également 0 élève insolvable
+        Carbon::setTestNow(Carbon::parse('2026-07-11 10:00:00'));
+        try {
+            $avantRentreeSansDateFin = $financeService->obtenirListeInsolvables(
+                $this->etablissement->id,
+                $this->anneeScolaire->id
+            );
+            $this->assertEquals(0, $avantRentreeSansDateFin['nombre_insolvables']);
+        } finally {
+            Carbon::setTestNow();
+        }
+
+        // 3. Après dépassement de la date limite (10 septembre 2026) : l'élève non payé devient insolvable sur 50 000 F
+        $apresEcheance = $financeService->obtenirListeInsolvables(
+            $this->etablissement->id,
+            $this->anneeScolaire->id,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            '2026-09-10'
+        );
+        $this->assertEquals(1, $apresEcheance['nombre_insolvables']);
+        $this->assertEquals(50000.0, (float) $apresEcheance['eleves'][0]['montant_echu_en_retard']);
+    }
+
+    /**
+     * Vérifie la saisie rétroactive d'un versement papier (`date_versement`), le blocage des dates futures
+     * ou aberrantes, le contrôle de clôture sur la date saisie et l'application atomique de la remise 4 %.
+     */
+    public function test_encaissement_retroactif_date_versement_bornes_cloture_et_remise_anticipee(): void
+    {
+        $this->anneeScolaire->update(['date_debut' => '2026-09-07']);
+
+        $modeleAnticipe = BourseRemise::create([
+            'etablissement_id' => $this->etablissement->id,
+            'annee_scolaire_id' => $this->anneeScolaire->id,
+            'code' => 'REM-ANTICIPE-4',
+            'nom' => 'Réduction 4% Paiement Anticipé (avant rentrée)',
+            'type' => 'remise',
+            'categorie' => 'autre',
+            'mode_calcul' => 'pourcentage',
+            'valeur' => 4.0,
+            'cible_imputation' => 'derniere_tranche',
+            'is_active' => true,
+        ]);
+
+        // 1. Le dossier JSON expose les bornes calendaires et le modèle de remise anticipée
+        $dossierJson = $this->actingAs($this->adminUser)
+            ->getJson("/administration/finances/comptes/{$this->compte->id}/dossier")
+            ->assertOk();
+
+        $this->assertEquals('2026-09-07', $dossierJson->json('date_limite_rentree'));
+        $this->assertEquals($modeleAnticipe->id, $dossierJson->json('remise_anticipee_modele.id'));
+        $this->assertEquals(2000.0, (float) $dossierJson->json('remise_anticipee_modele.montant_estime'));
+
+        // 2. Date future (ex: 2028) ou trop ancienne (1995) strictement refusées
+        $this->actingAs($this->adminUser)
+            ->post('/administration/finances/versements', [
+                'compte_financier_id' => $this->compte->id,
+                'montant_total' => 10000,
+                'date_versement' => '2028-05-10',
+                'mode_paiement' => 'especes',
+                'ventilations' => [
+                    [
+                        'frais_scolaire_id' => $this->fraisObligatoire->id,
+                        'libelle' => 'Scolarité Tranche 1',
+                        'montant' => 10000,
+                    ],
+                ],
+            ])
+            ->assertSessionHasErrors('date_versement');
+
+        $this->actingAs($this->adminUser)
+            ->post('/administration/finances/versements', [
+                'compte_financier_id' => $this->compte->id,
+                'montant_total' => 10000,
+                'date_versement' => '1995-01-01',
+                'mode_paiement' => 'especes',
+                'ventilations' => [
+                    [
+                        'frais_scolaire_id' => $this->fraisObligatoire->id,
+                        'libelle' => 'Scolarité Tranche 1',
+                        'montant' => 10000,
+                    ],
+                ],
+            ])
+            ->assertSessionHasErrors('date_versement');
+
+        // 3. Même si la caisse d'aujourd'hui est clôturée, une saisie rétroactive datée du 25-08-2026 reste autorisée
+        $caissePrincipale = Caisse::firstOrCreate(
+            ['etablissement_id' => $this->etablissement->id, 'code' => 'CAISSE-PRIN'],
+            ['nom' => 'Caisse Principale', 'solde_initial' => 0, 'is_principale' => true, 'is_active' => true]
+        );
+
+        ClotureCaisse::create([
+            'etablissement_id' => $this->etablissement->id,
+            'caisse_id' => $caissePrincipale->id,
+            'date_cloture' => Carbon::today()->toDateString(),
+            'solde_theorique' => 0,
+            'solde_physique_declare' => 0,
+            'ecart' => 0,
+            'statut' => 'cloturee',
+        ]);
+
+        // Versement anticipé du 25-08-2026 avec remise 4 % (50 000 - 2 000 = 48 000 FCFA net exigible)
+        $this->actingAs($this->adminUser)
+            ->post('/administration/finances/versements', [
+                'compte_financier_id' => $this->compte->id,
+                'montant_total' => 48000,
+                'date_versement' => '2026-08-25',
+                'appliquer_remise_anticipee' => true,
+                'bourse_remise_anticipee_id' => $modeleAnticipe->id,
+                'mode_paiement' => 'especes',
+                'ventilations' => [
+                    [
+                        'frais_scolaire_id' => $this->fraisObligatoire->id,
+                        'libelle' => 'Scolarité Tranche 1',
+                        'montant' => 48000,
+                    ],
+                ],
+            ])
+            ->assertSessionHasNoErrors();
+
+        $this->compte->refresh();
+        $this->assertEquals(2000.0, (float) $this->compte->remise_bourse);
+        $this->assertEquals(48000.0, (float) $this->compte->montant_net_exigible);
+        $this->assertEquals(48000.0, (float) $this->compte->total_paye);
+        $this->assertEquals(0.0, (float) $this->compte->solde_restant);
+        $this->assertEquals('solde', $this->compte->statut_financier);
+
+        $versement = VersementCaisse::where('compte_financier_id', $this->compte->id)->firstOrFail();
+        $this->assertEquals('2026-08-25', Carbon::parse($versement->date_versement)->toDateString());
+    }
+
+    /**
+     * Vérifie que l'en-tête officiel des états financiers place l'année scolaire de part
+     * et d'autre (FR à gauche, EN à droite), libère la colonne centrale pour un logo plus grand
+     * et affiche la devise officielle du complexe scolaire.
+     */
+    public function test_entete_etats_financiers_annee_bilaterale_devise_et_logo_agrandi(): void
+    {
+        $institution = $this->etablissement->institution;
+        $institution->update([
+            'devise' => 'L’ÉDUCATION DES ENFANTS, L’ESPOIR DE DEMAIN',
+            'devise_en' => 'THE EDUCATION OF CHILDREN, THE HOPE OF TOMORROW',
+            'logo' => '/storage/logos/espoir_logo.jpg',
+        ]);
+
+        // Rendu direct du partial d'en-tête avec l'établissement rafraîchi
+        $etab = $this->etablissement->fresh(['institution']);
+        $html = view('finances.partials.header', [
+            'annee' => $this->anneeScolaire,
+            'etablissement' => $etab,
+            'serviceTitle' => 'Direction Financière & Comptabilité',
+        ])->render();
+
+        // Extraction des trois cellules principales (Gauche FR, Centre, Droite EN)
+        preg_match_all('/<td[^>]*>(.*?)<\/td>/s', $html, $matches);
+        $this->assertCount(3, $matches[1]);
+
+        [$leftCol, $centerCol, $rightCol] = $matches[1];
+
+        $anneeAttendue = preg_replace('/^\s*Ann[ée]e\s+scolaire\s*[:\-]?\s*/ui', '', $this->anneeScolaire->code ?? $this->anneeScolaire->nom);
+
+        // 1. L'année scolaire figure bien de part et d'autre (FR à gauche, EN à droite) et absente du centre
+        $this->assertStringContainsString("ANNÉE SCOLAIRE : {$anneeAttendue}", $leftCol);
+        $this->assertStringContainsString("ACADEMIC YEAR : {$anneeAttendue}", $rightCol);
+        $this->assertStringNotContainsString('ANNÉE SCOLAIRE', $centerCol);
+        $this->assertStringNotContainsString('ACADEMIC YEAR', $centerCol);
+
+        // 2. La devise officielle du complexe est présente au centre
+        $this->assertStringContainsString('« L’ÉDUCATION DES ENFANTS, L’ESPOIR DE DEMAIN »', $centerCol);
+
+        // 3. Le logo dispose d'un dimensionnement élargi (68px x 110px) si l'image existe sur disque
+        if (is_file(public_path('storage/logos/espoir_logo.jpg'))) {
+            $this->assertStringContainsString('max-height: 68px; max-width: 110px;', $centerCol);
+        }
+    }
+
+    /**
+     * Vérifie que la création et la mise à jour d'un modèle de bourse/remise enregistrent
+     * correctement le libellé personnalisé, la base de calcul et la cible d'imputation par défaut.
+     */
+    public function test_creation_et_mise_a_jour_modele_bourse_avec_libelle_base_calcul_et_cible(): void
+    {
+        $this->actingAs($this->adminUser)
+            ->post('/administration/finances/bourses-remises', [
+                'etablissement_id' => $this->etablissement->id,
+                'annee_scolaire_id' => $this->anneeScolaire->id,
+                'nom' => 'Remise 4% avant rentrée (Primaire)',
+                'type' => 'remise',
+                'categorie' => 'REMISE',
+                'mode_calcul' => 'pourcentage',
+                'valeur' => 4,
+                'base_calcul' => 'total_scolarite',
+                'cible_imputation' => 'tranche_1',
+                'is_active' => true,
+            ])
+            ->assertSessionHasNoErrors();
+
+        $modele = BourseRemise::where('nom', 'Remise 4% avant rentrée (Primaire)')->firstOrFail();
+        $this->assertSame('total_scolarite', $modele->base_calcul);
+        $this->assertSame('tranche_1', $modele->cible_imputation);
+        $this->assertEquals(4.0, (float) $modele->valeur);
+
+        $this->actingAs($this->adminUser)
+            ->put("/administration/finances/bourses-remises/{$modele->id}", [
+                'nom' => 'Remise 4% sur 1ère tranche uniquement',
+                'type' => 'remise',
+                'categorie' => 'REMISE',
+                'mode_calcul' => 'pourcentage',
+                'valeur' => 4,
+                'base_calcul' => 'tranche_ciblee',
+                'cible_imputation' => 'derniere_tranche',
+                'is_active' => true,
+            ])
+            ->assertSessionHasNoErrors();
+
+        $modele->refresh();
+        $this->assertSame('Remise 4% sur 1ère tranche uniquement', $modele->nom);
+        $this->assertSame('tranche_ciblee', $modele->base_calcul);
+        $this->assertSame('derniere_tranche', $modele->cible_imputation);
+
+        // Vérification qu'un modèle à montant fixe personnalisé reste 100 % fonctionnel
+        $this->actingAs($this->adminUser)
+            ->post('/administration/finances/bourses-remises', [
+                'etablissement_id' => $this->etablissement->id,
+                'annee_scolaire_id' => $this->anneeScolaire->id,
+                'nom' => 'Remise Primaire -3 000 FCFA',
+                'type' => 'remise',
+                'categorie' => 'REMISE',
+                'mode_calcul' => 'montant_fixe',
+                'valeur' => 3000,
+                'cible_imputation' => 'tranche_1',
+                'is_active' => true,
+            ])
+            ->assertSessionHasNoErrors();
+
+        $modeleFixe = BourseRemise::where('nom', 'Remise Primaire -3 000 FCFA')->firstOrFail();
+        $this->assertSame('montant_fixe', $modeleFixe->mode_calcul);
+        $this->assertEquals(3000.0, (float) $modeleFixe->valeur);
+        $this->assertSame('tranche_1', $modeleFixe->cible_imputation);
+    }
+
+    /**
+     * Scénario réel École ESPOIR (scolarité 75 000 FCFA : T1 35 000 + T2 30 000 + Inscription 10 000) :
+     * une remise de 4 % en mode `total_scolarite` déduite sur la 1ère Tranche doit calculer 3 000 FCFA
+     * (et non 4 % × 35 000 = 1 400 FCFA), puis imputer ces 3 000 FCFA sur la 1ère Tranche.
+     */
+    public function test_remise_pourcentage_total_scolarite_ciblee_sur_premiere_tranche_calcule_exactement(): void
+    {
+        $niveauId = $this->classe->niveau_id;
+
+        // Ajustement de T1 à 35 000 FCFA + ajout de T2 (30 000) et T3 Inscription (10 000) => 75 000 FCFA
+        $this->fraisObligatoire->update([
+            'montant' => 35000,
+            'libelle_tranche' => '1ère Tranche',
+            'tranche_numero' => 1,
+            'obligatoire' => true,
+        ]);
+
+        $typeT2 = TypeFrais::create([
+            'etablissement_id' => $this->etablissement->id,
+            'code' => 'SCOL-T2-ESPOIR',
+            'libelle' => '2ème Tranche',
+            'obligatoire' => true,
+            'periodicite' => 'annuel',
+            'ordre_priorite' => 2,
+            'montant_defaut' => 30000,
+        ]);
+        FraisScolaire::create([
+            'annee_scolaire_id' => $this->anneeScolaire->id,
+            'etablissement_id' => $this->etablissement->id,
+            'niveau_id' => $niveauId,
+            'type_frais_id' => $typeT2->id,
+            'tranche_numero' => 2,
+            'libelle_tranche' => '2ème Tranche',
+            'obligatoire' => true,
+            'montant' => 30000,
+            'date_limite' => Carbon::now()->addMonths(2)->toDateString(),
+        ]);
+
+        $typeT3 = TypeFrais::create([
+            'etablissement_id' => $this->etablissement->id,
+            'code' => 'INSCR-ESPOIR',
+            'libelle' => 'Inscription',
+            'obligatoire' => true,
+            'periodicite' => 'annuel',
+            'ordre_priorite' => 3,
+            'montant_defaut' => 10000,
+        ]);
+        FraisScolaire::create([
+            'annee_scolaire_id' => $this->anneeScolaire->id,
+            'etablissement_id' => $this->etablissement->id,
+            'niveau_id' => $niveauId,
+            'type_frais_id' => $typeT3->id,
+            'tranche_numero' => 3,
+            'libelle_tranche' => 'Inscription',
+            'obligatoire' => true,
+            'montant' => 10000,
+            'date_limite' => Carbon::now()->subDays(15)->toDateString(),
+        ]);
+
+        $this->compte->update(['debit_initial' => 75000]);
+        $this->compte->actualiserSolde();
+
+        $modeleTotal = BourseRemise::create([
+            'etablissement_id' => $this->etablissement->id,
+            'annee_scolaire_id' => $this->anneeScolaire->id,
+            'code' => 'REM-ESPOIR-4-TOT',
+            'nom' => 'Remise 4% Scolarité Totale',
+            'type' => 'remise',
+            'categorie' => 'REMISE',
+            'mode_calcul' => 'pourcentage',
+            'valeur' => 4,
+            'base_calcul' => 'total_scolarite',
+            'cible_imputation' => 'derniere_tranche',
+            'is_active' => true,
+        ]);
+
+        // Attribution dans le dossier de l'élève en choisissant précisément la 1ère Tranche comme tranche à déduire
+        $this->actingAs($this->adminUser)
+            ->post('/administration/finances/bourses-remises/attribuer', [
+                'compte_financier_id' => $this->compte->id,
+                'bourse_remise_id' => $modeleTotal->id,
+                'frais_scolaire_id' => $this->fraisObligatoire->id,
+                'motif' => 'Paiement avant rentrée Primaire',
+            ])
+            ->assertSessionHasNoErrors();
+
+        $attribution = EleveBourseRemise::where('compte_financier_id', $this->compte->id)
+            ->where('bourse_remise_id', $modeleTotal->id)
+            ->firstOrFail();
+
+        // 4 % de 75 000 = 3 000 FCFA (préservé même après actualiserSolde())
+        $this->assertEquals(3000.0, (float) $attribution->montant_calcule);
+        $this->compte->refresh();
+        $this->compte->actualiserSolde();
+        $this->assertEquals(3000.0, (float) $attribution->fresh()->montant_calcule);
+        $this->assertEquals(3000.0, (float) $this->compte->remise_bourse);
+        $this->assertEquals(72000.0, (float) $this->compte->montant_net_exigible);
+        $this->assertEquals(72000.0, (float) $this->compte->solde_restant);
+
+        // Vérification de l'échéancier : -3 000 FCFA imputés uniquement sur la 1ère Tranche (35 000 -> 32 000)
+        $dossier = app(FinanceService::class)->obtenirEcheancierEleve($this->compte->fresh());
+        $ligneT1 = collect($dossier['lignes'])->firstWhere('id', $this->fraisObligatoire->id);
+        $this->assertNotNull($ligneT1);
+        $this->assertEquals(3000.0, (float) $ligneT1['remise_appliquee']);
+        $this->assertEquals(32000.0, (float) $ligneT1['montant']);
+        $this->assertSame('total_scolarite', $dossier['bourses_attribuees'][0]['base_calcul']);
+    }
+
+    /**
+     * Vérifie que le mode optionnel `tranche_ciblee` calcule le pourcentage strictement sur le montant
+     * de la tranche ou ligne sélectionnée (ex : 4 % de 35 000 FCFA = 1 400 FCFA).
+     */
+    public function test_remise_pourcentage_mode_tranche_ciblee_calcule_sur_la_tranche_uniquement(): void
+    {
+        $niveauId = $this->classe->niveau_id;
+
+        $this->fraisObligatoire->update([
+            'montant' => 35000,
+            'libelle_tranche' => '1ère Tranche',
+            'tranche_numero' => 1,
+            'obligatoire' => true,
+        ]);
+
+        $typeT2 = TypeFrais::create([
+            'etablissement_id' => $this->etablissement->id,
+            'code' => 'SCOL-T2-CIBLE',
+            'libelle' => '2ème Tranche',
+            'obligatoire' => true,
+            'periodicite' => 'annuel',
+            'ordre_priorite' => 2,
+            'montant_defaut' => 40000,
+        ]);
+        FraisScolaire::create([
+            'annee_scolaire_id' => $this->anneeScolaire->id,
+            'etablissement_id' => $this->etablissement->id,
+            'niveau_id' => $niveauId,
+            'type_frais_id' => $typeT2->id,
+            'tranche_numero' => 2,
+            'libelle_tranche' => '2ème Tranche',
+            'obligatoire' => true,
+            'montant' => 40000,
+            'date_limite' => Carbon::now()->addMonths(2)->toDateString(),
+        ]);
+
+        $this->compte->update(['debit_initial' => 75000]);
+        $this->compte->actualiserSolde();
+
+        $modeleTranche = BourseRemise::create([
+            'etablissement_id' => $this->etablissement->id,
+            'annee_scolaire_id' => $this->anneeScolaire->id,
+            'code' => 'REM-ESPOIR-4-T1',
+            'nom' => 'Remise 4% sur Tranche Ciblée',
+            'type' => 'remise',
+            'categorie' => 'REMISE',
+            'mode_calcul' => 'pourcentage',
+            'valeur' => 4,
+            'base_calcul' => 'tranche_ciblee',
+            'cible_imputation' => 'tranche_1',
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($this->adminUser)
+            ->post('/administration/finances/bourses-remises/attribuer', [
+                'compte_financier_id' => $this->compte->id,
+                'bourse_remise_id' => $modeleTranche->id,
+                'frais_scolaire_id' => $this->fraisObligatoire->id,
+            ])
+            ->assertSessionHasNoErrors();
+
+        $attribution = EleveBourseRemise::where('compte_financier_id', $this->compte->id)
+            ->where('bourse_remise_id', $modeleTranche->id)
+            ->firstOrFail();
+
+        // 4 % de 35 000 = 1 400 FCFA
+        $this->assertEquals(1400.0, (float) $attribution->montant_calcule);
+        $this->compte->refresh();
+        $this->assertEquals(1400.0, (float) $this->compte->remise_bourse);
+        $this->assertEquals(73600.0, (float) $this->compte->solde_restant);
+
+        $dossier = app(FinanceService::class)->obtenirEcheancierEleve($this->compte);
+        $ligneT1 = collect($dossier['lignes'])->firstWhere('id', $this->fraisObligatoire->id);
+        $this->assertNotNull($ligneT1);
+        $this->assertEquals(1400.0, (float) $ligneT1['remise_appliquee']);
+        $this->assertEquals(33600.0, (float) $ligneT1['montant']);
     }
 }

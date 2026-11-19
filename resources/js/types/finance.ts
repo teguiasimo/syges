@@ -8,9 +8,82 @@ import { Personnel } from './personnel';
 
 export type ModePaiement = 'especes' | 'cheque' | 'virement' | 'mobile_money_manuel';
 
-export type StatutFinancier = 'insolvable' | 'en_regle_tranche_1' | 'en_regle_tranche_2' | 'solde';
+export type StatutFinancier =
+    | 'insolvable'
+    | 'en_attente'
+    | 'acompte'
+    | 'inscrit_a_jour'
+    | 'en_regle_tranche_1'
+    | 'en_regle_tranche_2'
+    | 'solde';
+
+/**
+ * Formats d'impression officiels des reçus de caisse : A4 (2 exemplaires/page) ou Ticket thermique 80mm.
+ */
+export type FormatImpressionRecu = 'a4' | 'ticket';
+
+const RECEIPT_FORMAT_STORAGE_KEY = 'syges_recu_format';
+
+/**
+ * Lit la préférence persistée du format d'impression de reçu (`a4` par défaut ou `ticket`).
+ * Migre automatiquement toute ancienne préférence `a5` vers le format standard `a4`.
+ *
+ * @returns {FormatImpressionRecu} Format mémorisé pour le poste de caisse
+ */
+export function getPreferredReceiptFormat(): FormatImpressionRecu {
+    if (typeof window === 'undefined') {
+        return 'a4';
+    }
+    const stored = window.localStorage.getItem(RECEIPT_FORMAT_STORAGE_KEY);
+    return stored === 'ticket' ? 'ticket' : 'a4';
+}
+
+/**
+ * Mémorise la préférence du format d'impression de reçu dans le navigateur du guichet.
+ *
+ * @param {FormatImpressionRecu} format Format choisi (`a4` ou `ticket`)
+ */
+export function setPreferredReceiptFormat(format: FormatImpressionRecu): void {
+    if (typeof window !== 'undefined') {
+        window.localStorage.setItem(RECEIPT_FORMAT_STORAGE_KEY, format);
+    }
+}
+
+/**
+ * Construit l'URL officielle d'impression PDF d'un versement au format A4 ou Ticket 80mm.
+ *
+ * @param {number} versementId Identifiant du versement caisse
+ * @param {FormatImpressionRecu} format Gabarit d'impression souhaité
+ * @returns {string} URL du PDF à ouvrir
+ */
+export function buildReceiptPrintUrl(
+    versementId: number,
+    format: FormatImpressionRecu = 'a4'
+): string {
+    const base = `/administration/finances/versements/${versementId}/recu`;
+    return format === 'ticket' ? `${base}?format=ticket` : base;
+}
 
 export type PeriodiciteFrais = 'annuel' | 'trimestriel' | 'mensuel' | 'ponctuel';
+
+/**
+ * Assiette de calcul d'une bourse ou d'une remise en pourcentage.
+ * - `total_scolarite` : calculée sur toute la scolarité nette de l'élève (défaut)
+ * - `tranche_ciblee` : calculée uniquement sur le montant net de la tranche ciblée
+ */
+export type BaseCalculRemise = 'total_scolarite' | 'tranche_ciblee';
+
+/**
+ * Retourne le libellé lisible en français d'une assiette de calcul de remise.
+ *
+ * @param {string | null | undefined} baseCalcul Code de l'assiette de calcul
+ * @returns {string} Libellé explicite pour l'utilisateur
+ */
+export function formatBaseCalculRemiseLabel(baseCalcul?: string | null): string {
+    return baseCalcul === 'tranche_ciblee'
+        ? 'Tranche ciblée uniquement'
+        : 'Toute la scolarité';
+}
 
 /**
  * Cible d'imputation d'une bourse ou d'une remise sur les tranches obligatoires.
@@ -115,6 +188,7 @@ export interface FraisScolaire {
     ordre_priorite?: number | null;
     libelle_tranche: string | null;
     montant: number;
+    obligatoire?: boolean;
     date_limite: string | null;
     niveau?: NiveauFinanceRef;
     type_frais?: TypeFrais;
@@ -309,6 +383,7 @@ export interface BourseRemise {
     categorie: string;
     mode_calcul: 'pourcentage' | 'montant_fixe';
     valeur: number;
+    base_calcul?: BaseCalculRemise;
     cible_imputation?: CibleImputationRemise;
     niveau_id: number | null;
     type_frais_id: number | null;
@@ -423,6 +498,7 @@ export interface CanFinancePermissions {
     etats?: boolean;
     frais_configure?: boolean;
     versements_create: boolean;
+    versements_edit?: boolean;
     recettes_diverses_create?: boolean;
     versements_cancel?: boolean;
     caisses_manage?: boolean;

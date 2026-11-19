@@ -180,26 +180,17 @@ class CompteFinancierEleve extends Model
     }
 
     /**
-     * Détermine le statut financier global de l'élève selon le cumul versé et les tranches (Gesco V1.1).
+     * Détermine le statut financier global de l'élève selon les échéances réelles et paiements cumulés.
      *
-     * @return string 'solde', 'insolvable', 'en_regle_tranche_1', ou 'en_regle_tranche_2'
+     * Délègue le calcul à FinanceService afin de prendre en compte les dates limites réelles
+     * des tranches (évite de marquer un élève en retard comme « en_regle_tranche_1 ») tout en
+     * conservant un repli cohérent si les tarifs ne sont pas encore configurés.
+     *
+     * @return string 'solde', 'insolvable', 'en_attente', 'acompte', 'inscrit_a_jour', 'en_regle_tranche_1', ou 'en_regle_tranche_2'
      */
     public function determinerStatutFinancier(): string
     {
-        if ($this->solde_restant <= 0 && ($this->montant_net_exigible > 0 || $this->debit_initial > 0)) {
-            return 'solde';
-        }
-
-        if ($this->total_paye <= 0) {
-            return 'insolvable';
-        }
-
-        $taux = $this->montant_net_exigible > 0 ? ($this->total_paye / $this->montant_net_exigible) : 1;
-        if ($taux >= 0.6) {
-            return 'en_regle_tranche_2';
-        }
-
-        return 'en_regle_tranche_1';
+        return app(FinanceService::class)->determinerStatutFinancierCompte($this);
     }
 
     /**
@@ -223,22 +214,19 @@ class CompteFinancierEleve extends Model
         // 2. Prise en compte et réajustement automatique des bourses et remises attribuées
         $attributions = $this->boursesRemises()->with('bourseRemise')->get();
         if ($attributions->isNotEmpty()) {
+            $financeService = app(FinanceService::class);
             $cumulBourses = 0.0;
             foreach ($attributions as $attr) {
                 $modele = $attr->bourseRemise;
                 if ($modele) {
-                    $plafondCible = $baseObligatoireApresDispense;
-                    if ($attr->frais_scolaire_id) {
-                        $fraisCible = FraisScolaire::find($attr->frais_scolaire_id);
-                        if ($fraisCible) {
-                            $dispenseSurCible = (float) ($dispenses->firstWhere('frais_scolaire_id', $fraisCible->id)?->montant_dispense ?? 0);
-                            $plafondCible = max(0.0, (float) $fraisCible->montant - $dispenseSurCible);
-                        }
-                    }
-
-                    $nouveauMontant = $modele->mode_calcul === 'pourcentage'
-                        ? round(($plafondCible * (float) $modele->valeur) / 100)
-                        : min($baseObligatoireApresDispense, (float) $modele->valeur);
+                    $nouveauMontant = $financeService->calculerMontantBourseRemise(
+                        $this,
+                        $modele,
+                        $attr->cible_imputation,
+                        $attr->frais_scolaire_id,
+                        null,
+                        $dispenses
+                    );
 
                     if (abs((float) $attr->montant_calcule - $nouveauMontant) > 0.01) {
                         $attr->update(['montant_calcule' => $nouveauMontant]);

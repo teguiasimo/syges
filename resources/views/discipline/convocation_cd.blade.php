@@ -135,6 +135,7 @@
     </style>
 </head>
 <body>
+    @include('partials.watermark', ['etablissement' => $etablissement ?? null])
 
     <!-- En-tête officiel camerounais -->
     <table class="header-table">

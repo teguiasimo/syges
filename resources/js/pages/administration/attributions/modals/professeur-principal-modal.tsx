@@ -19,7 +19,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import type { ClasseWithAttributions, EnseignantWithWorkload } from '@/types/attribution';
+import { getClasseTitulaireLabel, type ClasseWithAttributions, type EnseignantWithWorkload } from '@/types/attribution';
 
 /**
  * Propriétés attendues pour la désignation du professeur principal.
@@ -52,21 +52,22 @@ export function ProfesseurPrincipalModal({
     }, [classe, isOpen]);
 
     /**
-     * Enregistre le choix du Professeur Principal.
+     * Enregistre le choix du titulaire de classe (Professeur Principal / Maître / Maîtresse).
      */
     const handleSave = () => {
         if (!classe) return;
         setIsSubmitting(true);
 
         const profId = selectedPersonnelId === 'none' ? null : Number(selectedPersonnelId);
+        const titulaireLabel = getClasseTitulaireLabel(classe);
 
         router.patch(
             `/administration/attributions/classes/${classe.id}/professeur-principal`,
             { professeur_principal_id: profId },
             {
                 onSuccess: () => {
-                    toast.success('Professeur Principal mis à jour !', {
-                        description: `Le Professeur Principal de la classe ${classe.nom} a été enregistré.`,
+                    toast.success(`${titulaireLabel} mis à jour !`, {
+                        description: `Le ${titulaireLabel.toLowerCase()} de la classe ${classe.nom} a été enregistré.`,
                     });
                     setIsSubmitting(false);
                     onClose();
@@ -81,6 +82,8 @@ export function ProfesseurPrincipalModal({
 
     if (!classe) return null;
 
+    const titulaireLabel = getClasseTitulaireLabel(classe);
+
     // Enseignants qui interviennent déjà dans cette classe
     const teacherIdsInClass = classe.attributions.map((a) => a.personnel_id);
     const teachersOfClass = enseignants.filter((e) => teacherIdsInClass.includes(e.id));
@@ -94,10 +97,10 @@ export function ProfesseurPrincipalModal({
                         <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-950/50 text-amber-600 border border-amber-200 dark:border-amber-900/50 shrink-0">
                             <Award className="size-5" />
                         </div>
-                        <span>Professeur Principal : {classe.nom}</span>
+                        <span>{titulaireLabel} : {classe.nom}</span>
                     </DialogTitle>
                     <DialogDescription className="text-xs text-muted-foreground mt-1">
-                        Le Professeur Principal coordonne l'équipe pédagogique de la classe, préside les délibérations et rédige les bilans trimestriels.
+                        Le {titulaireLabel.toLowerCase()} coordonne l'encadrement pédagogique de la classe, assure le suivi individuel des élèves et préside les bilans périodiques.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -111,11 +114,11 @@ export function ProfesseurPrincipalModal({
                             onValueChange={setSelectedPersonnelId}
                         >
                             <SelectTrigger id="pp_select" className="mt-1 h-9 text-sm">
-                                <SelectValue placeholder="Choisir le professeur principal" />
+                                <SelectValue placeholder={`Choisir (${titulaireLabel.toLowerCase()})`} />
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="none">
-                                    <em className="text-muted-foreground">Aucun professeur principal</em>
+                                    <em className="text-muted-foreground">Aucun responsable désigné</em>
                                 </SelectItem>
 
                                 {teachersOfClass.length > 0 && (
@@ -164,7 +167,7 @@ export function ProfesseurPrincipalModal({
                         className="bg-amber-600 hover:bg-amber-700 text-white cursor-pointer font-semibold"
                     >
                         <Check className="size-4 mr-1.5" />
-                        {isSubmitting ? 'Enregistrement...' : 'Valider le Professeur Principal'}
+                        {isSubmitting ? 'Enregistrement...' : `Valider (${titulaireLabel})`}
                     </Button>
                 </DialogFooter>
             </DialogContent>

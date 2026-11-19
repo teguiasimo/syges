@@ -172,7 +172,7 @@ class MatiereController extends Controller implements HasMiddleware
         }
 
         $user = $request->user();
-        $isSuperAdmin = $user ? ($user->hasRole('super-admin') || $user->email === 'admin@gmail.com') : false;
+        $isSuperAdmin = $user ? $user->isSuperAdmin() : false;
         $canManage = $user ? ($isSuperAdmin || $user->hasRole('admin') || $user->can('matieres.manage')) : false;
 
         $can = [
@@ -417,8 +417,7 @@ class MatiereController extends Controller implements HasMiddleware
     {
         $user = $request->user();
         $isAuthorized = $user && (
-            $user->hasRole('super-admin') ||
-            $user->email === 'admin@gmail.com' ||
+            $user->isSuperAdmin() ||
             $user->hasRole('admin') ||
             $user->can('coefficients.duplicate') ||
             $user->can('coefficients.edit') ||
@@ -439,7 +438,7 @@ class MatiereController extends Controller implements HasMiddleware
         // Résolution hermétique du contexte multi-tenant (SaaS)
         $context = $this->resolveEtablissementContext($request);
         $effectiveEtabId = $context['etablissementId'];
-        $isSuperAdmin = $context['isSuperAdmin'];
+        $canAccessAll = (bool) ($context['canAccessAll'] ?? $context['isSuperAdmin']);
 
         $sourceEtabId = $sourceNiveau->etablissement_id ?? $sourceNiveau->cycle?->section?->etablissement_id;
         $targetEtabId = $targetNiveau->etablissement_id ?? $targetNiveau->cycle?->section?->etablissement_id;
@@ -450,7 +449,7 @@ class MatiereController extends Controller implements HasMiddleware
         }
 
         // 2. Cloisonnement local : Un utilisateur assigné à un campus ne peut opérer hors de son établissement
-        if (! $isSuperAdmin && $effectiveEtabId) {
+        if (! $canAccessAll && $effectiveEtabId) {
             if ((int) $targetEtabId !== (int) $effectiveEtabId || (int) $sourceEtabId !== (int) $effectiveEtabId) {
                 abort(403, 'Accès non autorisé : vous ne pouvez dupliquer que les grilles de votre propre établissement scolaire.');
             }
@@ -568,10 +567,10 @@ class MatiereController extends Controller implements HasMiddleware
         $niveau = Niveau::with('cycle.section')->findOrFail($validated['niveau_id']);
         $context = $this->resolveEtablissementContext($request);
         $effectiveEtabId = $context['etablissementId'];
-        $isSuperAdmin = $context['isSuperAdmin'];
+        $canAccessAll = (bool) ($context['canAccessAll'] ?? $context['isSuperAdmin']);
         $niveauEtabId = $niveau->etablissement_id ?? $niveau->cycle?->section?->etablissement_id;
 
-        if (! $isSuperAdmin && $effectiveEtabId && (int) $niveauEtabId !== (int) $effectiveEtabId) {
+        if (! $canAccessAll && $effectiveEtabId && (int) $niveauEtabId !== (int) $effectiveEtabId) {
             abort(403, 'Accès non autorisé : vous ne pouvez modifier que les coefficients de votre propre établissement scolaire.');
         }
 
@@ -609,11 +608,11 @@ class MatiereController extends Controller implements HasMiddleware
         // Vérification hermétique de cloisonnement SaaS (Multi-Tenant)
         $context = $this->resolveEtablissementContext($request);
         $effectiveEtabId = $context['etablissementId'];
-        $isSuperAdmin = $context['isSuperAdmin'];
+        $canAccessAll = (bool) ($context['canAccessAll'] ?? $context['isSuperAdmin']);
         $niveau = $coefficient->niveau()->with('cycle.section')->first();
         $niveauEtabId = $niveau?->etablissement_id ?? $niveau?->cycle?->section?->etablissement_id;
 
-        if (! $isSuperAdmin && $effectiveEtabId && (int) $niveauEtabId !== (int) $effectiveEtabId) {
+        if (! $canAccessAll && $effectiveEtabId && (int) $niveauEtabId !== (int) $effectiveEtabId) {
             abort(403, 'Accès non autorisé : vous ne pouvez modifier que les coefficients de votre propre établissement scolaire.');
         }
 
@@ -651,11 +650,11 @@ class MatiereController extends Controller implements HasMiddleware
         // Vérification hermétique de cloisonnement SaaS (Multi-Tenant)
         $context = $this->resolveEtablissementContext($request);
         $effectiveEtabId = $context['etablissementId'];
-        $isSuperAdmin = $context['isSuperAdmin'];
+        $canAccessAll = (bool) ($context['canAccessAll'] ?? $context['isSuperAdmin']);
         $niveau = $coefficient->niveau()->with('cycle.section')->first();
         $niveauEtabId = $niveau?->etablissement_id ?? $niveau?->cycle?->section?->etablissement_id;
 
-        if (! $isSuperAdmin && $effectiveEtabId && (int) $niveauEtabId !== (int) $effectiveEtabId) {
+        if (! $canAccessAll && $effectiveEtabId && (int) $niveauEtabId !== (int) $effectiveEtabId) {
             abort(403, 'Accès non autorisé : vous ne pouvez modifier que les coefficients de votre propre établissement scolaire.');
         }
 

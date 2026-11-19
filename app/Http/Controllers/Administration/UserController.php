@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Administration;
 use App\Concerns\ScopesEtablissement;
 use App\Http\Controllers\Controller;
 use App\Models\Etablissement;
+use App\Models\Personnel;
 use App\Models\User;
+use App\Scopes\EtablissementScope;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
@@ -102,6 +104,8 @@ class UserController extends Controller implements HasMiddleware
                 'etablissementId' => $user->etablissement_id,
                 'etablissementNom' => $user->etablissement?->nom,
                 'etablissementCode' => $user->etablissement?->code,
+                'hasGlobalAccess' => $user->canAccessAllEtablissements(),
+                'has_global_access' => (bool) $user->has_global_access,
                 'roles' => $user->roles->pluck('name')->toArray(),
                 'rolesDisplay' => $user->roles->map(fn (Role $r) => $this->roleLabels[$r->name] ?? $r->name)->toArray(),
                 'isSuperAdmin' => $user->isSuperAdmin(),
@@ -164,6 +168,7 @@ class UserController extends Controller implements HasMiddleware
             'email' => ['required', 'string', 'email', 'max:100', 'unique:users,email'],
             'password' => ['required', 'string', 'min:6', 'confirmed'],
             'etablissement_id' => ['nullable', 'integer', 'exists:etablissements,id'],
+            'has_global_access' => ['nullable', 'boolean'],
             'roles' => ['nullable', 'array'],
             'roles.*' => ['string', 'exists:roles,name', Rule::notIn(['super-admin'])],
         ], [
@@ -179,13 +184,20 @@ class UserController extends Controller implements HasMiddleware
             'etablissement_id.exists' => 'L\'établissement sélectionné est invalide.',
         ]);
 
-        // Détermination de l'établissement de rattachement :
-        // Pour un administrateur local, le compte est obligatoirement lié à son propre campus.
-        // Pour un super-administrateur, il choisit le campus ou utilise celui actif en session.
-        // Règle d'étanchéité : Tout compte utilisateur non super-admin DOIT être rattaché à un établissement.
-        $etablissementId = ! $isSuperAdmin 
-            ? $scopedEtablissementId 
-            : ($validated['etablissement_id'] ?? $request->session()->get('current_etablissement_id') ?? Etablissement::first()?->id);
+        // Contrôle d'autorisation : seul le Super Administrateur peut accorder un accès global multi-campus.
+        if (! $isSuperAdmin && $request->boolean('has_global_access')) {
+            abort(403, 'Accès non autorisé : seul le Super Administrateur peut attribuer un accès global multi-campus.');
+        }
+
+        // Détermination du périmètre d'établissement :
+        // - Un utilisateur avec Accès Global (`has_global_access = true`) n'est rattaché à aucun campus unique (`null`).
+        // - Sinon, pour un administrateur local, son propre campus est imposé ; pour un Super-Admin, le campus choisi ou actif.
+        $hasGlobalAccess = $isSuperAdmin && $request->boolean('has_global_access');
+        $etablissementId = $hasGlobalAccess
+            ? null
+            : (! $isSuperAdmin
+                ? $scopedEtablissementId
+                : ($validated['etablissement_id'] ?? $request->session()->get('current_etablissement_id') ?? Etablissement::first()?->id));
 
         // Création du compte utilisateur (toujours actif par défaut)
         $user = User::create([
@@ -194,6 +206,7 @@ class UserController extends Controller implements HasMiddleware
             'email' => Str::lower($validated['email']),
             'password' => Hash::make($validated['password']),
             'etablissement_id' => $etablissementId,
+            'has_global_access' => $hasGlobalAccess,
             'is_active' => true,
             'email_verified_at' => now(),
         ]);
@@ -248,6 +261,7 @@ class UserController extends Controller implements HasMiddleware
             ],
             'password' => ['nullable', 'string', 'min:6', 'confirmed'],
             'etablissement_id' => ['nullable', 'integer', 'exists:etablissements,id'],
+            'has_global_access' => ['nullable', 'boolean'],
             'roles' => ['nullable', 'array'],
             'roles.*' => ['string', 'exists:roles,name'],
         ], [
@@ -262,6 +276,11 @@ class UserController extends Controller implements HasMiddleware
             'etablissement_id.exists' => 'L\'établissement sélectionné est invalide.',
         ]);
 
+        // Contrôle d'autorisation : un compte non Super-Admin ne peut jamais activer un Accès Global.
+        if (! $context['isSuperAdmin'] && $request->boolean('has_global_access') && ! $user->has_global_access) {
+            abort(403, 'Accès non autorisé : seul le Super Administrateur peut attribuer un accès global multi-campus.');
+        }
+
         $roles = $validated['roles'] ?? [];
         if ($isPrimarySuperAdmin && ! in_array('super-admin', $roles)) {
             $roles[] = 'super-admin';
@@ -273,11 +292,35 @@ class UserController extends Controller implements HasMiddleware
         $user->email = Str::lower($validated['email']);
 
         if ($context['isSuperAdmin'] && ! $isPrimarySuperAdmin) {
-            // Un utilisateur non super-admin doit conserver ou recevoir un campus valide
-            $user->etablissement_id = $validated['etablissement_id'] 
-                ?? $user->etablissement_id 
-                ?? $context['etablissementId'] 
-                ?? Etablissement::first()?->id;
+            if ($request->boolean('has_global_access')) {
+                // Empêcher le basculement en Accès Global si le compte reste rattaché à une fiche Personnel mono-campus.
+                $linkedPersonnelEtabId = Personnel::withoutGlobalScope(EtablissementScope::class)
+                    ->where('user_id', $user->id)
+                    ->value('etablissement_id');
+
+                if ($linkedPersonnelEtabId !== null) {
+                    return back()->withErrors([
+                        'etablissement_id' => 'Impossible d\'attribuer un Accès Global à ce compte tant qu\'il est rattaché à une fiche Personnel d\'un campus spécifique.',
+                    ]);
+                }
+
+                $user->etablissement_id = null;
+                $user->has_global_access = true;
+            } elseif (! empty($validated['etablissement_id'])) {
+                $user->etablissement_id = (int) $validated['etablissement_id'];
+                $user->has_global_access = false;
+            } else {
+                // Préserver le mode global existant uniquement si `has_global_access` n'est pas fourni dans la requête.
+                $user->has_global_access = $request->has('has_global_access')
+                    ? false
+                    : (bool) $user->has_global_access;
+
+                if (! $user->has_global_access) {
+                    $user->etablissement_id = $user->etablissement_id
+                        ?? $context['etablissementId']
+                        ?? Etablissement::first()?->id;
+                }
+            }
         }
 
         // Mise à jour du mot de passe uniquement si un nouveau est fourni

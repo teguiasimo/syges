@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Administration;
 use App\Http\Controllers\Controller;
 use App\Models\AnneeScolaire;
 use App\Models\Classe;
+use App\Models\CompteFinancierEleve;
 use App\Models\ConfigurationNumerotation;
 use App\Models\Etablissement;
 use App\Models\Evaluation;
@@ -129,8 +130,9 @@ class DocumentOfficielController extends Controller
         );
         $qrCodeBase64 = $qrCodeService->generateBase64Svg($qrData, 90);
 
-        // Statut de solvabilité pour le quitus
-        $solde = (float) ($inscription->compteFinancier?->solde ?? 0);
+        // Statut de solvabilité pour le quitus selon la nomenclature V2 (solde_restant)
+        $compte = $inscription->compteFinancier;
+        $solde = $compte instanceof CompteFinancierEleve ? (float) $compte->solde_restant : 0.0;
         $estSolvable = $solde <= 0;
 
         $pdf = Pdf::loadView('documents.certificat_radiation', [
@@ -145,7 +147,8 @@ class DocumentOfficielController extends Controller
             'solde' => $solde,
             'destination' => $request->input('destination', 'Tout établissement sollicité'),
             'motif' => $request->input('motif', $inscription->motif_sortie ?? 'Changement de résidence'),
-            'dateRadiation' => now()->format('d/m/Y'),
+            // Formatage de la date de radiation au standard francophone jj-mm-aaaa
+            'dateRadiation' => now()->format('d-m-Y'),
         ])->setPaper('a4', 'portrait');
 
         $fileName = sprintf(
@@ -252,50 +255,84 @@ class DocumentOfficielController extends Controller
     }
 
     /**
-     * Génère et télécharge la Fiche de Situation Financière Individuelle de l'élève (Aurore §6.1).
+     * Génère et télécharge la Fiche de Situation Financière Individuelle de l'élève (A4 Portrait).
+     *
+     * Unifie le rendu avec le relevé financier officiel V2 (`finances.fiche_compte_eleve`) et gère
+     * de façon fluide les inscriptions pour lesquelles le module tarifaire n'est pas encore paramétré.
+     *
+     * @param  Request  $request  Requête HTTP entrante
+     * @param  Inscription  $inscription  Inscription scolaire de l'élève concerné
+     * @param  FinanceService  $financeService  Service centralisé de gestion et calcul financier
+     * @param  QrCodeService  $qrCodeService  Service de génération du QR Code d'authenticité
+     * @return Response Document PDF en flux de téléchargement/visualisation
      */
-    public function situationFinanciereEleve(Request $request, Inscription $inscription): Response
-    {
+    public function situationFinanciereEleve(
+        Request $request,
+        Inscription $inscription,
+        FinanceService $financeService,
+        QrCodeService $qrCodeService
+    ): Response {
         $inscription->load([
             'eleve',
-            'classe',
+            'classe.niveau.cycle.section',
             'anneeScolaire',
-            'etablissement',
-            'compteFinancier.versements.caisse',
-            'compteFinancier.versements.modePaiement',
-            'compteFinancier.boursesRemises.bourseRemise',
-            'compteFinancier.penalites.penaliteConfiguration',
+            'etablissement.institution',
+            'compteFinancier',
         ]);
 
+        // Initialise le compte à 0 FCFA si l'élève est issu d'un volet pédagogique sans grille tarifaire configurée
         $compte = $inscription->compteFinancier;
-        if (! $compte) {
-            /** @var FinanceService $financeService */
-            $financeService = app(FinanceService::class);
+        if (! $compte instanceof CompteFinancierEleve) {
             $compte = $financeService->initialiserCompteEleve($inscription);
-            $compte->load([
-                'versements.caisse',
-                'versements.modePaiement',
-                'boursesRemises.bourseRemise',
-                'penalites.penaliteConfiguration',
-            ]);
+        } else {
+            $compte->actualiserSolde();
         }
 
+        // Charge uniquement les relations V2 réelles (mode_paiement est une colonne de versements_caisse)
+        $compte->loadMissing([
+            'eleve',
+            'inscription.classe.niveau.cycle.section',
+            'anneeScolaire',
+            'etablissement.institution',
+            'versements' => fn ($query) => $query
+                ->where('statut', 'valide')
+                ->orderBy('date_versement', 'asc')
+                ->with(['ventilations', 'caisse', 'caissier']),
+            'boursesRemises.bourseRemise',
+            'dispensesFinancieres.fraisScolaire',
+            'souscriptionsOptionnelles.fraisScolaire.typeFrais.categorieFrais',
+            'penalites.configuration',
+        ]);
+
+        $echeancier = $financeService->obtenirEcheancierEleve($compte);
         $eleve = $inscription->eleve;
-        $etablissement = $inscription->etablissement ?? Auth::user()->etablissement;
-        $etablissement?->loadMissing('institution');
+        $etablissement = $inscription->etablissement ?? Auth::user()?->etablissement;
+        if ($etablissement instanceof Etablissement) {
+            $etablissement->loadMissing('institution');
+        }
+        $annee = $inscription->anneeScolaire;
 
-        // Actualisation du solde net
-        $compte?->actualiserSolde();
+        $qrData = sprintf(
+            'SYGES-COMPTE-ELEVE|MAT:%s|NOM:%s|CLASSE:%s|EXIGIBLE:%s|PAYE:%s|SOLDE:%s|STATUT:%s',
+            $eleve->matricule,
+            $eleve->nom.' '.($eleve->prenom ?? ''),
+            $inscription->classe->nom ?? 'N/A',
+            number_format($compte->montant_net_exigible, 0, ',', ' '),
+            number_format($compte->total_paye, 0, ',', ' '),
+            number_format($compte->solde_restant, 0, ',', ' '),
+            strtoupper($compte->statut_financier)
+        );
 
-        $pdf = Pdf::loadView('documents.fiche_financiere_eleve', [
-            'inscription' => $inscription,
-            'eleve' => $eleve,
-            'compte' => $compte,
-            'classe' => $inscription->classe,
-            'annee' => $inscription->anneeScolaire,
-            'etablissement' => $etablissement,
-            'dateEdition' => now()->format('d-m-Y H:i'),
-        ])->setPaper('a4', 'portrait');
+        $qrCodeBase64 = $qrCodeService->generateBase64Svg($qrData, 95);
+
+        $pdf = Pdf::loadView('finances.fiche_compte_eleve', compact(
+            'compte',
+            'echeancier',
+            'eleve',
+            'etablissement',
+            'annee',
+            'qrCodeBase64'
+        ))->setPaper('a4', 'portrait');
 
         $fileName = sprintf(
             'Situation_Financiere_%s_%s.pdf',
@@ -324,7 +361,15 @@ class DocumentOfficielController extends Controller
     }
 
     /**
-     * Génère et télécharge la Fiche d'Appel officielle de la classe (A4 Paysage).
+     * Génère et télécharge la Fiche d'Appel officielle de la classe.
+     *
+     * Supporte deux gabarits distincts via le paramètre de requête `mode` :
+     * - `horaire` (défaut) : Fiche d'appel horaire détaillée à 8 créneaux par jour (A4 Paysage).
+     * - `journaliere` : Fiche d'appel journalière simple Lundi–Vendredi avec colonne Observations (A4 Portrait).
+     *
+     * @param  Request  $request  Requête HTTP entrante (`annee_id`, `mois`, `mode`)
+     * @param  Classe  $classe  Classe concernée
+     * @return Response Flux PDF de la fiche d'appel générée
      */
     public function ficheAppel(Request $request, Classe $classe): Response
     {
@@ -337,6 +382,7 @@ class DocumentOfficielController extends Controller
         $etablissement = $classe->etablissement ?? Auth::user()->etablissement;
         $etablissement?->loadMissing('institution');
         $anneeId = $request->input('annee_id');
+        $mode = $request->input('mode') === 'journaliere' ? 'journaliere' : 'horaire';
 
         $inscriptionsQuery = Inscription::with('eleve')
             ->where('classe_id', $classe->id)
@@ -352,17 +398,23 @@ class DocumentOfficielController extends Controller
 
         $annee = $anneeId ? AnneeScolaire::find($anneeId) : ($classe->inscriptions()->latest()->first()?->anneeScolaire ?? AnneeScolaire::where('is_current', true)->first());
 
-        $pdf = Pdf::loadView('documents.fiche_appel', [
+        $viewName = $mode === 'journaliere'
+            ? 'documents.fiche_appel_journaliere'
+            : 'documents.fiche_appel';
+        $orientation = $mode === 'journaliere' ? 'portrait' : 'landscape';
+
+        $pdf = Pdf::loadView($viewName, [
             'classe' => $classe,
             'etablissement' => $etablissement,
             'annee' => $annee,
             'inscriptions' => $inscriptions,
             'mois' => $request->input('mois', now()->translatedFormat('F Y')),
             'dateGeneration' => now()->format('d-m-Y'),
-        ])->setPaper('a4', 'landscape');
+        ])->setPaper('a4', $orientation);
 
         $fileName = sprintf(
-            'Fiche_Appel_%s_%s.pdf',
+            '%s_%s_%s.pdf',
+            $mode === 'journaliere' ? 'Fiche_Appel_Journaliere' : 'Fiche_Appel',
             $classe->code ?? $classe->nom,
             now()->format('Ymd')
         );
@@ -404,8 +456,9 @@ class DocumentOfficielController extends Controller
         $annee = $anneeId ? AnneeScolaire::find($anneeId) : ($classe->inscriptions()->latest()->first()?->anneeScolaire ?? AnneeScolaire::where('is_current', true)->first());
 
         $total = $inscriptions->count();
-        $filles = $inscriptions->filter(fn ($i) => $i->eleve->sexe === 'F')->count();
-        $garcons = $inscriptions->filter(fn ($i) => $i->eleve->sexe === 'M')->count();
+        $filles = $inscriptions->filter(fn ($i) => $i->eleve?->sexe === 'F')->count();
+        $garcons = $inscriptions->filter(fn ($i) => $i->eleve?->sexe === 'M')->count();
+        $nonDefinis = $inscriptions->filter(fn ($i) => empty($i->eleve?->sexe))->count();
         $nouveaux = $inscriptions->filter(fn ($i) => ! $i->is_redoublant)->count();
         $redoublants = $inscriptions->filter(fn ($i) => (bool) $i->is_redoublant)->count();
 
@@ -419,6 +472,7 @@ class DocumentOfficielController extends Controller
                 'total' => $total,
                 'filles' => $filles,
                 'garcons' => $garcons,
+                'non_definis' => $nonDefinis,
                 'nouveaux' => $nouveaux,
                 'redoublants' => $redoublants,
                 'taux_filles' => $total > 0 ? round(($filles / $total) * 100, 1) : 0,
@@ -485,6 +539,7 @@ class DocumentOfficielController extends Controller
         $total = $inscriptions->count();
         $filles = $inscriptions->filter(fn ($i) => $i->eleve?->sexe === 'F')->count();
         $garcons = $inscriptions->filter(fn ($i) => $i->eleve?->sexe === 'M')->count();
+        $nonDefinis = $inscriptions->filter(fn ($i) => empty($i->eleve?->sexe))->count();
         $nouveaux = $inscriptions->filter(fn ($i) => ! $i->is_redoublant)->count();
         $redoublants = $inscriptions->filter(fn ($i) => (bool) $i->is_redoublant)->count();
 
@@ -509,6 +564,7 @@ class DocumentOfficielController extends Controller
                 'total' => $total,
                 'filles' => $filles,
                 'garcons' => $garcons,
+                'non_definis' => $nonDefinis,
                 'nouveaux' => $nouveaux,
                 'redoublants' => $redoublants,
                 'taux_filles' => $total > 0 ? round(($filles / $total) * 100, 1) : 0,

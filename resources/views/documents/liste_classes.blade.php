@@ -176,6 +176,7 @@
     </style>
 </head>
 <body>
+    @include('partials.watermark', ['etablissement' => $etablissement ?? null])
 
     <!-- En-tête bilingue officiel républicain -->
     <table class="header-table">
@@ -249,7 +250,7 @@
                 <th class="col-num">N°</th>
                 <th style="text-align: left;">Classe</th>
                 <th>Cycle & Section</th>
-                <th style="text-align: left;">Professeur Principal</th>
+                <th style="text-align: left;">{{ $etablissement->titre_responsable_classe ?? 'Titulaire' }}</th>
                 <th class="col-eff">Filles</th>
                 <th class="col-eff">Garç.</th>
                 <th class="col-total">Total</th>

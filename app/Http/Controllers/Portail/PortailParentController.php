@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\Eleve;
 use App\Models\Inscription;
 use App\Models\VersementCaisse;
+use App\Scopes\EtablissementScope;
 use App\Services\PortailParentService;
+use App\Services\QrCodeService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -79,54 +81,84 @@ class PortailParentController extends Controller
     /**
      * Télécharge le bulletin de notes avec contrôle strict du verrou de solvabilité (Gesco 11.5 & 16.3).
      *
-     * @param Request $request
-     * @param Inscription $inscription
-     * @param PortailParentService $portailService
-     * @return Response
+     * Résout l'inscription sans dépendre de `etablissement_id` sur le compte parent (souvent null),
+     * vérifie que l'élève appartient bien au parent connecté ou à un profil autorisé,
+     * puis contextualise le scope d'établissement sur le campus de l'inscription pour le calcul.
+     *
+     * @param Request $request Requête HTTP entrante
+     * @param int $inscription Identifiant de l'inscription scolaire
+     * @param PortailParentService $portailService Service du portail parents/élèves
+     * @return Response Flux PDF du bulletin
      */
     public function telechargerBulletin(
         Request $request,
-        Inscription $inscription,
+        int $inscription,
         PortailParentService $portailService
     ): Response {
+        $inscriptionModel = Inscription::tousEtablissements()->findOrFail($inscription);
+
+        if (! $portailService->userCanAccessEleve($request->user(), $inscriptionModel->eleve_id)) {
+            abort(403, 'Accès non autorisé à ce bulletin scolaire.');
+        }
+
         $periodeId = $request->integer('periode_id') ?: null;
 
-        return $portailService->telechargerBulletin($inscription, $periodeId, $request->user());
+        return EtablissementScope::withEtablissementOverride(
+            $inscriptionModel->etablissement_id,
+            fn (): Response => $portailService->telechargerBulletin($inscriptionModel, $periodeId, $request->user())
+        );
     }
 
     /**
      * Télécharge le reçu de caisse numéroté et certifié par QR code (Gesco 11.3 & 16.2).
+     * Utilise le format officiel A4 Portrait (2 exemplaires par page ou 1 exemplaire si tableau long).
      *
-     * @param Request $request
-     * @param VersementCaisse $versement
-     * @return Response
+     * @param Request $request Requête HTTP entrante
+     * @param int $versement Identifiant du versement caisse
+     * @param QrCodeService $qrCodeService Générateur QR Code SVG Base64
+     * @param PortailParentService $portailService Service du portail parents/élèves
+     * @return Response Flux PDF du reçu officiel A4
      */
     public function telechargerRecu(
         Request $request,
-        VersementCaisse $versement,
-        \App\Services\QrCodeService $qrCodeService
+        int $versement,
+        QrCodeService $qrCodeService,
+        PortailParentService $portailService
     ): Response {
-        $compte = $versement->compteFinancier;
-        $inscription = $compte->inscription;
-        $eleve = $inscription->eleve;
-        $etablissement = $compte->etablissement()->with('institution')->first();
+        $versementModel = VersementCaisse::tousEtablissements()->findOrFail($versement);
 
-        $qrData = sprintf(
-            "SYGES-REC:%s|DATE:%s|ELEVE:%s (MAT:%s)|MONTANT:%s FCFA|MODE:%s|SOLDE:%s FCFA",
-            $versement->reference_recu,
-            $versement->date_versement->format('d/m/Y H:i'),
-            $eleve->nom . ' ' . ($eleve->prenom ?? ''),
-            $eleve->matricule,
-            number_format($versement->montant_total, 0, ',', ' '),
-            strtoupper($versement->mode_paiement),
-            number_format($compte->solde_restant, 0, ',', ' ')
+        return EtablissementScope::withEtablissementOverride(
+            $versementModel->etablissement_id,
+            function () use ($request, $versementModel, $qrCodeService, $portailService): Response {
+                $versement = $versementModel->load(['ventilations', 'compteFinancier.inscription.eleve']);
+                $compte = $versement->compteFinancier;
+                $inscription = $compte->inscription;
+                $eleve = $inscription->eleve;
+
+                if (! $portailService->userCanAccessEleve($request->user(), $eleve->id)) {
+                    abort(403, 'Accès non autorisé à ce reçu de paiement.');
+                }
+
+                $etablissement = $compte->etablissement()->with('institution')->first();
+
+                $qrData = sprintf(
+                    'SYGES-REC:%s|DATE:%s|ELEVE:%s (MAT:%s)|MONTANT:%s FCFA|MODE:%s|SOLDE:%s FCFA',
+                    $versement->reference_recu,
+                    $versement->date_versement->format('d/m/Y H:i'),
+                    $eleve->nom.' '.($eleve->prenom ?? ''),
+                    $eleve->matricule,
+                    number_format($versement->montant_total, 0, ',', ' '),
+                    strtoupper($versement->mode_paiement),
+                    number_format($compte->solde_restant, 0, ',', ' ')
+                );
+
+                $qrCodeBase64 = $qrCodeService->generateBase64Svg($qrData, 90);
+
+                $pdf = Pdf::loadView('finances.recu_caisse', compact('versement', 'compte', 'eleve', 'inscription', 'etablissement', 'qrCodeBase64'))
+                    ->setPaper('a4', 'portrait');
+
+                return $pdf->stream("Recu_{$versement->reference_recu}.pdf");
+            }
         );
-
-        $qrCodeBase64 = $qrCodeService->generateBase64Svg($qrData, 90);
-
-        $pdf = Pdf::loadView('finances.recu_caisse', compact('versement', 'compte', 'eleve', 'inscription', 'etablissement', 'qrCodeBase64'))
-            ->setPaper('a5', 'landscape');
-
-        return $pdf->stream("Recu_{$versement->reference_recu}.pdf");
     }
 }

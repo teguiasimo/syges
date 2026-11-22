@@ -2409,4 +2409,83 @@ class FinancesAvanceesComplexeTest extends TestCase
         $this->assertEquals(1400.0, (float) $ligneT1['remise_appliquee']);
         $this->assertEquals(33600.0, (float) $ligneT1['montant']);
     }
+
+    /**
+     * Vérifie que les retraits répétés (double-clic) d'une remise, d'une dispense financière
+     * ou d'une souscription optionnelle répondent proprement sans provoquer d'erreur 404,
+     * tout en bloquant (403) tout retrait depuis un autre établissement.
+     */
+    public function test_retrait_idempotent_remise_dispense_option_evite_404_double_clic(): void
+    {
+        Permission::firstOrCreate(['name' => 'bourses.attribuer', 'guard_name' => 'web']);
+        Permission::firstOrCreate(['name' => 'dispenses_financieres.manage', 'guard_name' => 'web']);
+        Permission::firstOrCreate(['name' => 'options_financieres.manage', 'guard_name' => 'web']);
+
+        // Création d'un autre campus et d'un utilisateur local cloisonné
+        $autreEtab = Etablissement::create([
+            'institution_id' => $this->etablissement->institution_id,
+            'nom' => 'Campus Annexe',
+            'code' => 'ANX-02',
+            'type' => 'secondaire_general',
+        ]);
+        $autreUser = User::factory()->create(['etablissement_id' => $autreEtab->id]);
+        $autreUser->givePermissionTo(['bourses.attribuer', 'dispenses_financieres.manage', 'options_financieres.manage']);
+
+        /** @var FinanceService $financeService */
+        $financeService = app(FinanceService::class);
+
+        $modele = BourseRemise::create([
+            'etablissement_id' => $this->etablissement->id,
+            'annee_scolaire_id' => $this->anneeScolaire->id,
+            'code' => 'REM-DBL-5000',
+            'nom' => 'Remise Fratrie',
+            'type' => 'remise',
+            'categorie' => 'REMISE',
+            'mode_calcul' => 'montant_fixe',
+            'valeur' => 5000,
+            'is_active' => true,
+        ]);
+
+        $attribution = $financeService->attribuerBourseRemise($this->compte, $modele, 'Test double clic', $this->adminUser);
+        $dispense = $financeService->accorderDispenseFinanciere($this->compte, $this->fraisObligatoire, 'partielle', 2000, 'Motif test', $this->adminUser);
+        $souscription = $financeService->souscrireFraisOptionnel($this->compte->id, $this->fraisOptionnelBus->id);
+
+        // Sécurité multi-campus : un utilisateur d'un autre campus ne doit pas pouvoir retirer la remise (403)
+        $this->actingAs($autreUser)
+            ->delete("/administration/finances/bourses-remises/attributions/{$attribution->id}")
+            ->assertForbidden();
+        $this->assertDatabaseHas('eleve_bourses_remises', ['id' => $attribution->id]);
+
+        // 1er clic puis 2ème clic sur « Retirer » remise : aucune erreur 404
+        $this->actingAs($this->adminUser)
+            ->delete("/administration/finances/bourses-remises/attributions/{$attribution->id}")
+            ->assertRedirect()
+            ->assertSessionHas('success');
+        $this->assertDatabaseMissing('eleve_bourses_remises', ['id' => $attribution->id]);
+
+        $this->actingAs($this->adminUser)
+            ->delete("/administration/finances/bourses-remises/attributions/{$attribution->id}")
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        // 1er clic puis 2ème clic sur « Retirer » dispense : aucune erreur 404
+        $this->actingAs($this->adminUser)
+            ->delete("/administration/finances/dispenses/{$dispense->id}")
+            ->assertRedirect()
+            ->assertSessionHas('success');
+        $this->actingAs($this->adminUser)
+            ->delete("/administration/finances/dispenses/{$dispense->id}")
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        // 1er clic puis 2ème clic sur « Résilier » option : aucune erreur 404
+        $this->actingAs($this->adminUser)
+            ->delete("/administration/finances/souscriptions-optionnelles/{$souscription->id}")
+            ->assertRedirect()
+            ->assertSessionHas('success');
+        $this->actingAs($this->adminUser)
+            ->delete("/administration/finances/souscriptions-optionnelles/{$souscription->id}")
+            ->assertRedirect()
+            ->assertSessionHas('success');
+    }
 }

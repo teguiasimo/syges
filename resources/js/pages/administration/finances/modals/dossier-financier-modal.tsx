@@ -46,6 +46,7 @@ import {
     FileCheck2,
     History,
     Layers,
+    Loader2,
     Pencil,
     Plus,
     Printer,
@@ -122,9 +123,9 @@ interface BourseAttribueeItem {
     type: 'bourse' | 'remise';
     mode_calcul?: 'pourcentage' | 'montant_fixe';
     valeur?: number;
-    base_calcul?: BaseCalculRemise | string;
+    base_calcul?: BaseCalculRemise | (string & {});
     montant_calcule: number;
-    cible_imputation?: CibleImputationRemise | string | null;
+    cible_imputation?: CibleImputationRemise | (string & {}) | null;
     frais_scolaire_id?: number | null;
     frais_cible_libelle?: string | null;
     motif: string | null;
@@ -229,8 +230,8 @@ interface DossierData {
         nom: string;
         valeur: number;
         mode_calcul: string;
-        base_calcul?: BaseCalculRemise | string;
-        cible_imputation?: CibleImputationRemise | string;
+        base_calcul?: BaseCalculRemise | (string & {});
+        cible_imputation?: CibleImputationRemise | (string & {});
         montant_estime: number;
         deja_attribuee: boolean;
     } | null;
@@ -326,6 +327,7 @@ export default function DossierFinancierModal({
     const [montantDispenseInput, setMontantDispenseInput] = useState<string>('');
     const [motifDispense, setMotifDispense] = useState<string>('');
     const [isSubmittingDispense, setIsSubmittingDispense] = useState(false);
+    const [removingDispenseId, setRemovingDispenseId] = useState<number | null>(null);
 
     // États d'attribution de bourse / remise (avec choix flexible de la tranche cible) et d'arriérés
     const [selectedBourseId, setSelectedBourseId] = useState<string>('');
@@ -333,12 +335,15 @@ export default function DossierFinancierModal({
     const [motifBourse, setMotifBourse] = useState<string>('');
     const [arrieresInput, setArrieresInput] = useState<string>('0');
     const [isSubmittingBourse, setIsSubmittingBourse] = useState(false);
+    const [removingBourseId, setRemovingBourseId] = useState<number | null>(null);
+    const [isSubmittingArrieres, setIsSubmittingArrieres] = useState(false);
 
     // États de souscription à une option (Bus, Cantine...)
     const [selectedOptionId, setSelectedOptionId] = useState<string>('');
     const [montantOptionCustom, setMontantOptionCustom] = useState<string>('');
     const [observationsOption, setObservationsOption] = useState<string>('');
     const [isSubmittingOption, setIsSubmittingOption] = useState(false);
+    const [removingOptionId, setRemovingOptionId] = useState<number | null>(null);
     const [togglingOptionFraisId, setTogglingOptionFraisId] = useState<number | null>(null);
 
     // États de modification directe d'un versement enregistré (montant, date, mode, payeur, référence)
@@ -388,10 +393,19 @@ export default function DossierFinancierModal({
                 setData(resData);
                 setArrieresInput(String(Number(resData.arrieres_anterieurs ?? 0)));
                 setIsLoading(false);
+                // Libère les verrous de suppression/bascule uniquement après réception des données fraîches
+                setRemovingDispenseId(null);
+                setRemovingBourseId(null);
+                setRemovingOptionId(null);
+                setTogglingOptionFraisId(null);
             })
             .catch((err: unknown) => {
                 if ((err as { name?: string })?.name === 'AbortError') return;
                 setIsLoading(false);
+                setRemovingDispenseId(null);
+                setRemovingBourseId(null);
+                setRemovingOptionId(null);
+                setTogglingOptionFraisId(null);
             });
     }, []);
 
@@ -429,14 +443,18 @@ export default function DossierFinancierModal({
         setMontantDispenseInput('');
         setMotifDispense('');
         setIsSubmittingDispense(false);
+        setRemovingDispenseId(null);
         setSelectedBourseId(boursesRemises[0] ? String(boursesRemises[0].id) : '');
         setSelectedBourseCible('modele_defaut');
         setMotifBourse('');
         setIsSubmittingBourse(false);
+        setRemovingBourseId(null);
+        setIsSubmittingArrieres(false);
         setSelectedOptionId('');
         setMontantOptionCustom('');
         setObservationsOption('');
         setIsSubmittingOption(false);
+        setRemovingOptionId(null);
         setTogglingOptionFraisId(null);
         setVersementEnEdition(null);
         setIsSubmittingEditVersement(false);
@@ -995,25 +1013,66 @@ export default function DossierFinancierModal({
     };
 
     /**
-     * Retire une dispense financière existante et rétablit l'exigibilité de la tranche.
+     * Exécute de façon sécurisée une suppression dans le dossier financier (remise, dispense ou option)
+     * en verrouillant le bouton déclencheur jusqu'au rafraîchissement complet pour éviter tout double-clic / 404.
      */
-    const handleRetirerDispense = useCallback(
-        (dispenseId: number) => {
+    const executeDossierDelete = useCallback(
+        (
+            url: string,
+            targetId: number,
+            setPendingId: React.Dispatch<React.SetStateAction<number | null>>,
+            successMessage: string,
+            errorMessage: string
+        ) => {
             if (!compte) return;
 
-            router.delete(`/administration/finances/dispenses/${dispenseId}`, {
+            let succeeded = false;
+            setPendingId(targetId);
+
+            router.delete(url, {
                 preserveScroll: true,
                 preserveState: true,
                 onSuccess: () => {
-                    toast.success('Dispense retirée et solde recalculé.', {
+                    succeeded = true;
+                    toast.success(successMessage, {
                         position: 'top-right',
                         className: 'bg-emerald-600 text-white border-none',
                     });
                     fetchDossier(compte.id);
                 },
+                onError: (errors) => {
+                    const first = Object.values(errors)[0] as string | undefined;
+                    toast.error(first || errorMessage, {
+                        position: 'top-right',
+                    });
+                },
+                onFinish: () => {
+                    // En cas d'échec ou d'annulation avant fetchDossier, déverrouille immédiatement l'action
+                    if (!succeeded) {
+                        setPendingId(null);
+                    }
+                },
             });
         },
         [compte, fetchDossier]
+    );
+
+    /**
+     * Retire une dispense financière existante et rétablit l'exigibilité de la tranche.
+     */
+    const handleRetirerDispense = useCallback(
+        (dispenseId: number) => {
+            if (!compte || removingDispenseId !== null) return;
+
+            executeDossierDelete(
+                `/administration/finances/dispenses/${dispenseId}`,
+                dispenseId,
+                setRemovingDispenseId,
+                'Dispense retirée et solde recalculé.',
+                'Impossible de retirer cette dispense.'
+            );
+        },
+        [compte, removingDispenseId, executeDossierDelete]
     );
 
     /**
@@ -1064,31 +1123,31 @@ export default function DossierFinancierModal({
     };
 
     /**
-     * Retire une bourse ou remise attribuée à cet élève.
+     * Retire une bourse ou remise attribuée à cet élève en empêchant le double-clic.
      */
-    const handleRetirerBourse = (attributionId: number) => {
-        if (!compte) return;
+    const handleRetirerBourse = useCallback(
+        (attributionId: number) => {
+            if (!compte || removingBourseId !== null) return;
 
-        router.delete(`/administration/finances/bourses-remises/attributions/${attributionId}`, {
-            preserveScroll: true,
-            preserveState: true,
-            onSuccess: () => {
-                toast.success('Remise retirée et solde recalculé.', {
-                    position: 'top-right',
-                    className: 'bg-emerald-600 text-white border-none',
-                });
-                fetchDossier(compte.id);
-            },
-        });
-    };
+            executeDossierDelete(
+                `/administration/finances/bourses-remises/attributions/${attributionId}`,
+                attributionId,
+                setRemovingBourseId,
+                'Remise retirée et solde recalculé.',
+                'Impossible de retirer cette remise.'
+            );
+        },
+        [compte, removingBourseId, executeDossierDelete]
+    );
 
     /**
      * Met à jour le montant des arriérés antérieurs de l'élève.
      */
     const handleSaveArrieres = () => {
-        if (!compte) return;
+        if (!compte || isSubmittingArrieres) return;
         const montantArr = Math.max(0, parseFloat(arrieresInput) || 0);
 
+        setIsSubmittingArrieres(true);
         router.post(
             `/administration/finances/comptes/${compte.id}/ajuster`,
             { arrieres_anterieurs: montantArr },
@@ -1102,6 +1161,13 @@ export default function DossierFinancierModal({
                     });
                     fetchDossier(compte.id);
                 },
+                onError: (errors) => {
+                    const first = Object.values(errors)[0] as string | undefined;
+                    toast.error(first || "Impossible d'enregistrer cet arriéré.", {
+                        position: 'top-right',
+                    });
+                },
+                onFinish: () => setIsSubmittingArrieres(false),
             }
         );
     };
@@ -1145,27 +1211,22 @@ export default function DossierFinancierModal({
     };
 
     /**
-     * Annule une option facultative souscrite par l'élève.
+     * Annule une option facultative souscrite par l'élève en empêchant le double-clic.
      */
-    const handleResilierOption = (souscriptionId: number) => {
-        if (!compte) return;
+    const handleResilierOption = useCallback(
+        (souscriptionId: number) => {
+            if (!compte || removingOptionId !== null) return;
 
-        router.delete(`/administration/finances/souscriptions-optionnelles/${souscriptionId}`, {
-            preserveScroll: true,
-            preserveState: true,
-            onSuccess: () => {
-                toast.success('Option résiliée et solde mis à jour.', {
-                    position: 'top-right',
-                    className: 'bg-emerald-600 text-white border-none',
-                });
-                fetchDossier(compte.id);
-            },
-            onError: (errors) => {
-                const first = Object.values(errors)[0] as string;
-                toast.error(first || 'Impossible de retirer ce frais optionnel.', { position: 'top-right' });
-            },
-        });
-    };
+            executeDossierDelete(
+                `/administration/finances/souscriptions-optionnelles/${souscriptionId}`,
+                souscriptionId,
+                setRemovingOptionId,
+                'Option résiliée et solde mis à jour.',
+                'Impossible de retirer ce frais optionnel.'
+            );
+        },
+        [compte, removingOptionId, executeDossierDelete]
+    );
 
     /**
      * Active ou désactive en 1 clic un frais optionnel du niveau directement depuis l'Onglet 1 (Échéancier & Encaisser)
@@ -1173,10 +1234,11 @@ export default function DossierFinancierModal({
      */
     const handleToggleOptionDirect = useCallback(
         (opt: FraisOptionnelNiveauItem) => {
-            if (!compte || !canManageOptions) return;
+            if (!compte || !canManageOptions || togglingOptionFraisId !== null) return;
 
             const fraisId = opt.frais_scolaire_id ?? opt.id;
             const montantStd = opt.montant_standard ?? opt.montant;
+            let succeeded = false;
             setTogglingOptionFraisId(fraisId);
 
             if (opt.est_souscrit && opt.souscription_id) {
@@ -1184,6 +1246,7 @@ export default function DossierFinancierModal({
                     preserveScroll: true,
                     preserveState: true,
                     onSuccess: () => {
+                        succeeded = true;
                         toast.success(`Frais optionnel « ${opt.libelle} » retiré du dossier de l'élève.`, {
                             position: 'top-right',
                             className: 'bg-emerald-600 text-white border-none',
@@ -1196,7 +1259,11 @@ export default function DossierFinancierModal({
                             position: 'top-right',
                         });
                     },
-                    onFinish: () => setTogglingOptionFraisId(null),
+                    onFinish: () => {
+                        if (!succeeded) {
+                            setTogglingOptionFraisId(null);
+                        }
+                    },
                 });
             } else {
                 router.post(
@@ -1211,6 +1278,7 @@ export default function DossierFinancierModal({
                         preserveScroll: true,
                         preserveState: true,
                         onSuccess: () => {
+                            succeeded = true;
                             toast.success(
                                 `Frais optionnel « ${opt.libelle} » (+${Number(montantStd).toLocaleString('fr-FR')} FCFA) appliqué à l'élève.`,
                                 {
@@ -1226,12 +1294,16 @@ export default function DossierFinancierModal({
                                 position: 'top-right',
                             });
                         },
-                        onFinish: () => setTogglingOptionFraisId(null),
+                        onFinish: () => {
+                            if (!succeeded) {
+                                setTogglingOptionFraisId(null);
+                            }
+                        },
                     }
                 );
             }
         },
-        [compte, canManageOptions, fetchDossier]
+        [compte, canManageOptions, togglingOptionFraisId, fetchDossier]
     );
 
     /**
@@ -1386,11 +1458,14 @@ export default function DossierFinancierModal({
                                 l.dispense_id ? (
                                     <button
                                         type="button"
+                                        disabled={removingDispenseId !== null}
                                         onClick={() => handleRetirerDispense(Number(l.dispense_id))}
-                                        className="text-[10px] font-semibold text-sky-700 hover:text-red-600 hover:underline cursor-pointer"
+                                        className="text-[10px] font-semibold text-sky-700 hover:text-red-600 hover:underline cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                                         title="Retirer la dispense accordée sur cette tranche"
                                     >
-                                        Lever dispense
+                                        {removingDispenseId === Number(l.dispense_id)
+                                            ? 'Retrait...'
+                                            : 'Lever dispense'}
                                     </button>
                                 ) : (
                                     l.montant_restant > 0 && (
@@ -1414,6 +1489,7 @@ export default function DossierFinancierModal({
             canEncaisser,
             effectiveCanDispenses,
             estCaisseCloturee,
+            removingDispenseId,
             handleEncaisserLigneSpecifique,
             handleOuvrirDispenseSurLigne,
             handleRetirerDispense,
@@ -2836,10 +2912,16 @@ export default function DossierFinancierModal({
                                                     type="button"
                                                     variant="ghost"
                                                     size="sm"
+                                                    disabled={removingDispenseId !== null}
                                                     onClick={() => handleRetirerDispense(d.id)}
-                                                    className="text-red-600 hover:text-red-700 hover:bg-red-50 h-7 text-xs"
+                                                    className="text-red-600 hover:text-red-700 hover:bg-red-50 h-7 text-xs disabled:opacity-60"
                                                 >
-                                                    <Trash2 className="w-3.5 h-3.5 mr-1" /> Retirer
+                                                    {removingDispenseId === d.id ? (
+                                                        <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
+                                                    ) : (
+                                                        <Trash2 className="w-3.5 h-3.5 mr-1" />
+                                                    )}
+                                                    {removingDispenseId === d.id ? 'Retrait...' : 'Retirer'}
                                                 </Button>
                                             )}
                                         </div>
@@ -3026,10 +3108,16 @@ export default function DossierFinancierModal({
                                                     type="button"
                                                     variant="ghost"
                                                     size="sm"
+                                                    disabled={removingBourseId !== null}
                                                     onClick={() => handleRetirerBourse(b.id)}
-                                                    className="text-red-600 hover:text-red-700 hover:bg-red-50 h-7 text-xs"
+                                                    className="text-red-600 hover:text-red-700 hover:bg-red-50 h-7 text-xs disabled:opacity-60"
                                                 >
-                                                    <Trash2 className="w-3.5 h-3.5 mr-1" /> Retirer
+                                                    {removingBourseId === b.id ? (
+                                                        <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
+                                                    ) : (
+                                                        <Trash2 className="w-3.5 h-3.5 mr-1" />
+                                                    )}
+                                                    {removingBourseId === b.id ? 'Retrait...' : 'Retirer'}
                                                 </Button>
                                             )}
                                         </div>
@@ -3187,10 +3275,11 @@ export default function DossierFinancierModal({
                                     type="button"
                                     variant="outline"
                                     size="sm"
+                                    disabled={isSubmittingArrieres}
                                     onClick={handleSaveArrieres}
                                     className="h-8 text-xs"
                                 >
-                                    Enregistrer l'arriéré
+                                    {isSubmittingArrieres ? 'Enregistrement...' : "Enregistrer l'arriéré"}
                                 </Button>
                             </div>
                         )}
@@ -3233,10 +3322,16 @@ export default function DossierFinancierModal({
                                                     type="button"
                                                     variant="ghost"
                                                     size="sm"
+                                                    disabled={removingOptionId !== null}
                                                     onClick={() => handleResilierOption(s.id)}
-                                                    className="text-red-600 hover:text-red-700 hover:bg-red-50 h-7 text-xs"
+                                                    className="text-red-600 hover:text-red-700 hover:bg-red-50 h-7 text-xs disabled:opacity-60"
                                                 >
-                                                    <Trash2 className="w-3.5 h-3.5 mr-1" /> Résilier
+                                                    {removingOptionId === s.id ? (
+                                                        <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
+                                                    ) : (
+                                                        <Trash2 className="w-3.5 h-3.5 mr-1" />
+                                                    )}
+                                                    {removingOptionId === s.id ? 'Résiliation...' : 'Résilier'}
                                                 </Button>
                                             )}
                                         </div>

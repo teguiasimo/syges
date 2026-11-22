@@ -18,8 +18,8 @@ use App\Models\EcheanceTranche;
 use App\Models\Eleve;
 use App\Models\EleveBourseRemise;
 use App\Models\Etablissement;
-use App\Models\Inscription;
 use App\Models\FraisScolaire;
+use App\Models\Inscription;
 use App\Models\ModeleEcheance;
 use App\Models\Niveau;
 use App\Models\PenaliteConfiguration;
@@ -2005,11 +2005,47 @@ class FinanceController extends Controller implements HasMiddleware
     }
 
     /**
-     * Retire une bourse ou remise accordée à un élève.
+     * Résout de manière idempotente un élément rattaché à un compte financier élève tout en appliquant
+     * le cloisonnement multi-campus (`EtablissementScope`).
+     *
+     * @template TModel of \Illuminate\Database\Eloquent\Model
+     *
+     * @param  class-string<TModel>  $modelClass  Classe Eloquent cible (`EleveBourseRemise`, `DispenseFinanciere`, etc.).
+     * @param  int  $id  Identifiant de la ressource demandée.
+     * @return TModel|null Instance trouvée et autorisée, ou `null` si l'élément a déjà été retiré.
      */
-    public function retirerBourseRemise(EleveBourseRemise $attribution, FinanceService $financeService): RedirectResponse
+    protected function resolveDossierItemForRemoval(string $modelClass, int $id): mixed
     {
-        $financeService->retirerBourseRemise($attribution);
+        $item = $modelClass::query()->find($id);
+        if (! $item) {
+            return null;
+        }
+
+        // Vérifie que le compte financier parent reste accessible dans le périmètre d'établissement de l'utilisateur
+        $compteAutorise = CompteFinancierEleve::query()
+            ->whereKey($item->compte_financier_id)
+            ->exists();
+
+        abort_unless($compteAutorise, 403, 'Accès non autorisé : ce dossier financier appartient à un autre établissement.');
+
+        return $item;
+    }
+
+    /**
+     * Retire une bourse ou remise accordée à un élève (idempotent contre les doubles clics).
+     *
+     * @param  int  $attribution  Identifiant de l'attribution de bourse/remise à retirer.
+     * @param  FinanceService  $financeService  Service financier métier.
+     * @return RedirectResponse Redirection avec notification de succès.
+     */
+    public function retirerBourseRemise(int $attribution, FinanceService $financeService): RedirectResponse
+    {
+        $attributionModel = $this->resolveDossierItemForRemoval(EleveBourseRemise::class, $attribution);
+        if (! $attributionModel) {
+            return back()->with('success', 'Cette remise a déjà été retirée du dossier.');
+        }
+
+        $financeService->retirerBourseRemise($attributionModel);
 
         return back()->with('success', 'Attribution de bourse/remise retirée avec succès.');
     }
@@ -2050,11 +2086,21 @@ class FinanceController extends Controller implements HasMiddleware
     }
 
     /**
-     * Retire une dispense financière accordée sur une tranche et réactualise immédiatement le compte élève.
+     * Retire une dispense financière accordée sur une tranche et réactualise immédiatement le compte élève
+     * (idempotent contre les doubles clics).
+     *
+     * @param  int  $dispense  Identifiant de la dispense à retirer.
+     * @param  FinanceService  $financeService  Service financier métier.
+     * @return RedirectResponse Redirection avec notification de succès.
      */
-    public function destroyDispenseFinanciere(DispenseFinanciere $dispense, FinanceService $financeService): RedirectResponse
+    public function destroyDispenseFinanciere(int $dispense, FinanceService $financeService): RedirectResponse
     {
-        $financeService->retirerDispenseFinanciere($dispense);
+        $dispenseModel = $this->resolveDossierItemForRemoval(DispenseFinanciere::class, $dispense);
+        if (! $dispenseModel) {
+            return back()->with('success', 'Cette dispense financière a déjà été retirée du dossier.');
+        }
+
+        $financeService->retirerDispenseFinanciere($dispenseModel);
 
         return back()->with('success', 'Dispense financière retirée avec succès. La tranche est à nouveau exigible.');
     }
@@ -2204,14 +2250,23 @@ class FinanceController extends Controller implements HasMiddleware
     }
 
     /**
-     * Annule une souscription à un frais optionnel.
+     * Annule une souscription à un frais optionnel (idempotent contre les doubles clics).
+     *
+     * @param  int  $souscription  Identifiant de la souscription optionnelle.
+     * @param  FinanceService  $financeService  Service financier métier.
+     * @return RedirectResponse Redirection avec notification de succès ou d'erreur.
      */
-    public function destroySouscriptionOptionnelle(SouscriptionFraisOptionnel $souscription, FinanceService $financeService): RedirectResponse
+    public function destroySouscriptionOptionnelle(int $souscription, FinanceService $financeService): RedirectResponse
     {
         abort_if(! request()->user()?->can('options_financieres.manage|finances.manage') && ! request()->user()?->hasRole('super-admin'), 403);
 
+        $souscriptionModel = $this->resolveDossierItemForRemoval(SouscriptionFraisOptionnel::class, $souscription);
+        if (! $souscriptionModel) {
+            return back()->with('success', 'Cette souscription optionnelle a déjà été retirée du dossier.');
+        }
+
         try {
-            $financeService->annulerSouscriptionOptionnelle($souscription);
+            $financeService->annulerSouscriptionOptionnelle($souscriptionModel);
 
             return back()->with('success', 'Souscription au service optionnel annulée avec succès. Le compte élève a été réactualisé.');
         } catch (InvalidArgumentException $e) {
@@ -2636,7 +2691,7 @@ class FinanceController extends Controller implements HasMiddleware
 
         $eleveId = $f['eleve_id'];
         if (! $eleveId) {
-            abort(400, "Veuillez sélectionner un élève pour imprimer son relevé individuel de versements.");
+            abort(400, 'Veuillez sélectionner un élève pour imprimer son relevé individuel de versements.');
         }
 
         $data = $financeService->obtenirReleveIndividuelEleve($eleveId, $f['annee']?->id ?? 0);

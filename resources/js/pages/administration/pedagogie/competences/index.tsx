@@ -16,21 +16,14 @@ import {
     Plus,
     Trash2,
     Edit2,
-    Filter,
     Search,
-    RotateCw,
-    School,
     CheckCircle2,
-    Layers,
     ChevronLeft,
     ChevronRight,
     ChevronsLeft,
     ChevronsRight,
-    Sparkles,
-    AlertCircle,
     ArrowLeft,
     SlidersHorizontal,
-    Tag,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -48,7 +41,6 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { SearchableSelect, type SearchableOption } from '@/components/ui/searchable-select';
-import { formatDate } from '@/lib/utils';
 import type { CompetencePeriodiqueItem, CoteConfigurationItem, MatiereRef, PeriodeRef } from '@/types/pedagogie';
 import type { EtablissementRef, AnneeScolaireRef } from '@/types/eleve';
 
@@ -105,22 +97,22 @@ interface CompetencesPageProps {
  * - Paramétrage des cotes d'acquisition personnalisées (A/B/C/D ou CTBA/CBA).
  */
 export default function CompetencesIndex({
-    competences = [],
-    cotes = [],
-    matieres = [],
-    periodes = [],
+    competences,
+    cotes,
+    matieres,
+    periodes,
     classeMatieresMap = {},
     niveauMatieresMap = {},
     niveaux = [],
-    etablissements = [],
+    etablissements,
     selectedEtabId,
-    selectedAnneeId,
-    anneesScolaires = [],
-    filters = {},
+    selectedAnneeId: _selectedAnneeId,
+    anneesScolaires: _anneesScolaires,
+    filters,
     can = {},
 }: CompetencesPageProps) {
     // États de filtrage
-    const [selectedEtab, setSelectedEtab] = useState<number>(selectedEtabId);
+    const [selectedEtab, _setSelectedEtab] = useState<number>(selectedEtabId);
     const [selectedClasse, setSelectedClasse] = useState<string>(filters.classe_id || '');
     const [selectedMatiere, setSelectedMatiere] = useState<string>(filters.matiere_id || '');
     const [selectedPeriode, setSelectedPeriode] = useState<string>(filters.periode_id || '');
@@ -193,11 +185,11 @@ export default function CompetencesIndex({
         return matieres.filter((m) => allowedIds.includes(m.id));
     }, [matieres, selectedClasse, classeMatieresMap]);
 
-    // Options formatées pour SearchableSelect dans la barre de filtre
+    // Options formatées pour SearchableSelect dans la barre de filtre (code en préfixe pour rester lisible)
     const matiereFilterOptions: SearchableOption[] = useMemo(() => {
         return availableMatieresForFilter.map((m) => ({
             value: String(m.id),
-            label: `${m.nom} (${m.code})`,
+            label: `[${m.code}] ${m.nom}`,
             group: selectedClasse ? 'Disciplines enseignées dans cette classe' : 'Toutes les disciplines',
         }));
     }, [availableMatieresForFilter, selectedClasse]);
@@ -224,7 +216,7 @@ export default function CompetencesIndex({
             : 'Disciplines au programme de cette classe';
         return availableMatieresForCreate.map((m) => ({
             value: String(m.id),
-            label: `${m.nom} (${m.code})`,
+            label: `[${m.code}] ${m.nom}`,
             group: groupLabel,
         }));
     }, [availableMatieresForCreate, formData.mode]);
@@ -263,6 +255,18 @@ export default function CompetencesIndex({
      */
     const handleCreateCompetence = (e: React.FormEvent) => {
         e.preventDefault();
+        if (formData.mode === 'niveau' && !formData.niveau_id) {
+            toast.error("Veuillez sélectionner un niveau d'enseignement.", { position: 'top-right' });
+            return;
+        }
+        if (formData.mode === 'classe' && !formData.classe_id) {
+            toast.error('Veuillez sélectionner une classe.', { position: 'top-right' });
+            return;
+        }
+        if (!formData.matiere_id) {
+            toast.error('Veuillez sélectionner une matière.', { position: 'top-right' });
+            return;
+        }
         router.post(
             '/administration/pedagogie/competences',
             {
@@ -451,7 +455,7 @@ export default function CompetencesIndex({
                 accessorKey: 'classe.nom',
                 header: 'Classe',
                 cell: ({ row }) => (
-                    <Badge variant="outline" className="font-semibold text-xs border-teal-200 bg-teal-50/60 text-teal-700 dark:border-teal-800 dark:bg-teal-950/40 dark:text-teal-300">
+                    <Badge variant="outline" className="font-semibold text-xs border-teal-200 bg-teal-50/60 text-teal-700">
                         {row.original.classe?.nom || 'N/A'}
                     </Badge>
                 ),
@@ -506,8 +510,8 @@ export default function CompetencesIndex({
                         variant="secondary"
                         className={
                             row.original.is_active
-                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300'
-                                : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400'
+                                ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                : 'bg-gray-100 text-gray-700'
                         }
                     >
                         {row.original.is_active ? 'Actif' : 'Désactivé'}
@@ -699,7 +703,7 @@ export default function CompetencesIndex({
                         <Button
                             variant="outline"
                             onClick={() => setIsTransferOpen(true)}
-                            className="gap-2 h-9 text-xs font-semibold border-teal-300 text-teal-700 hover:bg-teal-50 dark:border-teal-800 dark:text-teal-300"
+                            className="gap-2 h-9 text-xs font-semibold border-teal-300 text-teal-700 hover:bg-teal-50"
                         >
                             <Copy className="size-3.5 shrink-0" />
                             Dupliquer / Transférer
@@ -751,12 +755,18 @@ export default function CompetencesIndex({
                             <CardContent className="p-4 sm:p-5">
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
                                     {/* Sélecteur de Classe avec réinitialisation intelligente de la matière si non enseignée */}
-                                    <div>
+                                    <div className="min-w-0">
                                         <label className="text-xs font-medium text-muted-foreground mb-1 block">Classe</label>
-                                        <select
+                                        <SearchableSelect
+                                            options={[
+                                                { value: '', label: 'Toutes les classes' },
+                                                ...allClasses.map((c) => ({
+                                                    value: String(c.id),
+                                                    label: c.nom,
+                                                })),
+                                            ]}
                                             value={selectedClasse}
-                                            onChange={(e) => {
-                                                const newClasse = e.target.value;
+                                            onValueChange={(newClasse) => {
                                                 setSelectedClasse(newClasse);
                                                 let nextMatiere = selectedMatiere;
                                                 if (newClasse && selectedMatiere && classeMatieresMap) {
@@ -768,15 +778,11 @@ export default function CompetencesIndex({
                                                 }
                                                 handleFilterChange({ classe_id: newClasse, matiere_id: nextMatiere });
                                             }}
-                                            className="w-full h-9 px-3 rounded-md border border-input bg-background text-xs focus:ring-1 focus:ring-ring"
-                                        >
-                                            <option value="">Toutes les classes</option>
-                                            {allClasses.map((c) => (
-                                                <option key={c.id} value={c.id}>
-                                                    {c.nom}
-                                                </option>
-                                            ))}
-                                        </select>
+                                            placeholder="Toutes les classes"
+                                            searchPlaceholder="Rechercher une classe..."
+                                            emptyMessage="Aucune classe trouvée."
+                                            className="h-9 w-full min-w-0 text-xs font-normal"
+                                        />
                                     </div>
 
                                     {/* Sélecteur de Matière avec champ de recherche intégré SearchableSelect */}
@@ -872,7 +878,7 @@ export default function CompetencesIndex({
                         {/* Tableau TanStack Table */}
                         <Card className="border-border/60 shadow-sm overflow-hidden min-w-0">
                             <div className="overflow-x-auto">
-                                <table className="w-full min-w-[680px] text-left border-collapse text-sm">
+                                <table className="w-full min-w-170 text-left border-collapse text-sm">
                                     <thead>
                                         {table.getHeaderGroups().map((headerGroup) => (
                                             <tr key={headerGroup.id} className="border-b bg-muted/40 text-muted-foreground text-xs font-semibold">
@@ -993,12 +999,12 @@ export default function CompetencesIndex({
                             </CardHeader>
                             <CardContent>
                                 {cotes.length === 0 ? (
-                                    <div className="p-4 rounded-lg bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800 text-sky-900 dark:text-sky-200 text-xs leading-relaxed">
+                                    <div className="p-4 rounded-lg bg-sky-50 border border-sky-200 text-sky-900 text-xs leading-relaxed">
                                         <div className="flex items-start gap-2.5">
-                                            <Sparkles className="size-4 shrink-0 text-sky-600 mt-0.5" />
+                                            <CheckCircle2 className="size-4 shrink-0 text-sky-600 mt-0.5" />
                                             <div>
                                                 <p className="font-semibold mb-1">Barème National MINESEC par Défaut Actif :</p>
-                                                <ul className="list-disc list-inside space-y-1 text-muted-foreground dark:text-sky-300">
+                                                <ul className="list-disc list-inside space-y-1 text-muted-foreground">
                                                     <li><strong>CTBA (Compétence Très Bien Acquise)</strong> : Note [18,00 - 20,00] (Vert émeraude)</li>
                                                     <li><strong>CBA (Compétence Bien Acquise)</strong> : Note [14,00 - 17,99] (Bleu océan)</li>
                                                     <li><strong>CMA (Compétence Moyennement Acquise)</strong> : Note [10,00 - 13,99] (Ambre / Jaune)</li>
@@ -1012,7 +1018,7 @@ export default function CompetencesIndex({
                                     </div>
                                 ) : (
                                     <div className="overflow-x-auto">
-                                        <table className="w-full min-w-[640px] text-left border-collapse text-xs">
+                                        <table className="w-full min-w-160 text-left border-collapse text-xs">
                                             <thead>
                                                 {cotesTable.getHeaderGroups().map((headerGroup) => (
                                                     <tr key={headerGroup.id} className="border-b bg-muted/40 text-muted-foreground font-semibold">
@@ -1096,44 +1102,45 @@ export default function CompetencesIndex({
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             {/* Choix de la Cible (Niveau ou Classe) */}
                             {formData.mode === 'niveau' ? (
-                                <div>
+                                <div className="min-w-0">
                                     <label className="text-xs font-semibold text-foreground mb-1 block">
                                         Niveau d'enseignement *
                                     </label>
-                                    <select
-                                        required
+                                    <SearchableSelect
+                                        options={niveaux.map((n) => {
+                                            const nbClasses = n.classes?.length ?? 0;
+                                            return {
+                                                value: String(n.id),
+                                                label: n.nom,
+                                                description: `${nbClasses} classe${nbClasses > 1 ? 's' : ''}`,
+                                            };
+                                        })}
                                         value={formData.niveau_id}
-                                        onChange={(e) => {
-                                            const newNivId = e.target.value;
+                                        onValueChange={(newNivId) => {
                                             setFormData({ ...formData, niveau_id: newNivId, matiere_id: '' });
                                         }}
-                                        className="w-full h-9 px-3 rounded-md border border-input bg-background text-xs"
-                                    >
-                                        <option value="">Sélectionner un niveau...</option>
-                                        {niveaux.map((n) => {
-                                            const nbClasses = n.classes?.length ?? 0;
-                                            return (
-                                                <option key={n.id} value={n.id}>
-                                                    {n.nom} ({nbClasses} classe{nbClasses > 1 ? 's' : ''})
-                                                </option>
-                                            );
-                                        })}
-                                    </select>
+                                        placeholder="Sélectionner un niveau..."
+                                        searchPlaceholder="Rechercher un niveau..."
+                                        emptyMessage="Aucun niveau trouvé."
+                                        className="h-9 text-xs font-normal"
+                                    />
                                     {formData.niveau_id && (
-                                        <p className="text-[10px] text-teal-700 dark:text-teal-400 mt-1">
+                                        <p className="text-[10px] text-teal-700 mt-1">
                                             S'appliquera à :{' '}
                                             {niveaux.find((n) => String(n.id) === formData.niveau_id)?.classes?.map((c) => c.nom).join(', ') || 'aucune classe'}
                                         </p>
                                     )}
                                 </div>
                             ) : (
-                                <div>
+                                <div className="min-w-0">
                                     <label className="text-xs font-semibold text-foreground mb-1 block">Classe *</label>
-                                    <select
-                                        required
+                                    <SearchableSelect
+                                        options={allClasses.map((c) => ({
+                                            value: String(c.id),
+                                            label: c.nom,
+                                        }))}
                                         value={formData.classe_id}
-                                        onChange={(e) => {
-                                            const newClasseId = e.target.value;
+                                        onValueChange={(newClasseId) => {
                                             let nextMatiereId = formData.matiere_id;
                                             if (newClasseId && nextMatiereId && classeMatieresMap) {
                                                 const allowed = classeMatieresMap[Number(newClasseId)];
@@ -1145,15 +1152,11 @@ export default function CompetencesIndex({
                                             }
                                             setFormData({ ...formData, classe_id: newClasseId, matiere_id: nextMatiereId });
                                         }}
-                                        className="w-full h-9 px-3 rounded-md border border-input bg-background text-xs"
-                                    >
-                                        <option value="">Sélectionner une classe...</option>
-                                        {allClasses.map((c) => (
-                                            <option key={c.id} value={c.id}>
-                                                {c.nom}
-                                            </option>
-                                        ))}
-                                    </select>
+                                        placeholder="Sélectionner une classe..."
+                                        searchPlaceholder="Rechercher une classe..."
+                                        emptyMessage="Aucune classe trouvée."
+                                        className="h-9 text-xs font-normal"
+                                    />
                                 </div>
                             )}
 
@@ -1312,21 +1315,20 @@ export default function CompetencesIndex({
                     </DialogHeader>
 
                     <form onSubmit={handleTransfer} className="space-y-4 py-2">
-                        <div>
+                        <div className="min-w-0">
                             <label className="text-xs font-semibold text-foreground mb-1 block">Classe Source (Modèle) *</label>
-                            <select
-                                required
+                            <SearchableSelect
+                                options={allClasses.map((c) => ({
+                                    value: String(c.id),
+                                    label: c.nom,
+                                }))}
                                 value={transferData.classe_source_id}
-                                onChange={(e) => setTransferData({ ...transferData, classe_source_id: e.target.value })}
-                                className="w-full h-9 px-3 rounded-md border border-input bg-background text-xs font-medium"
-                            >
-                                <option value="">Sélectionner la classe source...</option>
-                                {allClasses.map((c) => (
-                                    <option key={c.id} value={c.id}>
-                                        {c.nom}
-                                    </option>
-                                ))}
-                            </select>
+                                onValueChange={(v) => setTransferData({ ...transferData, classe_source_id: v })}
+                                placeholder="Sélectionner la classe source..."
+                                searchPlaceholder="Rechercher une classe source..."
+                                emptyMessage="Aucune classe trouvée."
+                                className="h-9 text-xs font-medium"
+                            />
                         </div>
 
                         <div>
@@ -1382,13 +1384,13 @@ export default function CompetencesIndex({
                             </div>
                         </div>
 
-                        <div className="flex items-center gap-2 p-2.5 rounded-md bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800">
+                        <div className="flex items-center gap-2 p-2.5 rounded-md bg-amber-50 border border-amber-200">
                             <Checkbox
                                 id="ecraser"
                                 checked={transferData.ecraser_existant}
                                 onCheckedChange={(c) => setTransferData({ ...transferData, ecraser_existant: !!c })}
                             />
-                            <label htmlFor="ecraser" className="text-xs text-amber-900 dark:text-amber-200 cursor-pointer">
+                            <label htmlFor="ecraser" className="text-xs text-amber-900 cursor-pointer">
                                 Écraser et remplacer les compétences existantes dans les classes cibles
                             </label>
                         </div>

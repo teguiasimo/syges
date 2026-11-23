@@ -13,7 +13,6 @@ import {
     Search,
     Trash2,
     CheckSquare,
-    Filter,
     FileText,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -24,6 +23,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { DataTable } from '@/components/ui/data-table';
 import { Input } from '@/components/ui/input';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
     Select,
     SelectContent,
@@ -80,7 +80,7 @@ export default function DisciplineIndex({
     matieres,
     inscriptions,
     currentEtablissement,
-    currentAnnee,
+    currentAnnee: _currentAnnee,
     filters,
 }: DisciplineIndexProps) {
     const [activeTab, setActiveTab] = useState<'assiduites' | 'sanctions' | 'synthese'>(
@@ -169,7 +169,7 @@ export default function DisciplineIndex({
             header: 'Date & Période',
             cell: ({ row }) => (
                 <div>
-                    <span className="font-semibold text-xs text-slate-800 dark:text-slate-200">
+                    <span className="font-semibold text-xs text-slate-800">
                         {formatDate(row.original.date_evenement)}
                     </span>
                     <div className="text-[10px] text-slate-500">
@@ -183,7 +183,7 @@ export default function DisciplineIndex({
             header: 'Élève',
             cell: ({ row }) => (
                 <div>
-                    <div className="font-bold text-xs text-slate-900 dark:text-slate-100">
+                    <div className="font-bold text-xs text-slate-900">
                         {row.original.inscription?.eleve?.nom} {row.original.inscription?.eleve?.prenom}
                     </div>
                     <div className="text-[10px] text-slate-500 font-mono">
@@ -205,7 +205,7 @@ export default function DisciplineIndex({
             accessorKey: 'matiere',
             header: 'Matière / Cours',
             cell: ({ row }) => (
-                <span className="text-xs text-slate-700 dark:text-slate-300">
+                <span className="text-xs text-slate-700">
                     {row.original.matiere?.nom ?? 'Étude / Surveillance'}
                 </span>
             ),
@@ -216,11 +216,11 @@ export default function DisciplineIndex({
             cell: ({ row }) => {
                 const type = row.original.type_evenement;
                 return type === 'absence' ? (
-                    <Badge className="bg-rose-500/15 text-rose-700 dark:text-rose-400 border-rose-200 text-[10px] flex items-center gap-1 w-fit">
+                    <Badge className="bg-rose-500/15 text-rose-700 border-rose-200 text-[10px] flex items-center gap-1 w-fit">
                         <UserX className="w-3 h-3" /> Absence
                     </Badge>
                 ) : (
-                    <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-200 text-[10px] flex items-center gap-1 w-fit">
+                    <Badge className="bg-amber-500/15 text-amber-700 border-amber-200 text-[10px] flex items-center gap-1 w-fit">
                         <Clock className="w-3 h-3" /> Retard
                     </Badge>
                 );
@@ -304,7 +304,7 @@ export default function DisciplineIndex({
             header: 'Élève',
             cell: ({ row }) => (
                 <div>
-                    <div className="font-bold text-xs text-slate-900 dark:text-slate-100">
+                    <div className="font-bold text-xs text-slate-900">
                         {row.original.inscription?.eleve?.nom} {row.original.inscription?.eleve?.prenom}
                     </div>
                     <div className="text-[10px] text-slate-500 font-mono">
@@ -355,7 +355,7 @@ export default function DisciplineIndex({
             accessorKey: 'motif',
             header: 'Motif',
             cell: ({ row }) => (
-                <span className="text-xs text-slate-700 dark:text-slate-300 max-w-65 line-clamp-2" title={row.original.motif}>
+                <span className="text-xs text-slate-700 max-w-65 line-clamp-2" title={row.original.motif}>
                     {row.original.motif}
                 </span>
             ),
@@ -395,7 +395,7 @@ export default function DisciplineIndex({
             header: 'Élève',
             cell: ({ row }) => (
                 <div>
-                    <div className="font-bold text-xs text-slate-900 dark:text-slate-100">
+                    <div className="font-bold text-xs text-slate-900">
                         {row.original.inscription?.eleve?.nom} {row.original.inscription?.eleve?.prenom}
                     </div>
                     <div className="text-[10px] text-slate-500 font-mono">
@@ -428,7 +428,7 @@ export default function DisciplineIndex({
             cell: ({ row }) => {
                 const nj = Number(row.original.absences_non_justifiees || 0);
                 return (
-                    <div className={`text-center text-xs font-bold ${nj >= 15 ? 'text-rose-600' : 'text-slate-800 dark:text-slate-200'}`}>
+                    <div className={`text-center text-xs font-bold ${nj >= 15 ? 'text-rose-600' : 'text-slate-800'}`}>
                         {nj}h
                     </div>
                 );
@@ -569,14 +569,14 @@ export default function DisciplineIndex({
             {/* Conteneur principal plein écran fluide et responsive sans contrainte artificielle de largeur */}
             <div className="flex h-full flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8 w-full min-w-0">
                 {/* En-tête de la page */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
                     <div>
                         <div className="flex items-center gap-2">
-                            <div className="p-2 bg-slate-900 dark:bg-slate-100 rounded-lg text-white dark:text-slate-900 shrink-0">
+                            <div className="p-2 bg-slate-900 rounded-lg text-white shrink-0">
                                 <ShieldAlert className="w-5 h-5 text-rose-500" />
                             </div>
                             <div>
-                                <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100">
+                                <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
                                     Absences, Retards & Discipline
                                 </h1>
                                 <p className="text-xs text-slate-500">
@@ -607,65 +607,65 @@ export default function DisciplineIndex({
 
                 {/* Cartes KPIs Discipline */}
                 <div className="grid grid-cols-1 min-[420px]:grid-cols-2 lg:grid-cols-5 gap-3">
-                    <Card className="border-slate-200 dark:border-slate-800">
+                    <Card className="border-slate-200">
                         <CardContent className="p-3">
                             <div className="flex items-center justify-between">
                                 <span className="text-xs font-semibold text-slate-500">Total Absences</span>
                                 <UserX className="w-4 h-4 text-slate-500" />
                             </div>
-                            <div className="text-lg font-extrabold text-slate-900 dark:text-slate-100 mt-1">
+                            <div className="text-lg font-extrabold text-slate-900 mt-1">
                                 {kpis.totalHeuresAbsence}h
                             </div>
                             <span className="text-[10px] text-slate-400">Toutes causes confondues</span>
                         </CardContent>
                     </Card>
 
-                    <Card className="border-slate-200 dark:border-slate-800 bg-rose-50/30 dark:bg-rose-950/20">
+                    <Card className="border-slate-200 bg-rose-50/30">
                         <CardContent className="p-3">
                             <div className="flex items-center justify-between">
                                 <span className="text-xs font-semibold text-rose-600">Non Justifiées</span>
                                 <XCircle className="w-4 h-4 text-rose-600" />
                             </div>
-                            <div className="text-lg font-extrabold text-rose-700 dark:text-rose-400 mt-1">
+                            <div className="text-lg font-extrabold text-rose-700 mt-1">
                                 {kpis.totalAbsencesNJ}h
                             </div>
                             <span className="text-[10px] text-rose-500">Impactent le bulletin</span>
                         </CardContent>
                     </Card>
 
-                    <Card className="border-slate-200 dark:border-slate-800">
+                    <Card className="border-slate-200">
                         <CardContent className="p-3">
                             <div className="flex items-center justify-between">
                                 <span className="text-xs font-semibold text-slate-500">Total Retards</span>
                                 <Clock className="w-4 h-4 text-amber-600" />
                             </div>
-                            <div className="text-lg font-extrabold text-amber-700 dark:text-amber-400 mt-1">
+                            <div className="text-lg font-extrabold text-amber-700 mt-1">
                                 {kpis.totalRetards}
                             </div>
                             <span className="text-[10px] text-slate-400">Événements horodatés</span>
                         </CardContent>
                     </Card>
 
-                    <Card className="border-slate-200 dark:border-slate-800">
+                    <Card className="border-slate-200">
                         <CardContent className="p-3">
                             <div className="flex items-center justify-between">
                                 <span className="text-xs font-semibold text-slate-500">Sanctions Actives</span>
                                 <AlertOctagon className="w-4 h-4 text-rose-600" />
                             </div>
-                            <div className="text-lg font-extrabold text-slate-900 dark:text-slate-100 mt-1">
+                            <div className="text-lg font-extrabold text-slate-900 mt-1">
                                 {kpis.totalSanctions}
                             </div>
                             <span className="text-[10px] text-slate-400">Décisions notifiées</span>
                         </CardContent>
                     </Card>
 
-                    <Card className="border-slate-200 dark:border-slate-800 bg-amber-50/30 dark:bg-amber-950/20 min-[420px]:col-span-2 lg:col-span-1">
+                    <Card className="border-slate-200 bg-amber-50/30 min-[420px]:col-span-2 lg:col-span-1">
                         <CardContent className="p-3">
                             <div className="flex items-center justify-between">
                                 <span className="text-xs font-semibold text-amber-700">Déchéance Honneur</span>
                                 <Award className="w-4 h-4 text-amber-700" />
                             </div>
-                            <div className="text-lg font-extrabold text-amber-800 dark:text-amber-400 mt-1">
+                            <div className="text-lg font-extrabold text-amber-800 mt-1">
                                 {kpis.totalElevesDechus} élève(s)
                             </div>
                             <span className="text-[10px] text-amber-600">≥ 15h NJ ou exclusion</span>
@@ -675,15 +675,15 @@ export default function DisciplineIndex({
 
                 {/* Onglets et Filtres */}
                 <div className="space-y-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-2">
                         {/* Onglets avec scroll horizontal fluide */}
                         <div className="flex items-center gap-2 overflow-x-auto pb-1 shrink-0">
                             <button
                                 onClick={() => setActiveTab('assiduites')}
                                 className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
                                     activeTab === 'assiduites'
-                                        ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
-                                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
+                                        ? 'bg-slate-900 text-white'
+                                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                                 }`}
                             >
                                 <UserX className="w-3.5 h-3.5" />
@@ -693,8 +693,8 @@ export default function DisciplineIndex({
                                 onClick={() => setActiveTab('sanctions')}
                                 className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
                                     activeTab === 'sanctions'
-                                        ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
-                                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
+                                        ? 'bg-slate-900 text-white'
+                                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                                 }`}
                             >
                                 <AlertOctagon className="w-3.5 h-3.5" />
@@ -704,8 +704,8 @@ export default function DisciplineIndex({
                                 onClick={() => setActiveTab('synthese')}
                                 className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
                                     activeTab === 'synthese'
-                                        ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
-                                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
+                                        ? 'bg-slate-900 text-white'
+                                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                                 }`}
                             >
                                 <FileText className="w-3.5 h-3.5" />
@@ -714,7 +714,7 @@ export default function DisciplineIndex({
                         </div>
 
                         {/* Filtre de Période (Trimestre) */}
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
                             <span className="text-xs text-slate-500 font-medium whitespace-nowrap">Trimestre :</span>
                             <Select
                                 value={String(currentPeriode?.id ?? '')}
@@ -752,20 +752,22 @@ export default function DisciplineIndex({
                             />
                         </div>
 
-                        <div className="w-full sm:w-44">
-                            <Select value={selectedClasse} onValueChange={setSelectedClasse}>
-                                <SelectTrigger className="h-9 text-xs">
-                                    <SelectValue placeholder="Toutes les classes" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">Toutes les classes</SelectItem>
-                                    {classes.map((cl) => (
-                                        <SelectItem key={cl.id} value={String(cl.id)}>
-                                            {cl.nom}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                        <div className="w-full sm:w-52 min-w-0">
+                            <SearchableSelect
+                                value={selectedClasse === 'all' ? '' : selectedClasse}
+                                onValueChange={(val) => setSelectedClasse(val || 'all')}
+                                options={[
+                                    { value: '', label: 'Toutes les classes' },
+                                    ...classes.map((cl) => ({
+                                        value: String(cl.id),
+                                        label: cl.nom,
+                                    })),
+                                ]}
+                                placeholder="Toutes les classes"
+                                searchPlaceholder="Rechercher une classe..."
+                                emptyMessage="Aucune classe trouvée pour"
+                                className="h-9 text-xs"
+                            />
                         </div>
 
                         {activeTab === 'assiduites' && (
@@ -801,7 +803,7 @@ export default function DisciplineIndex({
 
                     {/* Affichage des Tableaux via TanStack Table */}
                     {activeTab === 'assiduites' && (
-                        <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-2 sm:p-4 overflow-x-auto">
+                        <div className="bg-white rounded-lg border border-slate-200 p-2 sm:p-4 overflow-x-auto">
                             <DataTable
                                 columns={assiduiteColumns}
                                 data={filteredAssiduites}
@@ -810,7 +812,7 @@ export default function DisciplineIndex({
                     )}
 
                     {activeTab === 'sanctions' && (
-                        <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-2 sm:p-4 overflow-x-auto">
+                        <div className="bg-white rounded-lg border border-slate-200 p-2 sm:p-4 overflow-x-auto">
                             <DataTable
                                 columns={sanctionsColumns}
                                 data={filteredSanctions}
@@ -819,11 +821,11 @@ export default function DisciplineIndex({
                     )}
 
                     {activeTab === 'synthese' && (
-                        <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-2 sm:p-4 overflow-x-auto">
+                        <div className="bg-white rounded-lg border border-slate-200 p-2 sm:p-4 overflow-x-auto">
                             <div className="mb-3 text-xs text-slate-500 flex items-center gap-1.5">
                                 <Award className="w-4 h-4 text-amber-600 shrink-0" />
                                 <span>
-                                    Conformément à la règle 12.4 de Gesco V1.1 : tout élève ayant accumulé <strong>≥ 15 heures d'absences non justifiées</strong> ou ayant fait l'objet d'une exclusion est automatiquement déchu de son éligibilité au Tableau d'Honneur et aux mentions honorifiques sur son bulletin de notes.
+                                    Règle d'assiduité : tout élève ayant accumulé <strong>≥ 15 heures d'absences non justifiées</strong> ou ayant fait l'objet d'une exclusion est automatiquement déchu de son éligibilité au Tableau d'Honneur et aux mentions honorifiques sur son bulletin de notes.
                                 </span>
                             </div>
                             <DataTable

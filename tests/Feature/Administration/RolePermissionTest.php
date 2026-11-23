@@ -1,32 +1,32 @@
 <?php
 
-/** @var \Tests\TestCase $this */
+/** @var TestCase $this */
 
 use App\Models\User;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
+use Tests\TestCase;
 
 /**
  * Tests de fonctionnalités pour la gestion des Rôles et Permissions.
  * Couvre les contrôles d'habilitation (droits/permissions), la création, la modification,
  * la suppression sécurisée et les protections des rôles système.
  */
-
 beforeEach(function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     Role::firstOrCreate(['name' => 'super-admin', 'guard_name' => 'web']);
     $this->adminUser = User::factory()->create();
     $this->adminUser->assignRole('super-admin');
 });
 
 test('guests are redirected to login when visiting roles page', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $response = $this->get(route('administration.roles.index'));
     $response->assertRedirect(route('login'));
 });
 
 test('unauthorized users without roles.view permission cannot access roles page', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $regularUser = User::factory()->create();
     $this->actingAs($regularUser);
 
@@ -35,7 +35,7 @@ test('unauthorized users without roles.view permission cannot access roles page'
 });
 
 test('authorized users can access the roles management page', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $this->actingAs($this->adminUser);
 
     $response = $this->get(route('administration.roles.index'));
@@ -53,7 +53,7 @@ test('authorized users can access the roles management page', function () {
 });
 
 test('unauthorized users without roles.create permission cannot create roles', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $regularUser = User::factory()->create();
     $this->actingAs($regularUser);
 
@@ -65,7 +65,7 @@ test('unauthorized users without roles.create permission cannot create roles', f
 });
 
 test('can create a new custom role with selected permissions', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $this->actingAs($this->adminUser);
 
     $permission = Permission::firstOrCreate(['name' => 'roles.view', 'guard_name' => 'web']);
@@ -85,7 +85,7 @@ test('can create a new custom role with selected permissions', function () {
 });
 
 test('cannot create a role with a duplicate name', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $this->actingAs($this->adminUser);
 
     Role::firstOrCreate(['name' => 'comptable', 'guard_name' => 'web']);
@@ -99,7 +99,7 @@ test('cannot create a role with a duplicate name', function () {
 });
 
 test('unauthorized users without roles.edit permission cannot update roles', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $regularUser = User::factory()->create();
     $this->actingAs($regularUser);
 
@@ -113,7 +113,7 @@ test('unauthorized users without roles.edit permission cannot update roles', fun
 });
 
 test('can update an existing custom role and its permissions', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $this->actingAs($this->adminUser);
 
     $role = Role::firstOrCreate(['name' => 'bibliothecaire', 'guard_name' => 'web']);
@@ -135,7 +135,7 @@ test('can update an existing custom role and its permissions', function () {
 });
 
 test('cannot rename the super-admin role', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $this->actingAs($this->adminUser);
 
     $superAdminRole = Role::firstOrCreate(['name' => 'super-admin', 'guard_name' => 'web']);
@@ -150,7 +150,7 @@ test('cannot rename the super-admin role', function () {
 });
 
 test('unauthorized users without roles.delete permission cannot delete roles', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $regularUser = User::factory()->create();
     $this->actingAs($regularUser);
 
@@ -161,7 +161,7 @@ test('unauthorized users without roles.delete permission cannot delete roles', f
 });
 
 test('cannot delete protected system roles', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $this->actingAs($this->adminUser);
 
     $superAdminRole = Role::firstOrCreate(['name' => 'super-admin', 'guard_name' => 'web']);
@@ -177,7 +177,7 @@ test('cannot delete protected system roles', function () {
 });
 
 test('cannot delete a role assigned to users', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $this->actingAs($this->adminUser);
 
     $role = Role::firstOrCreate(['name' => 'censeur', 'guard_name' => 'web']);
@@ -189,8 +189,29 @@ test('cannot delete a role assigned to users', function () {
     $this->assertDatabaseHas('roles', ['name' => 'censeur']);
 });
 
-test('can delete an unassigned custom role', function () {
-    /** @var \Tests\TestCase $this */
+test('cannot delete a role that still has assigned permissions', function () {
+    /** @var TestCase $this */
+    $this->actingAs($this->adminUser);
+
+    $permission = Permission::firstOrCreate(['name' => 'eleves.view', 'guard_name' => 'web']);
+    $role = Role::firstOrCreate(['name' => 'role-avec-permissions', 'guard_name' => 'web']);
+    $role->syncPermissions([$permission]);
+
+    // 1. Tant que le rôle possède au moins une permission, sa suppression doit être bloquée
+    $blockedResponse = $this->delete(route('administration.roles.destroy', $role));
+    $blockedResponse->assertSessionHas('error');
+    $this->assertDatabaseHas('roles', ['name' => 'role-avec-permissions']);
+
+    // 2. Une fois toutes ses permissions retirées (et 0 utilisateur), la suppression devient autorisée
+    $role->syncPermissions([]);
+    $allowedResponse = $this->delete(route('administration.roles.destroy', $role));
+    $allowedResponse->assertRedirect(route('administration.roles.index'));
+    $allowedResponse->assertSessionHas('success');
+    $this->assertDatabaseMissing('roles', ['name' => 'role-avec-permissions']);
+});
+
+test('can delete an unassigned custom role without permissions', function () {
+    /** @var TestCase $this */
     $this->actingAs($this->adminUser);
 
     $role = Role::firstOrCreate(['name' => 'temporaire', 'guard_name' => 'web']);

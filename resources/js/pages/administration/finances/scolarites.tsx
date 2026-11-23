@@ -5,7 +5,6 @@ import { type ColumnDef } from '@tanstack/react-table';
 import {
     Award,
     Building2,
-    Bus,
     CheckCircle2,
     CreditCard,
     DollarSign,
@@ -14,6 +13,7 @@ import {
     Filter,
     FolderOpen,
     GraduationCap,
+    PackagePlus,
     Printer,
     RotateCcw,
     Search,
@@ -33,6 +33,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { DataTable } from '@/components/ui/data-table';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
     Select,
     SelectContent,
@@ -94,15 +95,15 @@ interface ScolaritesPageProps {
 export default function ScolaritesPage({
     comptes,
     categoriesFrais = [],
-    typesFrais = [],
-    tarifs = [],
-    fraisOptionnels = [],
-    boursesRemises = [],
-    categoriesBourses = [],
-    estCaisseCloturee = false,
-    etablissements = [],
+    typesFrais,
+    tarifs,
+    fraisOptionnels,
+    boursesRemises,
+    categoriesBourses,
+    estCaisseCloturee,
+    etablissements,
     currentEtablissement,
-    isSuperAdmin = false,
+    isSuperAdmin,
     currentAnnee,
     filters,
     can,
@@ -557,7 +558,7 @@ export default function ScolaritesPage({
             accessorKey: 'eleve.matricule',
             header: 'Matricule',
             cell: ({ row }) => (
-                <span className="font-mono text-xs font-bold text-slate-700 dark:text-slate-300">
+                <span className="font-mono text-xs font-bold text-slate-700">
                     {row.original.eleve?.matricule}
                 </span>
             ),
@@ -579,7 +580,7 @@ export default function ScolaritesPage({
                 const el = row.original.eleve;
                 return (
                     <div>
-                        <div className="font-bold text-xs text-slate-900 dark:text-slate-100">
+                        <div className="font-bold text-xs text-slate-900">
                             {el?.nom} {el?.prenom}
                         </div>
                         {el?.telephone_parent && (
@@ -603,7 +604,7 @@ export default function ScolaritesPage({
                 const cl = row.original.inscription?.classe;
                 return (
                     <div className="flex flex-col">
-                        <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                        <span className="text-xs font-semibold text-slate-800">
                             {cl?.nom ?? 'N/A'}
                         </span>
                         {cl?.niveau?.nom && (
@@ -625,7 +626,7 @@ export default function ScolaritesPage({
 
                 return (
                     <div className="text-right">
-                        <div className="text-xs font-semibold text-slate-900 dark:text-slate-100 tabular-nums">
+                        <div className="text-xs font-semibold text-slate-900 tabular-nums">
                             {Number(c.montant_net_exigible).toLocaleString('fr-FR')} FCFA
                         </div>
                         <div className="flex flex-wrap items-center justify-end gap-1.5 mt-0.5">
@@ -647,7 +648,7 @@ export default function ScolaritesPage({
                             )}
                             {nbOptions > 0 && (
                                 <span className="text-[10px] font-semibold text-amber-600 flex items-center gap-0.5">
-                                    <Bus className="w-2.5 h-2.5" /> +{nbOptions} opt.
+                                    <PackagePlus className="w-2.5 h-2.5" /> +{nbOptions} annexe(s)
                                 </span>
                             )}
                         </div>
@@ -763,19 +764,19 @@ export default function ScolaritesPage({
 
             <div className="flex flex-1 flex-col gap-5 p-4 sm:p-6 lg:p-8 min-w-0 w-full">
                 {/* En-tête de la page dédiée */}
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-200 pb-4">
                     <div className="flex items-start sm:items-center gap-3 min-w-0">
                         <div className="p-2.5 bg-emerald-600 rounded-xl text-white shadow-sm shrink-0">
                             <CreditCard className="w-5 h-5" />
                         </div>
                         <div className="min-w-0">
-                            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-slate-100">
+                            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900">
                                 Guichet Scolarité & Dossiers Élèves
                             </h1>
                             <p className="text-xs text-slate-500 flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
                                 <span>
                                     Établissement :{' '}
-                                    <strong className="text-slate-800 dark:text-slate-200">
+                                    <strong className="text-slate-800">
                                         {currentEtablissement?.nom ?? 'Aucun'}
                                     </strong>
                                 </span>
@@ -795,7 +796,7 @@ export default function ScolaritesPage({
                                 asChild
                                 variant="outline"
                                 size="sm"
-                                className="h-9 text-xs font-semibold text-sky-800 border-sky-300 hover:bg-sky-50 dark:border-sky-800 dark:text-sky-300 flex items-center gap-1.5 shadow-2xs"
+                                className="h-9 text-xs font-semibold text-sky-800 border-sky-300 hover:bg-sky-50 flex items-center gap-1.5 shadow-2xs"
                             >
                                 <Link
                                     href={`/administration/finances/etats?${new URLSearchParams({
@@ -814,10 +815,10 @@ export default function ScolaritesPage({
                 </div>
 
                 {/* Barre de filtrage hiérarchique en entonnoir : Établissement -> Section -> Cycle -> Niveau -> Série -> Classe */}
-                <Card className="border-slate-200 dark:border-slate-800 shadow-sm bg-linear-to-b from-white to-slate-50/60 dark:from-slate-900 dark:to-slate-900/60">
+                <Card className="border-slate-200 shadow-sm bg-linear-to-b from-white to-slate-50/60">
                     <CardContent className="p-4 space-y-3.5">
                         <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-slate-200">
+                            <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
                                 <Filter className="w-4 h-4 text-emerald-600" />
                                 <span>Sélection de la Classe ou Recherche Rapide d'un Élève</span>
                             </div>
@@ -841,7 +842,7 @@ export default function ScolaritesPage({
                                         value={currentEtablissement ? String(currentEtablissement.id) : ''}
                                         onValueChange={handleChangeEtablissement}
                                     >
-                                        <SelectTrigger className="h-9 text-xs bg-white dark:bg-slate-900">
+                                        <SelectTrigger className="h-9 text-xs bg-white">
                                             <SelectValue placeholder="Choisir..." />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -868,7 +869,7 @@ export default function ScolaritesPage({
                                         setSelectedClasseId('all');
                                     }}
                                 >
-                                    <SelectTrigger className="h-9 text-xs bg-white dark:bg-slate-900">
+                                    <SelectTrigger className="h-9 text-xs bg-white">
                                         <SelectValue placeholder="Toutes les sections" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -894,7 +895,7 @@ export default function ScolaritesPage({
                                         setSelectedClasseId('all');
                                     }}
                                 >
-                                    <SelectTrigger className="h-9 text-xs bg-white dark:bg-slate-900">
+                                    <SelectTrigger className="h-9 text-xs bg-white">
                                         <SelectValue placeholder="Tous les cycles" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -919,7 +920,7 @@ export default function ScolaritesPage({
                                         setSelectedClasseId('all');
                                     }}
                                 >
-                                    <SelectTrigger className="h-9 text-xs bg-white dark:bg-slate-900">
+                                    <SelectTrigger className="h-9 text-xs bg-white">
                                         <SelectValue placeholder="Tous les niveaux" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -946,7 +947,7 @@ export default function ScolaritesPage({
                                     }}
                                     disabled={availableSeries.length === 0}
                                 >
-                                    <SelectTrigger className="h-9 text-xs bg-white dark:bg-slate-900">
+                                    <SelectTrigger className="h-9 text-xs bg-white">
                                         <SelectValue placeholder="Toutes les séries" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -962,24 +963,25 @@ export default function ScolaritesPage({
 
                             {/* 6. Classe */}
                             <div className="space-y-1 min-w-0">
-                                <Label className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
+                                <Label className="text-[11px] font-bold text-emerald-700 flex items-center gap-1">
                                     <GraduationCap className="w-3.5 h-3.5" /> Classe
                                 </Label>
-                                <Select value={selectedClasseId} onValueChange={setSelectedClasseId}>
-                                    <SelectTrigger className="h-9 text-xs font-semibold bg-white dark:bg-slate-900 border-emerald-300 dark:border-emerald-800">
-                                        <SelectValue placeholder="Toutes les classes" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">
-                                            Toutes les classes ({availableClasses.length})
-                                        </SelectItem>
-                                        {availableClasses.map((cl) => (
-                                            <SelectItem key={cl.id} value={String(cl.id)}>
-                                                {cl.nom} ({effectifsParClasse.get(cl.id) || 0} él.)
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <SearchableSelect
+                                    options={[
+                                        { value: 'all', label: `Toutes les classes (${availableClasses.length})` },
+                                        ...availableClasses.map((cl) => ({
+                                            value: String(cl.id),
+                                            label: cl.nom,
+                                            description: `${effectifsParClasse.get(cl.id) || 0} él.`,
+                                        })),
+                                    ]}
+                                    value={selectedClasseId}
+                                    onValueChange={(val) => setSelectedClasseId(val || 'all')}
+                                    placeholder="Toutes les classes"
+                                    searchPlaceholder="Rechercher une classe..."
+                                    emptyMessage="Aucune classe trouvée."
+                                    className="h-9 text-xs font-semibold bg-white border-emerald-300"
+                                />
                             </div>
                         </div>
 
@@ -991,12 +993,12 @@ export default function ScolaritesPage({
                                     placeholder="Rechercher rapidement un élève par nom, prénom, matricule ou téléphone parent..."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="pl-9 h-9 text-xs bg-white dark:bg-slate-900"
+                                    className="pl-9 h-9 text-xs bg-white"
                                 />
                             </div>
 
                             <Select value={selectedStatut} onValueChange={setSelectedStatut}>
-                                <SelectTrigger className="w-full sm:w-56 h-9 text-xs bg-white dark:bg-slate-900">
+                                <SelectTrigger className="w-full sm:w-56 h-9 text-xs bg-white">
                                     <SelectValue placeholder="Tous les statuts financiers" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -1013,7 +1015,7 @@ export default function ScolaritesPage({
                         </div>
 
                         {/* Barre tertiaire : Filtrage analytique par Catégorie de frais, Frais précis & Palier atteint */}
-                        <div className="pt-2 border-t border-slate-200/80 dark:border-slate-800 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 items-end">
+                        <div className="pt-2 border-t border-slate-200/80 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 items-end">
                             <div className="space-y-1 min-w-0">
                                 <Label className="text-[11px] font-semibold text-slate-600 flex items-center gap-1">
                                     <Tag className="w-3 h-3 text-sky-600" /> Catégorie de Frais
@@ -1025,7 +1027,7 @@ export default function ScolaritesPage({
                                         setSelectedTypeFraisId('all');
                                     }}
                                 >
-                                    <SelectTrigger className="h-9 text-xs bg-white dark:bg-slate-900">
+                                    <SelectTrigger className="h-9 text-xs bg-white">
                                         <SelectValue placeholder="Toutes les catégories" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -1043,19 +1045,21 @@ export default function ScolaritesPage({
                                 <Label className="text-[11px] font-semibold text-slate-600">
                                     Frais / Rubrique Précis
                                 </Label>
-                                <Select value={selectedTypeFraisId} onValueChange={setSelectedTypeFraisId}>
-                                    <SelectTrigger className="h-9 text-xs bg-white dark:bg-slate-900">
-                                        <SelectValue placeholder="Tous les frais" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">Tous les frais</SelectItem>
-                                        {availableTypesFrais.map((tf) => (
-                                            <SelectItem key={tf.id} value={String(tf.id)}>
-                                                {tf.libelle}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <SearchableSelect
+                                    options={[
+                                        { value: 'all', label: 'Tous les frais' },
+                                        ...availableTypesFrais.map((tf) => ({
+                                            value: String(tf.id),
+                                            label: tf.libelle,
+                                        })),
+                                    ]}
+                                    value={selectedTypeFraisId}
+                                    onValueChange={(val) => setSelectedTypeFraisId(val || 'all')}
+                                    placeholder="Tous les frais"
+                                    searchPlaceholder="Rechercher un frais..."
+                                    emptyMessage="Aucun frais trouvé."
+                                    className="h-9 text-xs font-normal bg-white"
+                                />
                             </div>
 
                             <div className="space-y-1 min-w-0">
@@ -1067,7 +1071,7 @@ export default function ScolaritesPage({
                                     onValueChange={(val) => setSelectedModeFrais(val as ModeFiltreFrais)}
                                     disabled={selectedCategorieFraisId === 'all' && selectedTypeFraisId === 'all'}
                                 >
-                                    <SelectTrigger className="h-9 text-xs bg-white dark:bg-slate-900">
+                                    <SelectTrigger className="h-9 text-xs bg-white">
                                         <SelectValue placeholder="Condition..." />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -1112,7 +1116,7 @@ export default function ScolaritesPage({
                                                 '_blank'
                                             );
                                         }}
-                                        className="w-full h-9 text-xs font-semibold text-sky-800 border-sky-300 bg-sky-50 hover:bg-sky-100 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-300 flex items-center justify-center gap-1.5"
+                                        className="w-full h-9 text-xs font-semibold text-sky-800 border-sky-300 bg-sky-50 hover:bg-sky-100 flex items-center justify-center gap-1.5"
                                     >
                                         <Printer className="w-3.5 h-3.5" />
                                         Imprimer cette Liste (PDF)
@@ -1126,8 +1130,8 @@ export default function ScolaritesPage({
                         </div>
 
                         {statsCibleFrais && (
-                            <div className="rounded-lg border border-sky-200 dark:border-sky-900 bg-sky-50/70 dark:bg-sky-950/30 px-3 py-2 flex flex-wrap items-center justify-between gap-3 text-xs">
-                                <span className="font-bold text-sky-900 dark:text-sky-200">
+                            <div className="rounded-lg border border-sky-200 bg-sky-50/70 px-3 py-2 flex flex-wrap items-center justify-between gap-3 text-xs">
+                                <span className="font-bold text-sky-900">
                                     Synthèse sur le frais / catégorie sélectionné ({statsCibleFrais.effectif} élève(s)) :
                                 </span>
                                 <div className="flex flex-wrap items-center gap-4 tabular-nums">
@@ -1135,15 +1139,15 @@ export default function ScolaritesPage({
                                         Attendu :{' '}
                                         <strong>{statsCibleFrais.attendu.toLocaleString('fr-FR')} F</strong>
                                     </span>
-                                    <span className="text-emerald-700 dark:text-emerald-400">
+                                    <span className="text-emerald-700">
                                         Encaissé :{' '}
                                         <strong>{statsCibleFrais.paye.toLocaleString('fr-FR')} F</strong>
                                     </span>
-                                    <span className="text-red-700 dark:text-red-400">
+                                    <span className="text-red-700">
                                         Reste :{' '}
                                         <strong>{statsCibleFrais.restant.toLocaleString('fr-FR')} F</strong>
                                     </span>
-                                    <Badge variant="outline" className="bg-white dark:bg-slate-900 text-[10px]">
+                                    <Badge variant="outline" className="bg-white text-[10px]">
                                         Recouvrement {statsCibleFrais.taux} %
                                     </Badge>
                                 </div>
@@ -1152,35 +1156,34 @@ export default function ScolaritesPage({
 
                         {/* Barre d'affectation rapide d'un frais optionnel du niveau à toute la classe sélectionnée (ex: Première CDE vs Première TI) */}
                         {canManageOptions && activeClasseObj && optionsDuNiveauDeLaClasse.length > 0 && (
-                            <div className="pt-2 border-t border-slate-200/80 dark:border-slate-800 flex flex-col lg:flex-row lg:items-center justify-between gap-2.5 text-xs">
-                                <div className="flex items-center gap-2 text-amber-900 dark:text-amber-200">
-                                    <Bus className="w-4 h-4 text-amber-600 shrink-0" />
+                            <div className="pt-2 border-t border-slate-200/80 flex flex-col lg:flex-row lg:items-center justify-between gap-2.5 text-xs">
+                                <div className="flex items-center gap-2 text-amber-900">
+                                    <PackagePlus className="w-4 h-4 text-amber-600 shrink-0" />
                                     <span>
                                         <strong>
-                                            Frais optionnels du niveau ({activeClasseObj.niveauNom}) :
+                                            Frais annexes & optionnels du niveau ({activeClasseObj.niveauNom}) :
                                         </strong>{' '}
                                         Appliquer un frais optionnel (ex : Inscription spécifique à la série/classe) à
                                         tous les élèves de <strong>{activeClasseObj.nom}</strong> en 1 clic :
                                     </span>
                                 </div>
 
-                                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                                    <Select
-                                        value={selectedBulkOptionId}
-                                        onValueChange={setSelectedBulkOptionId}
-                                    >
-                                        <SelectTrigger className="h-8 text-xs bg-white dark:bg-slate-900 sm:w-72 border-amber-300 dark:border-amber-800">
-                                            <SelectValue placeholder="Choisir le frais optionnel..." />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {optionsDuNiveauDeLaClasse.map((opt) => (
-                                                <SelectItem key={opt.id} value={String(opt.id)}>
-                                                    {opt.type_frais?.libelle || opt.libelle_tranche} —{' '}
-                                                    {Number(opt.montant).toLocaleString('fr-FR')} FCFA
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 min-w-0">
+                                    <div className="w-full sm:w-72 min-w-0">
+                                        <SearchableSelect
+                                            options={optionsDuNiveauDeLaClasse.map((opt) => ({
+                                                value: String(opt.id),
+                                                label: opt.type_frais?.libelle || opt.libelle_tranche || 'Frais optionnel',
+                                                description: `${Number(opt.montant).toLocaleString('fr-FR')} FCFA`,
+                                            }))}
+                                            value={selectedBulkOptionId}
+                                            onValueChange={setSelectedBulkOptionId}
+                                            placeholder="Choisir le frais optionnel..."
+                                            searchPlaceholder="Rechercher un frais optionnel..."
+                                            emptyMessage="Aucun frais optionnel trouvé."
+                                            className="h-8 text-xs font-normal bg-white border-amber-300"
+                                        />
+                                    </div>
 
                                     <Button
                                         type="button"
@@ -1201,13 +1204,13 @@ export default function ScolaritesPage({
 
                 {/* 4 KPIs dynamiques sur la classe / sélection affichée */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                    <Card className="border-slate-200 dark:border-slate-800">
+                    <Card className="border-slate-200">
                         <CardContent className="p-3.5">
                             <div className="flex items-center justify-between text-xs font-semibold text-slate-500">
                                 <span>Élèves Affichés</span>
                                 <Users className="w-4 h-4 text-emerald-600" />
                             </div>
-                            <div className="text-lg font-black text-slate-900 dark:text-slate-100 mt-1 tabular-nums">
+                            <div className="text-lg font-black text-slate-900 mt-1 tabular-nums">
                                 {statsSelection.effectif} élève(s)
                             </div>
                             <span className="text-[11px] text-emerald-600 font-semibold">
@@ -1216,26 +1219,26 @@ export default function ScolaritesPage({
                         </CardContent>
                     </Card>
 
-                    <Card className="border-slate-200 dark:border-slate-800">
+                    <Card className="border-slate-200">
                         <CardContent className="p-3.5">
                             <div className="flex items-center justify-between text-xs font-semibold text-slate-500">
                                 <span>Total Exigible (Sélection)</span>
                                 <Wallet className="w-4 h-4 text-blue-600" />
                             </div>
-                            <div className="text-lg font-black text-slate-900 dark:text-slate-100 mt-1 tabular-nums">
+                            <div className="text-lg font-black text-slate-900 mt-1 tabular-nums">
                                 {statsSelection.totalExigible.toLocaleString('fr-FR')} FCFA
                             </div>
                             <span className="text-[11px] text-slate-500">Montant net après remises</span>
                         </CardContent>
                     </Card>
 
-                    <Card className="border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/40 dark:bg-emerald-950/20">
+                    <Card className="border-emerald-200 bg-emerald-50/40">
                         <CardContent className="p-3.5">
-                            <div className="flex items-center justify-between text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                            <div className="flex items-center justify-between text-xs font-semibold text-emerald-700">
                                 <span>Total Encaissé</span>
                                 <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                             </div>
-                            <div className="text-lg font-black text-emerald-700 dark:text-emerald-400 mt-1 tabular-nums">
+                            <div className="text-lg font-black text-emerald-700 mt-1 tabular-nums">
                                 {statsSelection.totalPaye.toLocaleString('fr-FR')} FCFA
                             </div>
                             <span className="text-[11px] font-semibold text-emerald-700">
@@ -1244,13 +1247,13 @@ export default function ScolaritesPage({
                         </CardContent>
                     </Card>
 
-                    <Card className="border-red-200 dark:border-red-900/50 bg-red-50/30 dark:bg-red-950/20">
+                    <Card className="border-red-200 bg-red-50/30">
                         <CardContent className="p-3.5">
-                            <div className="flex items-center justify-between text-xs font-semibold text-red-700 dark:text-red-300">
+                            <div className="flex items-center justify-between text-xs font-semibold text-red-700">
                                 <span>Reste à Recouvrer</span>
                                 <DollarSign className="w-4 h-4 text-red-600" />
                             </div>
-                            <div className="text-lg font-black text-red-600 dark:text-red-400 mt-1 tabular-nums">
+                            <div className="text-lg font-black text-red-600 mt-1 tabular-nums">
                                 {statsSelection.totalReste.toLocaleString('fr-FR')} FCFA
                             </div>
                             <span className="text-[11px] text-slate-500">Solde cumulé dû</span>
@@ -1260,12 +1263,12 @@ export default function ScolaritesPage({
 
                 {/* Synthèse des montants globaux par Catégorie de Frais (Scolarité, Frais d'Examen, Fête...) */}
                 {syntheseCategories.length > 0 && (
-                    <Card className="border-slate-200 dark:border-slate-800 shadow-xs">
+                    <Card className="border-slate-200 shadow-xs">
                         <CardContent className="p-3.5 sm:p-4 space-y-3">
                             <div className="flex flex-wrap items-center justify-between gap-2">
                                 <div className="flex items-center gap-2">
                                     <Tag className="w-4 h-4 text-emerald-600 shrink-0" />
-                                    <h3 className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                                    <h3 className="text-xs font-bold text-slate-900">
                                         Montants Globaux par Catégorie de Frais (Sélection Courante)
                                     </h3>
                                 </div>
@@ -1278,11 +1281,11 @@ export default function ScolaritesPage({
                                 {syntheseCategories.map((cat) => (
                                     <div
                                         key={cat.key}
-                                        className="p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/50 flex flex-col justify-between gap-2"
+                                        className="p-3 rounded-lg border border-slate-200 bg-slate-50/60 flex flex-col justify-between gap-2"
                                     >
                                         <div className="flex items-start justify-between gap-2">
                                             <div className="min-w-0">
-                                                <div className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">
+                                                <div className="text-xs font-bold text-slate-900 truncate">
                                                     {cat.nom}
                                                 </div>
                                                 {cat.tarifUnitaireObligatoire !== null &&
@@ -1305,15 +1308,15 @@ export default function ScolaritesPage({
                                         <div className="space-y-1">
                                             <div className="flex items-baseline justify-between gap-2">
                                                 <span className="text-[11px] text-slate-500">Attendu :</span>
-                                                <span className="text-xs font-black text-slate-900 dark:text-slate-100 tabular-nums">
+                                                <span className="text-xs font-black text-slate-900 tabular-nums">
                                                     {cat.attenduGlobal.toLocaleString('fr-FR')} FCFA
                                                 </span>
                                             </div>
                                             <div className="flex items-baseline justify-between gap-2">
-                                                <span className="text-[11px] text-emerald-700 dark:text-emerald-400">
+                                                <span className="text-[11px] text-emerald-700">
                                                     Encaissé :
                                                 </span>
-                                                <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 tabular-nums">
+                                                <span className="text-xs font-bold text-emerald-700 tabular-nums">
                                                     {cat.encaisseGlobal.toLocaleString('fr-FR')} FCFA
                                                 </span>
                                             </div>
@@ -1322,7 +1325,7 @@ export default function ScolaritesPage({
                                                 <span
                                                     className={`text-xs font-bold tabular-nums ${
                                                         cat.resteGlobal > 0
-                                                            ? 'text-red-600 dark:text-red-400'
+                                                            ? 'text-red-600'
                                                             : 'text-emerald-600'
                                                     }`}
                                                 >
@@ -1331,7 +1334,7 @@ export default function ScolaritesPage({
                                             </div>
                                         </div>
 
-                                        <div className="w-full h-1.5 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+                                        <div className="w-full h-1.5 rounded-full bg-slate-200 overflow-hidden">
                                             <div
                                                 className="h-full bg-emerald-600 transition-all"
                                                 style={{ width: `${cat.tauxRecouvrement}%` }}

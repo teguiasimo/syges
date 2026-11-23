@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronsUpDown, X } from 'lucide-react';
+import { ChevronDown, X } from 'lucide-react';
 import * as React from 'react';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -6,9 +6,6 @@ import {
     DropdownMenuCheckboxItem,
     DropdownMenuContent,
     DropdownMenuGroup,
-    DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
@@ -134,7 +131,7 @@ export function MultiSelect({
                                     <Badge
                                         key={opt.value}
                                         variant="secondary"
-                                        className="text-[11px] font-normal px-1.5 py-0.5 h-6 flex items-center gap-1 bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-200 dark:border-emerald-800"
+                                        className="text-[11px] font-normal px-1.5 py-0.5 h-6 flex items-center gap-1 bg-emerald-50 text-emerald-800 border border-emerald-200"
                                     >
                                         <span className="truncate max-w-30">{opt.label}</span>
                                         {!opt.disabled && (
@@ -142,7 +139,7 @@ export function MultiSelect({
                                                 role="button"
                                                 tabIndex={0}
                                                 onClick={(e) => handleRemoveValue(e, opt.value)}
-                                                className="hover:text-destructive hover:bg-emerald-100 dark:hover:bg-emerald-900 rounded p-0.5 transition-colors cursor-pointer"
+                                                className="hover:text-destructive hover:bg-emerald-100 rounded p-0.5 transition-colors cursor-pointer"
                                                 title={`Retirer ${opt.label}`}
                                             >
                                                 <X className="size-3" />

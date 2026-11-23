@@ -66,7 +66,7 @@ export default function ClotureCaisseModal({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-md">
                 <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2 text-lg font-bold text-slate-800 dark:text-slate-100">
+                    <DialogTitle className="flex items-center gap-2 text-lg font-bold text-slate-800">
                         <Lock className="w-5 h-5 text-amber-600 shrink-0" />
                         Clôture Journalière de Caisse
                     </DialogTitle>
@@ -77,7 +77,7 @@ export default function ClotureCaisseModal({
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     {/* Synthèse par mode de paiement adaptable aux petits écrans */}
-                    <div className="p-3 bg-slate-50 dark:bg-slate-900 rounded border divide-y divide-slate-200 dark:divide-slate-800 text-xs">
+                    <div className="p-3 bg-slate-50 rounded border divide-y divide-slate-200 text-xs">
                         <div className="flex flex-wrap justify-between gap-2 py-1">
                             <span>Espèces physiques :</span>
                             <span className="font-semibold tabular-nums">{Number(journal.total_especes).toLocaleString('fr-FR')} FCFA</span>

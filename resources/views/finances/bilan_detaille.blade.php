@@ -149,6 +149,9 @@
     </div>
 
     @forelse($classes as $c)
+        @php
+            $hasAnnexes = ($c['total_frais_annexes'] ?? 0) > 0;
+        @endphp
         <div class="classe-title">
             Classe : {{ $c['classe'] }} — {{ count($c['eleves']) }} élève(s) — Versé : {{ number_format($c['total_verse'], 0, ',', ' ') }} FCFA | Solde restant : {{ number_format($c['total_reste'], 0, ',', ' ') }} FCFA
             @if(($c['total_a_verser'] ?? 0) <= 0 && ($c['total_verse'] ?? 0) <= 0)
@@ -160,13 +163,23 @@
                 <tr>
                     <th style="width: 3%;" class="text-center">#</th>
                     <th style="width: 10%;">Matricule</th>
-                    <th style="width: 25%;">Nom & Prénoms de l'Élève</th>
-                    <th style="width: 5%;" class="text-center">Sexe</th>
-                    <th style="width: 13%;" class="text-right">Montant Exigible</th>
-                    <th style="width: 11%;" class="text-right">Réduction</th>
-                    <th style="width: 13%;" class="text-right">Total Versé</th>
-                    <th style="width: 12%;" class="text-right">Solde Dû</th>
-                    <th style="width: 8%;" class="text-center">Statut</th>
+                    <th style="width: {{ $hasAnnexes ? '21%' : '25%' }};">Nom & Prénoms de l'Élève</th>
+                    <th style="width: {{ $hasAnnexes ? '4%' : '5%' }};" class="text-center">Sexe</th>
+                    @if($hasAnnexes)
+                        <th style="width: 10%;" class="text-right">Scolarité</th>
+                        <th style="width: 12%;" class="text-right">Frais Annexes</th>
+                        <th style="width: 10%;" class="text-right">Total Exigible</th>
+                        <th style="width: 8%;" class="text-right">Réduction</th>
+                        <th style="width: 9%;" class="text-right">Total Versé</th>
+                        <th style="width: 9%;" class="text-right">Solde Dû</th>
+                        <th style="width: 4%;" class="text-center">Statut</th>
+                    @else
+                        <th style="width: 13%;" class="text-right">Montant Exigible</th>
+                        <th style="width: 11%;" class="text-right">Réduction</th>
+                        <th style="width: 13%;" class="text-right">Total Versé</th>
+                        <th style="width: 12%;" class="text-right">Solde Dû</th>
+                        <th style="width: 8%;" class="text-center">Statut</th>
+                    @endif
                 </tr>
             </thead>
             <tbody>
@@ -176,13 +189,24 @@
                         <td class="font-bold" style="font-family: monospace;">{{ $e['matricule'] }}</td>
                         <td class="font-bold">{{ $e['nom_complet'] }}</td>
                         <td class="text-center">{{ $e['sexe'] }}</td>
-                        <td class="text-right">{{ number_format($e['a_verser'], 0, ',', ' ') }} F</td>
+                        @if($hasAnnexes)
+                            <td class="text-right">{{ number_format($e['scolarite_base'] ?? $e['a_verser'], 0, ',', ' ') }} F</td>
+                            <td class="text-right" style="color: {{ ($e['frais_annexes'] ?? 0) > 0 ? '#b45309' : '#64748b' }};">
+                                {{ number_format($e['frais_annexes'] ?? 0, 0, ',', ' ') }} F
+                                @if(!empty($e['details_annexes']))
+                                    <div style="font-size: 6pt; color: #92400e; font-weight: normal; line-height: 1.15;">
+                                        {{ $e['details_annexes'] }}
+                                    </div>
+                                @endif
+                            </td>
+                        @endif
+                        <td class="text-right {{ $hasAnnexes ? 'font-bold' : '' }}">{{ number_format($e['a_verser'], 0, ',', ' ') }} F</td>
                         <td class="text-right" style="color: #64748b;">{{ number_format($e['reduction'], 0, ',', ' ') }} F</td>
                         <td class="text-right font-bold" style="color: #047857;">{{ number_format($e['verse'], 0, ',', ' ') }} F</td>
                         <td class="text-right font-bold" style="color: {{ ($e['a_verser'] <= 0 && $e['verse'] <= 0) ? '#64748b' : ($e['reste'] > 0 ? '#dc2626' : '#047857') }};">
                             {{ number_format($e['reste'], 0, ',', ' ') }} F
                         </td>
-                        <td class="text-center font-bold" style="font-size: 7pt;">
+                        <td class="text-center font-bold" style="font-size: {{ $hasAnnexes ? '6.5pt' : '7pt' }};">
                             @if($e['a_verser'] <= 0 && $e['verse'] <= 0 && $e['reduction'] <= 0)
                                 <span style="color: #64748b;">NON CONFIGURÉ</span>
                             @elseif($e['reste'] <= 0)
@@ -205,10 +229,17 @@
 
     <table class="total-box">
         <tr>
-            <td style="width: 15%; text-align: center;">EFFECTIF : {{ $total_eleves }}</td>
-            <td style="width: 25%; text-align: right;">CUMUL EXIGIBLE : {{ number_format($total_a_verser, 0, ',', ' ') }} FCFA</td>
-            <td style="width: 30%; text-align: right; color: #047857;">CUMUL VERSÉ : {{ number_format($total_verse, 0, ',', ' ') }} FCFA</td>
-            <td style="width: 30%; text-align: right; color: {{ $total_reste > 0 ? '#dc2626' : '#047857' }};">
+            <td style="width: 14%; text-align: center;">EFFECTIF : {{ $total_eleves }}</td>
+            <td style="width: 32%; text-align: right;">
+                CUMUL EXIGIBLE : {{ number_format($total_a_verser, 0, ',', ' ') }} FCFA
+                @if(($total_frais_annexes ?? 0) > 0)
+                    <div style="font-size: 6.5pt; font-weight: normal; color: #92400e;">
+                        (Scolarité : {{ number_format($total_scolarite ?? 0, 0, ',', ' ') }} F + Annexes : {{ number_format($total_frais_annexes, 0, ',', ' ') }} F)
+                    </div>
+                @endif
+            </td>
+            <td style="width: 27%; text-align: right; color: #047857;">CUMUL VERSÉ : {{ number_format($total_verse, 0, ',', ' ') }} FCFA</td>
+            <td style="width: 27%; text-align: right; color: {{ $total_reste > 0 ? '#dc2626' : '#047857' }};">
                 TOTAL RESTE DÛ : {{ number_format($total_reste, 0, ',', ' ') }} FCFA
             </td>
         </tr>

@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { MessageSquare, Sparkles } from 'lucide-react';
+import { MessageSquare } from 'lucide-react';
 
 interface SmsDirectModalProps {
     open: boolean;
@@ -71,7 +71,7 @@ export default function SmsDirectModal({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2 text-base sm:text-lg font-bold text-slate-800 dark:text-slate-100">
+                    <DialogTitle className="flex items-center gap-2 text-base sm:text-lg font-bold text-slate-800">
                         <MessageSquare className="w-5 h-5 text-teal-600 shrink-0" />
                         <span>Envoyer un SMS Direct</span>
                     </DialogTitle>

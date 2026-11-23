@@ -2,7 +2,6 @@
  * Types TypeScript pour le Conseil de Discipline & Heures de Consigne (Phase 5).
  */
 
-import type { Inscription, EtablissementRef, AnneeScolaireRef } from './eleve';
 
 export type StatutSession = 'planifie' | 'en_cours' | 'tenu' | 'annule';
 export type DecisionConseil =

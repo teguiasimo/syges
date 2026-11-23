@@ -1,6 +1,6 @@
 <?php
 
-/** @var \Tests\TestCase $this */
+/** @var TestCase $this */
 
 use App\Models\AnneeScolaire;
 use App\Models\Attribution;
@@ -14,9 +14,11 @@ use App\Models\Matiere;
 use App\Models\Niveau;
 use App\Models\Personnel;
 use App\Models\Section;
+use App\Models\Serie;
 use App\Models\User;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
+use Tests\TestCase;
 
 /**
  * Tests de fonctionnalités pour le module Institution & Structure Pédagogique dans SYGES.
@@ -29,9 +31,8 @@ use Spatie\Permission\Models\Role;
  * - Les validations de sécurité et de dépendance (interdiction de suppression en cas de dépendances enfants).
  * - La prise en charge bilingue (Français / Anglais).
  */
-
 beforeEach(function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     Role::firstOrCreate(['name' => 'super-admin', 'guard_name' => 'web']);
 
     $permissions = [
@@ -65,13 +66,13 @@ beforeEach(function () {
 });
 
 test('guests are redirected to login when visiting institution page', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $response = $this->get(route('administration.institution.index'));
     $response->assertRedirect(route('login'));
 });
 
 test('unauthorized users without institutions.view permission cannot access the module', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $user = User::factory()->create();
     $this->actingAs($user);
 
@@ -80,7 +81,7 @@ test('unauthorized users without institutions.view permission cannot access the 
 });
 
 test('authorized users can view root institution card and etablissements list', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $this->actingAs($this->adminUser);
 
     $response = $this->get(route('administration.institution.index'));
@@ -99,7 +100,7 @@ test('authorized users can view root institution card and etablissements list', 
 });
 
 test('unauthorized users without institutions.edit permission cannot access institution edit page', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $user = User::factory()->create();
     $this->actingAs($user);
 
@@ -108,7 +109,7 @@ test('unauthorized users without institutions.edit permission cannot access inst
 });
 
 test('authorized users can view dedicated institution edit page with data', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $this->actingAs($this->adminUser);
 
     $response = $this->get(route('administration.institution.edit'));
@@ -121,7 +122,7 @@ test('authorized users can view dedicated institution edit page with data', func
 });
 
 test('can update institution information in french and english', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $this->actingAs($this->adminUser);
 
     $response = $this->put(route('administration.institution.update'), [
@@ -147,7 +148,7 @@ test('can update institution information in french and english', function () {
 });
 
 test('can create and update an etablissement with bilingual fields', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $this->actingAs($this->adminUser);
 
     $response = $this->post(route('administration.etablissements.store'), [
@@ -182,7 +183,7 @@ test('can create and update an etablissement with bilingual fields', function ()
 });
 
 test('drill down into an etablissement displays its sections', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $this->actingAs($this->adminUser);
 
     $etablissement = Etablissement::create([
@@ -203,7 +204,7 @@ test('drill down into an etablissement displays its sections', function () {
 });
 
 test('can manage sections, cycles, niveaux and classes hierarchically', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $this->actingAs($this->adminUser);
 
     // 1. Établissement
@@ -266,7 +267,7 @@ test('can manage sections, cycles, niveaux and classes hierarchically', function
 });
 
 test('cannot delete an entity if it contains child dependencies', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $this->actingAs($this->adminUser);
 
     $etab = Etablissement::create([
@@ -301,11 +302,78 @@ test('cannot delete an entity if it contains child dependencies', function () {
 });
 
 /**
+ * Vérifie qu'un établissement sans sections reste bloqué à la suppression s'il possède encore
+ * des personnels, des utilisateurs ou des périodes, et que le verrou modèle (`DomainException`) fonctionne.
+ */
+test('cannot delete an etablissement containing personnels, users, or periodes even without sections', function () {
+    /** @var TestCase $this */
+    $this->actingAs($this->adminUser);
+
+    $etab = Etablissement::create([
+        'institution_id' => $this->institution->id,
+        'nom' => 'Campus Avec Dépendances Directes',
+        'code' => 'CDDIR',
+        'statut_juridique' => 'Prive_Laic',
+        'ordre_enseignement' => 'Secondaire_General',
+    ]);
+
+    // 1. Ajout d'un membre du personnel sans aucune section pédagogique
+    $personnel = Personnel::create([
+        'etablissement_id' => $etab->id,
+        'matricule' => 'PER-TEST-LOCK-01',
+        'nom' => 'MBARGA',
+        'prenom' => 'Paul',
+        'sexe' => 'M',
+        'telephone' => '+237 699 000 111',
+        'fonction_principale' => 'Enseignant',
+        'type_contrat' => 'Permanent',
+        'statut' => 'Actif',
+    ]);
+
+    // 2. Ajout d'un compte utilisateur rattaché directement au campus
+    $campusUser = User::factory()->create([
+        'etablissement_id' => $etab->id,
+    ]);
+
+    // 3. Vérifie que la vue Inertia expose les compteurs bloquants pour le verrouillage visuel
+    $this->get(route('administration.institution.index'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('etablissements', function ($items) use ($etab) {
+                $target = collect($items)->firstWhere('id', $etab->id);
+
+                return $target !== null
+                    && (int) ($target['personnels_count'] ?? 0) === 1
+                    && (int) ($target['users_count'] ?? 0) === 1
+                    && (int) ($target['sections_count'] ?? 0) === 0;
+            })
+        );
+
+    // 4. La suppression via le contrôleur doit être refusée avec message flash d'erreur
+    $this->delete(route('administration.etablissements.destroy', $etab))
+        ->assertSessionHas('error');
+    $this->assertDatabaseHas('etablissements', ['id' => $etab->id]);
+
+    // 5. Même une suppression programmatique directe sur le modèle doit lever une DomainException
+    expect(fn () => $etab->delete())->toThrow(DomainException::class);
+
+    // 6. Nettoyage des dépendances directes (même avec séries par défaut auto-seedées) -> suppression autorisée
+    Serie::seedDefaultsForEtablissement($etab->id);
+    $personnel->delete();
+    $campusUser->update(['etablissement_id' => null]);
+
+    $this->delete(route('administration.etablissements.destroy', $etab))
+        ->assertRedirect(route('administration.institution.index'))
+        ->assertSessionHas('success');
+    $this->assertDatabaseMissing('etablissements', ['id' => $etab->id]);
+});
+
+/**
  * Vérifie que seuls les utilisateurs disposant de la permission 'etablissements.manage'
  * peuvent modifier ou supprimer un établissement, avec un rejet HTTP 403 strict dans le cas contraire.
  */
 test('unauthorized users cannot update or delete an establishment', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     // Création d'un utilisateur standard sans aucune permission de gestion
     $standardUser = User::factory()->create();
     $this->actingAs($standardUser);
@@ -344,7 +412,7 @@ test('unauthorized users cannot update or delete an establishment', function () 
  * le seuil de discipline et les verrous de solvabilité financière.
  */
 test('authorized users can view and update etablissement settings with sans_competences default', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $this->actingAs($this->adminUser);
 
     // 1. Création d'un établissement rapide
@@ -406,7 +474,7 @@ test('authorized users can view and update etablissement settings with sans_comp
  * Vérifie que les utilisateurs non autorisés ne peuvent ni consulter ni modifier les paramètres d'établissement.
  */
 test('unauthorized users cannot access or update etablissement settings', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $standardUser = User::factory()->create();
     $this->actingAs($standardUser);
 
@@ -439,7 +507,7 @@ test('unauthorized users cannot access or update etablissement settings', functi
  * Vérifie que le nom d'une section est obligatoirement unique au sein d'un même établissement.
  */
 test('section name must be unique per etablissement', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $this->actingAs($this->adminUser);
 
     $etab1 = Etablissement::create([
@@ -499,7 +567,7 @@ test('section name must be unique per etablissement', function () {
  * et qu'un même nom de cycle peut être utilisé dans des établissements différents.
  */
 test('cycle name must be unique per etablissement and auto-generates code', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $this->actingAs($this->adminUser);
 
     $etab1 = Etablissement::create([
@@ -600,7 +668,7 @@ test('cycle name must be unique per etablissement and auto-generates code', func
  * et qu'un même nom de niveau peut être utilisé dans des établissements différents.
  */
 test('niveau name must be unique per etablissement and auto-generates code', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $this->actingAs($this->adminUser);
 
     $etab1 = Etablissement::create([
@@ -715,7 +783,7 @@ test('niveau name must be unique per etablissement and auto-generates code', fun
  * mais qu'une classe vierge peut être supprimée sans encombre.
  */
 test('classe cannot be deleted if it has attributions or inscriptions but can be deleted if empty', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $this->actingAs($this->adminUser);
 
     $etab = Etablissement::create([
@@ -828,7 +896,7 @@ test('classe cannot be deleted if it has attributions or inscriptions but can be
 });
 
 test('user can create, update, and delete custom series for an establishment', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $this->actingAs($this->adminUser);
 
     $etab = Etablissement::create([
@@ -840,7 +908,7 @@ test('user can create, update, and delete custom series for an establishment', f
     ]);
 
     // 1. Vérification du pré-remplissage des séries par défaut (GENERAL, C, D, E, TI, ALLEMAND, ESPAGNOL, A4 ALL, A4 ESP)
-    \App\Models\Serie::seedDefaultsForEtablissement($etab->id);
+    Serie::seedDefaultsForEtablissement($etab->id);
     $this->assertDatabaseHas('series', ['etablissement_id' => $etab->id, 'nom' => 'GENERAL']);
     $this->assertDatabaseHas('series', ['etablissement_id' => $etab->id, 'nom' => 'A4 ALL']);
     $this->assertDatabaseHas('series', ['etablissement_id' => $etab->id, 'nom' => 'C']);
@@ -856,7 +924,7 @@ test('user can create, update, and delete custom series for an establishment', f
         'nom' => 'SES',
     ]);
 
-    $serie = \App\Models\Serie::where('etablissement_id', $etab->id)->where('nom', 'SES')->firstOrFail();
+    $serie = Serie::where('etablissement_id', $etab->id)->where('nom', 'SES')->firstOrFail();
 
     // 3. Vérification de l'unicité du nom au sein du même établissement
     $duplicateResponse = $this->post(route('administration.series.store'), [
@@ -942,7 +1010,7 @@ test('user can create, update, and delete custom series for an establishment', f
  * tout en interdisant les doublons au sein du même établissement.
  */
 test('distinct etablissements can have classes with identical code without collision', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $this->actingAs($this->adminUser);
 
     // Établissement 1 (Collège Bilingue)
@@ -1038,7 +1106,117 @@ test('distinct etablissements can have classes with identical code without colli
     $duplicateResponse->assertSessionHas('error');
 });
 
+/**
+ * Vérifie que les paramètres d'établissement acceptent une mise à jour sans les anciens champs
+ * de bonus anticipé et valident bien le seuil de 60 % pour le classement.
+ */
+test('etablissement settings can be updated without bonus fields and accepts 60 percent threshold', function () {
+    /** @var TestCase $this */
+    $this->actingAs($this->adminUser);
 
+    $etab = Etablissement::create([
+        'institution_id' => $this->institution->id,
+        'code' => 'CAMP-60',
+        'nom' => 'Campus Seuil 60',
+        'statut_juridique' => 'Prive_Laic',
+        'ordre_enseignement' => 'Secondaire_General',
+    ]);
 
+    $response = $this->put(route('administration.etablissements.settings.update', $etab), [
+        'code' => 'CAMP-60',
+        'nom' => 'Campus Seuil 60',
+        'statut_juridique' => 'Prive_Laic',
+        'ordre_enseignement' => 'Secondaire_General',
+        'mode_bulletin_defaut' => 'sans_competences',
+        'type_calcul_trimestre' => 'arithmetique',
+        'seuil_classement_actif' => true,
+        'mode_seuil_classement' => 'pourcentage',
+        'seuil_classement_valeur' => 60,
+        'seuil_absences_decheance_mentions' => 40,
+        'verrou_solvabilite_actif' => false,
+    ]);
 
+    $response->assertSessionHas('success');
+    $etab->refresh();
 
+    expect($etab->seuil_classement_actif)->toBeTrue();
+    expect($etab->mode_seuil_classement)->toBe('pourcentage');
+    expect((float) $etab->seuil_classement_valeur)->toBe(60.0);
+});
+
+/**
+ * Vérifie la synchronisation unidirectionnelle Établissement -> Personnel directeur
+ * (y compris sur un matricule seedé *-DIR-*) sans jamais altérer le compte utilisateur lié.
+ */
+test('updating nom_chef_etablissement syncs director personnel unidirectionally without altering linked user', function () {
+    /** @var TestCase $this */
+    $this->actingAs($this->adminUser);
+
+    $etab = Etablissement::create([
+        'institution_id' => $this->institution->id,
+        'code' => 'ESP-PRI',
+        'nom' => 'École Primaire Espoir',
+        'statut_juridique' => 'Prive_Laic',
+        'ordre_enseignement' => 'Primaire',
+        'nom_chef_etablissement' => 'NOM DU DIRECTEUR A COMPLETER',
+        'titre_chef' => 'Le Directeur',
+    ]);
+
+    $linkedUser = User::factory()->create([
+        'name' => 'Compte Directeur Manuel',
+    ]);
+
+    $directorPersonnel = Personnel::create([
+        'etablissement_id' => $etab->id,
+        'user_id' => $linkedUser->id,
+        'matricule' => 'ESP-PRI-DIR-01',
+        'nom' => 'NOM DU DIRECTEUR',
+        'prenom' => 'A COMPLETER',
+        'sexe' => 'M',
+        'telephone' => '699000001',
+        'fonction_principale' => 'Directeur',
+        'type_contrat' => 'Permanent',
+        'date_embauche' => now()->startOfYear(),
+        'statut' => 'Actif',
+        'is_enseignant' => false,
+        'volume_horaire_hebdo' => 0,
+    ]);
+
+    $response = $this->put(route('administration.etablissements.settings.update', $etab), [
+        'code' => 'ESP-PRI',
+        'nom' => 'École Primaire Espoir',
+        'statut_juridique' => 'Prive_Laic',
+        'ordre_enseignement' => 'Primaire',
+        'nom_chef_etablissement' => 'MBARGA Jean Paul',
+        'titre_chef' => 'La Directrice',
+        'mode_bulletin_defaut' => 'sans_competences',
+        'type_calcul_trimestre' => 'arithmetique',
+        'seuil_absences_decheance_mentions' => 40,
+        'verrou_solvabilite_actif' => false,
+    ]);
+
+    $response->assertSessionHas('success');
+    $directorPersonnel->refresh();
+    $linkedUser->refresh();
+
+    expect($directorPersonnel->nom)->toBe('MBARGA');
+    expect($directorPersonnel->prenom)->toBe('Jean Paul');
+    expect($directorPersonnel->fonction_principale)->toBe('La Directrice');
+    expect($linkedUser->name)->toBe('Compte Directeur Manuel');
+});
+
+/**
+ * Vérifie que la vue racine HTML force définitivement le mode clair et ne contient
+ * plus aucune trace du mode sombre (classe .dark ou prefers-color-scheme).
+ */
+test('root blade layout never renders dark mode even with legacy appearance cookie', function () {
+    /** @var TestCase $this */
+    auth()->logout();
+
+    $response = $this->withUnencryptedCookie('appearance', 'dark')->get(route('login'));
+
+    $response->assertOk();
+    $response->assertDontSee('class="dark"', false);
+    $response->assertDontSee('prefers-color-scheme', false);
+    $response->assertSee('<meta name="color-scheme" content="light">', false);
+});

@@ -71,14 +71,14 @@ export default function Login({ status }: Props) {
                             {hasAuthError && (
                                 <Alert
                                     variant="destructive"
-                                    className="border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-400 py-3 shadow-xs"
+                                    className="border-red-500/30 bg-red-500/10 text-red-700 py-3 shadow-xs"
                                 >
-                                    <AlertCircle className="size-4.5 text-red-600 dark:text-red-400 mt-0.5" />
+                                    <AlertCircle className="size-4.5 text-red-600 mt-0.5" />
                                     <div className="flex flex-col gap-0.5">
                                         <AlertTitle className="font-bold text-sm">
                                             Identifiants incorrects
                                         </AlertTitle>
-                                        <AlertDescription className="text-xs leading-relaxed text-red-600 dark:text-red-300">
+                                        <AlertDescription className="text-xs leading-relaxed text-red-600">
                                             {errors.email || errors.password || "Identifiant ou mot de passe incorrect. Veuillez vérifier vos informations de connexion."}
                                         </AlertDescription>
                                     </div>
@@ -89,14 +89,14 @@ export default function Login({ status }: Props) {
                             {hasSessionBanner && (
                                 <Alert
                                     variant="destructive"
-                                    className="border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-300 py-3 shadow-xs"
+                                    className="border-amber-500/40 bg-amber-500/10 text-amber-800 py-3 shadow-xs"
                                 >
-                                    <AlertCircle className="size-4.5 text-amber-600 dark:text-amber-400 mt-0.5" />
+                                    <AlertCircle className="size-4.5 text-amber-600 mt-0.5" />
                                     <div className="flex flex-col gap-0.5">
                                         <AlertTitle className="font-bold text-sm">
                                             Session actualisée
                                         </AlertTitle>
-                                        <AlertDescription className="text-xs leading-relaxed text-amber-700 dark:text-amber-200">
+                                        <AlertDescription className="text-xs leading-relaxed text-amber-700">
                                             {flashError}
                                         </AlertDescription>
                                     </div>
@@ -105,7 +105,7 @@ export default function Login({ status }: Props) {
 
                             {/* Message de statut optionnel de session */}
                             {status && (
-                                <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-center text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+                                <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-center text-xs font-semibold text-emerald-700">
                                     {status}
                                 </div>
                             )}
@@ -188,7 +188,7 @@ export default function Login({ status }: Props) {
                                 {/* Bouton principal de soumission */}
                                 <Button
                                     type="submit"
-                                    className="mt-2 h-11 w-full cursor-pointer bg-gradient-to-r from-blue-700 via-indigo-600 to-indigo-700 hover:from-blue-800 hover:via-indigo-700 hover:to-indigo-800 text-white font-semibold shadow-md shadow-indigo-600/20 transition-all hover:scale-[1.01] active:scale-[0.99]"
+                                    className="mt-2 h-11 w-full cursor-pointer bg-linear-to-r from-blue-700 via-indigo-600 to-indigo-700 hover:from-blue-800 hover:via-indigo-700 hover:to-indigo-800 text-white font-semibold shadow-md shadow-indigo-600/20 transition-all hover:scale-[1.01] active:scale-[0.99]"
                                     tabIndex={4}
                                     disabled={processing}
                                     data-test="login-button"
@@ -217,7 +217,7 @@ export default function Login({ status }: Props) {
                                                 href={supportPhoneHref}
                                                 className="inline-flex items-center gap-1 font-semibold text-foreground hover:text-indigo-600 transition-colors"
                                             >
-                                                <Phone className="size-3 text-emerald-600 dark:text-emerald-400" />
+                                                <Phone className="size-3 text-emerald-600" />
                                                 <span>{supportPhone}</span>
                                             </a>
                                         )}

@@ -155,7 +155,7 @@ export default function ConfigurationPenaliteModal({
                             onChange={e => setJoursGrace(e.target.value)}
                             required
                         />
-                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                        <p className="text-xs text-slate-500">
                             Nombre de jours après l'échéance calendaire avant que la pénalité ne devienne exigible.
                         </p>
                     </div>

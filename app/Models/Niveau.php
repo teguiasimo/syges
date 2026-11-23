@@ -2,10 +2,12 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 
 /**
  * Modèle représentant un Niveau d'étude (palier pédagogique).
@@ -20,11 +22,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $nom
  * @property string|null $nom_en
  * @property int $ordre
- * @property \Illuminate\Support\Carbon|null $created_at
- * @property \Illuminate\Support\Carbon|null $updated_at
- * @property-read \App\Models\Etablissement|null $etablissement
- * @property-read \App\Models\Cycle $cycle
- * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Classe> $classes
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
+ * @property-read Etablissement|null $etablissement
+ * @property-read Cycle $cycle
+ * @property-read Collection<int, Classe> $classes
  */
 class Niveau extends Model
 {
@@ -77,8 +79,6 @@ class Niveau extends Model
 
     /**
      * Relation plusieurs-à-un vers l'Établissement scolaire parent.
-     *
-     * @return BelongsTo
      */
     public function etablissement(): BelongsTo
     {
@@ -87,8 +87,6 @@ class Niveau extends Model
 
     /**
      * Relation plusieurs-à-un vers le Cycle parent.
-     *
-     * @return BelongsTo
      */
     public function cycle(): BelongsTo
     {
@@ -97,8 +95,6 @@ class Niveau extends Model
 
     /**
      * Relation un-à-plusieurs vers les Classes de ce niveau.
-     *
-     * @return HasMany
      */
     public function classes(): HasMany
     {
@@ -107,11 +103,17 @@ class Niveau extends Model
 
     /**
      * Relation un-à-plusieurs vers les coefficients des matières configurées pour ce niveau.
-     *
-     * @return HasMany
      */
     public function matiereNiveaux(): HasMany
     {
         return $this->hasMany(MatiereNiveau::class, 'niveau_id');
+    }
+
+    /**
+     * Relation un-à-plusieurs vers les tarifs et frais scolaires rattachés à ce niveau.
+     */
+    public function fraisScolaires(): HasMany
+    {
+        return $this->hasMany(FraisScolaire::class, 'niveau_id');
     }
 }

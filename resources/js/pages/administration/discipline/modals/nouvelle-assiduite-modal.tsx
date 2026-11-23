@@ -12,6 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
     Select,
     SelectContent,
@@ -58,8 +59,36 @@ export default function NouvelleAssiduiteModal({
         motif_justification: '',
     });
 
+    // Options formatées pour les sélecteurs avec recherche (élèves et matières)
+    const inscriptionOptions = React.useMemo(
+        () =>
+            inscriptions.map((i) => ({
+                value: String(i.id),
+                label: [i.eleve?.nom, i.eleve?.prenom].filter(Boolean).join(' '),
+                group: i.classe?.nom || 'Élèves',
+                description: `${i.eleve?.matricule || 'N/A'} • ${i.classe?.nom || 'Sans classe'}`,
+            })),
+        [inscriptions]
+    );
+
+    const matiereOptions = React.useMemo(
+        () => [
+            { value: '', label: 'Toutes ou hors cours' },
+            ...matieres.map((m) => ({
+                value: String(m.id),
+                label: m.nom,
+            })),
+        ],
+        [matieres]
+    );
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+
+        if (!data.inscription_id) {
+            toast.error('Veuillez sélectionner un élève concerné.', { position: 'top-right' });
+            return;
+        }
 
         transform((formValues) => ({
             ...formValues,
@@ -90,7 +119,7 @@ export default function NouvelleAssiduiteModal({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6">
                 <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2 text-lg font-bold text-slate-800 dark:text-slate-100">
+                    <DialogTitle className="flex items-center gap-2 text-lg font-bold text-slate-800">
                         <UserX className="w-5 h-5 text-rose-600 shrink-0" />
                         <span>Signaler une Absence ou un Retard</span>
                     </DialogTitle>
@@ -100,30 +129,24 @@ export default function NouvelleAssiduiteModal({
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    {/* Élève */}
-                    <div className="space-y-1">
+                    {/* Élève avec recherche instantanée par nom, matricule ou classe */}
+                    <div className="space-y-1 min-w-0">
                         <Label htmlFor="inscr_select" className="text-xs sm:text-sm">Élève concerné <span className="text-red-500">*</span></Label>
-                        <Select
+                        <SearchableSelect
+                            id="inscr_select"
+                            options={inscriptionOptions}
                             value={data.inscription_id}
                             onValueChange={(val) => setData('inscription_id', val)}
-                        >
-                            <SelectTrigger id="inscr_select" className="w-full">
-                                <SelectValue placeholder="Choisir un élève..." />
-                            </SelectTrigger>
-                            <SelectContent className="max-h-56">
-                                {inscriptions.map((i) => (
-                                    <SelectItem key={i.id} value={String(i.id)}>
-                                        {i.eleve?.matricule} - {i.eleve?.nom} {i.eleve?.prenom} ({i.classe?.nom})
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                            placeholder="Choisir un élève..."
+                            searchPlaceholder="Tapez un nom, matricule ou classe..."
+                            emptyMessage="Aucun élève trouvé pour"
+                        />
                         {errors.inscription_id && <p className="text-xs text-red-500">{errors.inscription_id}</p>}
                     </div>
 
                     {/* Type & Date */}
                     <div className="grid grid-cols-1 min-[420px]:grid-cols-2 gap-3">
-                        <div className="space-y-1">
+                        <div className="space-y-1 min-w-0">
                             <Label htmlFor="type_evenement" className="text-xs sm:text-sm">Nature de l'événement</Label>
                             <Select
                                 value={data.type_evenement}
@@ -139,7 +162,7 @@ export default function NouvelleAssiduiteModal({
                             </Select>
                         </div>
 
-                        <div className="space-y-1">
+                        <div className="space-y-1 min-w-0">
                             <Label htmlFor="date_evenement" className="text-xs sm:text-sm">Date de l'événement <span className="text-red-500">*</span></Label>
                             <Input
                                 id="date_evenement"
@@ -154,7 +177,7 @@ export default function NouvelleAssiduiteModal({
 
                     {/* Nombre d'heures & Matière */}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <div className="space-y-1 sm:col-span-1">
+                        <div className="space-y-1 sm:col-span-1 min-w-0">
                             <Label htmlFor="nombre_heures" className="text-xs sm:text-sm">Heures (h)</Label>
                             <Input
                                 id="nombre_heures"
@@ -169,23 +192,17 @@ export default function NouvelleAssiduiteModal({
                             />
                         </div>
 
-                        <div className="space-y-1 sm:col-span-2">
+                        <div className="space-y-1 sm:col-span-2 min-w-0">
                             <Label htmlFor="matiere_select" className="text-xs sm:text-sm">Matière concernée (optionnel)</Label>
-                            <Select
+                            <SearchableSelect
+                                id="matiere_select"
+                                options={matiereOptions}
                                 value={data.matiere_id}
                                 onValueChange={(val) => setData('matiere_id', val)}
-                            >
-                                <SelectTrigger id="matiere_select" className="w-full">
-                                    <SelectValue placeholder="Toutes ou hors cours" />
-                                </SelectTrigger>
-                                <SelectContent className="max-h-56">
-                                    {matieres.map((m) => (
-                                        <SelectItem key={m.id} value={String(m.id)}>
-                                            {m.nom}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                                placeholder="Toutes ou hors cours"
+                                searchPlaceholder="Rechercher une matière..."
+                                emptyMessage="Aucune matière trouvée pour"
+                            />
                         </div>
                     </div>
 

@@ -688,31 +688,12 @@ class MatiereController extends Controller implements HasMiddleware
         $etablissement = $etablissementId ? Etablissement::find($etablissementId) : Etablissement::first();
         $targetEtabId = $etablissement?->id;
 
-        // 1. Blocs pédagogiques adaptés selon l'ordre d'enseignement et la langue de l'établissement
-        $isPrimary = $etablissement && in_array($etablissement->ordre_enseignement, ['Maternelle', 'Primaire']);
-        $isTechnical = $etablissement && $etablissement->ordre_enseignement === 'Secondaire_Technique';
-
-        if ($isPrimary) {
-            $blocs = [
-                ['code' => 'DOM-LANG', 'nom' => 'Domaine 1 : Langues et Communication', 'couleur' => 'blue', 'ordre' => 1],
-                ['code' => 'DOM-SCI', 'nom' => 'Domaine 2 : Sciences et Technologies', 'couleur' => 'emerald', 'ordre' => 2],
-                ['code' => 'DOM-HUM', 'nom' => 'Domaine 3 : Sciences Humaines et Sociales', 'couleur' => 'amber', 'ordre' => 3],
-                ['code' => 'DOM-DEV', 'nom' => 'Domaine 4 : Développement Personnel & Pratique', 'couleur' => 'purple', 'ordre' => 4],
-            ];
-        } elseif ($isTechnical) {
-            $blocs = [
-                ['code' => 'BLOC-GEN', 'nom' => 'Pôle Enseignements Généraux', 'couleur' => 'blue', 'ordre' => 1],
-                ['code' => 'BLOC-SCI', 'nom' => 'Pôle Enseignements Scientifiques & Technologiques', 'couleur' => 'emerald', 'ordre' => 2],
-                ['code' => 'BLOC-PRO', 'nom' => 'Pôle Professionnel & Pratiques d\'Atelier', 'couleur' => 'amber', 'ordre' => 3],
-            ];
-        } else {
-            // Secondaire Général : 3 blocs fondamentaux (Scientifiques, Littéraires, Complémentaires)
-            $blocs = [
-                ['code' => 'BLOC-SCI', 'nom' => 'Scientifiques', 'couleur' => 'blue', 'ordre' => 1],
-                ['code' => 'BLOC-LIT', 'nom' => 'Littéraires', 'couleur' => 'emerald', 'ordre' => 2],
-                ['code' => 'BLOC-COMP', 'nom' => 'Complémentaires', 'couleur' => 'amber', 'ordre' => 3],
-            ];
-        }
+        // 1. Blocs pédagogiques standards unifiés (version Secondaire : Scientifiques, Littéraires, Complémentaires)
+        $blocs = [
+            ['code' => 'BLOC-SCI', 'nom' => 'Scientifiques', 'couleur' => 'blue', 'ordre' => 1],
+            ['code' => 'BLOC-LIT', 'nom' => 'Littéraires', 'couleur' => 'emerald', 'ordre' => 2],
+            ['code' => 'BLOC-COMP', 'nom' => 'Complémentaires', 'couleur' => 'amber', 'ordre' => 3],
+        ];
 
         // Migration douce : si l'ancien bloc BLOC-DEV existe sans coefficients associés, le migrer vers BLOC-COMP
         $oldDevBloc = GroupeMatiere::where('etablissement_id', $targetEtabId)

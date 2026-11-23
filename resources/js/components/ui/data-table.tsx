@@ -256,11 +256,11 @@ export function DataTable<TData, TValue>({
             </div>
 
             {/* Tableau principal TanStack */}
-            <div className={cn("rounded-xl border border-slate-200/90 dark:border-slate-800 bg-card overflow-hidden shadow-2xs", containerClassName)}>
+            <div className={cn("rounded-xl border border-slate-200/90 bg-card overflow-hidden shadow-2xs", containerClassName)}>
                 <Table className={tableClassName}>
-                    <TableHeader className={cn("bg-slate-100/90 dark:bg-slate-850 border-b-2 border-slate-200/90 dark:border-slate-700", headerClassName)}>
+                    <TableHeader className={cn("bg-slate-100/90 border-b-2 border-slate-200/90", headerClassName)}>
                         {table.getHeaderGroups().map((headerGroup) => (
-                            <TableRow key={headerGroup.id} className="hover:bg-transparent border-b-2 border-slate-200/80 dark:border-slate-700">
+                            <TableRow key={headerGroup.id} className="hover:bg-transparent border-b-2 border-slate-200/80">
                                 {headerGroup.headers.map((header) => {
                                     const isSelectCol = header.column.id === 'select';
                                     const explicitSize = isSelectCol ? 48 : header.column.columnDef.size;
@@ -270,17 +270,17 @@ export function DataTable<TData, TValue>({
                                             ? {
                                                   width: `${explicitSize}px`,
                                                   minWidth: `${explicitSize}px`,
-                                                  ...(explicitSize <= 100 ? { maxWidth: `${explicitSize}px` } : {}),
+                                                  ...(explicitSize <= 100 ? { maxWidth: `${explicitSize}px` } : undefined),
                                               }
-                                            : {}),
-                                        ...(meta?.style || {}),
+                                            : undefined),
+                                        ...meta?.style,
                                     };
                                     return (
                                         <TableHead
                                             key={header.id}
                                             style={Object.keys(colStyle).length > 0 ? colStyle : undefined}
                                             className={cn(
-                                                "text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200 py-3",
+                                                "text-[11px] font-bold uppercase tracking-wider text-slate-700 py-3",
                                                 isSelectCol ? "w-12 min-w-12 max-w-12 text-center px-1 whitespace-nowrap" : "px-4",
                                                 meta?.headerClassName
                                             )}
@@ -314,10 +314,10 @@ export function DataTable<TData, TValue>({
                                                 ? {
                                                       width: `${explicitSize}px`,
                                                       minWidth: `${explicitSize}px`,
-                                                      ...(explicitSize <= 100 ? { maxWidth: `${explicitSize}px` } : {}),
+                                                      ...(explicitSize <= 100 ? { maxWidth: `${explicitSize}px` } : undefined),
                                                   }
-                                                : {}),
-                                            ...(meta?.style || {}),
+                                                : undefined),
+                                            ...meta?.style,
                                         };
                                         return (
                                             <TableCell

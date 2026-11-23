@@ -12,45 +12,33 @@ import {
 import {
     Gavel,
     Clock,
-    FileText,
     Users,
     AlertOctagon,
     Plus,
     Printer,
     Edit2,
     Trash2,
-    Search,
-    RotateCw,
-    School,
-    CheckCircle2,
-    XCircle,
-    Calendar,
     ChevronDown,
     ChevronUp,
     ArrowLeft,
     Check,
-    ChevronLeft,
-    ChevronRight,
-    ChevronsLeft,
-    ChevronsRight,
     UserPlus,
     Mail,
-    Send,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import {
     Dialog,
     DialogContent,
-    DialogDescription,
     DialogFooter,
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { toast } from 'sonner';
 import { formatDate, formatDateForInput } from '@/lib/utils';
 import type {
@@ -95,20 +83,20 @@ interface ConseilDisciplinePageProps {
  * - Registre d'assiduité des heures de retenue et corvées du samedi.
  */
 export default function ConseilDisciplineIndex({
-    sessions = [],
-    consignes = [],
+    sessions,
+    consignes,
     stats,
-    inscriptions = [],
-    etablissements = [],
+    inscriptions,
+    etablissements,
     selectedEtabId,
     selectedAnneeId,
-    anneesScolaires = [],
-    filters = {},
+    anneesScolaires: _anneesScolaires,
+    filters,
 }: ConseilDisciplinePageProps) {
-    const [selectedEtab, setSelectedEtab] = useState<number>(selectedEtabId);
-    const [selectedAnnee, setSelectedAnnee] = useState<number>(selectedAnneeId);
-    const [selectedStatut, setSelectedStatut] = useState<string>(filters.statut || '');
-    const [searchTerm, setSearchTerm] = useState<string>(filters.search || '');
+    const [selectedEtab, _setSelectedEtab] = useState<number>(selectedEtabId);
+    const [selectedAnnee, _setSelectedAnnee] = useState<number>(selectedAnneeId);
+    const [_selectedStatut, _setSelectedStatut] = useState<string>(filters.statut || '');
+    const [_searchTerm, _setSearchTerm] = useState<string>(filters.search || '');
 
     // Récupération de l'établissement actif pour préremplir les sessions
     const currentEtab = useMemo(() => etablissements.find((e) => e.id === selectedEtab), [etablissements, selectedEtab]);
@@ -214,6 +202,10 @@ export default function ConseilDisciplineIndex({
     const handleCreateDossier = (e: React.FormEvent) => {
         e.preventDefault();
         if (!activeSession) return;
+        if (!dossierFormData.inscription_id) {
+            toast.error('Veuillez sélectionner un élève à traduire.', { position: 'top-right' });
+            return;
+        }
 
         router.post(
             `/administration/discipline/conseil/sessions/${activeSession.id}/dossiers`,
@@ -338,6 +330,10 @@ export default function ConseilDisciplineIndex({
      */
     const handleCreateConsigne = (e: React.FormEvent) => {
         e.preventDefault();
+        if (!consigneFormData.inscription_id) {
+            toast.error('Veuillez sélectionner un élève concerné.', { position: 'top-right' });
+            return;
+        }
         router.post(
             '/administration/discipline/heures-consigne',
             {
@@ -717,7 +713,7 @@ export default function ConseilDisciplineIndex({
                                 });
                                 setIsConsigneModalOpen(true);
                             }}
-                            className="gap-2 h-9 text-xs font-semibold border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-300 w-full sm:w-auto"
+                            className="gap-2 h-9 text-xs font-semibold border-amber-300 text-amber-700 hover:bg-amber-50 w-full sm:w-auto"
                         >
                             <Clock className="size-3.5" />
                             Programmer Consigne
@@ -753,7 +749,7 @@ export default function ConseilDisciplineIndex({
                                 <p className="text-xs font-medium text-muted-foreground">Sessions de Conseil</p>
                                 <h3 className="text-2xl font-bold tracking-tight text-foreground mt-0.5">{stats.total_sessions}</h3>
                             </div>
-                            <div className="p-2.5 rounded-lg bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300">
+                            <div className="p-2.5 rounded-lg bg-rose-100 text-rose-700">
                                 <Gavel className="size-5" />
                             </div>
                         </CardContent>
@@ -765,7 +761,7 @@ export default function ConseilDisciplineIndex({
                                 <p className="text-xs font-medium text-muted-foreground">Élèves Traduits</p>
                                 <h3 className="text-2xl font-bold tracking-tight text-foreground mt-0.5">{stats.total_dossiers}</h3>
                             </div>
-                            <div className="p-2.5 rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+                            <div className="p-2.5 rounded-lg bg-blue-100 text-blue-700">
                                 <Users className="size-5" />
                             </div>
                         </CardContent>
@@ -777,7 +773,7 @@ export default function ConseilDisciplineIndex({
                                 <p className="text-xs font-medium text-muted-foreground">Exclusions Prononcées</p>
                                 <h3 className="text-2xl font-bold tracking-tight text-foreground mt-0.5">{stats.total_exclusions}</h3>
                             </div>
-                            <div className="p-2.5 rounded-lg bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300">
+                            <div className="p-2.5 rounded-lg bg-red-100 text-red-700">
                                 <AlertOctagon className="size-5" />
                             </div>
                         </CardContent>
@@ -789,7 +785,7 @@ export default function ConseilDisciplineIndex({
                                 <p className="text-xs font-medium text-muted-foreground">Heures de Consigne Cumulées</p>
                                 <h3 className="text-2xl font-bold tracking-tight text-foreground mt-0.5">{stats.total_heures_consigne} h</h3>
                             </div>
-                            <div className="p-2.5 rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+                            <div className="p-2.5 rounded-lg bg-amber-100 text-amber-700">
                                 <Clock className="size-5" />
                             </div>
                         </CardContent>
@@ -841,7 +837,7 @@ export default function ConseilDisciplineIndex({
 
                                                     {/* Ligne dépliée des dossiers d'élèves de cette session */}
                                                     {expandedSessionIds.includes(row.original.id) && (
-                                                        <tr className="bg-muted/15 border-y border-indigo-100 dark:border-indigo-950">
+                                                        <tr className="bg-muted/15 border-y border-indigo-100">
                                                             <td colSpan={sessionColumns.length} className="p-4">
                                                                 <div className="space-y-3">
                                                                     <div className="flex items-center justify-between">
@@ -1141,21 +1137,21 @@ export default function ConseilDisciplineIndex({
                     </DialogHeader>
 
                     <form onSubmit={handleCreateDossier} className="space-y-3.5 py-2">
-                        <div>
+                        <div className="min-w-0">
                             <label className="text-xs font-semibold text-foreground mb-1 block">Élève à traduire *</label>
-                            <select
-                                required
+                            <SearchableSelect
+                                options={inscriptions.map((i) => ({
+                                    value: String(i.id),
+                                    label: `${i.eleve.nom} ${i.eleve.prenom}`,
+                                    description: `${i.eleve.matricule} · ${i.classe?.nom ?? ''}`,
+                                    group: i.classe?.nom || 'Autres',
+                                }))}
                                 value={dossierFormData.inscription_id}
-                                onChange={(e) => setDossierFormData({ ...dossierFormData, inscription_id: e.target.value })}
-                                className="w-full h-9 px-3 rounded-md border border-input bg-background text-xs font-medium"
-                            >
-                                <option value="">Sélectionner un élève...</option>
-                                {inscriptions.map((i) => (
-                                    <option key={i.id} value={i.id}>
-                                        {i.eleve.nom} {i.eleve.prenom} ({i.eleve.matricule} - {i.classe?.nom})
-                                    </option>
-                                ))}
-                            </select>
+                                onValueChange={(v) => setDossierFormData({ ...dossierFormData, inscription_id: v })}
+                                placeholder="Sélectionner un élève..."
+                                searchPlaceholder="Rechercher un élève (nom, matricule, classe)..."
+                                emptyMessage="Aucun élève trouvé."
+                            />
                         </div>
 
                         <div>
@@ -1171,7 +1167,7 @@ export default function ConseilDisciplineIndex({
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <div>
+                            <div className="min-w-0">
                                 <label className="text-xs font-semibold text-foreground mb-1 block">Décision / Sanction *</label>
                                 <select
                                     value={dossierFormData.decision_finale}
@@ -1353,21 +1349,21 @@ export default function ConseilDisciplineIndex({
                     </DialogHeader>
 
                     <form onSubmit={handleCreateConsigne} className="space-y-3.5 py-2">
-                        <div>
+                        <div className="min-w-0">
                             <label className="text-xs font-semibold text-foreground mb-1 block">Élève *</label>
-                            <select
-                                required
+                            <SearchableSelect
+                                options={inscriptions.map((i) => ({
+                                    value: String(i.id),
+                                    label: `${i.eleve.nom} ${i.eleve.prenom}`,
+                                    description: `${i.eleve.matricule} · ${i.classe?.nom ?? ''}`,
+                                    group: i.classe?.nom || 'Autres',
+                                }))}
                                 value={consigneFormData.inscription_id}
-                                onChange={(e) => setConsigneFormData({ ...consigneFormData, inscription_id: e.target.value })}
-                                className="w-full h-9 px-3 rounded-md border border-input bg-background text-xs font-medium"
-                            >
-                                <option value="">Sélectionner un élève...</option>
-                                {inscriptions.map((i) => (
-                                    <option key={i.id} value={i.id}>
-                                        {i.eleve.nom} {i.eleve.prenom} ({i.eleve.matricule} - {i.classe?.nom})
-                                    </option>
-                                ))}
-                            </select>
+                                onValueChange={(v) => setConsigneFormData({ ...consigneFormData, inscription_id: v })}
+                                placeholder="Sélectionner un élève..."
+                                searchPlaceholder="Rechercher un élève (nom, matricule, classe)..."
+                                emptyMessage="Aucun élève trouvé."
+                            />
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

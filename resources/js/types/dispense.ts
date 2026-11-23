@@ -2,7 +2,6 @@
  * Types TypeScript pour la gestion des Dérogations & Dispenses Officielles (Phase 4).
  */
 
-import type { Eleve, Inscription, EtablissementRef, AnneeScolaireRef } from './eleve';
 import type { MatiereRef, PeriodeRef } from './pedagogie';
 
 export type TypeDispense = 'medicale' | 'administrative' | 'handicap' | 'derogation_special';

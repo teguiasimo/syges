@@ -2,7 +2,6 @@ import { createInertiaApp, router } from '@inertiajs/react';
 import { toast } from 'sonner';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { initializeTheme } from '@/hooks/use-appearance';
 import { syncBrowserFavicon } from '@/lib/branding';
 import AppLayout from '@/layouts/app-layout';
 import AuthLayout from '@/layouts/auth-layout';
@@ -132,5 +131,25 @@ void createInertiaApp({
     },
 });
 
-// This will set light / dark mode on load...
-initializeTheme();
+/**
+ * Verrouille définitivement l'application en mode clair et nettoie d'éventuelles
+ * traces héritées d'un ancien réglage de thème sombre (classe `.dark`, localStorage, cookie).
+ */
+function enforceLightTheme(): void {
+    if (typeof document === 'undefined') {
+        return;
+    }
+
+    document.documentElement.classList.remove('dark');
+    document.documentElement.style.colorScheme = 'light';
+
+    try {
+        window.localStorage.removeItem('appearance');
+    } catch {
+        // Ignore si l'accès au stockage local est restreint
+    }
+
+    document.cookie = 'appearance=;path=/;max-age=0;SameSite=Lax';
+}
+
+enforceLightTheme();

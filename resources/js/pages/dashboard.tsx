@@ -13,12 +13,10 @@ import {
     FileSpreadsheet,
     GraduationCap,
     Lock,
-    ShieldAlert,
     TrendingUp,
     Users,
 } from 'lucide-react';
 import * as React from 'react';
-import { useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -29,6 +27,7 @@ import {
     CarteRepartitionCycles,
 } from '@/components/dashboard/rapports-graphiques-ministere';
 import { usePermission } from '@/hooks/use-permission';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
     Select,
     SelectContent,
@@ -36,7 +35,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { formatAnneeLabel } from '@/lib/utils';
+import { cn, formatAnneeLabel } from '@/lib/utils';
 import type { BreadcrumbItem } from '@/types';
 import type {
     StatistiqueDemographique,
@@ -92,12 +91,88 @@ interface DashboardProps {
     finances?: StatistiqueFinanciere | null;
 }
 
+/**
+ * Configuration d'un raccourci opérationnel affiché sur le tableau de bord exécutif.
+ */
+interface QuickShortcutItem {
+    /** Identifiant unique du module */
+    key: string;
+    /** Route de destination Inertia */
+    href: string;
+    /** Libellé principal du raccourci */
+    title: string;
+    /** Sous-titre descriptif */
+    subtitle: string;
+    /** Icône Lucide représentative du module */
+    icon: React.ComponentType<{ className?: string }>;
+    /** Classes de couleur du conteneur d'icône (repos et survol) */
+    iconClassName?: string;
+    /** Classe de bordure appliquée à la carte lors du survol */
+    cardHoverClassName?: string;
+    /** Classe de couleur appliquée à la flèche directionnelle lors du survol */
+    arrowHoverClassName?: string;
+}
+
 const breadcrumbs: BreadcrumbItem[] = [
     {
         title: 'Tableau de bord',
         href: '/dashboard',
     },
 ];
+
+/**
+ * Calcule les classes de grille adaptatives selon le nombre d'éléments visibles (1 à 4)
+ * afin d'éviter toute colonne vide lorsque des modules sont masqués par RBAC.
+ *
+ * @param {number} count - Nombre d'éléments visibles.
+ * @returns {string} Classes CSS Grid responsives.
+ */
+function resolveResponsiveGridClass(count: number): string {
+    if (count <= 1) return 'grid-cols-1';
+    if (count === 2) return 'grid-cols-1 sm:grid-cols-2';
+    if (count === 3) return 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3';
+    return 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-4';
+}
+
+/**
+ * Raccourci rapide avec icône colorée encadrée et inversion chromatique au survol.
+ *
+ * @param {{ item: QuickShortcutItem }} props - Configuration du module cible.
+ * @returns {JSX.Element} Lien interactif du tableau de bord.
+ */
+function DashboardQuickLink({ item }: { item: QuickShortcutItem }) {
+    const Icon = item.icon;
+    return (
+        <Link
+            href={item.href}
+            className={cn(
+                'group flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-3.5 py-3 text-left transition-colors hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                item.cardHoverClassName || 'hover:border-primary/40'
+            )}
+        >
+            <div className="flex items-center gap-3 min-w-0">
+                <div
+                    className={cn(
+                        'flex size-8 shrink-0 items-center justify-center rounded-md transition-colors',
+                        item.iconClassName || 'bg-muted text-primary group-hover:bg-primary group-hover:text-primary-foreground'
+                    )}
+                >
+                    <Icon className="size-4" />
+                </div>
+                <div className="min-w-0">
+                    <div className="font-semibold text-sm text-foreground truncate">{item.title}</div>
+                    <div className="text-xs text-muted-foreground truncate">{item.subtitle}</div>
+                </div>
+            </div>
+            <ArrowUpRight
+                className={cn(
+                    'size-4 shrink-0 text-muted-foreground transition-colors',
+                    item.arrowHoverClassName || 'group-hover:text-primary'
+                )}
+            />
+        </Link>
+    );
+}
 
 
 
@@ -123,7 +198,7 @@ export default function Dashboard({
     pedagogie,
     finances,
 }: DashboardProps) {
-    const { roles } = usePermission();
+    const { roles, can, canAny } = usePermission();
     const hasRole = roles.length > 0;
     const roleName = roles.join(', ');
 
@@ -205,6 +280,78 @@ export default function Dashboard({
         );
     }
 
+    // Habilitations RBAC du profil connecté pour conditionner KPIs, raccourcis et graphiques
+    const canViewDemographie = canAny(['statistiques.view', 'eleves.view', 'classes.view']);
+    const canViewPedagogie = canAny(['statistiques.view', 'deliberations.view', 'bulletins.view', 'notes.view']);
+    const canViewFinances = canAny(['finances.view', 'finances.manage', 'finances.etats']) && Boolean(finances);
+
+    const visibleKpiCount =
+        (canViewDemographie ? 2 : 0) + (canViewPedagogie ? 1 : 0) + (canViewFinances ? 1 : 0);
+
+    // Raccourcis exécutifs filtrés selon les permissions effectives pour prévenir toute erreur 403
+    const executiveShortcuts: QuickShortcutItem[] = [
+        ...(can('deliberations.view')
+            ? [
+                  {
+                      key: 'deliberations',
+                      href: '/administration/deliberations',
+                      title: 'Conseil & Délibérations',
+                      subtitle: 'PV & Décisions de passage',
+                      icon: Award,
+                      iconClassName:
+                          'bg-amber-100/80 text-amber-600 group-hover:bg-amber-600 group-hover:text-white',
+                      cardHoverClassName: 'hover:border-amber-500/40',
+                      arrowHoverClassName: 'group-hover:text-amber-600',
+                  },
+              ]
+            : []),
+        ...(can('statistiques.view')
+            ? [
+                  {
+                      key: 'statistiques',
+                      href: '/administration/statistiques',
+                      title: 'Statistiques Ministérielles',
+                      subtitle: 'Bordereaux MINESEC',
+                      icon: BookOpen,
+                      iconClassName:
+                          'bg-teal-100/80 text-teal-600 group-hover:bg-teal-600 group-hover:text-white',
+                      cardHoverClassName: 'hover:border-teal-500/40',
+                      arrowHoverClassName: 'group-hover:text-teal-600',
+                  },
+              ]
+            : []),
+        ...(can('bulletins.view')
+            ? [
+                  {
+                      key: 'bulletins',
+                      href: '/administration/bulletins',
+                      title: 'Bulletins Scolaires',
+                      subtitle: 'APC & Standards',
+                      icon: GraduationCap,
+                      iconClassName:
+                          'bg-blue-100/80 text-blue-600 group-hover:bg-blue-600 group-hover:text-white',
+                      cardHoverClassName: 'hover:border-blue-500/40',
+                      arrowHoverClassName: 'group-hover:text-blue-600',
+                  },
+              ]
+            : []),
+        ...(canAny(['finances.view', 'finances.manage'])
+            ? [
+                  {
+                      key: 'finances',
+                      href: '/administration/finances',
+                      title: 'Caisse & Versements',
+                      subtitle: 'Reçus & Clôtures',
+                      icon: DollarSign,
+                      iconClassName:
+                          'bg-emerald-100/80 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white',
+                      cardHoverClassName: 'hover:border-emerald-500/40',
+                      arrowHoverClassName: 'group-hover:text-emerald-600',
+                  },
+              ]
+            : []),
+    ];
+
     return (
         <>
             <Head title="Tableau de bord exécutif" />
@@ -222,30 +369,31 @@ export default function Dashboard({
                         </p>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+                    <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto min-w-0">
                         {etablissements.length > 1 && (
-                            <div className="flex items-center gap-2 w-full sm:w-auto">
+                            <div className="flex items-center gap-2 w-full sm:w-64 min-w-0">
                                 <Building2 className="size-4 text-muted-foreground shrink-0" />
-                                <Select
-                                    value={isAllEtablissements ? 'all' : currentEtablissement?.id.toString()}
-                                    onValueChange={(val) => handleFilterChange('etablissement_id', val)}
-                                >
-                                    <SelectTrigger className="w-full sm:w-56">
-                                        <SelectValue placeholder="Établissement" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {supportsAllEtablissements && (
-                                            <SelectItem value="all">
-                                                Tous les établissements
-                                            </SelectItem>
-                                        )}
-                                        {etablissements.map((etab) => (
-                                            <SelectItem key={etab.id} value={etab.id.toString()}>
-                                                {etab.nom}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <SearchableSelect
+                                    options={[
+                                        ...(supportsAllEtablissements
+                                            ? [{ value: 'all', label: 'Tous les établissements' }]
+                                            : []),
+                                        ...etablissements.map((etab) => ({
+                                            value: etab.id.toString(),
+                                            label: etab.nom,
+                                            description: etab.code ? `Code : ${etab.code}` : undefined,
+                                        })),
+                                    ]}
+                                    value={isAllEtablissements ? 'all' : (currentEtablissement?.id.toString() || '')}
+                                    onValueChange={(val) => {
+                                        if (!val && !supportsAllEtablissements) return;
+                                        handleFilterChange('etablissement_id', val || 'all');
+                                    }}
+                                    placeholder="Établissement"
+                                    searchPlaceholder="Rechercher un établissement..."
+                                    emptyMessage="Aucun établissement trouvé."
+                                    className="h-9 text-xs sm:text-sm font-normal"
+                                />
                             </div>
                         )}
 
@@ -272,229 +420,211 @@ export default function Dashboard({
                     </div>
                 </div>
 
+                {/* État alternatif si le rôle actif ne couvre aucun bloc statistique/financier */}
+                {visibleKpiCount === 0 && executiveShortcuts.length === 0 && (
+                    <Card>
+                        <CardContent className="py-10 text-center">
+                            <p className="text-sm font-medium text-foreground">
+                                Aucun indicateur de pilotage n&apos;est associé à vos habilitations actuelles
+                                {hasRole ? ` (${roleName})` : ''}.
+                            </p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                                Utilisez le menu latéral pour accéder directement à vos modules autorisés.
+                            </p>
+                        </CardContent>
+                    </Card>
+                )}
+
                 {/* Cartes de Synthèse Supérieures (KPIs 15.1, 15.2, 15.3) */}
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    {/* Effectif Global */}
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between pb-2">
-                            <CardTitle className="text-sm font-medium text-muted-foreground">
-                                Effectif Consolidé
-                            </CardTitle>
-                            <Users className="size-4 text-primary" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold text-foreground">
-                                {demographie?.effectif_total ?? 0} élèves
-                            </div>
-                            <p className="text-xs text-muted-foreground mt-1">
-                                {demographie?.repartition_statut?.nouveaux ?? 0} nouveaux • {demographie?.repartition_statut?.redoublants ?? 0} redoublants ({demographie?.repartition_statut?.taux_redoublants ?? 0}%)
-                            </p>
-                        </CardContent>
-                    </Card>
+                {visibleKpiCount > 0 && (
+                    <div className={cn('grid gap-4', resolveResponsiveGridClass(visibleKpiCount))}>
+                        {canViewDemographie && (
+                            <>
+                                {/* Effectif Global */}
+                                <Card>
+                                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                                        <CardTitle className="text-sm font-medium text-muted-foreground">
+                                            Effectif Consolidé
+                                        </CardTitle>
+                                        <Users className="size-4 text-primary" />
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="text-2xl font-bold text-foreground">
+                                            {demographie?.effectif_total ?? 0} élèves
+                                        </div>
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                            {demographie?.repartition_statut?.nouveaux ?? 0} nouveaux • {demographie?.repartition_statut?.redoublants ?? 0} redoublants ({demographie?.repartition_statut?.taux_redoublants ?? 0}%)
+                                        </p>
+                                    </CardContent>
+                                </Card>
 
-                    {/* Parité Filles / Garçons (Jauge bicolore 100% équilibrée Filles & Garçons) */}
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between pb-2">
-                            <CardTitle className="text-sm font-medium text-muted-foreground">
-                                Parité de Scolarisation
-                            </CardTitle>
-                            <Users className="size-4 text-sky-500" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="flex items-baseline justify-between">
-                                <div className="text-2xl font-bold text-foreground flex items-baseline gap-1.5">
-                                    <span className="text-rose-600 dark:text-rose-400 font-mono">
-                                        {demographie?.parite?.taux_filles ?? 0}%
-                                    </span>
-                                    <span className="text-xs font-semibold text-rose-600/80 dark:text-rose-400/80 uppercase">
-                                        F
-                                    </span>
-                                    <span className="text-muted-foreground/30 font-light text-base mx-0.5">/</span>
-                                    <span className="text-sky-600 dark:text-sky-400 font-mono">
-                                        {demographie?.parite?.taux_garcons ?? 0}%
-                                    </span>
-                                    <span className="text-xs font-semibold text-sky-600/80 dark:text-sky-400/80 uppercase">
-                                        G
-                                    </span>
-                                </div>
-                            </div>
+                                {/* Parité Filles / Garçons (Jauge bicolore 100% équilibrée Filles & Garçons) */}
+                                <Card>
+                                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                                        <CardTitle className="text-sm font-medium text-muted-foreground">
+                                            Parité de Scolarisation
+                                        </CardTitle>
+                                        <Users className="size-4 text-sky-500" />
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="flex items-baseline justify-between">
+                                            <div className="text-2xl font-bold text-foreground flex items-baseline gap-1.5">
+                                                <span className="text-rose-600 font-mono">
+                                                    {demographie?.parite?.taux_filles ?? 0}%
+                                                </span>
+                                                <span className="text-xs font-semibold text-rose-600/80 uppercase">
+                                                    F
+                                                </span>
+                                                <span className="text-muted-foreground/30 font-light text-base mx-0.5">/</span>
+                                                <span className="text-sky-600 font-mono">
+                                                    {demographie?.parite?.taux_garcons ?? 0}%
+                                                </span>
+                                                <span className="text-xs font-semibold text-sky-600/80 uppercase">
+                                                    G
+                                                </span>
+                                            </div>
+                                        </div>
 
-                            {/* Barre de parité segmentée bicolore (Filles + Garçons = 100% de la largeur) */}
-                            <div className="mt-2.5 h-2.5 w-full overflow-hidden rounded-full bg-muted flex shadow-inner">
-                                <div
-                                    className="h-full bg-rose-500 transition-all duration-500"
-                                    style={{ width: `${demographie?.parite?.taux_filles ?? 0}%` }}
-                                    title={`Filles : ${demographie?.parite?.taux_filles ?? 0}% (${demographie?.parite?.filles ?? 0} élèves)`}
-                                />
-                                <div
-                                    className="h-full bg-sky-500 transition-all duration-500"
-                                    style={{ width: `${demographie?.parite?.taux_garcons ?? 0}%` }}
-                                    title={`Garçons : ${demographie?.parite?.taux_garcons ?? 0}% (${demographie?.parite?.garcons ?? 0} élèves)`}
-                                />
-                            </div>
+                                        {/* Barre de parité segmentée bicolore (Filles + Garçons = 100% de la largeur) */}
+                                        <div className="mt-2.5 h-2.5 w-full overflow-hidden rounded-full bg-muted flex shadow-inner">
+                                            <div
+                                                className="h-full bg-rose-500 transition-all duration-500"
+                                                style={{ width: `${demographie?.parite?.taux_filles ?? 0}%` }}
+                                                title={`Filles : ${demographie?.parite?.taux_filles ?? 0}% (${demographie?.parite?.filles ?? 0} élèves)`}
+                                            />
+                                            <div
+                                                className="h-full bg-sky-500 transition-all duration-500"
+                                                style={{ width: `${demographie?.parite?.taux_garcons ?? 0}%` }}
+                                                title={`Garçons : ${demographie?.parite?.taux_garcons ?? 0}% (${demographie?.parite?.garcons ?? 0} élèves)`}
+                                            />
+                                        </div>
 
-                            {/* Légende détaillée bicolore avec effectifs chiffrés */}
-                            <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
-                                <div className="flex items-center gap-1.5 font-medium">
-                                    <span className="size-2 rounded-full bg-rose-500 inline-block shrink-0" />
-                                    <span>{demographie?.parite?.filles ?? 0} Filles</span>
-                                </div>
-                                <div className="flex items-center gap-1.5 font-medium">
-                                    <span className="size-2 rounded-full bg-sky-500 inline-block shrink-0" />
-                                    <span>{demographie?.parite?.garcons ?? 0} Garçons</span>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
+                                        {/* Légende détaillée bicolore avec effectifs chiffrés */}
+                                        <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+                                            <div className="flex items-center gap-1.5 font-medium">
+                                                <span className="size-2 rounded-full bg-rose-500 inline-block shrink-0" />
+                                                <span>{demographie?.parite?.filles ?? 0} Filles</span>
+                                            </div>
+                                            <div className="flex items-center gap-1.5 font-medium">
+                                                <span className="size-2 rounded-full bg-sky-500 inline-block shrink-0" />
+                                                <span>{demographie?.parite?.garcons ?? 0} Garçons</span>
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            </>
+                        )}
 
-                    {/* Taux de Réussite Académique */}
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between pb-2">
-                            <CardTitle className="text-sm font-medium text-muted-foreground">
-                                Taux de Réussite
-                            </CardTitle>
-                            <TrendingUp className="size-4 text-emerald-500" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold text-foreground">
-                                {pedagogie?.taux_reussite_global ?? 0}%
-                            </div>
-                            <div className="mt-2 flex items-center gap-2">
-                                <Progress value={pedagogie?.taux_reussite_global ?? 0} className="h-2 bg-emerald-100 dark:bg-emerald-950 [&>div]:bg-emerald-500" />
-                            </div>
-                            <p className="text-xs text-muted-foreground mt-1.5">
-                                {pedagogie?.total_admis ?? 0} admis / {pedagogie?.total_evalues ?? 0} évalués (≥10/20)
-                            </p>
-                        </CardContent>
-                    </Card>
-
-                    {/* Recouvrement Financier */}
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between pb-2">
-                            <CardTitle className="text-sm font-medium text-muted-foreground">
-                                Recouvrement Frais
-                            </CardTitle>
-                            <DollarSign className="size-4 text-amber-500" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold text-foreground">
-                                {finances?.taux_recouvrement ?? 0}%
-                            </div>
-                            <div className="mt-2 flex items-center gap-2">
-                                <Progress value={finances?.taux_recouvrement ?? 0} className="h-2 bg-amber-100 dark:bg-amber-950 [&>div]:bg-amber-500" />
-                            </div>
-                            <p className="text-xs text-muted-foreground mt-1.5">
-                                {new Intl.NumberFormat('fr-FR').format(finances?.total_creances ?? 0)} FCFA créances
-                            </p>
-                        </CardContent>
-                    </Card>
-                </div>
-
-                {/* Liens Rapides vers les Modules Clés (2 colonnes tablette / petit laptop, 4 colonnes grand écran) */}
-                <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
-                    <Button variant="outline" className="h-auto min-w-0 whitespace-normal justify-between p-3.5 text-left" asChild>
-                        <Link href="/administration/deliberations">
-                            <div className="flex items-center gap-2.5 min-w-0">
-                                <Award className="size-5 text-amber-600 shrink-0" />
-                                <div className="min-w-0">
-                                    <div className="font-semibold text-sm truncate">Conseil & Délibérations</div>
-                                    <div className="text-xs text-muted-foreground truncate">PV & Décisions de passage</div>
-                                </div>
-                            </div>
-                            <ArrowUpRight className="size-4 text-muted-foreground shrink-0 ml-2" />
-                        </Link>
-                    </Button>
-
-                    <Button variant="outline" className="h-auto min-w-0 whitespace-normal justify-between p-3.5 text-left" asChild>
-                        <Link href="/administration/statistiques">
-                            <div className="flex items-center gap-2.5 min-w-0">
-                                <BookOpen className="size-5 text-blue-600 shrink-0" />
-                                <div className="min-w-0">
-                                    <div className="font-semibold text-sm truncate">Statistiques Ministérielles</div>
-                                    <div className="text-xs text-muted-foreground truncate">Bordereaux MINESEC</div>
-                                </div>
-                            </div>
-                            <ArrowUpRight className="size-4 text-muted-foreground shrink-0 ml-2" />
-                        </Link>
-                    </Button>
-
-                    <Button variant="outline" className="h-auto min-w-0 whitespace-normal justify-between p-3.5 text-left" asChild>
-                        <Link href="/administration/bulletins">
-                            <div className="flex items-center gap-2.5 min-w-0">
-                                <GraduationCap className="size-5 text-emerald-600 shrink-0" />
-                                <div className="min-w-0">
-                                    <div className="font-semibold text-sm truncate">Bulletins Scolaires</div>
-                                    <div className="text-xs text-muted-foreground truncate">APC & Standards</div>
-                                </div>
-                            </div>
-                            <ArrowUpRight className="size-4 text-muted-foreground shrink-0 ml-2" />
-                        </Link>
-                    </Button>
-
-                    <Button variant="outline" className="h-auto min-w-0 whitespace-normal justify-between p-3.5 text-left" asChild>
-                        <Link href="/administration/finances">
-                            <div className="flex items-center gap-2.5 min-w-0">
-                                <DollarSign className="size-5 text-teal-600 shrink-0" />
-                                <div className="min-w-0">
-                                    <div className="font-semibold text-sm truncate">Caisse & Versements</div>
-                                    <div className="text-xs text-muted-foreground truncate">Reçus & Clôtures</div>
-                                </div>
-                            </div>
-                            <ArrowUpRight className="size-4 text-muted-foreground shrink-0 ml-2" />
-                        </Link>
-                    </Button>
-                </div>
-
-                {/* Section Graphique Panoramique : Répartition des élèves par classe (Pleine largeur) */}
-                <CarteRepartitionClasses
-                    classes={demographie?.densite?.details ?? []}
-                />
-
-                {/* Section Mixte : Répartition par Cycle (70%) & Densitométrie des Classes (30%) */}
-                <div className="grid gap-6 grid-cols-1 xl:grid-cols-[7fr_3fr]">
-                    {/* 1. Répartition des élèves par cycle (Diagramme Donut calqué sur la maquette ministérielle - 70%) */}
-                    <CarteRepartitionCycles
-                        repartition={demographie?.repartition_cycles ?? []}
-                        totalEleves={demographie?.effectif_total ?? 0}
-                    />
-
-                    {/* 2. Densitométrie et Capacité des Classes (30%) */}
-                    <Card className="flex flex-col h-full min-w-0">
-                        <CardHeader className="pb-3">
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                                <div>
-                                    <CardTitle className="text-base">Densitométrie des Classes</CardTitle>
-                                    <CardDescription>
-                                        Moyenne : {demographie?.densite?.moyenne_par_classe ?? 0} élèves / salle
-                                    </CardDescription>
-                                </div>
-                                {(demographie?.densite?.classes_surchargees ?? 0) > 0 && (
-                                    <Badge variant="destructive">
-                                        {demographie?.densite?.classes_surchargees} surchargée(s)
-                                    </Badge>
-                                )}
-                            </div>
-                        </CardHeader>
-                        <CardContent className="flex-1 space-y-3.5 max-h-100 overflow-y-auto pr-1">
-                            {(demographie?.densite?.details ?? []).map((cls) => (
-                                <div key={cls.id} className="space-y-1 rounded-lg border p-2.5">
-                                    <div className="flex items-center justify-between text-xs gap-1.5">
-                                        <span className="font-semibold text-foreground truncate" title={cls.nom}>
-                                            {cls.nom}
-                                        </span>
-                                        <span className={`font-mono text-[11px] shrink-0 ${cls.is_surchargee ? 'text-destructive font-bold' : 'text-muted-foreground'}`}>
-                                            {cls.effectif} / {cls.capacite} ({cls.taux_occupation}%)
-                                        </span>
+                        {canViewPedagogie && (
+                            <Card>
+                                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                                    <CardTitle className="text-sm font-medium text-muted-foreground">
+                                        Taux de Réussite
+                                    </CardTitle>
+                                    <TrendingUp className="size-4 text-emerald-500" />
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="text-2xl font-bold text-foreground">
+                                        {pedagogie?.taux_reussite_global ?? 0}%
                                     </div>
-                                    <Progress
-                                        value={Math.min(cls.taux_occupation, 100)}
-                                        className={`h-1.5 ${cls.is_surchargee ? '[&>div]:bg-destructive' : ''}`}
-                                    />
-                                </div>
-                            ))}
-                        </CardContent>
-                    </Card>
-                </div>
+                                    <div className="mt-2 flex items-center gap-2">
+                                        <Progress value={pedagogie?.taux_reussite_global ?? 0} className="h-2 bg-emerald-100 [&>div]:bg-emerald-500" />
+                                    </div>
+                                    <p className="text-xs text-muted-foreground mt-1.5">
+                                        {pedagogie?.total_admis ?? 0} admis / {pedagogie?.total_evalues ?? 0} évalués (≥10/20)
+                                    </p>
+                                </CardContent>
+                            </Card>
+                        )}
+
+                        {canViewFinances && (
+                            <Card>
+                                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                                    <CardTitle className="text-sm font-medium text-muted-foreground">
+                                        Recouvrement Frais
+                                    </CardTitle>
+                                    <DollarSign className="size-4 text-amber-500" />
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="text-2xl font-bold text-foreground">
+                                        {finances?.taux_recouvrement ?? 0}%
+                                    </div>
+                                    <div className="mt-2 flex items-center gap-2">
+                                        <Progress value={finances?.taux_recouvrement ?? 0} className="h-2 bg-amber-100 [&>div]:bg-amber-500" />
+                                    </div>
+                                    <p className="text-xs text-muted-foreground mt-1.5">
+                                        {new Intl.NumberFormat('fr-FR').format(finances?.total_creances ?? 0)} FCFA créances
+                                    </p>
+                                </CardContent>
+                            </Card>
+                        )}
+                    </div>
+                )}
+
+                {/* Liens Rapides vers les Modules Clés autorisés avec icônes encadrées au survol */}
+                {executiveShortcuts.length > 0 && (
+                    <div className={cn('grid gap-3', resolveResponsiveGridClass(executiveShortcuts.length))}>
+                        {executiveShortcuts.map((item) => (
+                            <DashboardQuickLink key={item.key} item={item} />
+                        ))}
+                    </div>
+                )}
+
+                {/* Section Graphiques démographiques (masquée si aucune permission sur les effectifs/classes) */}
+                {canViewDemographie && (
+                    <>
+                        {/* Section Graphique Panoramique : Répartition des élèves par classe (Pleine largeur) */}
+                        <CarteRepartitionClasses
+                            classes={demographie?.densite?.details ?? []}
+                        />
+
+                        {/* Section Mixte : Répartition par Cycle (70%) & Densitométrie des Classes (30%) */}
+                        <div className="grid gap-6 grid-cols-1 xl:grid-cols-[7fr_3fr]">
+                            {/* 1. Répartition des élèves par cycle (Diagramme Donut calqué sur la maquette ministérielle - 70%) */}
+                            <CarteRepartitionCycles
+                                repartition={demographie?.repartition_cycles ?? []}
+                                totalEleves={demographie?.effectif_total ?? 0}
+                            />
+
+                            {/* 2. Densitométrie et Capacité des Classes (30%) */}
+                            <Card className="flex flex-col h-full min-w-0">
+                                <CardHeader className="pb-3">
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                        <div>
+                                            <CardTitle className="text-base">Densitométrie des Classes</CardTitle>
+                                            <CardDescription>
+                                                Moyenne : {demographie?.densite?.moyenne_par_classe ?? 0} élèves / salle
+                                            </CardDescription>
+                                        </div>
+                                        {(demographie?.densite?.classes_surchargees ?? 0) > 0 && (
+                                            <Badge variant="destructive">
+                                                {demographie?.densite?.classes_surchargees} surchargée(s)
+                                            </Badge>
+                                        )}
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="flex-1 space-y-3.5 max-h-100 overflow-y-auto pr-1">
+                                    {(demographie?.densite?.details ?? []).map((cls) => (
+                                        <div key={cls.id} className="space-y-1 rounded-lg border p-2.5">
+                                            <div className="flex items-center justify-between text-xs gap-1.5">
+                                                <span className="font-semibold text-foreground truncate" title={cls.nom}>
+                                                    {cls.nom}
+                                                </span>
+                                                <span className={`font-mono text-[11px] shrink-0 ${cls.is_surchargee ? 'text-destructive font-bold' : 'text-muted-foreground'}`}>
+                                                    {cls.effectif} / {cls.capacite} ({cls.taux_occupation}%)
+                                                </span>
+                                            </div>
+                                            <Progress
+                                                value={Math.min(cls.taux_occupation, 100)}
+                                                className={`h-1.5 ${cls.is_surchargee ? '[&>div]:bg-destructive' : ''}`}
+                                            />
+                                        </div>
+                                    ))}
+                                </CardContent>
+                            </Card>
+                        </div>
+                    </>
+                )}
             </div>
         </>
     );
@@ -527,6 +657,12 @@ function EnseignantDashboardView({
     currentAnneeId: number;
     onFilterChange: (key: 'etablissement_id' | 'annee_id', value: string) => void;
 }) {
+    const { can, canAny } = usePermission();
+    const canSaisirNotes = canAny(['notes.view', 'notes.create', 'notes.manage']);
+    const canVoirReleves = can('releves_notes.view');
+    const canVoirProgression = canAny(['progression.view', 'evaluations.view']);
+    const canVoirEmploi = canAny(['emplois_du_temps.view', 'emplois_du_temps.manage']);
+
     // Colonnes TanStack Table pour les attributions pédagogiques de l'enseignant
     const attributionColumns = React.useMemo<ColumnDef<EnseignantAttributionStat>[]>(() => [
         {
@@ -592,27 +728,35 @@ function EnseignantDashboardView({
                 );
             },
         },
-        {
-            id: 'actions',
-            header: () => <div className="text-right">Actions</div>,
-            cell: ({ row }) => (
-                <div className="flex items-center justify-end gap-1.5">
-                    <Button variant="outline" size="sm" asChild className="h-7 text-xs gap-1">
-                        <Link href={`/administration/notes/releves?attribution_id=${row.original.id}&annee_id=${currentAnneeId}`}>
-                            <FileSpreadsheet className="size-3.5 text-amber-600 dark:text-amber-400" />
-                            Relevé
-                        </Link>
-                    </Button>
-                    <Button size="sm" asChild className="h-7 text-xs gap-1 bg-rose-600 hover:bg-rose-700 text-white">
-                        <Link href={`/administration/notes?attribution_id=${row.original.id}&annee_id=${currentAnneeId}`}>
-                            <ArrowUpRight className="size-3.5" />
-                            Saisir
-                        </Link>
-                    </Button>
-                </div>
-            ),
-        },
-    ], [currentAnneeId, stats.evaluationActiveNom]);
+        ...(canVoirReleves || canSaisirNotes
+            ? [
+                  {
+                      id: 'actions',
+                      header: () => <div className="text-right">Actions</div>,
+                      cell: ({ row }: { row: { original: EnseignantAttributionStat } }) => (
+                          <div className="flex items-center justify-end gap-1.5">
+                              {canVoirReleves && (
+                                  <Button variant="outline" size="sm" asChild className="h-7 text-xs gap-1">
+                                      <Link href={`/administration/notes/releves?attribution_id=${row.original.id}&annee_id=${currentAnneeId}`}>
+                                          <FileSpreadsheet className="size-3.5 text-amber-600" />
+                                          Relevé
+                                      </Link>
+                                  </Button>
+                              )}
+                              {canSaisirNotes && (
+                                  <Button size="sm" asChild className="h-7 text-xs gap-1 bg-rose-600 hover:bg-rose-700 text-white">
+                                      <Link href={`/administration/notes?attribution_id=${row.original.id}&annee_id=${currentAnneeId}`}>
+                                          <ArrowUpRight className="size-3.5" />
+                                          Saisir
+                                      </Link>
+                                  </Button>
+                              )}
+                          </div>
+                      ),
+                  },
+              ]
+            : []),
+    ], [currentAnneeId, stats.evaluationActiveNom, canVoirReleves, canSaisirNotes]);
 
     return (
         <>
@@ -632,25 +776,25 @@ function EnseignantDashboardView({
                     </div>
 
                     {/* Sélecteurs de Contexte */}
-                    <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+                    <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto min-w-0">
                         {etablissements.length > 1 && (
-                            <div className="flex items-center gap-2 w-full sm:w-auto">
+                            <div className="flex items-center gap-2 w-full sm:w-64 min-w-0">
                                 <Building2 className="size-4 text-muted-foreground shrink-0" />
-                                <Select
-                                    value={currentEtablissement?.id.toString()}
-                                    onValueChange={(val) => onFilterChange('etablissement_id', val)}
-                                >
-                                    <SelectTrigger className="w-full sm:w-52">
-                                        <SelectValue placeholder="Établissement" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {etablissements.map((etab) => (
-                                            <SelectItem key={etab.id} value={etab.id.toString()}>
-                                                {etab.nom}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <SearchableSelect
+                                    options={etablissements.map((etab) => ({
+                                        value: etab.id.toString(),
+                                        label: etab.nom,
+                                        description: etab.code ? `Code : ${etab.code}` : undefined,
+                                    }))}
+                                    value={currentEtablissement ? currentEtablissement.id.toString() : ''}
+                                    onValueChange={(val) => {
+                                        if (val) onFilterChange('etablissement_id', val);
+                                    }}
+                                    placeholder="Établissement"
+                                    searchPlaceholder="Rechercher un établissement..."
+                                    emptyMessage="Aucun établissement trouvé."
+                                    className="h-9 text-xs sm:text-sm font-normal"
+                                />
                             </div>
                         )}
 
@@ -685,7 +829,7 @@ function EnseignantDashboardView({
                     <Card className="border-border/60 shadow-xs">
                         <CardHeader className="flex flex-row items-center justify-between pb-2">
                             <CardTitle className="text-sm font-medium text-muted-foreground">Classes Assignées</CardTitle>
-                            <div className="flex size-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-950/50 dark:text-blue-400">
+                            <div className="flex size-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
                                 <GraduationCap className="size-4" />
                             </div>
                         </CardHeader>
@@ -700,7 +844,7 @@ function EnseignantDashboardView({
                     <Card className="border-border/60 shadow-xs">
                         <CardHeader className="flex flex-row items-center justify-between pb-2">
                             <CardTitle className="text-sm font-medium text-muted-foreground">Élèves Pris en Charge</CardTitle>
-                            <div className="flex size-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400">
+                            <div className="flex size-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
                                 <Users className="size-4" />
                             </div>
                         </CardHeader>
@@ -715,7 +859,7 @@ function EnseignantDashboardView({
                     <Card className="border-border/60 shadow-xs">
                         <CardHeader className="flex flex-row items-center justify-between pb-2">
                             <CardTitle className="text-sm font-medium text-muted-foreground">Charge Horaire Hebdo</CardTitle>
-                            <div className="flex size-8 items-center justify-center rounded-lg bg-violet-50 text-violet-600 dark:bg-violet-950/50 dark:text-violet-400">
+                            <div className="flex size-8 items-center justify-center rounded-lg bg-violet-50 text-violet-600">
                                 <Clock className="size-4" />
                             </div>
                         </CardHeader>
@@ -730,7 +874,7 @@ function EnseignantDashboardView({
                     <Card className="border-border/60 shadow-xs">
                         <CardHeader className="flex flex-row items-center justify-between pb-2">
                             <CardTitle className="text-sm font-medium text-muted-foreground">Évaluation en Cours</CardTitle>
-                            <div className="flex size-8 items-center justify-center rounded-lg bg-rose-50 text-rose-600 dark:bg-rose-950/50 dark:text-rose-400">
+                            <div className="flex size-8 items-center justify-center rounded-lg bg-rose-50 text-rose-600">
                                 <CheckCircle2 className="size-4" />
                             </div>
                         </CardHeader>
@@ -743,75 +887,83 @@ function EnseignantDashboardView({
                     </Card>
                 </div>
 
-                {/* Raccourcis Opérationnels Pédagogiques */}
+                {/* Raccourcis Opérationnels Pédagogiques filtrés par permission */}
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                    <Link
-                        href="/administration/notes"
-                        className="group flex items-center gap-3 p-3.5 rounded-xl border border-border/70 bg-card hover:bg-muted/40 transition-colors shadow-2xs"
-                    >
-                        <div className="flex size-10 items-center justify-center rounded-lg bg-rose-50 text-rose-600 dark:bg-rose-950/50 dark:text-rose-400 group-hover:scale-105 transition-transform">
-                            <Edit3 className="size-5" />
-                        </div>
-                        <div>
-                            <div className="text-sm font-semibold text-foreground group-hover:text-rose-600 transition-colors">
-                                Saisie des Notes
+                    {canSaisirNotes && (
+                        <Link
+                            href="/administration/notes"
+                            className="group flex items-center gap-3 p-3.5 rounded-xl border border-border/70 bg-card hover:bg-muted/40 transition-colors shadow-2xs"
+                        >
+                            <div className="flex size-10 items-center justify-center rounded-lg bg-rose-50 text-rose-600 group-hover:scale-105 transition-transform">
+                                <Edit3 className="size-5" />
                             </div>
-                            <div className="text-xs text-muted-foreground line-clamp-1">
-                                Enregistrer les notes séquentielles
+                            <div>
+                                <div className="text-sm font-semibold text-foreground group-hover:text-rose-600 transition-colors">
+                                    Saisie des Notes
+                                </div>
+                                <div className="text-xs text-muted-foreground line-clamp-1">
+                                    Enregistrer les notes séquentielles
+                                </div>
                             </div>
-                        </div>
-                    </Link>
+                        </Link>
+                    )}
 
-                    <Link
-                        href="/administration/notes/releves"
-                        className="group flex items-center gap-3 p-3.5 rounded-xl border border-border/70 bg-card hover:bg-muted/40 transition-colors shadow-2xs"
-                    >
-                        <div className="flex size-10 items-center justify-center rounded-lg bg-amber-50 text-amber-600 dark:bg-amber-950/50 dark:text-amber-400 group-hover:scale-105 transition-transform">
-                            <FileSpreadsheet className="size-5" />
-                        </div>
-                        <div>
-                            <div className="text-sm font-semibold text-foreground group-hover:text-amber-600 transition-colors">
-                                Relevés de Notes
+                    {canVoirReleves && (
+                        <Link
+                            href="/administration/notes/releves"
+                            className="group flex items-center gap-3 p-3.5 rounded-xl border border-border/70 bg-card hover:bg-muted/40 transition-colors shadow-2xs"
+                        >
+                            <div className="flex size-10 items-center justify-center rounded-lg bg-amber-50 text-amber-600 group-hover:scale-105 transition-transform">
+                                <FileSpreadsheet className="size-5" />
                             </div>
-                            <div className="text-xs text-muted-foreground line-clamp-1">
-                                Fiches de notation vierges & remplies
+                            <div>
+                                <div className="text-sm font-semibold text-foreground group-hover:text-amber-600 transition-colors">
+                                    Relevés de Notes
+                                </div>
+                                <div className="text-xs text-muted-foreground line-clamp-1">
+                                    Fiches de notation vierges & remplies
+                                </div>
                             </div>
-                        </div>
-                    </Link>
+                        </Link>
+                    )}
 
-                    <Link
-                        href="/administration/progression-pedagogique"
-                        className="group flex items-center gap-3 p-3.5 rounded-xl border border-border/70 bg-card hover:bg-muted/40 transition-colors shadow-2xs"
-                    >
-                        <div className="flex size-10 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-400 group-hover:scale-105 transition-transform">
-                            <BookOpen className="size-5" />
-                        </div>
-                        <div>
-                            <div className="text-sm font-semibold text-foreground group-hover:text-indigo-600 transition-colors">
-                                Cahier de Texte
+                    {canVoirProgression && (
+                        <Link
+                            href="/administration/progression-pedagogique"
+                            className="group flex items-center gap-3 p-3.5 rounded-xl border border-border/70 bg-card hover:bg-muted/40 transition-colors shadow-2xs"
+                        >
+                            <div className="flex size-10 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 group-hover:scale-105 transition-transform">
+                                <BookOpen className="size-5" />
                             </div>
-                            <div className="text-xs text-muted-foreground line-clamp-1">
-                                Progression & consignation des cours
+                            <div>
+                                <div className="text-sm font-semibold text-foreground group-hover:text-indigo-600 transition-colors">
+                                    Cahier de Texte
+                                </div>
+                                <div className="text-xs text-muted-foreground line-clamp-1">
+                                    Progression & consignation des cours
+                                </div>
                             </div>
-                        </div>
-                    </Link>
+                        </Link>
+                    )}
 
-                    <Link
-                        href="/administration/emplois-du-temps"
-                        className="group flex items-center gap-3 p-3.5 rounded-xl border border-border/70 bg-card hover:bg-muted/40 transition-colors shadow-2xs"
-                    >
-                        <div className="flex size-10 items-center justify-center rounded-lg bg-violet-50 text-violet-600 dark:bg-violet-950/50 dark:text-violet-400 group-hover:scale-105 transition-transform">
-                            <Calendar className="size-5" />
-                        </div>
-                        <div>
-                            <div className="text-sm font-semibold text-foreground group-hover:text-violet-600 transition-colors">
-                                Mon Emploi du Temps
+                    {canVoirEmploi && (
+                        <Link
+                            href="/administration/emplois-du-temps"
+                            className="group flex items-center gap-3 p-3.5 rounded-xl border border-border/70 bg-card hover:bg-muted/40 transition-colors shadow-2xs"
+                        >
+                            <div className="flex size-10 items-center justify-center rounded-lg bg-violet-50 text-violet-600 group-hover:scale-105 transition-transform">
+                                <Calendar className="size-5" />
                             </div>
-                            <div className="text-xs text-muted-foreground line-clamp-1">
-                                Horaires de cours hebdomadaires
+                            <div>
+                                <div className="text-sm font-semibold text-foreground group-hover:text-violet-600 transition-colors">
+                                    Mon Emploi du Temps
+                                </div>
+                                <div className="text-xs text-muted-foreground line-clamp-1">
+                                    Horaires de cours hebdomadaires
+                                </div>
                             </div>
-                        </div>
-                    </Link>
+                        </Link>
+                    )}
                 </div>
 
                 {/* Tableau TanStack des Cours & Attributions de l'enseignant */}

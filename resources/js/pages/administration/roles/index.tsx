@@ -16,14 +16,12 @@ import {
     Lock,
     UserCheck,
     Crown,
-    Sparkles,
     CheckCheck,
     CheckSquare,
     Square,
     ChevronDown,
     ChevronRight,
     Save,
-    ChevronsUpDown,
     Info,
     School,
     Layers,
@@ -153,7 +151,7 @@ const moduleIconMap: Record<string, React.ElementType> = {
     Scale,
     Gavel,
     HeartHandshake,
-    Sparkles,
+    CheckSquare,
     Clock,
     Calendar,
     MessageSquare,
@@ -163,6 +161,36 @@ const moduleIconMap: Record<string, React.ElementType> = {
     ShieldCheck,
     Settings,
     RefreshCw,
+};
+
+/**
+ * Palette chromatique dédiée aux icônes de chaque bloc de permissions.
+ * Permet une identification visuelle rapide et harmonieuse de chaque domaine métier.
+ */
+const moduleColorMap: Record<string, string> = {
+    institution: 'bg-blue-50 text-blue-600 border-blue-200',
+    structures: 'bg-sky-50 text-sky-600 border-sky-200',
+    periodes: 'bg-cyan-50 text-cyan-600 border-cyan-200',
+    matieres: 'bg-blue-50 text-blue-700 border-blue-200',
+    eleves: 'bg-emerald-50 text-emerald-600 border-emerald-200',
+    personnels: 'bg-teal-50 text-teal-600 border-teal-200',
+    attributions: 'bg-sky-50 text-sky-700 border-sky-200',
+    evaluations: 'bg-amber-50 text-amber-600 border-amber-200',
+    bulletins: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    finances: 'bg-green-50 text-green-600 border-green-200',
+    depenses: 'bg-orange-50 text-orange-600 border-orange-200',
+    discipline: 'bg-rose-50 text-rose-600 border-rose-200',
+    conseil_discipline: 'bg-red-50 text-red-600 border-red-200',
+    dispenses: 'bg-pink-50 text-pink-600 border-pink-200',
+    competences_apc: 'bg-teal-50 text-teal-700 border-teal-200',
+    progression: 'bg-cyan-50 text-cyan-700 border-cyan-200',
+    emplois_du_temps: 'bg-blue-50 text-blue-600 border-blue-200',
+    communication: 'bg-sky-50 text-sky-600 border-sky-200',
+    deliberations: 'bg-amber-50 text-amber-700 border-amber-200',
+    archivage: 'bg-slate-100 text-slate-700 border-slate-300',
+    users: 'bg-emerald-50 text-emerald-600 border-emerald-200',
+    roles: 'bg-orange-50 text-orange-700 border-orange-200',
+    system: 'bg-slate-100 text-slate-700 border-slate-300',
 };
 
 /**
@@ -425,16 +453,39 @@ export default function RolesIndex({ roles, modules, totalPermissions, can }: Ro
     };
 
     /**
+     * Détermine le motif explicatif empêchant la suppression d'un rôle personnalisé.
+     * Retourne `null` lorsque le rôle est supprimable (0 utilisateur et 0 permission).
+     *
+     * @param {RoleItem} role - Le rôle à évaluer.
+     * @returns {string | null} Message de blocage affiché au survol ou `null` si supprimable.
+     */
+    const getDeleteBlockReason = (role: RoleItem): string | null => {
+        const reasons: string[] = [];
+        if (role.usersCount > 0) {
+            reasons.push(`est attribué à ${role.usersCount} utilisateur${role.usersCount > 1 ? 's' : ''}`);
+        }
+        if (role.permissionsCount > 0) {
+            reasons.push(`possède ${role.permissionsCount} permission${role.permissionsCount > 1 ? 's' : ''}`);
+        }
+        if (reasons.length === 0) return null;
+
+        return `Suppression impossible : ce rôle ${reasons.join(' et ')}. Retirez d'abord ses affectations avant de le supprimer.`;
+    };
+
+    /**
      * Confirme et exécute la suppression du rôle ciblé.
+     * Vérifie également qu'aucune erreur métier n'a été retournée avant de changer la sélection active.
      */
     const handleConfirmDelete = () => {
         if (!roleToDelete) return;
 
         router.delete(`/administration/roles/${roleToDelete.id}`, {
-            onSuccess: () => {
+            onSuccess: (page) => {
+                const pageFlash = (page.props as { flash?: { error?: string | null } }).flash;
                 setRoleToDelete(null);
-                // Si le rôle supprimé était celui sélectionné, repositionner sur le premier disponible
-                if (selectedRoleId === roleToDelete.id) {
+
+                // Ne basculer la sélection que si la suppression a bien abouti sans blocage métier
+                if (!pageFlash?.error && selectedRoleId === roleToDelete.id) {
                     const fallback = roles.find((r) => r.id !== roleToDelete.id);
                     if (fallback) {
                         setSelectedRoleId(fallback.id);
@@ -510,7 +561,7 @@ export default function RolesIndex({ roles, modules, totalPermissions, can }: Ro
                     </div>
 
                     <div className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl border border-border/80 bg-card/70 hover:bg-card transition-colors">
-                        <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-400">
+                        <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-teal-500/10 text-teal-600">
                             <Lock className="size-4" />
                         </div>
                         <div className="min-w-0 flex-1">
@@ -537,15 +588,21 @@ export default function RolesIndex({ roles, modules, totalPermissions, can }: Ro
                             />
                         </div>
 
-                        {/* Liste des rôles sur une seule colonne verticale avec défilement fluide maîtrisé */}
-                        <div className="flex flex-col gap-2.5 max-h-[480px] lg:max-h-[calc(100vh-14rem)] overflow-y-auto pr-1">
+                        {/* Liste complète des rôles sur toute la hauteur disponible, sans barre de défilement contraignante */}
+                        <div className="flex flex-col gap-2.5">
                             {filteredRoles.map((role) => {
                                 const isSelected = role.id === selectedRoleId;
                                 const percent =
                                     totalPermissions > 0
                                         ? Math.round((role.permissionsCount / totalPermissions) * 100)
                                         : 0;
-                                const canDeleteRole = !role.isSystem && role.usersCount === 0 && canDelete;
+                                // Un rôle personnalisé ne peut être supprimé que s'il n'a aucun utilisateur ni aucune permission
+                                const deleteBlockReason = getDeleteBlockReason(role);
+                                const canDeleteRole =
+                                    !role.isSystem &&
+                                    role.usersCount === 0 &&
+                                    role.permissionsCount === 0 &&
+                                    canDelete;
 
                                 return (
                                     <div
@@ -554,7 +611,7 @@ export default function RolesIndex({ roles, modules, totalPermissions, can }: Ro
                                         className={`group relative flex flex-col gap-2 p-4 rounded-xl border transition-all cursor-pointer select-none ${
                                             isSelected
                                                 ? 'bg-primary/5 border-primary shadow-xs ring-1 ring-primary/40'
-                                                : 'bg-card border-border/80 hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-xs'
+                                                : 'bg-card border-border/80 hover:border-slate-300 hover:shadow-xs'
                                         }`}
                                     >
                                         {/* En-tête de la carte de rôle */}
@@ -589,37 +646,55 @@ export default function RolesIndex({ roles, modules, totalPermissions, can }: Ro
                                                 </div>
                                             </div>
 
-                                            {/* Badge du type de rôle */}
-                                            {role.isSystem ? (
-                                                <Badge
-                                                    variant="secondary"
-                                                    className="text-[10px] font-semibold uppercase shrink-0"
-                                                >
-                                                    Système
-                                                </Badge>
-                                            ) : (
-                                                <div className="flex items-center gap-1 shrink-0">
+                                            {/* Badge du type de rôle et indicateur actif intégré sans débordement */}
+                                            <div className="flex items-center gap-1.5 shrink-0">
+                                                {role.isSystem ? (
                                                     <Badge
-                                                        variant="outline"
-                                                        className="text-[10px] font-semibold uppercase border-emerald-300 text-emerald-700 dark:text-emerald-400"
+                                                        variant="secondary"
+                                                        className="text-[10px] font-semibold uppercase shrink-0"
                                                     >
-                                                        Perso
+                                                        Système
                                                     </Badge>
-                                                    {canDeleteRole && (
-                                                        <button
-                                                            type="button"
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                setRoleToDelete(role);
-                                                            }}
-                                                            className="p-1 rounded text-muted-foreground/60 hover:text-destructive hover:bg-destructive/10 transition-colors"
-                                                            title="Supprimer ce rôle"
+                                                ) : (
+                                                    <div className="flex items-center gap-1 shrink-0">
+                                                        <Badge
+                                                            variant="outline"
+                                                            className="text-[10px] font-semibold uppercase border-emerald-300 text-emerald-700"
                                                         >
-                                                            <Trash2 className="size-3.5" />
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            )}
+                                                            Perso
+                                                        </Badge>
+                                                        {canDeleteRole ? (
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setRoleToDelete(role);
+                                                                }}
+                                                                className="p-1 rounded text-muted-foreground/60 hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
+                                                                title="Supprimer ce rôle"
+                                                            >
+                                                                <Trash2 className="size-3.5" />
+                                                            </button>
+                                                        ) : (
+                                                            canDelete && (
+                                                                <span
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                    className="p-1 rounded text-muted-foreground/35 cursor-not-allowed"
+                                                                    title={deleteBlockReason ?? 'Suppression bloquée'}
+                                                                    aria-label={deleteBlockReason ?? 'Suppression bloquée'}
+                                                                >
+                                                                    <Trash2 className="size-3.5" />
+                                                                </span>
+                                                            )
+                                                        )}
+                                                    </div>
+                                                )}
+                                                {isSelected && (
+                                                    <span className="hidden lg:flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-2xs shrink-0">
+                                                        <ChevronRight className="size-3.5" />
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
 
                                         {/* Statistiques et jauge de couverture */}
@@ -628,7 +703,7 @@ export default function RolesIndex({ roles, modules, totalPermissions, can }: Ro
                                                 <UserCheck className="size-3 text-slate-500" />
                                                 {role.usersCount} utilisateur{role.usersCount > 1 ? 's' : ''}
                                             </span>
-                                            <span className="font-semibold text-foreground text-[11px]">
+                                            <span className="font-semibold text-foreground text-[11px] tabular-nums">
                                                 {role.permissionsCount} / {totalPermissions} ({percent}%)
                                             </span>
                                         </div>
@@ -645,13 +720,6 @@ export default function RolesIndex({ roles, modules, totalPermissions, can }: Ro
                                                 style={{ width: `${percent}%` }}
                                             />
                                         </div>
-
-                                        {/* Indicateur de sélection à droite */}
-                                        {isSelected && (
-                                            <div className="absolute -right-2 top-1/2 -translate-y-1/2 hidden lg:flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
-                                                <ChevronRight className="size-3.5" />
-                                            </div>
-                                        )}
                                     </div>
                                 );
                             })}
@@ -703,7 +771,7 @@ export default function RolesIndex({ roles, modules, totalPermissions, can }: Ro
                                                             Système
                                                         </Badge>
                                                     ) : (
-                                                        <Badge variant="outline" className="text-[10px] font-semibold uppercase border-emerald-300 text-emerald-700 dark:text-emerald-400">
+                                                        <Badge variant="outline" className="text-[10px] font-semibold uppercase border-emerald-300 text-emerald-700">
                                                             Personnalisé
                                                         </Badge>
                                                     )}
@@ -760,7 +828,7 @@ export default function RolesIndex({ roles, modules, totalPermissions, can }: Ro
                                                 </Button>
 
                                                 {hasUnsavedChanges && (
-                                                    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-600 bg-amber-50 dark:bg-amber-950/50 px-2 py-0.5 rounded-full border border-amber-200 dark:border-amber-900/40">
+                                                    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
                                                         <Info className="size-3" />
                                                         Modifications en attente
                                                     </span>
@@ -813,7 +881,7 @@ export default function RolesIndex({ roles, modules, totalPermissions, can }: Ro
                                     {filteredModules.map((module) => {
                                         const IconComp = moduleIconMap[module.icon] || Shield;
                                         const isOpen = Boolean(openModules[module.id]) || Boolean(permissionSearch.trim());
-                                        const modulePermissionNames = module.permissions.map((p) => p.name);
+                                        const _modulePermissionNames = module.permissions.map((p) => p.name);
 
                                         // Calcul du nombre de permissions sélectionnées dans ce module
                                         const selectedInModule = currentRole.isSuperAdmin
@@ -834,7 +902,11 @@ export default function RolesIndex({ roles, modules, totalPermissions, can }: Ro
                                                     className="flex items-center justify-between p-3.5 bg-muted/20 hover:bg-muted/40 transition-colors cursor-pointer select-none"
                                                 >
                                                     <div className="flex items-center gap-3 min-w-0">
-                                                        <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                                                        <div
+                                                            className={`flex size-8 shrink-0 items-center justify-center rounded-lg border ${
+                                                                moduleColorMap[module.id] || 'bg-slate-100 text-slate-600 border-slate-200'
+                                                            }`}
+                                                        >
                                                             <IconComp className="size-4" />
                                                         </div>
                                                         <div className="min-w-0">
@@ -910,14 +982,14 @@ export default function RolesIndex({ roles, modules, totalPermissions, can }: Ro
                                                                         } ${
                                                                             isChecked
                                                                                 ? 'bg-primary/10 border-primary shadow-xs ring-1 ring-primary/20'
-                                                                                : 'bg-card border-border/70 hover:border-slate-400 dark:hover:border-slate-600 hover:bg-muted/30'
+                                                                                : 'bg-card border-border/70 hover:border-slate-400 hover:bg-muted/30'
                                                                         }`}
                                                                     >
                                                                         <Checkbox
                                                                             checked={isChecked}
                                                                             disabled={currentRole.isSuperAdmin}
                                                                             className={`pointer-events-none mt-0.5 shrink-0 ${
-                                                                                !isChecked ? 'border-slate-400 dark:border-slate-500' : ''
+                                                                                !isChecked ? 'border-slate-400' : ''
                                                                             }`}
                                                                         />
                                                                         <div className="min-w-0 flex-1">

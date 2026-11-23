@@ -2,23 +2,15 @@ import { Head, router } from '@inertiajs/react';
 import type { ColumnDef } from '@tanstack/react-table';
 import {
     AlertCircle,
-    AlertTriangle,
-    Award,
     BookOpen,
     Calendar,
     CalendarDays,
     CheckCircle2,
-    Clock,
     DollarSign,
     Download,
-    FileText,
-    GraduationCap,
     Lock,
-    Printer,
     Receipt,
     ShieldAlert,
-    Sparkles,
-    User,
     Users,
 } from 'lucide-react';
 import * as React from 'react';
@@ -26,7 +18,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { DataTable } from '@/components/ui/data-table';
-import { Progress } from '@/components/ui/progress';
 import {
     Select,
     SelectContent,
@@ -92,12 +83,12 @@ const notesColumns: ColumnDef<LigneMatierePortail>[] = [
             }
             const color =
                 val >= 12
-                    ? 'text-emerald-700 bg-emerald-50 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300'
+                    ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
                     : val >= 10
-                    ? 'text-blue-700 bg-blue-50 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300'
+                    ? 'text-blue-700 bg-blue-50 border-blue-200'
                     : val >= 8.5
-                    ? 'text-amber-700 bg-amber-50 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300'
-                    : 'text-rose-700 bg-rose-50 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300';
+                    ? 'text-amber-700 bg-amber-50 border-amber-200'
+                    : 'text-rose-700 bg-rose-50 border-rose-200';
             return (
                 <div className="flex items-center gap-2">
                     <span className={`px-2 py-0.5 rounded font-mono font-bold text-xs border ${color}`}>

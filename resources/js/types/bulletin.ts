@@ -85,7 +85,7 @@ export interface EleveBulletin {
     genre: string;
     photo_url?: string | null;
     is_redoublant: boolean;
-    lignes_matieres: Record<number, LigneMatiereBulletin> | any;
+    lignes_matieres: any;
     groupes_matieres?: GroupeMatiereBulletin[];
     total_points: number;
     total_coefficients: number;

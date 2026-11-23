@@ -28,16 +28,15 @@ import {
     Coins,
     AlertCircle,
     ArrowRight,
-    Sparkles,
     PlusCircle,
     Check,
     Users,
     User,
     RefreshCw,
-    X,
 } from 'lucide-react';
 import { SearchableSelect, type SearchableOption } from '@/components/ui/searchable-select';
-import type { EtablissementRef, AnneeScolaireRef, ClasseRef } from '@/types/eleve';
+import { buildClasseSearchOptions, flattenClassesFromEtablissements } from '@/lib/utils';
+import type { EtablissementRef, AnneeScolaireRef } from '@/types/eleve';
 
 /**
  * Interface décrivant les détails de scolarité passée d'un ancien élève.
@@ -146,54 +145,16 @@ export function ReinscriptionModal({
     const [batchLoading, setBatchLoading] = useState(false);
     const [batchEleves, setBatchEleves] = useState<BatchEleveItem[]>([]);
 
-    // Aplatissement de la liste de toutes les classes disponibles
-    const availableClasses: ClasseRef[] = useMemo(() => {
-        const list: ClasseRef[] = [];
-        etablissements.forEach((etab) => {
-            etab.sections?.forEach((sec) => {
-                sec.cycles?.forEach((cyc) => {
-                    cyc.niveaux?.forEach((niv) => {
-                        niv.classes?.forEach((cls) => {
-                            list.push({
-                                ...cls,
-                                niveau: {
-                                    id: niv.id,
-                                    nom: niv.nom,
-                                    code: niv.code,
-                                    cycle: {
-                                        id: cyc.id,
-                                        nom: cyc.nom,
-                                        section: {
-                                            id: sec.id,
-                                            nom: sec.nom,
-                                            etablissement: {
-                                                id: etab.id,
-                                                nom: etab.nom,
-                                            },
-                                        },
-                                    },
-                                },
-                            });
-                        });
-                    });
-                });
-            });
-        });
-        return list;
-    }, [etablissements]);
+    // Aplatissement des classes disponibles et formatage pour SearchableSelect (sans troncature du campus)
+    const availableClasses = useMemo(
+        () => flattenClassesFromEtablissements(etablissements),
+        [etablissements]
+    );
 
-    // Options formatées pour SearchableSelect
-    const classeOptions: SearchableOption[] = useMemo(() => {
-        return availableClasses.map((cls) => {
-            const etabNom = cls.niveau?.cycle?.section?.etablissement?.nom || '';
-            const etabAbrege = etabNom.length > 25 ? `${etabNom.substring(0, 25)}…` : etabNom;
-            return {
-                value: String(cls.id),
-                label: `${cls.nom} (${cls.niveau?.nom || 'Niveau'}${etabAbrege ? ` — ${etabAbrege}` : ''})`,
-                group: cls.niveau?.nom || 'Classes',
-            };
-        });
-    }, [availableClasses]);
+    const classeOptions: SearchableOption[] = useMemo(
+        () => buildClasseSearchOptions(availableClasses),
+        [availableClasses]
+    );
 
     // ─────────────────────────────────────────────────────────────
     // LOGIQUE MODE INDIVIDUEL
@@ -451,7 +412,7 @@ export function ReinscriptionModal({
             <DialogContent className="w-[95vw] sm:max-w-3xl max-h-[92vh] overflow-y-auto p-4 sm:p-6">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl font-bold">
-                        <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 shrink-0">
+                        <div className="p-2 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200 shrink-0">
                             <UserCheck className="size-5" />
                         </div>
                         <span>Réinscription des Anciens Élèves (Rentrée Scolaire)</span>
@@ -480,13 +441,13 @@ export function ReinscriptionModal({
                         onClick={() => setMode('lot')}
                         className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                             mode === 'lot'
-                                ? 'bg-background text-emerald-700 dark:text-emerald-400 shadow-xs'
+                                ? 'bg-background text-emerald-700 shadow-xs'
                                 : 'text-muted-foreground hover:text-foreground'
                         }`}
                     >
                         <Users className="size-3.5 text-emerald-600" />
                         Réinscription Collective (En Lot)
-                        <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 font-bold">
+                        <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-700 font-bold">
                             Par Classe
                         </span>
                     </button>
@@ -554,7 +515,7 @@ export function ReinscriptionModal({
                                                 {/* Dernière classe et avis du conseil */}
                                                 {dc ? (
                                                     <div className="flex items-center gap-1.5 flex-wrap text-xs pt-0.5">
-                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 font-medium">
+                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 font-medium">
                                                             <School className="size-3" />
                                                             Dernière classe : <strong>{dc.classe_nom}</strong> ({dc.annee_nom})
                                                         </span>
@@ -562,15 +523,15 @@ export function ReinscriptionModal({
                                                         {dc.decision_conseil && (
                                                             <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-medium ${
                                                                 dc.statut_retenu === 'redouble'
-                                                                    ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300'
-                                                                    : 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300'
+                                                                    ? 'bg-amber-50 text-amber-700'
+                                                                    : 'bg-emerald-50 text-emerald-700'
                                                             }`}>
                                                                 {dc.decision_conseil}
                                                             </span>
                                                         )}
 
                                                         {dc.solde_impaye_precedent && dc.solde_impaye_precedent > 0 ? (
-                                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 font-semibold">
+                                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 font-semibold">
                                                                 <AlertCircle className="size-3" />
                                                                 Impayé : {dc.solde_impaye_precedent.toLocaleString('fr-FR')} FCFA
                                                             </span>
@@ -595,10 +556,10 @@ export function ReinscriptionModal({
 
                         {/* Fiche de l'élève sélectionné */}
                         {selectedEleve && (
-                            <div className="p-3.5 bg-slate-50 dark:bg-slate-900 border border-border rounded-xl space-y-2.5">
+                            <div className="p-3.5 bg-slate-50 border border-border rounded-xl space-y-2.5">
                                 <div className="flex items-start justify-between gap-3">
                                     <div>
-                                        <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-1">
+                                        <span className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider flex items-center gap-1">
                                             <CheckCircle2 className="size-3.5" />
                                             Élève prêt pour la réinscription
                                         </span>
@@ -634,8 +595,8 @@ export function ReinscriptionModal({
                                                     variant="outline"
                                                     className={`text-[11px] font-semibold ${
                                                         selectedEleve.derniere_classe.statut_retenu === 'redouble'
-                                                            ? 'border-amber-400 text-amber-700 bg-amber-50 dark:bg-amber-950/40'
-                                                            : 'border-emerald-400 text-emerald-700 bg-emerald-50 dark:bg-emerald-950/40'
+                                                            ? 'border-amber-400 text-amber-700 bg-amber-50'
+                                                            : 'border-emerald-400 text-emerald-700 bg-emerald-50'
                                                     }`}
                                                 >
                                                     {selectedEleve.derniere_classe.decision_conseil}
@@ -652,10 +613,10 @@ export function ReinscriptionModal({
                                                     type="button"
                                                     size="sm"
                                                     variant="secondary"
-                                                    className="h-6 text-[10px] px-2 bg-rose-100 hover:bg-rose-200 text-rose-800 dark:bg-rose-950 dark:text-rose-200 gap-1"
+                                                    className="h-6 text-[10px] px-2 bg-rose-100 hover:bg-rose-200 text-rose-800 gap-1"
                                                     onClick={() => setArrieresAnterieurs(String(selectedEleve.derniere_classe?.solde_impaye_precedent))}
                                                 >
-                                                    <Sparkles className="size-3" />
+                                                    <ArrowRight className="size-3" />
                                                     Reporter
                                                 </Button>
                                             </div>
@@ -714,14 +675,14 @@ export function ReinscriptionModal({
                             </div>
 
                             {/* Report d'arriérés */}
-                            <div className="sm:col-span-2 p-3 bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-800/50 rounded-xl space-y-1">
+                            <div className="sm:col-span-2 p-3 bg-amber-50/60 border border-amber-200/80 rounded-xl space-y-1">
                                 <div className="flex items-center justify-between">
-                                    <Label htmlFor="reinsc_arrieres" className="font-bold text-amber-900 dark:text-amber-200 flex items-center gap-1.5 text-xs">
+                                    <Label htmlFor="reinsc_arrieres" className="font-bold text-amber-900 flex items-center gap-1.5 text-xs">
                                         <Coins className="size-3.5 text-amber-600 shrink-0" />
                                         Arriérés de l'année précédente à reporter (FCFA)
                                     </Label>
                                     {arrieresAnterieurs && Number(arrieresAnterieurs) > 0 && (
-                                        <span className="text-xs font-bold text-amber-700 dark:text-amber-300">
+                                        <span className="text-xs font-bold text-amber-700">
                                             + {Number(arrieresAnterieurs).toLocaleString('fr-FR')} FCFA
                                         </span>
                                     )}
@@ -773,7 +734,7 @@ export function ReinscriptionModal({
                                                 variant="outline"
                                                 disabled={loading || !selectedEleve || !targetClasseId}
                                                 onClick={() => handleIndividualSubmit('save_and_new')}
-                                                className="w-full sm:w-auto text-xs h-9 border-teal-500/60 text-teal-700 dark:text-teal-300 hover:bg-teal-50 dark:hover:bg-teal-950/40 gap-1.5 font-medium"
+                                                className="w-full sm:w-auto text-xs h-9 border-teal-500/60 text-teal-700 hover:bg-teal-50 gap-1.5 font-medium"
                                             >
                                                 <PlusCircle className="size-3.5 text-teal-600" />
                                                 Réinscrire et Nouveau
@@ -804,7 +765,7 @@ export function ReinscriptionModal({
                 {mode === 'lot' && (
                     <div className="space-y-4 pt-1">
                         {/* Sélecteurs des deux classes : Source et Cible */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-xl bg-slate-50 dark:bg-slate-900 border border-border">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-xl bg-slate-50 border border-border">
                             <div>
                                 <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
                                     <School className="size-3.5 text-blue-600" />
@@ -885,7 +846,7 @@ export function ReinscriptionModal({
                                                     el.deja_inscrit
                                                         ? 'bg-muted/40 opacity-70 cursor-not-allowed'
                                                         : el.is_selected
-                                                        ? 'bg-emerald-50/50 dark:bg-emerald-950/20'
+                                                        ? 'bg-emerald-50/50'
                                                         : 'hover:bg-muted/30'
                                                 }`}
                                             >
@@ -913,8 +874,8 @@ export function ReinscriptionModal({
                                                             {el.decision_conseil && (
                                                                 <span className={`text-[10px] px-1.5 py-0.2 rounded font-semibold ${
                                                                     el.statut_retenu === 'redouble'
-                                                                        ? 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-200'
-                                                                        : 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-200'
+                                                                        ? 'bg-amber-100 text-amber-800'
+                                                                        : 'bg-emerald-100 text-emerald-800'
                                                                 }`}>
                                                                     Avis : {el.decision_conseil}
                                                                 </span>
@@ -932,7 +893,7 @@ export function ReinscriptionModal({
                                                 {/* Actions d'affectation par ligne */}
                                                 <div className="flex items-center gap-2 shrink-0">
                                                     {el.deja_inscrit ? (
-                                                        <Badge variant="secondary" className="text-[10px] bg-slate-200 dark:bg-slate-800">
+                                                        <Badge variant="secondary" className="text-[10px] bg-slate-200">
                                                             Déjà inscrit {el.classe_actuelle_nom ? `(${el.classe_actuelle_nom})` : ''}
                                                         </Badge>
                                                     ) : (

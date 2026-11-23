@@ -2038,7 +2038,7 @@ class FinanceService
     private function construireLignesEcheancier(
         CompteFinancierEleve $compte,
         ?Carbon $dateRef = null,
-        ?\Illuminate\Support\Collection $fraisObligatoiresPrecharges = null
+        ?Collection $fraisObligatoiresPrecharges = null
     ): array {
         $compte->loadMissing([
             'inscription.classe.niveau',
@@ -2333,13 +2333,13 @@ class FinanceService
      *
      * @param  CompteFinancierEleve  $compte  Compte financier à évaluer
      * @param  Carbon|null  $dateReference  Date d'évaluation (aujourd'hui par défaut)
-     * @param  \Illuminate\Support\Collection|null  $fraisObligatoiresPrecharges  Tarifs déjà chargés en lot (mode sync)
+     * @param  Collection|null  $fraisObligatoiresPrecharges  Tarifs déjà chargés en lot (mode sync)
      * @return string Statut normalisé stocké dans `statut_financier`
      */
     public function determinerStatutFinancierCompte(
         CompteFinancierEleve $compte,
         ?Carbon $dateReference = null,
-        ?\Illuminate\Support\Collection $fraisObligatoiresPrecharges = null
+        ?Collection $fraisObligatoiresPrecharges = null
     ): string {
         $soldeRestant = (float) $compte->solde_restant;
         $netExigible = (float) $compte->montant_net_exigible;
@@ -4016,11 +4016,18 @@ class FinanceService
     ): array {
         $perimetre = $this->construireContextePerimetre($etablissementId, $sectionId, $cycleId, $niveauId, $classeId);
 
-        $classesQuery = Classe::with(['niveau.cycle.section', 'inscriptions.compteFinancier' => function ($q) use ($anneeId) {
-            if ($anneeId > 0) {
-                $q->where('annee_scolaire_id', $anneeId);
-            }
-        }])
+        $classesQuery = Classe::with([
+            'niveau.cycle.section',
+            'inscriptions.compteFinancier' => function ($q) use ($anneeId) {
+                if ($anneeId > 0) {
+                    $q->where('annee_scolaire_id', $anneeId);
+                }
+                $q->with([
+                    'souscriptionsOptionnelles' => fn ($sq) => $sq->where('statut', 'actif'),
+                    'penalites' => fn ($pq) => $pq->where('statut', '!=', 'annule'),
+                ]);
+            },
+        ])
             ->where('is_active', true);
 
         if ($etablissementId) {
@@ -4070,7 +4077,12 @@ class FinanceService
                     continue;
                 }
                 $effectif++;
-                $aVerser += (float) $compte->debit_initial;
+                // Inclut les frais annexes/optionnels actifs, arriérés et pénalités dans le montant exigible brut
+                // afin que la formule (Exigible - Réductions - Recouvré = Reste Dû) reste rigoureusement équilibrée.
+                $optionsActives = (float) $compte->souscriptionsOptionnelles->sum('montant');
+                $penalitesActives = (float) $compte->penalites->sum('montant');
+                $arrieres = (float) ($compte->arrieres_anterieurs ?? 0);
+                $aVerser += (float) $compte->debit_initial + $optionsActives + $arrieres + $penalitesActives;
                 $red = (float) ($compte->total_dispense ?? 0) + (float) ($compte->remise_bourse ?? 0);
                 $reduction += $red;
                 $verse += (float) $compte->total_paye;
@@ -4186,6 +4198,8 @@ class FinanceService
         $query = CompteFinancierEleve::with([
             'eleve',
             'inscription.classe.niveau.cycle.section',
+            'souscriptionsOptionnelles' => fn ($sq) => $sq->where('statut', 'actif')->with('fraisScolaire.typeFrais'),
+            'penalites' => fn ($pq) => $pq->where('statut', '!=', 'annule'),
         ]);
 
         if ($anneeId > 0) {
@@ -4201,6 +4215,8 @@ class FinanceService
         $comptes = $query->get();
 
         $eleves = [];
+        $totalScolarite = 0.0;
+        $totalFraisAnnexes = 0.0;
         $totalExigible = 0.0;
         $totalReduction = 0.0;
         $totalVerse = 0.0;
@@ -4209,11 +4225,34 @@ class FinanceService
         foreach ($comptes as $compte) {
             $e = $compte->eleve;
             $cl = $compte->inscription?->classe?->nom ?? 'N/A';
-            $aVerser = (float) $compte->debit_initial;
+
+            // Décomposition transparente : Scolarité obligatoire + Frais annexes/optionnels (+ arriérés/pénalités éventuels)
+            $scolariteBase = (float) $compte->debit_initial;
+            $fraisOptions = (float) $compte->souscriptionsOptionnelles->sum('montant');
+            $arrieresPenalites = (float) ($compte->arrieres_anterieurs ?? 0) + (float) $compte->penalites->sum('montant');
+            $fraisAnnexes = $fraisOptions + $arrieresPenalites;
+            $aVerser = $scolariteBase + $fraisAnnexes;
+
+            // Liste concise des intitulés de frais annexes souscrits pour affichage explicite sur le PDF
+            $detailsAnnexes = $compte->souscriptionsOptionnelles
+                ->map(fn ($sub) => $sub->fraisScolaire?->libelle_tranche ?: ($sub->fraisScolaire?->typeFrais?->libelle ?? 'Frais annexe'))
+                ->filter()
+                ->unique()
+                ->values()
+                ->all();
+            if ((float) ($compte->arrieres_anterieurs ?? 0) > 0) {
+                $detailsAnnexes[] = 'Arriérés';
+            }
+            if ((float) $compte->penalites->sum('montant') > 0) {
+                $detailsAnnexes[] = 'Pénalités';
+            }
+
             $red = (float) ($compte->total_dispense ?? 0) + (float) ($compte->remise_bourse ?? 0);
             $verse = (float) $compte->total_paye;
             $reste = (float) $compte->solde_restant;
 
+            $totalScolarite += $scolariteBase;
+            $totalFraisAnnexes += $fraisAnnexes;
             $totalExigible += $aVerser;
             $totalReduction += $red;
             $totalVerse += $verse;
@@ -4224,6 +4263,9 @@ class FinanceService
                 'nom_complet' => $e ? ($e->nom.' '.($e->prenom ?? '')) : 'N/A',
                 'sexe' => $e?->sexe ?? '-',
                 'classe' => $cl,
+                'scolarite_base' => $scolariteBase,
+                'frais_annexes' => $fraisAnnexes,
+                'details_annexes' => implode(', ', $detailsAnnexes),
                 'a_verser' => $aVerser,
                 'reduction' => $red,
                 'verse' => $verse,
@@ -4244,12 +4286,16 @@ class FinanceService
                 $groupesClasses[$clNom] = [
                     'classe' => $clNom,
                     'eleves' => [],
+                    'total_scolarite' => 0.0,
+                    'total_frais_annexes' => 0.0,
                     'total_verse' => 0.0,
                     'total_reste' => 0.0,
                     'total_a_verser' => 0.0,
                 ];
             }
             $groupesClasses[$clNom]['eleves'][] = $el;
+            $groupesClasses[$clNom]['total_scolarite'] += $el['scolarite_base'];
+            $groupesClasses[$clNom]['total_frais_annexes'] += $el['frais_annexes'];
             $groupesClasses[$clNom]['total_verse'] += $el['verse'];
             $groupesClasses[$clNom]['total_reste'] += $el['reste'];
             $groupesClasses[$clNom]['total_a_verser'] += $el['a_verser'];
@@ -4260,6 +4306,8 @@ class FinanceService
             'perimetre_label' => $perimetre['perimetre_label'],
             'eleves' => $eleves,
             'classes' => array_values($groupesClasses),
+            'total_scolarite' => $totalScolarite,
+            'total_frais_annexes' => $totalFraisAnnexes,
             'total_exigible' => $totalExigible,
             'total_a_verser' => $totalExigible,
             'total_reduction' => $totalReduction,
@@ -4414,6 +4462,8 @@ class FinanceService
                     'caissier',
                 ]),
             'boursesRemises.bourseRemise',
+            'souscriptionsOptionnelles' => fn ($sq) => $sq->where('statut', 'actif')->with('fraisScolaire.typeFrais'),
+            'penalites' => fn ($pq) => $pq->where('statut', '!=', 'annule'),
             'etablissement.institution',
             'inscription.classe.niveau.cycle.section',
         ])
@@ -4453,7 +4503,13 @@ class FinanceService
             ];
         }
 
-        $aVerser = (float) ($compte?->debit_initial ?? 0);
+        $scolariteBase = (float) ($compte?->debit_initial ?? 0);
+        $fraisAnnexes = $compte
+            ? (float) $compte->souscriptionsOptionnelles->sum('montant')
+                + (float) ($compte->arrieres_anterieurs ?? 0)
+                + (float) $compte->penalites->sum('montant')
+            : 0.0;
+        $aVerser = $scolariteBase + $fraisAnnexes;
         // Cumule les dispenses financières et les bourses/remises accordées sur le dossier
         $reduction = (float) ($compte?->total_dispense ?? 0) + (float) ($compte?->remise_bourse ?? 0);
         $netExigible = (float) ($compte?->montant_net_exigible ?? max(0, $aVerser - $reduction));

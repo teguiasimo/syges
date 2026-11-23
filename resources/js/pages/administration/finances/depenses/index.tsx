@@ -20,23 +20,17 @@ import {
     Edit2,
     Trash2,
     Search,
-    RotateCw,
-    School,
-    CheckCircle2,
-    XCircle,
     ArrowLeft,
     Tag,
     ChevronLeft,
     ChevronRight,
     ChevronsLeft,
     ChevronsRight,
-    FileText,
-    DollarSign,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import {
     Dialog,
     DialogContent,
@@ -46,6 +40,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { formatDate, formatDateForInput } from '@/lib/utils';
 import type {
     DepenseItem,
@@ -98,16 +93,16 @@ interface DepensesPageProps {
  * - Suivi du solde net d'exploitation (Recettes vs Dépenses) et édition du Bilan Financier.
  */
 export default function DepensesIndex({
-    depenses = [],
-    categories = [],
-    caisses = [],
+    depenses,
+    categories,
+    caisses,
     stats,
-    etablissements = [],
+    etablissements,
     selectedEtabId,
     selectedAnneeId,
     isSuperAdmin = false,
-    anneesScolaires = [],
-    filters = {},
+    anneesScolaires,
+    filters,
     can,
 }: DepensesPageProps) {
     const [selectedEtab] = useState<number>(selectedEtabId);
@@ -119,7 +114,7 @@ export default function DepensesIndex({
 
     // États des dialogues
     const [isCreateOpen, setIsCreateOpen] = useState<boolean>(false);
-    const [isEditOpen, setIsEditOpen] = useState<boolean>(false);
+    const [_isEditOpen, setIsEditOpen] = useState<boolean>(false);
     const [isCategoryModalOpen, setIsCategoryModalOpen] = useState<boolean>(false);
     const [isBilanModalOpen, setIsBilanModalOpen] = useState<boolean>(false);
     const [editingDepense, setEditingDepense] = useState<DepenseItem | null>(null);
@@ -186,6 +181,12 @@ export default function DepensesIndex({
      */
     const handleCreateDepense = (e: React.FormEvent) => {
         e.preventDefault();
+        if (!formData.caisse_id || !formData.categorie_depense_id) {
+            toast.error('Veuillez sélectionner une caisse et une catégorie budgétaire.', {
+                position: 'top-right',
+            });
+            return;
+        }
         router.post(
             '/administration/finances/depenses',
             {
@@ -231,7 +232,7 @@ export default function DepensesIndex({
     /**
      * Met à jour une dépense existante.
      */
-    const handleUpdateDepense = (e: React.FormEvent) => {
+    const _handleUpdateDepense = (e: React.FormEvent) => {
         e.preventDefault();
         if (!editingDepense) return;
 
@@ -396,7 +397,7 @@ export default function DepensesIndex({
                 accessorKey: 'montant',
                 header: 'Montant Décaissé',
                 cell: ({ row }) => (
-                    <span className="font-mono font-bold text-sm text-rose-600 dark:text-rose-400 whitespace-nowrap tabular-nums">
+                    <span className="font-mono font-bold text-sm text-rose-600 whitespace-nowrap tabular-nums">
                         {new Intl.NumberFormat('fr-FR').format(row.original.montant)} FCFA
                     </span>
                 ),
@@ -537,7 +538,7 @@ export default function DepensesIndex({
                             <Button
                                 variant="outline"
                                 onClick={handlePrintBilan}
-                                className="gap-2 h-9 text-xs font-semibold w-full sm:w-auto justify-center border-teal-300 text-teal-700 hover:bg-teal-50 dark:border-teal-800 dark:text-teal-300"
+                                className="gap-2 h-9 text-xs font-semibold w-full sm:w-auto justify-center border-teal-300 text-teal-700 hover:bg-teal-50"
                             >
                                 <FileSpreadsheet className="size-3.5 shrink-0" />
                                 Bilan Entrées/Sorties Filtré (PDF)
@@ -592,12 +593,12 @@ export default function DepensesIndex({
                         <CardContent className="p-4 flex items-start sm:items-center justify-between gap-2">
                             <div className="min-w-0 flex-1">
                                 <p className="text-xs font-medium text-muted-foreground">Total Recettes Encaissées</p>
-                                <h3 className="text-lg sm:text-xl 2xl:text-2xl font-bold tracking-tight text-blue-600 dark:text-blue-400 mt-0.5 font-mono tabular-nums wrap-break-word leading-tight">
+                                <h3 className="text-lg sm:text-xl 2xl:text-2xl font-bold tracking-tight text-blue-600 mt-0.5 font-mono tabular-nums wrap-break-word leading-tight">
                                     {new Intl.NumberFormat('fr-FR').format(stats.total_recettes)}
                                 </h3>
                                 <p className="text-[10px] text-muted-foreground">Scolarité + Divers</p>
                             </div>
-                            <div className="p-2.5 rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300 shrink-0">
+                            <div className="p-2.5 rounded-lg bg-blue-100 text-blue-700 shrink-0">
                                 <TrendingUp className="size-5" />
                             </div>
                         </CardContent>
@@ -607,12 +608,12 @@ export default function DepensesIndex({
                         <CardContent className="p-4 flex items-start sm:items-center justify-between gap-2">
                             <div className="min-w-0 flex-1">
                                 <p className="text-xs font-medium text-muted-foreground">Total Dépenses Décaissées</p>
-                                <h3 className="text-lg sm:text-xl 2xl:text-2xl font-bold tracking-tight text-rose-600 dark:text-rose-400 mt-0.5 font-mono tabular-nums wrap-break-word leading-tight">
+                                <h3 className="text-lg sm:text-xl 2xl:text-2xl font-bold tracking-tight text-rose-600 mt-0.5 font-mono tabular-nums wrap-break-word leading-tight">
                                     {new Intl.NumberFormat('fr-FR').format(stats.total_depenses)}
                                 </h3>
                                 <p className="text-[10px] text-muted-foreground">{stats.nb_depenses} opération(s)</p>
                             </div>
-                            <div className="p-2.5 rounded-lg bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300 shrink-0">
+                            <div className="p-2.5 rounded-lg bg-rose-100 text-rose-700 shrink-0">
                                 <TrendingDown className="size-5" />
                             </div>
                         </CardContent>
@@ -622,14 +623,14 @@ export default function DepensesIndex({
                         <CardContent className="p-4 flex items-start sm:items-center justify-between gap-2">
                             <div className="min-w-0 flex-1">
                                 <p className="text-xs font-medium text-muted-foreground">Résultat Net d'Exploitation</p>
-                                <h3 className={`text-lg sm:text-xl 2xl:text-2xl font-bold tracking-tight mt-0.5 font-mono tabular-nums wrap-break-word leading-tight ${stats.solde_net >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                                <h3 className={`text-lg sm:text-xl 2xl:text-2xl font-bold tracking-tight mt-0.5 font-mono tabular-nums wrap-break-word leading-tight ${stats.solde_net >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                                     {new Intl.NumberFormat('fr-FR').format(stats.solde_net)}
                                 </h3>
                                 <p className="text-[10px] font-semibold text-muted-foreground">
                                     {stats.solde_net >= 0 ? 'Excédent budgétaire' : 'Déficit budgétaire'}
                                 </p>
                             </div>
-                            <div className={`p-2.5 rounded-lg shrink-0 ${stats.solde_net >= 0 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300'}`}>
+                            <div className={`p-2.5 rounded-lg shrink-0 ${stats.solde_net >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
                                 <Scale className="size-5" />
                             </div>
                         </CardContent>
@@ -642,7 +643,7 @@ export default function DepensesIndex({
                                 <h3 className="text-lg sm:text-xl 2xl:text-2xl font-bold tracking-tight text-foreground mt-0.5 font-mono tabular-nums leading-tight">{caisses.length}</h3>
                                 <p className="text-[10px] text-muted-foreground">{categories.length} catégories budgétaires</p>
                             </div>
-                            <div className="p-2.5 rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300 shrink-0">
+                            <div className="p-2.5 rounded-lg bg-amber-100 text-amber-700 shrink-0">
                                 <Wallet className="size-5" />
                             </div>
                         </CardContent>
@@ -653,45 +654,51 @@ export default function DepensesIndex({
                 <Card className="border-border/60 shadow-sm">
                     <CardContent className="p-4 sm:p-5">
                         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3 items-end">
-                            <div>
+                            <div className="min-w-0">
                                 <label className="text-xs font-medium text-muted-foreground mb-1 block">Caisse</label>
-                                <select
+                                <SearchableSelect
                                     value={selectedCaisse}
-                                    onChange={(e) => {
-                                        setSelectedCaisse(e.target.value);
-                                        handleFilterChange({ caisse_id: e.target.value });
+                                    onValueChange={(val) => {
+                                        setSelectedCaisse(val);
+                                        handleFilterChange({ caisse_id: val });
                                     }}
-                                    className="w-full h-9 px-3 rounded-md border border-input bg-background text-xs"
-                                >
-                                    <option value="">Toutes les caisses</option>
-                                    {caisses.map((c) => (
-                                        <option key={c.id} value={c.id}>
-                                            {c.nom}
-                                        </option>
-                                    ))}
-                                </select>
+                                    options={[
+                                        { value: '', label: 'Toutes les caisses' },
+                                        ...caisses.map((c) => ({
+                                            value: String(c.id),
+                                            label: c.nom,
+                                        })),
+                                    ]}
+                                    placeholder="Toutes les caisses"
+                                    searchPlaceholder="Rechercher une caisse..."
+                                    emptyMessage="Aucune caisse trouvée pour"
+                                    className="h-9 text-xs bg-background"
+                                />
                             </div>
 
-                            <div>
+                            <div className="min-w-0">
                                 <label className="text-xs font-medium text-muted-foreground mb-1 block">Catégorie Budgétaire</label>
-                                <select
+                                <SearchableSelect
                                     value={selectedCategorie}
-                                    onChange={(e) => {
-                                        setSelectedCategorie(e.target.value);
-                                        handleFilterChange({ categorie_depense_id: e.target.value });
+                                    onValueChange={(val) => {
+                                        setSelectedCategorie(val);
+                                        handleFilterChange({ categorie_depense_id: val });
                                     }}
-                                    className="w-full h-9 px-3 rounded-md border border-input bg-background text-xs"
-                                >
-                                    <option value="">Toutes les catégories</option>
-                                    {categories.map((cat) => (
-                                        <option key={cat.id} value={cat.id}>
-                                            {cat.nom}
-                                        </option>
-                                    ))}
-                                </select>
+                                    options={[
+                                        { value: '', label: 'Toutes les catégories' },
+                                        ...categories.map((cat) => ({
+                                            value: String(cat.id),
+                                            label: cat.nom,
+                                        })),
+                                    ]}
+                                    placeholder="Toutes les catégories"
+                                    searchPlaceholder="Rechercher une catégorie..."
+                                    emptyMessage="Aucune catégorie trouvée pour"
+                                    className="h-9 text-xs bg-background"
+                                />
                             </div>
 
-                            <div>
+                            <div className="min-w-0">
                                 <label className="text-xs font-medium text-muted-foreground mb-1 block">Statut</label>
                                 <select
                                     value={selectedStatut}
@@ -699,7 +706,7 @@ export default function DepensesIndex({
                                         setSelectedStatut(e.target.value);
                                         handleFilterChange({ statut: e.target.value });
                                     }}
-                                    className="w-full h-9 px-3 rounded-md border border-input bg-background text-xs"
+                                    className="w-full min-w-0 h-9 px-3 rounded-md border border-input bg-background text-xs"
                                 >
                                     <option value="">Tous les statuts</option>
                                     <option value="validee">Validée</option>
@@ -836,36 +843,34 @@ export default function DepensesIndex({
 
                     <form onSubmit={handleCreateDepense} className="space-y-3.5 py-2">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <div>
+                            <div className="min-w-0">
                                 <label className="text-xs font-semibold text-foreground mb-1 block">Caisse Débitée *</label>
-                                <select
-                                    required
+                                <SearchableSelect
+                                    options={caisses.map((c) => ({
+                                        value: String(c.id),
+                                        label: c.nom,
+                                    }))}
                                     value={formData.caisse_id}
-                                    onChange={(e) => setFormData({ ...formData, caisse_id: e.target.value })}
-                                    className="w-full h-9 px-3 rounded-md border border-input bg-background text-xs font-medium"
-                                >
-                                    {caisses.map((c) => (
-                                        <option key={c.id} value={c.id}>
-                                            {c.nom}
-                                        </option>
-                                    ))}
-                                </select>
+                                    onValueChange={(v) => setFormData({ ...formData, caisse_id: v })}
+                                    placeholder="Sélectionner une caisse..."
+                                    searchPlaceholder="Rechercher une caisse..."
+                                    emptyMessage="Aucune caisse trouvée."
+                                />
                             </div>
 
-                            <div>
+                            <div className="min-w-0">
                                 <label className="text-xs font-semibold text-foreground mb-1 block">Catégorie Budgétaire *</label>
-                                <select
-                                    required
+                                <SearchableSelect
+                                    options={categories.map((cat) => ({
+                                        value: String(cat.id),
+                                        label: cat.nom,
+                                    }))}
                                     value={formData.categorie_depense_id}
-                                    onChange={(e) => setFormData({ ...formData, categorie_depense_id: e.target.value })}
-                                    className="w-full h-9 px-3 rounded-md border border-input bg-background text-xs"
-                                >
-                                    {categories.map((cat) => (
-                                        <option key={cat.id} value={cat.id}>
-                                            {cat.nom}
-                                        </option>
-                                    ))}
-                                </select>
+                                    onValueChange={(v) => setFormData({ ...formData, categorie_depense_id: v })}
+                                    placeholder="Sélectionner une catégorie..."
+                                    searchPlaceholder="Rechercher une catégorie..."
+                                    emptyMessage="Aucune catégorie trouvée."
+                                />
                             </div>
                         </div>
 

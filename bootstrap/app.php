@@ -1,7 +1,7 @@
 <?php
 
-use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\SetLocale;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -9,6 +9,10 @@ use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
 use Illuminate\Http\Request;
 use Illuminate\Support\Env;
 use Inertia\Inertia;
+use Spatie\Permission\Middleware\PermissionMiddleware;
+use Spatie\Permission\Middleware\RoleMiddleware;
+use Spatie\Permission\Middleware\RoleOrPermissionMiddleware;
+use Symfony\Component\HttpFoundation\Cookie;
 use Symfony\Component\HttpFoundation\Cookie as SymfonyCookie;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -28,8 +32,8 @@ Env::disablePutenv();
  * Garantit que le client reçoit immédiatement un jeton synchronisé avec la session
  * active lors de la récupération d'une erreur 419 (TokenMismatchException).
  *
- * @param  \Illuminate\Http\Request  $request  Requête HTTP disposant d'une session démarrée.
- * @return \Symfony\Component\HttpFoundation\Cookie  Cookie XSRF-TOKEN prêt à attacher à la réponse.
+ * @param  Request  $request  Requête HTTP disposant d'une session démarrée.
+ * @return Cookie Cookie XSRF-TOKEN prêt à attacher à la réponse.
  */
 $buildFreshXsrfCookie = static function (Request $request): SymfonyCookie {
     $sessionConfig = config('session');
@@ -56,23 +60,22 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->encryptCookies(except: ['appearance', 'sidebar_state', 'locale']);
+        $middleware->encryptCookies(except: ['sidebar_state', 'locale']);
 
         $middleware->validateCsrfTokens(except: [
             'administration/eleves/cartes-scolaires/imprimer-planche',
         ]);
 
         $middleware->web(append: [
-            HandleAppearance::class,
-            \App\Http\Middleware\SetLocale::class,
+            SetLocale::class,
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
         ]);
 
         $middleware->alias([
-            'role' => \Spatie\Permission\Middleware\RoleMiddleware::class,
-            'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,
-            'role_or_permission' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,
+            'role' => RoleMiddleware::class,
+            'permission' => PermissionMiddleware::class,
+            'role_or_permission' => RoleOrPermissionMiddleware::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) use ($buildFreshXsrfCookie): void {

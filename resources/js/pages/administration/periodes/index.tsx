@@ -10,15 +10,11 @@ import {
     Lock,
     Unlock,
     Calendar,
-    Settings2,
-    Calculator,
     AlertCircle,
     Check,
-    ArrowUpDown,
-    Shield,
     Building2,
 } from 'lucide-react';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { usePermission } from '@/hooks/use-permission';
 import { useConfirmDelete } from '@/components/confirm-delete-dialog';
@@ -128,7 +124,7 @@ interface PeriodeIndexProps {
  * Implémente le Module 3 du cahier des charges Gesco avec découpage par établissement (Option A).
  */
 export default function PeriodesIndex({
-    etablissements = [],
+    etablissements,
     selectedEtablissement,
     annees,
     selectedAnnee,
@@ -361,16 +357,16 @@ export default function PeriodesIndex({
     /**
      * Définition des colonnes TanStack Table pour les Évaluations / Séquences d'un trimestre.
      */
-    const makeEvaluationColumns = (periode: PeriodeItem): ColumnDef<EvaluationItem>[] => [
+    const makeEvaluationColumns = (_periode: PeriodeItem): ColumnDef<EvaluationItem>[] => [
         {
             accessorKey: 'code',
             header: () => (
-                <span className="font-bold text-[11px] uppercase tracking-wider text-slate-700 dark:text-slate-200">
+                <span className="font-bold text-[11px] uppercase tracking-wider text-slate-700">
                     Code
                 </span>
             ),
             cell: ({ row }) => (
-                <span className="font-mono font-bold text-xs text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-950/50 px-2 py-0.5 rounded-md border border-sky-200/60 dark:border-sky-800/60">
+                <span className="font-mono font-bold text-xs text-sky-700 bg-sky-50 px-2 py-0.5 rounded-md border border-sky-200/60">
                     {row.original.code}
                 </span>
             ),
@@ -378,7 +374,7 @@ export default function PeriodesIndex({
         {
             accessorKey: 'nom',
             header: () => (
-                <span className="font-bold text-[11px] uppercase tracking-wider text-slate-700 dark:text-slate-200">
+                <span className="font-bold text-[11px] uppercase tracking-wider text-slate-700">
                     Libellé
                 </span>
             ),
@@ -391,13 +387,13 @@ export default function PeriodesIndex({
                   {
                       accessorKey: 'ponderation',
                       header: () => (
-                          <span className="font-bold text-[11px] uppercase tracking-wider text-slate-700 dark:text-slate-200">
+                          <span className="font-bold text-[11px] uppercase tracking-wider text-slate-700">
                               Poids (%)
                           </span>
                       ),
                       cell: ({ row }: { row: { original: EvaluationItem } }) => (
                           <div className="flex items-center gap-1.5 font-medium">
-                              <span className="text-xs px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-foreground font-semibold">
+                              <span className="text-xs px-2 py-0.5 rounded-md bg-slate-100 text-foreground font-semibold">
                                   {row.original.ponderation}%
                               </span>
                           </div>
@@ -408,7 +404,7 @@ export default function PeriodesIndex({
         {
             accessorKey: 'date_debut',
             header: () => (
-                <span className="font-bold text-[11px] uppercase tracking-wider text-slate-700 dark:text-slate-200">
+                <span className="font-bold text-[11px] uppercase tracking-wider text-slate-700">
                     Période & Dates
                 </span>
             ),
@@ -425,8 +421,8 @@ export default function PeriodesIndex({
         {
             accessorKey: 'date_limite_saisie',
             header: () => (
-                <span className="font-bold text-[11px] uppercase tracking-wider text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
-                    <Clock className="size-3 text-slate-500 dark:text-slate-400" />
+                <span className="font-bold text-[11px] uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                    <Clock className="size-3 text-slate-500" />
                     Date Butoir Saisie
                 </span>
             ),
@@ -444,7 +440,7 @@ export default function PeriodesIndex({
         {
             accessorKey: 'is_locked',
             header: () => (
-                <span className="font-bold text-[11px] uppercase tracking-wider text-slate-700 dark:text-slate-200">
+                <span className="font-bold text-[11px] uppercase tracking-wider text-slate-700">
                     Verrou Saisie
                 </span>
             ),
@@ -453,12 +449,12 @@ export default function PeriodesIndex({
                 return (
                     <div className="flex items-center gap-2">
                         {isLocked ? (
-                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300">
+                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
                                 <Lock className="size-3 text-rose-600" />
                                 Verrouillée
                             </span>
                         ) : (
-                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300">
+                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
                                 <Unlock className="size-3 text-emerald-600" />
                                 Ouverte
                             </span>
@@ -474,9 +470,9 @@ export default function PeriodesIndex({
                                 className="h-7 px-2 text-[11px] cursor-pointer hover:bg-muted"
                             >
                                 {isLocked ? (
-                                    <span className="text-emerald-600 dark:text-emerald-400">Déverrouiller</span>
+                                    <span className="text-emerald-600">Déverrouiller</span>
                                 ) : (
-                                    <span className="text-rose-600 dark:text-rose-400">Verrouiller</span>
+                                    <span className="text-rose-600">Verrouiller</span>
                                 )}
                             </Button>
                         )}
@@ -487,7 +483,7 @@ export default function PeriodesIndex({
         {
             id: 'actions',
             header: () => (
-                <div className="text-right pr-2 font-bold text-[11px] uppercase tracking-wider text-slate-700 dark:text-slate-200">
+                <div className="text-right pr-2 font-bold text-[11px] uppercase tracking-wider text-slate-700">
                     Actions
                 </div>
             ),
@@ -518,7 +514,7 @@ export default function PeriodesIndex({
                                         });
                                         setIsEvaluationModalOpen(true);
                                     }}
-                                    className="size-8 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 dark:bg-blue-950/50 dark:text-blue-400 cursor-pointer shadow-xs"
+                                    className="size-8 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 cursor-pointer shadow-xs"
                                 >
                                     <Edit2 className="size-3.5" />
                                     <span className="sr-only">Modifier</span>
@@ -538,7 +534,7 @@ export default function PeriodesIndex({
                                             onConfirm: () => router.delete(`/administration/periodes/evaluations/${item.id}`),
                                         });
                                     }}
-                                    className="size-8 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 dark:bg-rose-950/50 dark:text-rose-400 cursor-pointer shadow-xs"
+                                    className="size-8 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 cursor-pointer shadow-xs"
                                 >
                                     <Trash2 className="size-3.5" />
                                     <span className="sr-only">Supprimer</span>
@@ -561,7 +557,7 @@ export default function PeriodesIndex({
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground flex items-center gap-2.5">
-                            <CalendarRange className="size-7 text-sky-600 dark:text-sky-400" />
+                            <CalendarRange className="size-7 text-sky-600" />
                             Périodes & Paramètres d'Évaluation
                         </h1>
                         <p className="text-muted-foreground text-xs sm:text-sm mt-1">
@@ -599,19 +595,19 @@ export default function PeriodesIndex({
 
                 {/* 2. SÉLECTEUR DE CAMPUS / ÉTABLISSEMENT */}
                 {etablissements && etablissements.length > 0 && (
-                    <div className="rounded-2xl border-2 border-slate-300/90 dark:border-slate-700 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400 dark:hover:border-slate-600">
+                    <div className="rounded-2xl border-2 border-slate-300/90 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400">
                         {/* En-tête contrasté et plus foncé */}
-                        <div className="bg-linear-to-r from-slate-200/95 via-emerald-100/60 to-slate-200/80 dark:from-slate-800 dark:via-emerald-950/30 dark:to-slate-800/90 px-6 py-3.5 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-2">
+                        <div className="bg-linear-to-r from-slate-200/95 via-emerald-100/60 to-slate-200/80 px-6 py-3.5 border-b-2 border-slate-300 flex flex-wrap items-center justify-between gap-2">
                             <div className="flex items-center gap-2.5">
                                 <div className="flex size-7 items-center justify-center rounded-lg bg-emerald-600 text-white shadow-xs">
                                     <Building2 className="size-4" />
                                 </div>
-                                <span className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                                <span className="text-xs font-bold text-slate-900 uppercase tracking-wider">
                                     Campus & Établissement
                                 </span>
                             </div>
                             {etablissements.length > 1 && (
-                                <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">
+                                <span className="text-xs text-slate-600 font-medium">
                                     Sélectionnez un campus pour configurer ses trimestres et verrouillages d'évaluation.
                                 </span>
                             )}
@@ -631,7 +627,7 @@ export default function PeriodesIndex({
                                                 className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer border shrink-0 whitespace-nowrap ${
                                                     isSelected
                                                         ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
-                                                        : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-900'
+                                                        : 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200 hover:text-slate-900'
                                                 }`}
                                             >
                                                 <span className="font-mono text-[11px] opacity-85">{etab.code}</span>
@@ -643,7 +639,7 @@ export default function PeriodesIndex({
                                 </div>
                             ) : (
                                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                    <Badge variant="secondary" className="font-mono font-bold text-emerald-800 bg-emerald-100 border border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300">
+                                    <Badge variant="secondary" className="font-mono font-bold text-emerald-800 bg-emerald-100 border border-emerald-300">
                                         {selectedEtablissement?.code}
                                     </Badge>
                                     <span className="font-semibold text-foreground text-sm">{selectedEtablissement?.nom}</span>
@@ -655,9 +651,9 @@ export default function PeriodesIndex({
                 )}
 
                 {/* 3. SÉLECTEUR ET STATUT DE L'ANNÉE SCOLAIRE */}
-                <div className="rounded-2xl border-2 border-slate-300/90 dark:border-slate-700 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400 dark:hover:border-slate-600">
+                <div className="rounded-2xl border-2 border-slate-300/90 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400">
                     {/* En-tête contrasté et foncé contenant la ligne des codes d'années et les actions */}
-                    <div className="bg-linear-to-r from-slate-200/95 via-sky-100/70 to-slate-200/80 dark:from-slate-800 dark:via-sky-950/40 dark:to-slate-800/90 px-6 py-4 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
+                    <div className="bg-linear-to-r from-slate-200/95 via-sky-100/70 to-slate-200/80 px-6 py-4 border-b-2 border-slate-300 flex flex-wrap items-center justify-between gap-4">
                         <div className="flex items-center gap-3 min-w-0 max-w-full">
                             <div className="flex size-9 items-center justify-center rounded-xl bg-linear-to-br from-sky-600 to-teal-600 text-white font-bold shadow-xs shrink-0">
                                 <Calendar className="size-4" />
@@ -674,7 +670,7 @@ export default function PeriodesIndex({
                                             className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer border shrink-0 whitespace-nowrap ${
                                                 isSelected
                                                     ? 'bg-sky-600 text-white border-sky-700 shadow-xs'
-                                                    : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900'
+                                                    : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100 hover:text-slate-900'
                                             }`}
                                         >
                                             <span>{annee.code}</span>
@@ -698,7 +694,7 @@ export default function PeriodesIndex({
                                         variant="outline"
                                         size="sm"
                                         onClick={() => handleSetCurrentAnnee(selectedAnnee)}
-                                        className="h-8 text-xs cursor-pointer gap-1.5 bg-white dark:bg-slate-800 text-sky-700 dark:text-sky-300 border-slate-300 dark:border-slate-600 hover:bg-sky-50 shadow-xs font-semibold"
+                                        className="h-8 text-xs cursor-pointer gap-1.5 bg-white text-sky-700 border-slate-300 hover:bg-sky-50 shadow-xs font-semibold"
                                     >
                                         <Check className="size-3.5" />
                                         <span>Définir comme année active</span>
@@ -725,7 +721,7 @@ export default function PeriodesIndex({
                                             });
                                             setIsAnneeModalOpen(true);
                                         }}
-                                        className="h-8 text-xs cursor-pointer gap-1.5 bg-white dark:bg-slate-800 text-blue-700 dark:text-blue-300 border-slate-300 dark:border-slate-600 hover:bg-blue-50 shadow-xs font-semibold"
+                                        className="h-8 text-xs cursor-pointer gap-1.5 bg-white text-blue-700 border-slate-300 hover:bg-blue-50 shadow-xs font-semibold"
                                     >
                                         <Edit2 className="size-3.5 text-blue-600" />
                                         <span>Modifier l'année</span>
@@ -742,7 +738,7 @@ export default function PeriodesIndex({
                                 <span className="font-bold text-foreground text-sm">{selectedAnnee.nom}</span>
                                 <span>•</span>
                                 <span className="flex items-center gap-1.5 font-medium">
-                                    <Calendar className="size-3.5 text-sky-600 dark:text-sky-400" />
+                                    <Calendar className="size-3.5 text-sky-600" />
                                     Du {formatDate(selectedAnnee.date_debut)} au {formatDate(selectedAnnee.date_fin)}
                                 </span>
                             </div>
@@ -757,11 +753,11 @@ export default function PeriodesIndex({
                                         <span>Année Active</span>
                                     </Badge>
                                 ) : (
-                                    <Badge variant="secondary" className="border border-slate-300 dark:border-slate-700 text-muted-foreground px-3 py-1 text-xs">
+                                    <Badge variant="secondary" className="border border-slate-300 text-muted-foreground px-3 py-1 text-xs">
                                         Année Non Active
                                     </Badge>
                                 )}
-                                <Badge variant="outline" className="capitalize border-slate-300 dark:border-slate-700 px-2.5 py-1 text-xs">
+                                <Badge variant="outline" className="capitalize border-slate-300 px-2.5 py-1 text-xs">
                                     {selectedAnnee.statut.replace('_', ' ')}
                                 </Badge>
                             </div>
@@ -779,7 +775,7 @@ export default function PeriodesIndex({
                                         <Calendar className="size-5 text-sky-600" />
                                         Découpage des Trimestres & Évaluations
                                         {selectedEtablissement && (
-                                            <Badge variant="outline" className="ml-1 text-xs border-emerald-300 text-emerald-700 dark:border-emerald-700 dark:text-emerald-300 bg-emerald-50/50">
+                                            <Badge variant="outline" className="ml-1 text-xs border-emerald-300 text-emerald-700 bg-emerald-50/50">
                                                 {selectedEtablissement.nom}
                                             </Badge>
                                         )}
@@ -796,7 +792,7 @@ export default function PeriodesIndex({
                                             variant="outline"
                                             size="sm"
                                             onClick={handleGenerateStandardStructure}
-                                            className="gap-2 cursor-pointer text-xs h-auto min-h-9 py-2 whitespace-normal text-left text-emerald-600 border-emerald-200 hover:bg-emerald-50 dark:border-emerald-800"
+                                            className="gap-2 cursor-pointer text-xs h-auto min-h-9 py-2 whitespace-normal text-left text-emerald-600 border-emerald-200 hover:bg-emerald-50"
                                         >
                                             <CalendarRange className="size-3.5 shrink-0" />
                                             <span>Initialiser le standard officiel (3 Trimestres / 6 Évaluations)</span>
@@ -861,12 +857,12 @@ export default function PeriodesIndex({
                                         return (
                                             <div
                                                 key={periode.id}
-                                                className="rounded-2xl border-2 border-slate-300/90 dark:border-slate-700 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400 dark:hover:border-slate-600"
+                                                className="rounded-2xl border-2 border-slate-300/90 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400"
                                             >
                                                 {/* =========================================================================
                                                  * EN-TÊTE DU TRIMESTRE (Bandeau contrasté, plus foncé et bien délimité)
                                                  * ========================================================================= */}
-                                                <div className="bg-linear-to-r from-slate-200/95 via-sky-100/70 to-slate-200/80 dark:from-slate-800 dark:via-sky-950/40 dark:to-slate-800/90 px-6 py-4.5 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
+                                                <div className="bg-linear-to-r from-slate-200/95 via-sky-100/70 to-slate-200/80 px-6 py-4.5 border-b-2 border-slate-300 flex flex-wrap items-center justify-between gap-4">
                                                     <div className="flex items-center gap-3.5">
                                                         {/* Badge visuel T1, T2, T3 avec dégradé distinctif */}
                                                         <div className="size-10 rounded-xl bg-linear-to-br from-sky-600 to-indigo-600 text-white font-bold text-sm flex items-center justify-center shadow-xs shrink-0 tracking-tight">
@@ -875,17 +871,17 @@ export default function PeriodesIndex({
 
                                                         <div className="space-y-1">
                                                             <div className="flex flex-wrap items-center gap-2">
-                                                                <span className="font-mono text-xs font-bold text-sky-800 dark:text-sky-300 bg-white dark:bg-slate-900 px-2.5 py-0.5 rounded-md border border-slate-300 dark:border-slate-700 shadow-xs">
+                                                                <span className="font-mono text-xs font-bold text-sky-800 bg-white px-2.5 py-0.5 rounded-md border border-slate-300 shadow-xs">
                                                                     {periode.code}
                                                                 </span>
-                                                                <h4 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
+                                                                <h4 className="text-base font-bold text-slate-900 tracking-tight">
                                                                     {periode.nom}
                                                                 </h4>
                                                             </div>
 
                                                             <div className="flex flex-wrap items-center gap-2.5 text-xs text-muted-foreground">
                                                                 <span className="inline-flex items-center gap-1 font-medium">
-                                                                    <Calendar className="size-3.5 text-sky-600 dark:text-sky-400" />
+                                                                    <Calendar className="size-3.5 text-sky-600" />
                                                                     {periode.date_debut && periode.date_fin ? (
                                                                         <span>Du {formatDate(periode.date_debut)} au {formatDate(periode.date_fin)}</span>
                                                                     ) : (
@@ -895,18 +891,18 @@ export default function PeriodesIndex({
                                                                 <span>•</span>
                                                                 {/* Badge de statut expressif */}
                                                                 {periode.statut === 'en_cours' ? (
-                                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100/90 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-300/70 dark:border-emerald-800">
+                                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100/90 text-emerald-800 border border-emerald-300/70">
                                                                         <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
                                                                         En cours
                                                                     </span>
                                                                 ) : periode.statut === 'cloturee' ? (
-                                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-200/80 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-300 dark:border-slate-700">
+                                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-200/80 text-slate-700 border border-slate-300">
                                                                         <Lock className="size-3 text-slate-500" />
                                                                         Clôturé
                                                                     </span>
                                                                 ) : (
-                                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-sky-100/80 text-sky-800 dark:bg-sky-950/60 dark:text-sky-300 border border-sky-300/60 dark:border-sky-800">
-                                                                        <Clock className="size-3 text-sky-600 dark:text-sky-400" />
+                                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-sky-100/80 text-sky-800 border border-sky-300/60">
+                                                                        <Clock className="size-3 text-sky-600" />
                                                                         À venir
                                                                     </span>
                                                                 )}
@@ -921,13 +917,13 @@ export default function PeriodesIndex({
                                                                 <span className="text-xs font-medium text-muted-foreground hidden sm:inline">Poids total :</span>
                                                                 <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-bold shadow-2xs ${
                                                                     is100Percent
-                                                                        ? 'bg-emerald-50 text-emerald-700 border-emerald-300/80 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800'
-                                                                        : 'bg-amber-50 text-amber-700 border-amber-300/80 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800'
+                                                                        ? 'bg-emerald-50 text-emerald-700 border-emerald-300/80'
+                                                                        : 'bg-amber-50 text-amber-700 border-amber-300/80'
                                                                 }`}>
                                                                     {is100Percent ? (
-                                                                        <CheckCircle2 className="size-3.5 text-emerald-600 dark:text-emerald-400" />
+                                                                        <CheckCircle2 className="size-3.5 text-emerald-600" />
                                                                     ) : (
-                                                                        <AlertCircle className="size-3.5 text-amber-600 dark:text-amber-400" />
+                                                                        <AlertCircle className="size-3.5 text-amber-600" />
                                                                     )}
                                                                     <span>{totalPonderation}% {is100Percent ? '✓' : '(Incomplet)'}</span>
                                                                 </span>
@@ -982,7 +978,7 @@ export default function PeriodesIndex({
                                                                         });
                                                                         setIsTrimestreModalOpen(true);
                                                                     }}
-                                                                    className="size-8 rounded-lg bg-white dark:bg-slate-800 text-blue-600 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-blue-700 cursor-pointer shadow-xs"
+                                                                    className="size-8 rounded-lg bg-white text-blue-600 border border-slate-300 hover:bg-slate-50 hover:text-blue-700 cursor-pointer shadow-xs"
                                                                 >
                                                                     <Edit2 className="size-3.5" />
                                                                 </Button>
@@ -1003,7 +999,7 @@ export default function PeriodesIndex({
                                                                             },
                                                                         });
                                                                     }}
-                                                                    className="size-8 rounded-lg bg-white dark:bg-slate-800 text-rose-600 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-rose-700 cursor-pointer shadow-xs"
+                                                                    className="size-8 rounded-lg bg-white text-rose-600 border border-slate-300 hover:bg-slate-50 hover:text-rose-700 cursor-pointer shadow-xs"
                                                                 >
                                                                     <Trash2 className="size-3.5" />
                                                                 </Button>
@@ -1017,8 +1013,8 @@ export default function PeriodesIndex({
                                                  * ========================================================================= */}
                                                 <div className="p-4 sm:p-5 bg-card space-y-3">
                                                     <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground px-1">
-                                                        <span className="font-semibold uppercase tracking-wider text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-                                                            <Calendar className="size-3.5 text-sky-600 dark:text-sky-400" />
+                                                        <span className="font-semibold uppercase tracking-wider text-[11px] text-slate-500 flex items-center gap-1.5">
+                                                            <Calendar className="size-3.5 text-sky-600" />
                                                             Évaluations du {periode.nom}
                                                         </span>
                                                         <span className="font-medium">
@@ -1029,8 +1025,8 @@ export default function PeriodesIndex({
                                                     <DataTable
                                                         columns={evalColumns}
                                                         data={periode.evaluations}
-                                                        containerClassName="border-2 border-slate-300/85 dark:border-slate-700 shadow-xs"
-                                                        headerClassName="bg-linear-to-r from-slate-200/90 via-slate-100/95 to-slate-200/85 dark:from-slate-800 dark:via-slate-850 dark:to-slate-800 border-b-2 border-slate-300 dark:border-slate-700"
+                                                        containerClassName="border-2 border-slate-300/85 shadow-xs"
+                                                        headerClassName="bg-linear-to-r from-slate-200/90 via-slate-100/95 to-slate-200/85 border-b-2 border-slate-300"
                                                     />
                                                 </div>
                                             </div>
@@ -1132,7 +1128,7 @@ export default function PeriodesIndex({
                         </div>
 
                         {!editingAnnee && (
-                            <div className="p-3.5 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/70 dark:border-emerald-800/70 space-y-1.5">
+                            <div className="p-3.5 rounded-xl bg-emerald-50/70 border border-emerald-200/70 space-y-1.5">
                                 <label className="flex items-center gap-2 cursor-pointer">
                                     <input
                                         type="checkbox"
@@ -1140,11 +1136,11 @@ export default function PeriodesIndex({
                                         onChange={(e) => anneeForm.setData('auto_generate_structure', e.target.checked)}
                                         className="rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
                                     />
-                                    <span className="text-xs font-bold text-emerald-900 dark:text-emerald-200">
+                                    <span className="text-xs font-bold text-emerald-900">
                                         Initialiser automatiquement le découpage standard pour {selectedEtablissement?.nom || 'l\'établissement'}
                                     </span>
                                 </label>
-                                <p className="text-[11px] text-emerald-700 dark:text-emerald-300 pl-5">
+                                <p className="text-[11px] text-emerald-700 pl-5">
                                     Pré-remplit les 3 trimestres officiels et leurs 6 évaluations (EVA-1 à EVA-6) avec pondérations équitables (50% / 50%).
                                 </p>
                             </div>
@@ -1193,7 +1189,7 @@ export default function PeriodesIndex({
 
                     <form onSubmit={submitTrimestre} className="space-y-4 pt-2">
                         {selectedEtablissement && (
-                            <div className="flex items-center gap-2 p-2.5 rounded-lg bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200/60 text-xs text-emerald-800 dark:text-emerald-300">
+                            <div className="flex items-center gap-2 p-2.5 rounded-lg bg-emerald-50/60 border border-emerald-200/60 text-xs text-emerald-800">
                                 <Building2 className="size-3.5 shrink-0" />
                                 <span>Établissement cible : <strong>{selectedEtablissement.nom}</strong> ({selectedEtablissement.code})</span>
                             </div>

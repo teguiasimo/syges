@@ -23,7 +23,6 @@ import {
     Play,
     Plus,
     RotateCcw,
-    Sparkles,
     Trash2,
     Upload,
 } from 'lucide-react';
@@ -635,10 +634,10 @@ export default function LoginAppearancePage({
                 </div>
 
                 {/* Aperçu interactif en direct du rendu sur /login */}
-                <Card className="overflow-hidden border-slate-200 dark:border-slate-800 shadow-sm">
+                <Card className="overflow-hidden border-slate-200 shadow-sm">
                     <CardHeader className="py-3.5 px-5 bg-muted/40 border-b flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                         <div className="flex items-center gap-2">
-                            <Sparkles className="size-4 text-primary" />
+                            <Eye className="size-4 text-primary" />
                             <div>
                                 <CardTitle className="text-sm font-semibold">
                                     Aperçu en direct de l&apos;écran de connexion
@@ -681,7 +680,7 @@ export default function LoginAppearancePage({
 
                     <div className="grid grid-cols-1 lg:grid-cols-12 bg-slate-950 text-white">
                         {/* Mini panneau gauche (carrousel + branding) */}
-                        <div className="relative lg:col-span-7 min-h-[240px] sm:min-h-[300px] xl:min-h-[340px] 2xl:min-h-[380px] overflow-hidden flex flex-col justify-between p-5">
+                        <div className="relative lg:col-span-7 min-h-60 sm:min-h-75 xl:min-h-85 2xl:min-h-95 overflow-hidden flex flex-col justify-between p-5">
                             {currentPreviewSlide && (
                                 <img
                                     src={currentPreviewSlide.image}
@@ -689,7 +688,7 @@ export default function LoginAppearancePage({
                                     className="absolute inset-0 h-full w-full object-cover transition-opacity duration-500"
                                 />
                             )}
-                            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/45 to-slate-950/55" />
+                            <div className="absolute inset-0 bg-linear-to-t from-slate-950/90 via-slate-950/45 to-slate-950/55" />
 
                             {/* En-tête branding */}
                             <div className="relative z-10 flex items-center gap-2.5">
@@ -847,7 +846,7 @@ export default function LoginAppearancePage({
                     <TabsContent value="carousel" className="space-y-6">
                         {/* Alerte contextuelle si des slides actifs existent mais que le mode personnalisé est désactivé */}
                         {activeCustomSlides.length > 0 && !useCustomSlides && (
-                            <Alert className="border-amber-300 bg-amber-50/70 dark:bg-amber-950/30 dark:border-amber-900">
+                            <Alert className="border-amber-300 bg-amber-50/70">
                                 <Info className="size-4 text-amber-600" />
                                 <AlertTitle>Photos personnalisées prêtes mais non activées</AlertTitle>
                                 <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 w-full">
@@ -914,7 +913,7 @@ export default function LoginAppearancePage({
                                         onClick={() => setUseCustomSlides(true)}
                                         className={`text-left rounded-xl border p-4 transition-all ${
                                             useCustomSlides
-                                                ? 'border-emerald-600 bg-emerald-50/50 dark:bg-emerald-950/25 ring-1 ring-emerald-600'
+                                                ? 'border-emerald-600 bg-emerald-50/50 ring-1 ring-emerald-600'
                                                 : 'border-border hover:bg-muted/40'
                                         }`}
                                     >
@@ -1193,7 +1192,7 @@ export default function LoginAppearancePage({
                                                 alt={scene.title}
                                                 className="h-full w-full object-cover opacity-90"
                                             />
-                                            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/90 to-transparent p-1.5">
+                                            <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-slate-950/90 to-transparent p-1.5">
                                                 <p className="text-[10px] font-medium text-white truncate">
                                                     {idx + 1}. {scene.title}
                                                 </p>
@@ -1370,7 +1369,7 @@ export default function LoginAppearancePage({
                                             htmlFor="apply-branding-to-app"
                                             className={`flex items-start gap-3 rounded-xl border p-4 cursor-pointer transition-colors ${
                                                 applyBrandingToApp
-                                                    ? 'border-emerald-600 bg-emerald-50/50 dark:bg-emerald-950/20'
+                                                    ? 'border-emerald-600 bg-emerald-50/50'
                                                     : 'bg-muted/20 hover:bg-muted/40'
                                             }`}
                                         >
@@ -1397,7 +1396,7 @@ export default function LoginAppearancePage({
                                             htmlFor="sync-favicon"
                                             className={`flex items-start gap-3 rounded-xl border p-4 cursor-pointer transition-colors ${
                                                 syncFavicon
-                                                    ? 'border-sky-600 bg-sky-50/50 dark:bg-sky-950/20'
+                                                    ? 'border-sky-600 bg-sky-50/50'
                                                     : 'bg-muted/20 hover:bg-muted/40'
                                             }`}
                                         >
@@ -1429,7 +1428,7 @@ export default function LoginAppearancePage({
                                                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                                                         Aperçu réel en haut du menu latéral
                                                     </p>
-                                                    <div className="inline-flex items-center rounded-lg border bg-background px-3 py-2 shadow-xs max-w-[260px]">
+                                                    <div className="inline-flex items-center rounded-lg border bg-background px-3 py-2 shadow-xs max-w-65">
                                                         <div className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border bg-muted/30">
                                                             <img
                                                                 src={effectiveSidebarLogoUrl}

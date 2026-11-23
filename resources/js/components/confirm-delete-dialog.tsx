@@ -1,12 +1,11 @@
 import React, { useState, useCallback } from 'react';
-import { AlertTriangle, Trash2, Loader2, Sparkles, HelpCircle } from 'lucide-react';
+import { AlertTriangle, Trash2, Loader2, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
     DialogContent,
     DialogDescription,
     DialogFooter,
-    DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
 
@@ -107,16 +106,16 @@ export function ConfirmDeleteDialog({
                         <div
                             className={`size-11 rounded-full flex items-center justify-center shrink-0 shadow-xs ring-4 ${
                                 isDestructive
-                                    ? 'bg-rose-100 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400 ring-rose-50 dark:ring-rose-950/30'
+                                    ? 'bg-rose-100 text-rose-600 ring-rose-50'
                                     : isPrimary
-                                    ? 'bg-blue-100 text-blue-600 dark:bg-blue-950/60 dark:text-blue-400 ring-blue-50 dark:ring-blue-950/30'
-                                    : 'bg-amber-100 text-amber-600 dark:bg-amber-950/60 dark:text-amber-400 ring-amber-50 dark:ring-amber-950/30'
+                                    ? 'bg-blue-100 text-blue-600 ring-blue-50'
+                                    : 'bg-amber-100 text-amber-600 ring-amber-50'
                             }`}
                         >
                             {isDestructive ? (
                                 <Trash2 className="size-5" />
                             ) : isPrimary ? (
-                                <Sparkles className="size-5" />
+                                <CheckCircle2 className="size-5" />
                             ) : (
                                 <AlertTriangle className="size-5" />
                             )}
@@ -143,7 +142,7 @@ export function ConfirmDeleteDialog({
                                 Êtes-vous sûr de vouloir supprimer{' '}
                                 {itemType ? `${itemType} ` : ''}
                                 {itemName && (
-                                    <strong className="font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 px-1.5 py-0.5 rounded border border-rose-200/80 dark:border-rose-900/60 break-all">
+                                    <strong className="font-semibold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200/80 break-all">
                                         « {itemName} »
                                     </strong>
                                 )}{' '}
@@ -156,22 +155,22 @@ export function ConfirmDeleteDialog({
                             <div
                                 className={`rounded-lg p-3 text-xs flex items-start gap-2.5 border ${
                                     isDestructive
-                                        ? 'bg-rose-50/80 border-rose-200/90 text-rose-900 dark:bg-rose-950/40 dark:border-rose-900/60 dark:text-rose-200'
+                                        ? 'bg-rose-50/80 border-rose-200/90 text-rose-900'
                                         : isPrimary
-                                        ? 'bg-blue-50/80 border-blue-200/90 text-blue-900 dark:bg-blue-950/40 dark:border-blue-900/60 dark:text-blue-200'
-                                        : 'bg-amber-50/80 border-amber-200/90 text-amber-900 dark:bg-amber-950/40 dark:border-amber-900/60 dark:text-amber-200'
+                                        ? 'bg-blue-50/80 border-blue-200/90 text-blue-900'
+                                        : 'bg-amber-50/80 border-amber-200/90 text-amber-900'
                                 }`}
                             >
                                 {isDestructive ? (
-                                    <AlertTriangle className="size-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                                    <AlertTriangle className="size-4 text-rose-600 shrink-0 mt-0.5" />
                                 ) : isPrimary ? (
-                                    <Sparkles className="size-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+                                    <CheckCircle2 className="size-4 text-blue-600 shrink-0 mt-0.5" />
                                 ) : (
-                                    <AlertTriangle className="size-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                                    <AlertTriangle className="size-4 text-amber-600 shrink-0 mt-0.5" />
                                 )}
                                 <div className="space-y-0.5">
                                     {isDestructive && (
-                                        <p className="font-bold text-rose-700 dark:text-rose-300">
+                                        <p className="font-bold text-rose-700">
                                             Attention : cette opération est irréversible.
                                         </p>
                                     )}
@@ -216,7 +215,7 @@ export function ConfirmDeleteDialog({
                         ) : (
                             <>
                                 {isDestructive && <Trash2 className="size-3.5" />}
-                                {isPrimary && <Sparkles className="size-3.5" />}
+                                {isPrimary && <CheckCircle2 className="size-3.5" />}
                                 {isWarning && <AlertTriangle className="size-3.5" />}
                                 <span>{effectiveConfirmLabel}</span>
                             </>

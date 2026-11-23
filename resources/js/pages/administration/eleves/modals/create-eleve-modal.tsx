@@ -14,7 +14,12 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { User, Phone, HeartPulse, GraduationCap, Upload, X } from 'lucide-react';
 import { SearchableSelect, type SearchableOption } from '@/components/ui/searchable-select';
-import type { EtablissementRef, AnneeScolaireRef, ClasseRef } from '@/types/eleve';
+import {
+    buildClasseSearchOptions,
+    buildEtablissementSearchOptions,
+    flattenClassesFromEtablissements,
+} from '@/lib/utils';
+import type { EtablissementRef, AnneeScolaireRef } from '@/types/eleve';
 
 /**
  * Propriétés du composant CreateEleveModal.
@@ -82,74 +87,66 @@ export function CreateEleveModal({
         observations: '',
     });
 
-    // Liste aplatie des classes de l'établissement sélectionné (ou de tous les établissements)
-    const availableClasses: ClasseRef[] = React.useMemo(() => {
-        const list: ClasseRef[] = [];
-        etablissements.forEach((etab) => {
-            if (!selectedEtabId || String(etab.id) === selectedEtabId) {
-                etab.sections?.forEach((sec) => {
-                    sec.cycles?.forEach((cyc) => {
-                        cyc.niveaux?.forEach((niv) => {
-                            niv.classes?.forEach((cls) => {
-                                list.push({
-                                    ...cls,
-                                    niveau: {
-                                        id: niv.id,
-                                        nom: niv.nom,
-                                        code: niv.code,
-                                        cycle: {
-                                            id: cyc.id,
-                                            nom: cyc.nom,
-                                            section: {
-                                                id: sec.id,
-                                                nom: sec.nom,
-                                                etablissement: {
-                                                    id: etab.id,
-                                                    nom: etab.nom,
-                                                },
-                                            },
-                                        },
-                                    },
-                                });
-                            });
-                        });
-                    });
-                });
-            }
-        });
-        return list;
-    }, [etablissements, selectedEtabId]);
+    // Liste aplatie des classes et options formatées pour SearchableSelect (sans troncature du nom de campus)
+    const availableClasses = React.useMemo(
+        () => flattenClassesFromEtablissements(etablissements, selectedEtabId),
+        [etablissements, selectedEtabId]
+    );
+
+    const classeOptions: SearchableOption[] = React.useMemo(
+        () => buildClasseSearchOptions(availableClasses),
+        [availableClasses]
+    );
+
+    const etablissementOptions: SearchableOption[] = React.useMemo(
+        () => [{ value: '', label: 'Tous les campus / établissements' }, ...buildEtablissementSearchOptions(etablissements)],
+        [etablissements]
+    );
 
     /**
-     * Options formatées pour le sélecteur avec recherche de la classe d'affectation.
+     * Valide la taille de la photo choisie (5 Mo max) et génère l'aperçu local.
+     *
+     * @param {React.ChangeEvent<HTMLInputElement>} e Événement de sélection de fichier.
      */
-    const classeOptions: SearchableOption[] = React.useMemo(() => {
-        return availableClasses.map((cls) => {
-            const etabNom = cls.niveau?.cycle?.section?.etablissement?.nom || '';
-            const etabAbrege = etabNom.length > 25 ? `${etabNom.substring(0, 25)}…` : etabNom;
-            return {
-                value: String(cls.id),
-                label: `${cls.nom} (${cls.niveau?.nom || 'Niveau'}${etabAbrege ? ` — ${etabAbrege}` : ''})`,
-                group: cls.niveau?.nom || 'Classes',
-            };
-        });
-    }, [availableClasses]);
-
     const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
-        if (file) {
-            setPhotoFile(file);
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                setPhotoPreview(event.target?.result as string);
-            };
-            reader.readAsDataURL(file);
+        if (!file) return;
+
+        if (file.size > 5 * 1024 * 1024) {
+            setErrors((prev) => ({ ...prev, photo: 'La photo ne doit pas dépasser 5 Mo.' }));
+            toast.error('Photo trop volumineuse (max 5 Mo).', {
+                position: 'top-right',
+            });
+            e.target.value = '';
+            return;
         }
+
+        setErrors((prev) => {
+            if (!prev.photo) return prev;
+            const next = { ...prev };
+            delete next.photo;
+            return next;
+        });
+        setPhotoFile(file);
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            setPhotoPreview(event.target?.result as string);
+        };
+        reader.readAsDataURL(file);
     };
 
+    /**
+     * Supprime la photo sélectionnée et efface toute erreur associée.
+     */
     const removePhoto = () => {
         setPhotoFile(null);
         setPhotoPreview(null);
+        setErrors((prev) => {
+            if (!prev.photo) return prev;
+            const next = { ...prev };
+            delete next.photo;
+            return next;
+        });
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -186,6 +183,7 @@ export function CreateEleveModal({
         }
 
         router.post('/administration/eleves', payload, {
+            forceFormData: true,
             onSuccess: () => {
                 setLoading(false);
                 toast.success('Élève enregistré et inscrit avec succès !', {
@@ -227,6 +225,9 @@ export function CreateEleveModal({
             onError: (errs) => {
                 setLoading(false);
                 setErrors(errs);
+                if (errs.photo || errs.nom || errs.prenom || errs.matricule || errs.matricule_national) {
+                    setActiveTab('identite');
+                }
                 toast.error('Veuillez vérifier les erreurs du formulaire.', {
                     position: 'top-right',
                 });
@@ -327,7 +328,9 @@ export function CreateEleveModal({
                                         )}
                                     </div>
                                     <label className="cursor-pointer">
-                                        <span className="text-xs text-primary hover:underline font-medium">Parcourir...</span>
+                                        <span className="text-xs text-primary hover:underline font-medium">
+                                            {photoPreview ? 'Changer la photo' : 'Parcourir...'}
+                                        </span>
                                         <input
                                             type="file"
                                             accept="image/*"
@@ -335,6 +338,8 @@ export function CreateEleveModal({
                                             className="hidden"
                                         />
                                     </label>
+                                    <span className="text-[10px] text-muted-foreground">JPG, PNG, WEBP (max 5 Mo)</span>
+                                    {errors.photo && <p className="text-xs text-destructive text-center max-w-35">{errors.photo}</p>}
                                 </div>
 
                                 {/* Champs d'identification */}
@@ -342,10 +347,10 @@ export function CreateEleveModal({
                                     {/* Matricule interne non cliquable : généré automatiquement côté serveur */}
                                     <div>
                                         <div className="flex items-center justify-between mb-1">
-                                            <span className="text-sm font-medium leading-none text-slate-700 dark:text-slate-300">
+                                            <span className="text-sm font-medium leading-none text-slate-700">
                                                 Matricule Interne
                                             </span>
-                                            <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                                            <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                                                 Automatique
                                             </span>
                                         </div>
@@ -358,7 +363,7 @@ export function CreateEleveModal({
                                                 tabIndex={-1}
                                                 value={formData.matricule}
                                                 placeholder="ex: ESP-PRI-2026-0001 (Automatique)"
-                                                className="font-mono bg-slate-100/80 dark:bg-slate-900/60 text-slate-500 dark:text-slate-400 border-dashed focus-visible:ring-0 pointer-events-none select-none disabled:opacity-90"
+                                                className="font-mono bg-slate-100/80 text-slate-500 border-dashed focus-visible:ring-0 pointer-events-none select-none disabled:opacity-90"
                                             />
                                         </div>
                                         <p className="text-[10px] text-muted-foreground mt-1">
@@ -644,30 +649,25 @@ export function CreateEleveModal({
                                     </select>
                                 </div>
 
-                                <div>
+                                <div className="min-w-0">
                                     <Label htmlFor="filter_etab">Filtrer par Campus</Label>
-                                    <select
-                                        id="filter_etab"
-                                        value={selectedEtabId}
-                                        onChange={(e) => {
-                                            setSelectedEtabId(e.target.value);
-                                            setSelectedClasseId('');
-                                        }}
-                                        className="w-full mt-1 h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                                    >
-                                        <option value="">Tous les campus / établissements</option>
-                                        {etablissements.map((etab) => {
-                                            const campusCourt = etab.nom.length > 25 ? `${etab.nom.substring(0, 25)}…` : etab.nom;
-                                            return (
-                                                <option key={etab.id} value={etab.id} title={etab.nom}>
-                                                    {campusCourt}
-                                                </option>
-                                            );
-                                        })}
-                                    </select>
+                                    <div className="mt-1">
+                                        <SearchableSelect
+                                            id="filter_etab"
+                                            options={etablissementOptions}
+                                            value={selectedEtabId}
+                                            onValueChange={(val) => {
+                                                setSelectedEtabId(val);
+                                                setSelectedClasseId('');
+                                            }}
+                                            placeholder="Tous les campus / établissements"
+                                            searchPlaceholder="Rechercher un établissement..."
+                                            emptyMessage="Aucun établissement trouvé pour"
+                                        />
+                                    </div>
                                 </div>
 
-                                <div className="sm:col-span-2">
+                                <div className="sm:col-span-2 min-w-0">
                                     <Label htmlFor="classe_id">
                                         Classe d'Affectation <span className="text-destructive">*</span>
                                     </Label>
@@ -685,7 +685,7 @@ export function CreateEleveModal({
                                 </div>
 
                                 <div>
-                                    <Label htmlFor="statut">Statut de l'inscription (Gesco 5.3)</Label>
+                                    <Label htmlFor="statut">Statut de l'inscription</Label>
                                     <select
                                         id="statut"
                                         value={formData.statut}

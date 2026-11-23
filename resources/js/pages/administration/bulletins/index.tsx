@@ -2,7 +2,6 @@ import { Head, router, usePage } from '@inertiajs/react';
 import { type ColumnDef } from '@tanstack/react-table';
 import {
     Award,
-    BookOpen,
     Calendar,
     CheckCircle2,
     Clock,
@@ -10,15 +9,10 @@ import {
     Eye,
     FileSpreadsheet,
     FileText,
-    Filter,
-    Layers,
     Printer,
-    RefreshCw,
     School,
-    SlidersHorizontal,
     TrendingUp,
     Users,
-    X,
 } from 'lucide-react';
 import React, { useMemo, useState, useEffect } from 'react';
 import { toast } from 'sonner';
@@ -36,6 +30,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
     Select,
     SelectContent,
@@ -329,9 +324,9 @@ export default function BulletinsIndex({
                             title={isNC ? (motifNC || 'Non classé (quota de coefficients insuffisant)') : undefined}
                             className={`font-bold px-2 py-1 rounded text-xs inline-flex items-center justify-center ${
                                 isNC
-                                    ? 'bg-rose-100 text-rose-800 border border-rose-300 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800 cursor-help'
+                                    ? 'bg-rose-100 text-rose-800 border border-rose-300 cursor-help'
                                     : isFirst
-                                    ? 'bg-amber-100 text-amber-900 border border-amber-300 dark:bg-amber-950 dark:text-amber-200'
+                                    ? 'bg-amber-100 text-amber-900 border border-amber-300'
                                     : 'bg-muted text-foreground'
                             }`}
                         >
@@ -409,10 +404,10 @@ export default function BulletinsIndex({
                 cell: ({ row }) => {
                     const cote = row.original.cote_globale;
                     const styles: Record<CoteAPC, string> = {
-                        CTBA: 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300',
-                        CBA: 'bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-950 dark:text-blue-300',
-                        CMA: 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-300',
-                        CNA: 'bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950 dark:text-rose-300',
+                        CTBA: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+                        CBA: 'bg-blue-100 text-blue-800 border-blue-300',
+                        CMA: 'bg-amber-100 text-amber-800 border-amber-300',
+                        CNA: 'bg-rose-100 text-rose-800 border-rose-300',
                     };
 
                     return (
@@ -435,8 +430,8 @@ export default function BulletinsIndex({
                                 variant="outline"
                                 className={`text-xs font-semibold ${
                                     isAdmis
-                                        ? 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300'
-                                        : 'bg-rose-50 text-rose-700 border-rose-300 dark:bg-rose-950 dark:text-rose-300'
+                                        ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                                        : 'bg-rose-50 text-rose-700 border-rose-300'
                                 }`}
                             >
                                 {decision}
@@ -489,7 +484,7 @@ export default function BulletinsIndex({
                                 variant="outline"
                                 size="sm"
                                 asChild
-                                className="h-8 px-2.5 text-xs gap-1 hover:bg-sky-50 dark:hover:bg-sky-950/40 hover:text-sky-600"
+                                className="h-8 px-2.5 text-xs gap-1 hover:bg-sky-50 hover:text-sky-600"
                             >
                                 <a
                                     href={getPreviewUrl(eleve)}
@@ -681,7 +676,7 @@ export default function BulletinsIndex({
                                     }}
                                 >
                                     <SelectTrigger className="h-9 w-full min-w-0">
-                                        <div className="flex items-center gap-2 truncate">
+                                        <div className="flex items-center gap-2 truncate min-w-0 flex-1">
                                             {(selectedAnneeObj?.is_active || selectedAnneeObj?.is_current) && (
                                                 <span className="relative flex h-2 w-2 shrink-0" title="Année scolaire active">
                                                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -718,7 +713,12 @@ export default function BulletinsIndex({
                                 <label className="text-xs font-semibold text-muted-foreground mb-1 block">
                                     {t('bulletins.select_classe')}
                                 </label>
-                                <Select
+                                <SearchableSelect
+                                    options={classes.map((c) => ({
+                                        value: String(c.id),
+                                        label: c.nom,
+                                        group: c.niveau?.nom || 'Classes',
+                                    }))}
                                     value={selectedClasse}
                                     onValueChange={(val) => {
                                         setSelectedClasse(val);
@@ -732,18 +732,11 @@ export default function BulletinsIndex({
                                         if (targetPer && !selectedPeriode) setSelectedPeriode(targetPer);
                                         handleFilterChange(typeBulletin, val, targetPer, targetEval);
                                     }}
-                                >
-                                    <SelectTrigger className="h-9 w-full min-w-0">
-                                        <SelectValue placeholder="Choisir une classe" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {classes.map((c) => (
-                                            <SelectItem key={c.id} value={String(c.id)}>
-                                                {c.nom} ({c.niveau.nom})
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                    placeholder="Choisir une classe"
+                                    searchPlaceholder="Rechercher une classe..."
+                                    emptyMessage="Aucune classe trouvée."
+                                    className="h-9 w-full min-w-0 text-xs font-normal"
+                                />
                             </div>
 
                             {/* Évaluation OU Trimestre OU Année selon la vague */}
@@ -810,11 +803,11 @@ export default function BulletinsIndex({
                         {/* 3. Format Officiel Appliqué (Strictement déterminé par l'établissement) */}
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pt-3 border-t border-border/50 gap-2 text-xs">
                             <div className="flex flex-wrap items-center gap-2">
-                                <FileText className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                                <FileText className="h-4 w-4 shrink-0 text-emerald-600" />
                                 <span className="font-semibold text-foreground">
                                     Format officiel de l'établissement :
                                 </span>
-                                <Badge variant="outline" className="font-semibold text-xs px-2.5 py-0.5 border-emerald-300 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300">
+                                <Badge variant="outline" className="font-semibold text-xs px-2.5 py-0.5 border-emerald-300 bg-emerald-50 text-emerald-800">
                                     {modeBulletin === 'sans_competences'
                                         ? 'Standard (Sans compétences)'
                                         : 'Approche Par Compétences (APC)'}
@@ -832,7 +825,7 @@ export default function BulletinsIndex({
                     <div className="grid grid-cols-1 min-[420px]:grid-cols-2 lg:grid-cols-4 gap-3">
                         <Card className="border-border/60">
                             <CardContent className="p-3 flex items-center gap-3">
-                                <div className="p-2 shrink-0 rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-950/50">
+                                <div className="p-2 shrink-0 rounded-lg bg-blue-50 text-blue-600">
                                     <Users className="h-5 w-5" />
                                 </div>
                                 <div className="min-w-0">
@@ -846,7 +839,7 @@ export default function BulletinsIndex({
 
                         <Card className="border-border/60">
                             <CardContent className="p-3 flex items-center gap-3">
-                                <div className="p-2 shrink-0 rounded-lg bg-teal-50 text-teal-600 dark:bg-teal-950/50">
+                                <div className="p-2 shrink-0 rounded-lg bg-teal-50 text-teal-600">
                                     <FileSpreadsheet className="h-5 w-5" />
                                 </div>
                                 <div className="min-w-0">
@@ -862,7 +855,7 @@ export default function BulletinsIndex({
 
                         <Card className="border-border/60">
                             <CardContent className="p-3 flex items-center gap-3">
-                                <div className="p-2 shrink-0 rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50">
+                                <div className="p-2 shrink-0 rounded-lg bg-emerald-50 text-emerald-600">
                                     <CheckCircle2 className="h-5 w-5" />
                                 </div>
                                 <div className="min-w-0">
@@ -876,7 +869,7 @@ export default function BulletinsIndex({
 
                         <Card className="border-border/60">
                             <CardContent className="p-3 flex items-center gap-3">
-                                <div className="p-2 shrink-0 rounded-lg bg-amber-50 text-amber-600 dark:bg-amber-950/50">
+                                <div className="p-2 shrink-0 rounded-lg bg-amber-50 text-amber-600">
                                     <TrendingUp className="h-5 w-5" />
                                 </div>
                                 <div className="min-w-0">
@@ -901,38 +894,38 @@ export default function BulletinsIndex({
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    className="h-8 gap-1.5 text-xs font-semibold text-teal-600 dark:text-teal-400 border-teal-200 dark:border-teal-800 hover:bg-teal-50 dark:hover:bg-teal-950/40 cursor-pointer shadow-xs"
+                                    className="h-8 gap-1.5 text-xs font-semibold text-teal-600 border-teal-200 hover:bg-teal-50 cursor-pointer shadow-xs"
                                     onClick={() => {
                                         const perId = selectedPeriode ? `/${selectedPeriode}` : '';
                                         window.open(`/administration/documents/babillard/${selectedClasse}${perId}`, '_blank');
                                     }}
                                     title="Afficher et imprimer le babillard officiel d'affichage de la classe"
                                 >
-                                    <Printer className="size-3.5 shrink-0 text-teal-600 dark:text-teal-400" />
+                                    <Printer className="size-3.5 shrink-0 text-teal-600" />
                                     <span>Babillard (PDF)</span>
                                 </Button>
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    className="h-8 gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 cursor-pointer shadow-xs"
+                                    className="h-8 gap-1.5 text-xs font-semibold text-emerald-600 border-emerald-200 hover:bg-emerald-50 cursor-pointer shadow-xs"
                                     onClick={() => {
                                         window.open(`/administration/documents/liste-eleves/${selectedClasse}?type=definitive&annee_id=${selectedAnnee}`, '_blank');
                                     }}
                                     title="Télécharger la liste nominative définitive des élèves de la classe"
                                 >
-                                    <FileText className="size-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                                    <FileText className="size-3.5 shrink-0 text-emerald-600" />
                                     <span>Liste Élèves (PDF)</span>
                                 </Button>
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    className="h-8 gap-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-blue-950/40 cursor-pointer shadow-xs"
+                                    className="h-8 gap-1.5 text-xs font-semibold text-blue-600 border-blue-200 hover:bg-blue-50 cursor-pointer shadow-xs"
                                     onClick={() => {
                                         window.open(`/administration/documents/fiche-appel/${selectedClasse}?annee_id=${selectedAnnee}`, '_blank');
                                     }}
                                     title="Télécharger la fiche d'émargement et d'appel mensuelle de cette classe"
                                 >
-                                    <Printer className="size-3.5 shrink-0 text-blue-600 dark:text-blue-400" />
+                                    <Printer className="size-3.5 shrink-0 text-blue-600" />
                                     <span>Fiche d'Appel (PDF)</span>
                                 </Button>
                             </div>

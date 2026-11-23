@@ -9,18 +9,13 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
-    User,
     Phone,
     Mail,
     MapPin,
-    Calendar,
-    GraduationCap,
     School,
-    ShieldAlert,
-    Clock,
-    FileText,
 } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
+import { EleveAvatar } from '@/components/eleves/eleve-avatar';
 import type { Inscription } from '@/types/eleve';
 
 /**
@@ -63,11 +58,11 @@ export function EleveDetailDrawer({
                     <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 text-center sm:text-left">
                         {/* Photo de profil ou avatar */}
                         <div className="size-20 rounded-2xl border-2 border-primary/20 bg-muted/40 overflow-hidden flex items-center justify-center shrink-0 shadow-sm">
-                            {eleve.photo_url ? (
-                                <img src={eleve.photo_url} alt={eleve.nom_complet} className="size-full object-cover" />
-                            ) : (
-                                <User className="size-10 text-muted-foreground/50" />
-                            )}
+                            <EleveAvatar
+                                photoUrl={eleve.photo_url}
+                                alt={eleve.nom_complet}
+                                iconClassName="size-10 text-muted-foreground/50"
+                            />
                         </div>
 
                         {/* Identité principale */}

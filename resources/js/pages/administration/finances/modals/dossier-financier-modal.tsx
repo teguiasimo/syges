@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
     Select,
     SelectContent,
@@ -37,7 +38,6 @@ import { formatDate, formatDateForInput } from '@/lib/utils';
 import {
     AlertTriangle,
     Award,
-    Bus,
     Calendar,
     CheckCircle2,
     CreditCard,
@@ -47,12 +47,13 @@ import {
     History,
     Layers,
     Loader2,
+    PackagePlus,
     Pencil,
     Plus,
     Printer,
     Receipt,
     SlidersHorizontal,
-    Sparkles,
+    BadgePercent,
     Trash2,
     Wallet,
     X,
@@ -1331,10 +1332,10 @@ export default function DossierFinancierModal({
 
                     return (
                         <div>
-                            <div className="font-semibold text-xs text-slate-800 dark:text-slate-100 flex flex-wrap items-center gap-1.5">
+                            <div className="font-semibold text-xs text-slate-800 flex flex-wrap items-center gap-1.5">
                                 {l.type === 'obligatoire' && l.ordre_priorite !== undefined && (
                                     <span
-                                        className="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-mono text-[10px] font-bold border border-slate-200 dark:border-slate-700"
+                                        className="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-mono text-[10px] font-bold border border-slate-200"
                                         title="Ordre de priorité de prélèvement de l'établissement"
                                     >
                                         #{l.ordre_priorite}
@@ -1342,17 +1343,17 @@ export default function DossierFinancierModal({
                                 )}
                                 <span>{l.libelle}</span>
                                 {l.type === 'optionnel' && (
-                                    <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border-amber-200 text-[10px] font-semibold">
+                                    <Badge className="bg-amber-100 text-amber-800 border-amber-200 text-[10px] font-semibold">
                                         Optionnel
                                     </Badge>
                                 )}
                                 {dispense > 0 && (
-                                    <Badge className="bg-sky-100 text-sky-800 dark:bg-sky-950/60 dark:text-sky-300 border-sky-200 text-[10px] font-semibold">
+                                    <Badge className="bg-sky-100 text-sky-800 border-sky-200 text-[10px] font-semibold">
                                         -{dispense.toLocaleString('fr-FR')} FCFA dispensé
                                     </Badge>
                                 )}
                                 {remise > 0 && (
-                                    <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-200 text-[10px] font-semibold">
+                                    <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-[10px] font-semibold">
                                         -{remise.toLocaleString('fr-FR')} FCFA remise
                                     </Badge>
                                 )}
@@ -1365,7 +1366,7 @@ export default function DossierFinancierModal({
                                     </span>
                                 )}
                                 {l.dispense_motif && (
-                                    <span className="text-sky-700 dark:text-sky-400 font-medium">
+                                    <span className="text-sky-700 font-medium">
                                         • Motif : {l.dispense_motif}
                                     </span>
                                 )}
@@ -1380,7 +1381,7 @@ export default function DossierFinancierModal({
                 cell: ({ row }) => {
                     const rawDate = row.original.date_limite_iso || row.original.date_limite;
                     return (
-                        <div className="text-xs flex items-center gap-1 text-slate-600 dark:text-slate-300 whitespace-nowrap">
+                        <div className="text-xs flex items-center gap-1 text-slate-600 whitespace-nowrap">
                             <Calendar className="w-3 h-3 text-slate-400 shrink-0" />
                             {rawDate ? formatDate(rawDate) : 'Dès inscription'}
                         </div>
@@ -1505,7 +1506,7 @@ export default function DossierFinancierModal({
                 accessorKey: 'reference_recu',
                 header: 'N° Reçu',
                 cell: ({ row }) => (
-                    <span className="font-mono font-bold text-xs text-slate-800 dark:text-slate-200">
+                    <span className="font-mono font-bold text-xs text-slate-800">
                         {row.original.reference_recu}
                     </span>
                 ),
@@ -1567,7 +1568,7 @@ export default function DossierFinancierModal({
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                className="h-7 text-[11px] px-2 flex items-center gap-1 border-amber-300 text-amber-800 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-950/40"
+                                className="h-7 text-[11px] px-2 flex items-center gap-1 border-amber-300 text-amber-800 hover:bg-amber-50"
                                 title="Modifier ce versement (montant, date, mode, payeur)"
                                 onClick={() => handleOuvrirEditionVersement(row.original)}
                             >
@@ -1593,7 +1594,7 @@ export default function DossierFinancierModal({
                             type="button"
                             variant="outline"
                             size="sm"
-                            className="h-7 text-[11px] px-2 flex items-center gap-1 border-slate-300 text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200"
+                            className="h-7 text-[11px] px-2 flex items-center gap-1 border-slate-300 text-slate-700 hover:bg-slate-100"
                             title="Ticket thermique 80mm (format caisse pharmacie)"
                             onClick={() =>
                                 window.open(
@@ -1661,16 +1662,16 @@ export default function DossierFinancierModal({
         return (
             <form
                 onSubmit={handleEnregistrerEditionVersement}
-                className="p-4 rounded-xl bg-amber-50/80 dark:bg-amber-950/30 border-2 border-amber-300 dark:border-amber-700 space-y-3 text-xs shadow-xs"
+                className="p-4 rounded-xl bg-amber-50/80 border-2 border-amber-300 space-y-3 text-xs shadow-xs"
             >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                        <Pencil className="w-4 h-4 text-amber-700 dark:text-amber-300 shrink-0" />
+                        <Pencil className="w-4 h-4 text-amber-700 shrink-0" />
                         <div>
-                            <h4 className="font-bold uppercase tracking-wider text-amber-950 dark:text-amber-100">
+                            <h4 className="font-bold uppercase tracking-wider text-amber-950">
                                 Modifier le Versement N° {versementEnEdition.reference_recu}
                             </h4>
-                            <p className="text-[11px] text-amber-800 dark:text-amber-300">
+                            <p className="text-[11px] text-amber-800">
                                 Montant initial :{' '}
                                 <strong>
                                     {Number(versementEnEdition.montant_total).toLocaleString('fr-FR')} FCFA
@@ -1684,7 +1685,7 @@ export default function DossierFinancierModal({
                     <button
                         type="button"
                         onClick={() => setVersementEnEdition(null)}
-                        className="text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 p-1 cursor-pointer"
+                        className="text-slate-500 hover:text-slate-800 p-1 cursor-pointer"
                         title="Annuler la modification"
                     >
                         <X className="w-4 h-4" />
@@ -1693,7 +1694,7 @@ export default function DossierFinancierModal({
 
                 {/* Raccourcis rapides de montants pour corriger une erreur de saisie en 1 clic */}
                 <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="text-[11px] font-semibold text-amber-900 dark:text-amber-200">
+                    <span className="text-[11px] font-semibold text-amber-900">
                         Ajustement rapide :
                     </span>
                     <button
@@ -1701,7 +1702,7 @@ export default function DossierFinancierModal({
                         onClick={() =>
                             setEditMontantTotal(String(Number(versementEnEdition.montant_total)))
                         }
-                        className="px-2 py-0.5 rounded-md bg-white dark:bg-slate-900 border border-amber-300 text-amber-900 dark:text-amber-200 text-[10px] font-semibold hover:bg-amber-100 cursor-pointer"
+                        className="px-2 py-0.5 rounded-md bg-white border border-amber-300 text-amber-900 text-[10px] font-semibold hover:bg-amber-100 cursor-pointer"
                     >
                         Montant actuel ({Number(versementEnEdition.montant_total).toLocaleString('fr-FR')} F)
                     </button>
@@ -1733,10 +1734,10 @@ export default function DossierFinancierModal({
                             max={plafondEditionVersement}
                             value={editMontantTotal}
                             onChange={(e) => setEditMontantTotal(e.target.value)}
-                            className={`h-9 bg-white dark:bg-slate-900 font-bold tabular-nums ${
+                            className={`h-9 bg-white font-bold tabular-nums ${
                                 montantEditionSaisi > plafondEditionVersement + 0.01
                                     ? 'border-red-500 text-red-600 focus-visible:ring-red-500'
-                                    : 'text-emerald-700 dark:text-emerald-400'
+                                    : 'text-emerald-700'
                             }`}
                             required
                         />
@@ -1753,7 +1754,7 @@ export default function DossierFinancierModal({
                             max={aujourdhuiIso}
                             value={formatDateForInput(editDateVersement)}
                             onChange={(e) => setEditDateVersement(e.target.value)}
-                            className="h-9 bg-white dark:bg-slate-900 text-xs"
+                            className="h-9 bg-white text-xs"
                             required
                         />
                     </div>
@@ -1768,7 +1769,7 @@ export default function DossierFinancierModal({
                         >
                             <SelectTrigger
                                 id="edit_versement_mode"
-                                className="h-9 bg-white dark:bg-slate-900 text-xs"
+                                className="h-9 bg-white text-xs"
                             >
                                 <SelectValue />
                             </SelectTrigger>
@@ -1790,7 +1791,7 @@ export default function DossierFinancierModal({
                             placeholder="Nom du déposant"
                             value={editPayeurNom}
                             onChange={(e) => setEditPayeurNom(e.target.value)}
-                            className="h-9 bg-white dark:bg-slate-900 text-xs"
+                            className="h-9 bg-white text-xs"
                         />
                     </div>
                 </div>
@@ -1805,13 +1806,13 @@ export default function DossierFinancierModal({
                             placeholder="N° de transaction..."
                             value={editReferencePaiement}
                             onChange={(e) => setEditReferencePaiement(e.target.value)}
-                            className="h-8 bg-white dark:bg-slate-900 text-xs"
+                            className="h-8 bg-white text-xs"
                         />
                     </div>
                 )}
 
                 {montantEditionSaisi > plafondEditionVersement + 0.01 && (
-                    <div className="p-2.5 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-300 dark:border-red-800 flex flex-wrap items-center justify-between gap-2 text-xs text-red-800 dark:text-red-200">
+                    <div className="p-2.5 rounded-lg bg-red-50 border border-red-300 flex flex-wrap items-center justify-between gap-2 text-xs text-red-800">
                         <div className="flex items-center gap-1.5 font-semibold">
                             <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
                             <span>
@@ -1865,7 +1866,7 @@ export default function DossierFinancierModal({
             {activeCompte && (
             <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto">
                 <DialogHeader>
-                    <DialogTitle className="flex flex-wrap items-center justify-between gap-2 text-slate-800 dark:text-slate-100 pr-6">
+                    <DialogTitle className="flex flex-wrap items-center justify-between gap-2 text-slate-800 pr-6">
                         <span className="flex items-center gap-2">
                             <CreditCard className="w-5 h-5 text-emerald-600 shrink-0" />
                             <span>Dossier Financier de l'Élève</span>
@@ -1885,22 +1886,22 @@ export default function DossierFinancierModal({
                 </DialogHeader>
 
                 {/* Bandeau d'identité de l'élève */}
-                <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                <div className="bg-slate-50 border border-slate-200 p-3 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
                     <div>
-                        <div className="font-bold text-sm text-slate-900 dark:text-slate-100">
+                        <div className="font-bold text-sm text-slate-900">
                             {activeCompte.eleve?.nom} {activeCompte.eleve?.prenom}
                         </div>
                         <div className="text-slate-500 mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
                             <span>
                                 Matricule :{' '}
-                                <strong className="font-mono text-slate-800 dark:text-slate-200">
+                                <strong className="font-mono text-slate-800">
                                     {activeCompte.eleve?.matricule}
                                 </strong>
                             </span>
                             <span>•</span>
                             <span>
                                 Classe :{' '}
-                                <strong className="text-emerald-700 dark:text-emerald-400">
+                                <strong className="text-emerald-700">
                                     {activeCompte.inscription?.classe?.nom ?? 'N/A'}
                                 </strong>
                             </span>
@@ -1926,12 +1927,12 @@ export default function DossierFinancierModal({
 
                 {/* 4 Cartes KPIs synthétiques */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                    <div className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+                    <div className="p-2.5 rounded-xl border border-slate-200 bg-white">
                         <div className="flex items-center justify-between text-[11px] text-slate-500">
                             <span>Net à Payer</span>
                             <Wallet className="w-3.5 h-3.5 text-sky-600" />
                         </div>
-                        <div className="text-sm font-extrabold text-slate-800 dark:text-slate-100 mt-1 tabular-nums">
+                        <div className="text-sm font-extrabold text-slate-800 mt-1 tabular-nums">
                             {totalExigible.toLocaleString('fr-FR')} FCFA
                         </div>
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
@@ -1948,22 +1949,22 @@ export default function DossierFinancierModal({
                         </div>
                     </div>
 
-                    <div className="p-2.5 rounded-xl border border-emerald-200 dark:border-emerald-900/40 bg-emerald-50/50 dark:bg-emerald-950/20">
-                        <div className="flex items-center justify-between text-[11px] text-emerald-700 dark:text-emerald-300">
+                    <div className="p-2.5 rounded-xl border border-emerald-200 bg-emerald-50/50">
+                        <div className="flex items-center justify-between text-[11px] text-emerald-700">
                             <span>Déjà Versé</span>
                             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                         </div>
-                        <div className="text-sm font-extrabold text-emerald-700 dark:text-emerald-300 mt-1 tabular-nums">
+                        <div className="text-sm font-extrabold text-emerald-700 mt-1 tabular-nums">
                             {totalPaye.toLocaleString('fr-FR')} FCFA
                         </div>
                     </div>
 
-                    <div className="p-2.5 rounded-xl border border-red-200 dark:border-red-900/40 bg-red-50/50 dark:bg-red-950/20">
-                        <div className="flex items-center justify-between text-[11px] text-red-700 dark:text-red-300">
+                    <div className="p-2.5 rounded-xl border border-red-200 bg-red-50/50">
+                        <div className="flex items-center justify-between text-[11px] text-red-700">
                             <span>Reste à Payer</span>
                             <DollarSign className="w-3.5 h-3.5 text-red-600" />
                         </div>
-                        <div className="text-sm font-extrabold text-red-700 dark:text-red-300 mt-1 tabular-nums">
+                        <div className="text-sm font-extrabold text-red-700 mt-1 tabular-nums">
                             {soldeRestant.toLocaleString('fr-FR')} FCFA
                         </div>
                     </div>
@@ -1971,11 +1972,11 @@ export default function DossierFinancierModal({
                     <div
                         className={`p-2.5 rounded-xl border ${
                             retardEchu > 0
-                                ? 'border-red-300 bg-red-100/60 dark:bg-red-900/30'
-                                : 'border-slate-200 bg-slate-50 dark:bg-slate-900'
+                                ? 'border-red-300 bg-red-100/60'
+                                : 'border-slate-200 bg-slate-50'
                         }`}
                     >
-                        <div className="flex items-center justify-between text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                        <div className="flex items-center justify-between text-[11px] font-semibold text-slate-600">
                             <span>Retard Échu</span>
                             <AlertTriangle
                                 className={`w-3.5 h-3.5 ${retardEchu > 0 ? 'text-red-600' : 'text-slate-400'}`}
@@ -1983,7 +1984,7 @@ export default function DossierFinancierModal({
                         </div>
                         <div
                             className={`text-sm font-extrabold mt-1 tabular-nums ${
-                                retardEchu > 0 ? 'text-red-700 dark:text-red-300' : 'text-emerald-600'
+                                retardEchu > 0 ? 'text-red-700' : 'text-emerald-600'
                             }`}
                         >
                             {retardEchu > 0 ? `${retardEchu.toLocaleString('fr-FR')} FCFA` : '0 FCFA (À jour)'}
@@ -1992,13 +1993,13 @@ export default function DossierFinancierModal({
                 </div>
 
                 {/* Sous-navigation du dossier Tout-en-Un */}
-                <div className="flex items-center gap-1 overflow-x-auto border-b border-slate-200 dark:border-slate-800 text-xs font-semibold pt-1 scrollbar-none">
+                <div className="flex items-center gap-1 overflow-x-auto border-b border-slate-200 text-xs font-semibold pt-1 scrollbar-none">
                     <button
                         type="button"
                         onClick={() => setDossierTab('echeancier')}
                         className={`pb-2 px-3 flex items-center gap-1.5 border-b-2 whitespace-nowrap cursor-pointer transition-colors ${
                             dossierTab === 'echeancier'
-                                ? 'border-emerald-600 text-emerald-700 dark:text-emerald-400'
+                                ? 'border-emerald-600 text-emerald-700'
                                 : 'border-transparent text-slate-500 hover:text-slate-800'
                         }`}
                     >
@@ -2010,7 +2011,7 @@ export default function DossierFinancierModal({
                         onClick={() => setDossierTab('bourses')}
                         className={`pb-2 px-3 flex items-center gap-1.5 border-b-2 whitespace-nowrap cursor-pointer transition-colors ${
                             dossierTab === 'bourses'
-                                ? 'border-emerald-600 text-emerald-700 dark:text-emerald-400'
+                                ? 'border-emerald-600 text-emerald-700'
                                 : 'border-transparent text-slate-500 hover:text-slate-800'
                         }`}
                     >
@@ -2022,19 +2023,19 @@ export default function DossierFinancierModal({
                         onClick={() => setDossierTab('options')}
                         className={`pb-2 px-3 flex items-center gap-1.5 border-b-2 whitespace-nowrap cursor-pointer transition-colors ${
                             dossierTab === 'options'
-                                ? 'border-emerald-600 text-emerald-700 dark:text-emerald-400'
+                                ? 'border-emerald-600 text-emerald-700'
                                 : 'border-transparent text-slate-500 hover:text-slate-800'
                         }`}
                     >
-                        <Bus className="w-3.5 h-3.5" />
-                        Options Bus / Cantine ({souscriptionsActives.length})
+                        <PackagePlus className="w-3.5 h-3.5" />
+                        Frais annexes ({souscriptionsActives.length})
                     </button>
                     <button
                         type="button"
                         onClick={() => setDossierTab('historique')}
                         className={`pb-2 px-3 flex items-center gap-1.5 border-b-2 whitespace-nowrap cursor-pointer transition-colors ${
                             dossierTab === 'historique'
-                                ? 'border-emerald-600 text-emerald-700 dark:text-emerald-400'
+                                ? 'border-emerald-600 text-emerald-700'
                                 : 'border-transparent text-slate-500 hover:text-slate-800'
                         }`}
                     >
@@ -2048,14 +2049,14 @@ export default function DossierFinancierModal({
                     <div className="space-y-3.5 pt-1">
                         {/* Alerte pédagogique si aucun tarif n'est configuré pour le niveau de l'élève */}
                         {!isLoading && data && (data.nb_tarifs_niveau ?? 0) === 0 && data.lignes.length === 0 && (
-                            <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-                                <div className="space-y-1 text-amber-900 dark:text-amber-200">
+                            <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                                <div className="space-y-1 text-amber-900">
                                     <p className="font-bold flex items-center gap-1.5">
                                         <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
                                         Aucun tarif n'est encore configuré pour le niveau «{' '}
                                         {data.niveau_nom || 'de cette classe'} ».
                                     </p>
-                                    <p className="text-amber-800/90 dark:text-amber-300/90">
+                                    <p className="text-amber-800/90">
                                         Ajoutez les tranches de ce niveau dans la <strong>Grille Tarifaire</strong> pour
                                         que l'échéancier de tous les élèves de ce niveau s'affiche automatiquement.
                                     </p>
@@ -2079,17 +2080,17 @@ export default function DossierFinancierModal({
 
                         {/* Panneau interactif des frais optionnels du niveau : permet de cocher ce qui concerne l'élève avant d'encaisser */}
                         {!isLoading && data && (data.frais_optionnels_niveau?.length ?? 0) > 0 && (
-                            <div className="p-3.5 rounded-xl bg-amber-50/70 dark:bg-amber-950/25 border border-amber-200 dark:border-amber-800/70 space-y-2.5 text-xs">
+                            <div className="p-3.5 rounded-xl bg-amber-50/70 border border-amber-200 space-y-2.5 text-xs">
                                 <div className="flex flex-wrap items-center justify-between gap-2">
                                     <div>
-                                        <div className="font-bold text-amber-950 dark:text-amber-200 flex items-center gap-1.5">
-                                            <Bus className="w-4 h-4 text-amber-600 shrink-0" />
+                                        <div className="font-bold text-amber-950 flex items-center gap-1.5">
+                                            <PackagePlus className="w-4 h-4 text-amber-600 shrink-0" />
                                             <span>
-                                                Frais optionnels du niveau « {data.niveau_nom || 'de la classe'} » — Cochez
+                                                Frais annexes & optionnels du niveau « {data.niveau_nom || 'de la classe'} » — Cochez
                                                 ce qui concerne cet élève avant d'encaisser
                                             </span>
                                         </div>
-                                        <p className="text-[11px] text-amber-800/90 dark:text-amber-300/80 mt-0.5">
+                                        <p className="text-[11px] text-amber-800/90 mt-0.5">
                                             Le montant net à payer et le reste à régler sont recalculés instantanément dès
                                             que vous cochez ou décochez un frais optionnel.
                                         </p>
@@ -2113,8 +2114,8 @@ export default function DossierFinancierModal({
                                                         : 'opacity-70 cursor-not-allowed'
                                                 } ${
                                                     opt.est_souscrit
-                                                        ? 'bg-white dark:bg-slate-900 border-amber-500 shadow-2xs'
-                                                        : 'bg-white/70 dark:bg-slate-900/50 border-amber-200/80 dark:border-slate-800 hover:bg-white'
+                                                        ? 'bg-white border-amber-500 shadow-2xs'
+                                                        : 'bg-white/70 border-amber-200/80 hover:bg-white'
                                                 }`}
                                             >
                                                 <div className="flex items-center gap-2.5 min-w-0">
@@ -2126,7 +2127,7 @@ export default function DossierFinancierModal({
                                                         className="h-4 w-4 rounded border-amber-400 text-amber-600 focus:ring-amber-500 shrink-0"
                                                     />
                                                     <div className="min-w-0">
-                                                        <div className="font-bold text-slate-900 dark:text-slate-100 truncate">
+                                                        <div className="font-bold text-slate-900 truncate">
                                                             {opt.libelle}
                                                         </div>
                                                         <div className="text-[10px] text-slate-500 truncate">
@@ -2136,13 +2137,13 @@ export default function DossierFinancierModal({
                                                 </div>
 
                                                 <div className="text-right shrink-0">
-                                                    <div className="font-extrabold text-xs text-amber-800 dark:text-amber-300 tabular-nums">
+                                                    <div className="font-extrabold text-xs text-amber-800 tabular-nums">
                                                         +{montantAffiche.toLocaleString('fr-FR')} FCFA
                                                     </div>
                                                     <span
                                                         className={`text-[10px] font-semibold ${
                                                             opt.est_souscrit
-                                                                ? 'text-emerald-600 dark:text-emerald-400'
+                                                                ? 'text-emerald-600'
                                                                 : 'text-slate-400'
                                                         }`}
                                                     >
@@ -2161,9 +2162,9 @@ export default function DossierFinancierModal({
                         )}
 
                         {/* Tableau TanStack de l'échéancier trié par ordre de priorité */}
-                        <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-x-auto">
+                        <div className="border border-slate-200 rounded-xl overflow-x-auto">
                             <table className="w-full text-xs">
-                                <thead className="bg-slate-100 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300">
+                                <thead className="bg-slate-100 border-b border-slate-200 text-slate-700">
                                     {echeancierTable.getHeaderGroups().map((headerGroup) => (
                                         <tr key={headerGroup.id}>
                                             {headerGroup.headers.map((header) => (
@@ -2179,7 +2180,7 @@ export default function DossierFinancierModal({
                                         </tr>
                                     ))}
                                 </thead>
-                                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                <tbody className="divide-y divide-slate-100">
                                     {echeancierTable.getRowModel().rows.length === 0 ? (
                                         <tr>
                                             <td
@@ -2195,7 +2196,7 @@ export default function DossierFinancierModal({
                                         echeancierTable.getRowModel().rows.map((row) => (
                                             <tr
                                                 key={row.id}
-                                                className="hover:bg-slate-50 dark:hover:bg-slate-900/40"
+                                                className="hover:bg-slate-50"
                                             >
                                                 {row.getVisibleCells().map((cell) => (
                                                     <td key={cell.id} className="p-2.5">
@@ -2213,10 +2214,10 @@ export default function DossierFinancierModal({
                         {effectiveCanDispenses && showInlineDispenseForm && (
                             <form
                                 onSubmit={handleAccorderDispense}
-                                className="p-3.5 rounded-xl bg-sky-50/70 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-800 space-y-3 text-xs"
+                                className="p-3.5 rounded-xl bg-sky-50/70 border border-sky-200 space-y-3 text-xs"
                             >
                                 <div className="flex items-center justify-between gap-2">
-                                    <div className="font-bold text-sky-900 dark:text-sky-200 flex items-center gap-1.5">
+                                    <div className="font-bold text-sky-900 flex items-center gap-1.5">
                                         <FileCheck2 className="w-4 h-4 text-sky-600" />
                                         <span>
                                             Accorder une dispense sur « {ligneDispenseCourante?.libelle || 'Tranche'} »
@@ -2239,7 +2240,7 @@ export default function DossierFinancierModal({
                                             value={typeDispense}
                                             onValueChange={(v: 'totale' | 'partielle') => setTypeDispense(v)}
                                         >
-                                            <SelectTrigger className="h-8 bg-white dark:bg-slate-900 text-xs">
+                                            <SelectTrigger className="h-8 bg-white text-xs">
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -2261,7 +2262,7 @@ export default function DossierFinancierModal({
                                                 value={montantDispenseInput}
                                                 onChange={(e) => setMontantDispenseInput(e.target.value)}
                                                 placeholder="Ex: 15000"
-                                                className="h-8 bg-white dark:bg-slate-900 text-xs font-bold tabular-nums"
+                                                className="h-8 bg-white text-xs font-bold tabular-nums"
                                             />
                                         </div>
                                     )}
@@ -2278,7 +2279,7 @@ export default function DossierFinancierModal({
                                             value={motifDispense}
                                             onChange={(e) => setMotifDispense(e.target.value)}
                                             placeholder="Ex: Élève inscrit au 2ème trimestre..."
-                                            className="h-8 bg-white dark:bg-slate-900 text-xs"
+                                            className="h-8 bg-white text-xs"
                                         />
                                     </div>
                                 </div>
@@ -2290,7 +2291,7 @@ export default function DossierFinancierModal({
                                                 key={m}
                                                 type="button"
                                                 onClick={() => setMotifDispense(m)}
-                                                className="px-2 py-0.5 rounded bg-white dark:bg-slate-900 border border-sky-200 text-sky-800 dark:text-sky-300 text-[10px] hover:bg-sky-100 cursor-pointer"
+                                                className="px-2 py-0.5 rounded bg-white border border-sky-200 text-sky-800 text-[10px] hover:bg-sky-100 cursor-pointer"
                                             >
                                                 {m}
                                             </button>
@@ -2312,25 +2313,25 @@ export default function DossierFinancierModal({
                         {canEncaisser && (
                             <form
                                 onSubmit={handleEncaisserMaintenant}
-                                className="p-4 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/60 space-y-3"
+                                className="p-4 rounded-xl bg-emerald-50/50 border border-emerald-200 space-y-3"
                             >
                                 <div className="flex flex-wrap items-center justify-between gap-2">
                                     <div className="flex items-center gap-2">
                                         <Receipt className="w-4 h-4 text-emerald-600" />
-                                        <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-900 dark:text-emerald-200">
+                                        <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-900">
                                             Encaisser un Versement Maintenant
                                         </h4>
                                     </div>
 
                                     {lignesImpayees.length > 0 && (
-                                        <div className="inline-flex rounded-lg border border-emerald-300 dark:border-emerald-800 bg-white dark:bg-slate-900 p-0.5 text-[11px]">
+                                        <div className="inline-flex rounded-lg border border-emerald-300 bg-white p-0.5 text-[11px]">
                                             <button
                                                 type="button"
                                                 onClick={() => setModeAllocation('auto')}
                                                 className={`px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer ${
                                                     modeAllocation === 'auto'
                                                         ? 'bg-emerald-600 text-white'
-                                                        : 'text-slate-600 hover:text-slate-900 dark:text-slate-300'
+                                                        : 'text-slate-600 hover:text-slate-900'
                                                 }`}
                                             >
                                                 Automatique (selon priorité)
@@ -2341,7 +2342,7 @@ export default function DossierFinancierModal({
                                                 className={`px-2.5 py-1 rounded-md font-semibold flex items-center gap-1 transition-colors cursor-pointer ${
                                                     modeAllocation === 'manuel'
                                                         ? 'bg-emerald-600 text-white'
-                                                        : 'text-slate-600 hover:text-slate-900 dark:text-slate-300'
+                                                        : 'text-slate-600 hover:text-slate-900'
                                                 }`}
                                             >
                                                 <SlidersHorizontal className="w-3 h-3" />
@@ -2352,9 +2353,9 @@ export default function DossierFinancierModal({
                                 </div>
 
                                 {soldeRestant <= 0 ? (
-                                    <div className="p-3 rounded-lg bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-                                        <div className="text-slate-700 dark:text-slate-300">
-                                            <strong className="text-emerald-700 dark:text-emerald-400">
+                                    <div className="p-3 rounded-lg bg-white border border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                                        <div className="text-slate-700">
+                                            <strong className="text-emerald-700">
                                                 Reste à payer : 0 FCFA.
                                             </strong>{' '}
                                             Aucun versement supplémentaire ne peut être encaissé sur un solde nul.
@@ -2370,7 +2371,7 @@ export default function DossierFinancierModal({
                                 ) : (
                                     <>
                                         {estCaisseCloturee && (
-                                            <div className="p-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-200 font-medium">
+                                            <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-300 text-xs text-amber-800 font-medium">
                                                 La caisse d'aujourd'hui ({formatDate(aujourdhuiIso)}) est clôturée. Pour
                                                 enregistrer un reçu papier perçu antérieurement, sélectionnez sa date réelle
                                                 ci-dessous.
@@ -2378,7 +2379,7 @@ export default function DossierFinancierModal({
                                         )}
 
                                         {/* Date du versement (permet l'enregistrement des versements papier antérieurs) + Remise anticipée 4 % */}
-                                        <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-center p-2.5 rounded-lg bg-white/90 dark:bg-slate-900/90 border border-emerald-200/80 dark:border-emerald-900/60">
+                                        <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-center p-2.5 rounded-lg bg-white/90 border border-emerald-200/80">
                                             <div className="sm:col-span-5 space-y-1">
                                                 <Label
                                                     htmlFor="quick_date_versement"
@@ -2406,18 +2407,18 @@ export default function DossierFinancierModal({
                                                             setAppliquerRemiseAnticipee(false);
                                                         }
                                                     }}
-                                                    className="h-8 bg-white dark:bg-slate-900 text-xs"
+                                                    className="h-8 bg-white text-xs"
                                                     required
                                                 />
                                             </div>
 
-                                            <div className="sm:col-span-7 text-[11px] text-slate-600 dark:text-slate-300">
+                                            <div className="sm:col-span-7 text-[11px] text-slate-600">
                                                 {remiseAnticipeeModele?.deja_attribuee ? (
-                                                    <div className="p-2 rounded-md bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 font-medium">
+                                                    <div className="p-2 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 font-medium">
                                                         {remiseAnticipeeModele.nom} déjà appliquée sur ce dossier.
                                                     </div>
                                                 ) : estEligibleRemiseAnticipee && remiseAnticipeeModele ? (
-                                                    <label className="flex items-start gap-2 p-2 rounded-md bg-amber-50/80 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800 cursor-pointer">
+                                                    <label className="flex items-start gap-2 p-2 rounded-md bg-amber-50/80 border border-amber-300 cursor-pointer">
                                                         <input
                                                             type="checkbox"
                                                             checked={appliquerRemiseAnticipee}
@@ -2427,12 +2428,12 @@ export default function DossierFinancierModal({
                                                             className="mt-0.5 rounded border-amber-400 text-emerald-600 focus:ring-emerald-500"
                                                         />
                                                         <div>
-                                                            <div className="font-bold text-amber-900 dark:text-amber-200">
+                                                            <div className="font-bold text-amber-900">
                                                                 Appliquer « {remiseAnticipeeModele.nom} » (
                                                                 -{Number(remiseAnticipeeModele.montant_estime).toLocaleString('fr-FR')}{' '}
                                                                 FCFA)
                                                             </div>
-                                                            <div className="text-[10px] text-amber-700 dark:text-amber-300">
+                                                            <div className="text-[10px] text-amber-700">
                                                                 Éligible car date de versement ≤{' '}
                                                                 {formatDate(dateLimiteRentree)} (déduite sur :{' '}
                                                                 {formatCibleImputationLabel(
@@ -2443,7 +2444,7 @@ export default function DossierFinancierModal({
                                                         </div>
                                                     </label>
                                                 ) : (
-                                                    <div className="text-slate-500 dark:text-slate-400">
+                                                    <div className="text-slate-500">
                                                         Par défaut : date du jour ({formatDate(aujourdhuiIso)}). Modifiez
                                                         pour saisir un reçu papier antérieur (dates futures interdites).
                                                     </div>
@@ -2465,7 +2466,7 @@ export default function DossierFinancierModal({
                                                                         String(Number(l.montant_restant))
                                                                     )
                                                                 }
-                                                                className="px-2 py-0.5 rounded-md bg-white dark:bg-slate-900 border border-emerald-300 text-emerald-800 dark:text-emerald-300 text-[10px] font-semibold hover:bg-emerald-100 cursor-pointer"
+                                                                className="px-2 py-0.5 rounded-md bg-white border border-emerald-300 text-emerald-800 text-[10px] font-semibold hover:bg-emerald-100 cursor-pointer"
                                                             >
                                                                 {l.libelle} :{' '}
                                                                 {Number(l.montant_restant).toLocaleString('fr-FR')} FCFA
@@ -2503,7 +2504,7 @@ export default function DossierFinancierModal({
                                                             placeholder={`Max ${plafondResteSaisie.toLocaleString('fr-FR')}`}
                                                             value={montantEncaissement}
                                                             onChange={(e) => setMontantEncaissement(e.target.value)}
-                                                            className={`h-9 bg-white dark:bg-slate-900 font-bold tabular-nums ${
+                                                            className={`h-9 bg-white font-bold tabular-nums ${
                                                                 montantSaisiBrut > plafondResteSaisie + 0.01
                                                                     ? 'border-red-500 text-red-600 focus-visible:ring-red-500'
                                                                     : 'text-emerald-700'
@@ -2521,7 +2522,7 @@ export default function DossierFinancierModal({
                                                         >
                                                             <SelectTrigger
                                                                 id="quick_mode"
-                                                                className="h-9 bg-white dark:bg-slate-900 text-xs"
+                                                                className="h-9 bg-white text-xs"
                                                             >
                                                                 <SelectValue />
                                                             </SelectTrigger>
@@ -2547,14 +2548,14 @@ export default function DossierFinancierModal({
                                                             placeholder="Nom du déposant"
                                                             value={payeurNom}
                                                             onChange={(e) => setPayeurNom(e.target.value)}
-                                                            className="h-9 bg-white dark:bg-slate-900 text-xs"
+                                                            className="h-9 bg-white text-xs"
                                                         />
                                                     </div>
                                                 </div>
                                             </>
                                         ) : (
                                             <div className="space-y-2.5">
-                                                <p className="text-[11px] text-slate-600 dark:text-slate-300">
+                                                <p className="text-[11px] text-slate-600">
                                                     Cochez la ou les rubriques précises que le parent souhaite régler
                                                     aujourd'hui (ex : payer uniquement le Bus ou une tranche précise) :
                                                 </p>
@@ -2568,8 +2569,8 @@ export default function DossierFinancierModal({
                                                                 key={key}
                                                                 className={`p-2 rounded-lg border flex items-center justify-between gap-2 text-xs transition-colors ${
                                                                     isChecked
-                                                                        ? 'bg-white dark:bg-slate-900 border-emerald-500 shadow-xs'
-                                                                        : 'bg-white/60 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800'
+                                                                        ? 'bg-white border-emerald-500 shadow-xs'
+                                                                        : 'bg-white/60 border-slate-200'
                                                                 }`}
                                                             >
                                                                 <label className="flex items-center gap-2 cursor-pointer min-w-0 flex-1">
@@ -2580,7 +2581,7 @@ export default function DossierFinancierModal({
                                                                         className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
                                                                     />
                                                                     <div className="truncate">
-                                                                        <div className="font-semibold text-slate-800 dark:text-slate-100 truncate">
+                                                                        <div className="font-semibold text-slate-800 truncate">
                                                                             {l.libelle}
                                                                         </div>
                                                                         <div className="text-[10px] text-slate-500">
@@ -2605,7 +2606,7 @@ export default function DossierFinancierModal({
                                                                                 e.target.value
                                                                             )
                                                                         }
-                                                                        className="h-7 w-28 text-xs font-bold text-right tabular-nums bg-emerald-50/50 dark:bg-slate-950"
+                                                                        className="h-7 w-28 text-xs font-bold text-right tabular-nums bg-emerald-50/50"
                                                                     />
                                                                 )}
                                                             </div>
@@ -2624,7 +2625,7 @@ export default function DossierFinancierModal({
                                                         >
                                                             <SelectTrigger
                                                                 id="manual_mode"
-                                                                className="h-9 bg-white dark:bg-slate-900 text-xs"
+                                                                className="h-9 bg-white text-xs"
                                                             >
                                                                 <SelectValue />
                                                             </SelectTrigger>
@@ -2650,7 +2651,7 @@ export default function DossierFinancierModal({
                                                             placeholder="Nom du déposant"
                                                             value={payeurNom}
                                                             onChange={(e) => setPayeurNom(e.target.value)}
-                                                            className="h-9 bg-white dark:bg-slate-900 text-xs"
+                                                            className="h-9 bg-white text-xs"
                                                         />
                                                     </div>
                                                 </div>
@@ -2667,14 +2668,14 @@ export default function DossierFinancierModal({
                                                     placeholder="N° de transaction..."
                                                     value={referencePaiement}
                                                     onChange={(e) => setReferencePaiement(e.target.value)}
-                                                    className="h-8 bg-white dark:bg-slate-900 text-xs"
+                                                    className="h-8 bg-white text-xs"
                                                 />
                                             </div>
                                         )}
 
                                         {/* Alerte immédiate si le montant saisi dépasse le reste à payer */}
                                         {montantSaisiBrut > plafondResteSaisie + 0.01 && (
-                                            <div className="p-2.5 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-300 dark:border-red-800 flex flex-wrap items-center justify-between gap-2 text-xs text-red-800 dark:text-red-200">
+                                            <div className="p-2.5 rounded-lg bg-red-50 border border-red-300 flex flex-wrap items-center justify-between gap-2 text-xs text-red-800">
                                                 <div className="flex items-center gap-1.5 font-semibold">
                                                     <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
                                                     <span>
@@ -2697,7 +2698,7 @@ export default function DossierFinancierModal({
                                         {/* Aperçu clair de la ventilation et bouton de validation */}
                                         {ventilationsPrevisionnelles.length > 0 && (
                                             <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-                                                <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-600 dark:text-slate-300">
+                                                <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-600">
                                                     <span className="font-semibold">
                                                         {modeAllocation === 'manuel'
                                                             ? 'Affectation ciblée :'
@@ -2707,7 +2708,7 @@ export default function DossierFinancierModal({
                                                         <Badge
                                                             key={i}
                                                             variant="outline"
-                                                            className="bg-white dark:bg-slate-900 text-[10px]"
+                                                            className="bg-white text-[10px]"
                                                         >
                                                             {v.libelle} : {v.montant.toLocaleString('fr-FR')} FCFA
                                                         </Badge>
@@ -2716,7 +2717,7 @@ export default function DossierFinancierModal({
                                                 <div className="flex flex-wrap items-center gap-2">
                                                     {/* Sélecteur mémorisé : Reçu A4 (2 exemplaires/page) vs Ticket thermique 80mm */}
                                                     <div
-                                                        className="inline-flex items-center rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-0.5 text-[11px]"
+                                                        className="inline-flex items-center rounded-md border border-slate-200 bg-white p-0.5 text-[11px]"
                                                         role="group"
                                                         aria-label="Format d'impression du reçu"
                                                     >
@@ -2729,7 +2730,7 @@ export default function DossierFinancierModal({
                                                             className={`px-2 py-1 rounded-sm font-semibold transition-colors cursor-pointer ${
                                                                 receiptFormat === 'a4'
                                                                     ? 'bg-emerald-600 text-white'
-                                                                    : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                                                                    : 'text-slate-600 hover:bg-slate-100'
                                                             }`}
                                                         >
                                                             Reçu A4
@@ -2743,7 +2744,7 @@ export default function DossierFinancierModal({
                                                             className={`px-2 py-1 rounded-sm font-semibold transition-colors cursor-pointer ${
                                                                 receiptFormat === 'ticket'
                                                                     ? 'bg-emerald-600 text-white'
-                                                                    : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                                                                    : 'text-slate-600 hover:bg-slate-100'
                                                             }`}
                                                         >
                                                             Ticket 80mm
@@ -2778,9 +2779,9 @@ export default function DossierFinancierModal({
 
                         {/* Accès rapide aux versements enregistrés de l'élève (permet de corriger une erreur de saisie sans changer d'onglet) */}
                         {versementsValidesEleve.length > 0 && (
-                            <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/50 space-y-2 text-xs">
+                            <div className="p-3 rounded-xl border border-slate-200 bg-slate-50/70 space-y-2 text-xs">
                                 <div className="flex flex-wrap items-center justify-between gap-2">
-                                    <span className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                                    <span className="font-bold text-slate-800 flex items-center gap-1.5">
                                         <History className="w-3.5 h-3.5 text-emerald-600" />
                                         Versements enregistrés sur ce dossier ({versementsValidesEleve.length})
                                     </span>
@@ -2797,18 +2798,18 @@ export default function DossierFinancierModal({
                                             key={v.id}
                                             className={`p-2 rounded-lg border flex flex-wrap items-center justify-between gap-2 ${
                                                 versementEnEdition?.id === v.id
-                                                    ? 'bg-amber-50/90 dark:bg-amber-950/30 border-amber-400'
-                                                    : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800'
+                                                    ? 'bg-amber-50/90 border-amber-400'
+                                                    : 'bg-white border-slate-200'
                                             }`}
                                         >
                                             <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
-                                                <span className="font-mono font-bold text-slate-800 dark:text-slate-100">
+                                                <span className="font-mono font-bold text-slate-800">
                                                     {v.reference_recu}
                                                 </span>
                                                 <span className="text-slate-500">
                                                     {formatDate(v.date_versement)}
                                                 </span>
-                                                <span className="font-extrabold text-emerald-700 dark:text-emerald-400 tabular-nums">
+                                                <span className="font-extrabold text-emerald-700 tabular-nums">
                                                     {Number(v.montant_total).toLocaleString('fr-FR')} FCFA
                                                 </span>
                                                 <div className="flex flex-wrap gap-1">
@@ -2830,7 +2831,7 @@ export default function DossierFinancierModal({
                                                         type="button"
                                                         variant="outline"
                                                         size="sm"
-                                                        className="h-7 text-[11px] px-2 flex items-center gap-1 border-amber-300 text-amber-800 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-300"
+                                                        className="h-7 text-[11px] px-2 flex items-center gap-1 border-amber-300 text-amber-800 hover:bg-amber-50"
                                                         onClick={() => handleOuvrirEditionVersement(v)}
                                                     >
                                                         <Pencil className="w-3 h-3" /> Modifier
@@ -2851,7 +2852,7 @@ export default function DossierFinancierModal({
                                                     type="button"
                                                     variant="outline"
                                                     size="sm"
-                                                    className="h-7 text-[11px] px-2 flex items-center gap-1 border-slate-300 text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200"
+                                                    className="h-7 text-[11px] px-2 flex items-center gap-1 border-slate-300 text-slate-700 hover:bg-slate-100"
                                                     onClick={() =>
                                                         window.open(buildReceiptPrintUrl(v.id, 'ticket'), '_blank')
                                                     }
@@ -2872,13 +2873,13 @@ export default function DossierFinancierModal({
                     <div className="space-y-5 pt-1 text-xs">
                         {/* SECTION A : DISPENSES FINANCIÈRES DE TRANCHE(S) */}
                         <div className="space-y-2.5">
-                            <h4 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                            <h4 className="font-bold text-slate-800 flex items-center gap-1.5">
                                 <FileCheck2 className="w-4 h-4 text-sky-600" />
                                 Dispenses de tranches (élève inscrit en cours d'année, exonération...)
                             </h4>
 
                             {dispensesAttribuees.length === 0 ? (
-                                <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-500">
+                                <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-slate-500">
                                     Aucune dispense de tranche n'est accordée à cet élève (toutes les tranches du niveau
                                     lui sont exigibles).
                                 </div>
@@ -2887,10 +2888,10 @@ export default function DossierFinancierModal({
                                     {dispensesAttribuees.map((d) => (
                                         <div
                                             key={d.id}
-                                            className="p-3 rounded-lg bg-sky-50/70 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-800 flex items-center justify-between gap-2"
+                                            className="p-3 rounded-lg bg-sky-50/70 border border-sky-200 flex items-center justify-between gap-2"
                                         >
                                             <div>
-                                                <div className="font-bold text-sky-950 dark:text-sky-200 flex flex-wrap items-center gap-2">
+                                                <div className="font-bold text-sky-950 flex flex-wrap items-center gap-2">
                                                     <span>{d.libelle_tranche}</span>
                                                     <Badge className="bg-sky-600 text-white text-[10px]">
                                                         {d.type_dispense === 'totale'
@@ -2898,9 +2899,9 @@ export default function DossierFinancierModal({
                                                             : 'Dispense partielle'}
                                                     </Badge>
                                                 </div>
-                                                <div className="text-[11px] text-slate-600 dark:text-slate-400">
+                                                <div className="text-[11px] text-slate-600">
                                                     Montant exonéré :{' '}
-                                                    <strong className="text-sky-700 dark:text-sky-300">
+                                                    <strong className="text-sky-700">
                                                         -{Number(d.montant_dispense).toLocaleString('fr-FR')} FCFA
                                                     </strong>
                                                     {' • '}Motif : <strong>{d.motif}</strong>
@@ -2932,16 +2933,21 @@ export default function DossierFinancierModal({
                             {effectiveCanDispenses && lignesObligatoires.length > 0 && (
                                 <form
                                     onSubmit={handleAccorderDispense}
-                                    className="p-4 rounded-xl border border-sky-200/80 dark:border-sky-900/60 bg-sky-50/30 dark:bg-slate-900 space-y-3"
+                                    className="p-4 rounded-xl border border-sky-200/80 bg-sky-50/30 space-y-3"
                                 >
-                                    <span className="font-bold text-slate-800 dark:text-slate-100 block">
+                                    <span className="font-bold text-slate-800 block">
                                         Accorder une dispense sur une tranche obligatoire
                                     </span>
 
                                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                                        <div className="space-y-1">
+                                        <div className="space-y-1 min-w-0">
                                             <Label className="text-xs">Tranche à dispenser</Label>
-                                            <Select
+                                            <SearchableSelect
+                                                options={lignesObligatoires.map((l) => ({
+                                                    value: String(l.id),
+                                                    label: l.libelle,
+                                                    description: `${Number(l.montant_brut ?? l.montant).toLocaleString('fr-FR')} FCFA`,
+                                                }))}
                                                 value={selectedDispenseFraisId}
                                                 onValueChange={(val) => {
                                                     setSelectedDispenseFraisId(val);
@@ -2954,31 +2960,20 @@ export default function DossierFinancierModal({
                                                         );
                                                     }
                                                 }}
-                                            >
-                                                <SelectTrigger className="h-9 bg-white dark:bg-slate-900 text-xs">
-                                                    <SelectValue placeholder="Choisir la tranche..." />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {lignesObligatoires.map((l) => (
-                                                        <SelectItem key={String(l.id)} value={String(l.id)}>
-                                                            {l.libelle} (
-                                                            {Number(l.montant_brut ?? l.montant).toLocaleString(
-                                                                'fr-FR'
-                                                            )}{' '}
-                                                            FCFA)
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
+                                                placeholder="Choisir la tranche..."
+                                                searchPlaceholder="Rechercher une tranche..."
+                                                emptyMessage="Aucune tranche trouvée."
+                                                className="h-9 bg-white text-xs font-normal"
+                                            />
                                         </div>
 
-                                        <div className="space-y-1">
+                                        <div className="space-y-1 min-w-0">
                                             <Label className="text-xs">Type de dispense</Label>
                                             <Select
                                                 value={typeDispense}
                                                 onValueChange={(v: 'totale' | 'partielle') => setTypeDispense(v)}
                                             >
-                                                <SelectTrigger className="h-9 bg-white dark:bg-slate-900 text-xs">
+                                                <SelectTrigger className="h-9 bg-white text-xs">
                                                     <SelectValue />
                                                 </SelectTrigger>
                                                 <SelectContent>
@@ -3000,7 +2995,7 @@ export default function DossierFinancierModal({
                                                     value={montantDispenseInput}
                                                     onChange={(e) => setMontantDispenseInput(e.target.value)}
                                                     placeholder="Ex: 15000"
-                                                    className="h-9 bg-white dark:bg-slate-900 text-xs font-bold tabular-nums"
+                                                    className="h-9 bg-white text-xs font-bold tabular-nums"
                                                 />
                                             </div>
                                         ) : (
@@ -3012,7 +3007,7 @@ export default function DossierFinancierModal({
                                                     value={motifDispense}
                                                     onChange={(e) => setMotifDispense(e.target.value)}
                                                     placeholder="Ex: Arrivée au 2ème trimestre"
-                                                    className="h-9 bg-white dark:bg-slate-900 text-xs"
+                                                    className="h-9 bg-white text-xs"
                                                 />
                                             </div>
                                         )}
@@ -3027,7 +3022,7 @@ export default function DossierFinancierModal({
                                                 value={motifDispense}
                                                 onChange={(e) => setMotifDispense(e.target.value)}
                                                 placeholder="Ex: Arrivée en cours de trimestre..."
-                                                className="h-9 bg-white dark:bg-slate-900 text-xs"
+                                                className="h-9 bg-white text-xs"
                                             />
                                         </div>
                                     )}
@@ -3039,7 +3034,7 @@ export default function DossierFinancierModal({
                                                     key={m}
                                                     type="button"
                                                     onClick={() => setMotifDispense(m)}
-                                                    className="px-2 py-0.5 rounded bg-white dark:bg-slate-900 border border-sky-200 text-sky-800 dark:text-sky-300 text-[10px] hover:bg-sky-100 cursor-pointer"
+                                                    className="px-2 py-0.5 rounded bg-white border border-sky-200 text-sky-800 text-[10px] hover:bg-sky-100 cursor-pointer"
                                                 >
                                                     {m}
                                                 </button>
@@ -3060,14 +3055,14 @@ export default function DossierFinancierModal({
                         </div>
 
                         {/* SECTION B : BOURSES, BONUS & REMISES AVEC CHOIX DE LA TRANCHE CIBLE */}
-                        <div className="space-y-2.5 pt-2 border-t border-slate-200 dark:border-slate-800">
-                            <h4 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                                <Sparkles className="w-4 h-4 text-emerald-600" />
+                        <div className="space-y-2.5 pt-2 border-t border-slate-200">
+                            <h4 className="font-bold text-slate-800 flex items-center gap-1.5">
+                                <BadgePercent className="w-4 h-4 text-emerald-600" />
                                 Réductions, Bourses & Bonus commerciaux accordés à cet élève
                             </h4>
 
                             {boursesAttribuees.length === 0 ? (
-                                <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-500">
+                                <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-slate-500">
                                     Aucune bourse ou remise (ex : paiement en avance) n'est appliquée à cet élève.
                                 </div>
                             ) : (
@@ -3075,21 +3070,21 @@ export default function DossierFinancierModal({
                                     {boursesAttribuees.map((b) => (
                                         <div
                                             key={b.id}
-                                            className="p-3 rounded-lg bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 flex items-center justify-between gap-2"
+                                            className="p-3 rounded-lg bg-emerald-50/60 border border-emerald-200 flex items-center justify-between gap-2"
                                         >
                                             <div>
-                                                <div className="font-bold text-emerald-950 dark:text-emerald-200 flex flex-wrap items-center gap-2">
+                                                <div className="font-bold text-emerald-950 flex flex-wrap items-center gap-2">
                                                     <span>{b.nom}</span>
                                                     <Badge variant="outline" className="text-[10px]">
                                                         {b.categorie}
                                                     </Badge>
                                                     {b.mode_calcul === 'pourcentage' && b.valeur !== undefined && (
-                                                        <span className="text-[10px] font-medium text-emerald-700 dark:text-emerald-300">
+                                                        <span className="text-[10px] font-medium text-emerald-700">
                                                             ({b.valeur}% • {formatBaseCalculRemiseLabel(b.base_calcul)})
                                                         </span>
                                                     )}
                                                 </div>
-                                                <div className="text-[11px] text-slate-600 dark:text-slate-400">
+                                                <div className="text-[11px] text-slate-600">
                                                     Imputation :{' '}
                                                     <strong>
                                                         {b.frais_cible_libelle
@@ -3097,7 +3092,7 @@ export default function DossierFinancierModal({
                                                             : formatCibleImputationLabel(b.cible_imputation)}
                                                     </strong>{' '}
                                                     •{' '}
-                                                    <strong className="text-emerald-700 dark:text-emerald-300">
+                                                    <strong className="text-emerald-700">
                                                         -{b.montant_calcule.toLocaleString('fr-FR')} FCFA
                                                     </strong>
                                                     {b.date_attribution && ` • Le ${formatDate(b.date_attribution)}`}
@@ -3128,10 +3123,10 @@ export default function DossierFinancierModal({
                             {canManageBourses && (
                                 <form
                                     onSubmit={handleAttribuerBourse}
-                                    className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-3"
+                                    className="p-4 rounded-xl border border-slate-200 bg-white space-y-3"
                                 >
                                     <div className="flex items-center justify-between">
-                                        <span className="font-bold text-slate-800 dark:text-slate-100">
+                                        <span className="font-bold text-slate-800">
                                             Appliquer un Bonus / Bourse / Remise à cet élève
                                         </span>
                                         {onOpenCreateModeleBourse && (
@@ -3165,28 +3160,26 @@ export default function DossierFinancierModal({
                                     ) : (
                                         <>
                                             <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-end">
-                                            <div className="sm:col-span-5 space-y-1">
+                                            <div className="sm:col-span-5 space-y-1 min-w-0">
                                                 <Label className="text-xs">Choisir la remise ou bourse</Label>
-                                                <Select value={selectedBourseId} onValueChange={setSelectedBourseId}>
-                                                    <SelectTrigger className="h-9 text-xs">
-                                                        <SelectValue placeholder="Sélectionner..." />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {boursesRemises.map((br) => (
-                                                            <SelectItem key={br.id} value={String(br.id)}>
-                                                                {br.nom} —{' '}
-                                                                {br.mode_calcul === 'pourcentage'
-                                                                    ? `${br.valeur}%`
-                                                                    : `-${Number(br.valeur).toLocaleString(
-                                                                          'fr-FR'
-                                                                      )} FCFA`}
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
+                                                <SearchableSelect
+                                                    options={boursesRemises.map((br) => ({
+                                                        value: String(br.id),
+                                                        label: br.nom,
+                                                        description: br.mode_calcul === 'pourcentage'
+                                                            ? `${br.valeur}%`
+                                                            : `-${Number(br.valeur).toLocaleString('fr-FR')} FCFA`,
+                                                    }))}
+                                                    value={selectedBourseId}
+                                                    onValueChange={setSelectedBourseId}
+                                                    placeholder="Sélectionner..."
+                                                    searchPlaceholder="Rechercher une remise..."
+                                                    emptyMessage="Aucun modèle trouvé."
+                                                    className="h-9 text-xs font-normal"
+                                                />
                                             </div>
 
-                                            <div className="sm:col-span-4 space-y-1">
+                                            <div className="sm:col-span-4 space-y-1 min-w-0">
                                                 <Label className="text-xs">Déduire sur quelle tranche ?</Label>
                                                 <Select
                                                     value={selectedBourseCible}
@@ -3236,7 +3229,7 @@ export default function DossierFinancierModal({
                                             </div>
                                         </div>
                                         {bourseModeleCourant && apercuAttributionBourse && (
-                                            <div className="rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50/70 dark:bg-emerald-950/30 px-3 py-2 text-[11px] text-emerald-900 dark:text-emerald-200 flex flex-wrap items-center justify-between gap-2">
+                                            <div className="rounded-lg border border-emerald-200 bg-emerald-50/70 px-3 py-2 text-[11px] text-emerald-900 flex flex-wrap items-center justify-between gap-2">
                                                 <span>
                                                     Aperçu :{' '}
                                                     {bourseModeleCourant.mode_calcul === 'pourcentage'
@@ -3244,7 +3237,7 @@ export default function DossierFinancierModal({
                                                         : 'Montant fixe'}{' '}
                                                     → déduit sur <strong>{apercuAttributionBourse.libelleCible}</strong>
                                                 </span>
-                                                <strong className="text-emerald-700 dark:text-emerald-300 tabular-nums">
+                                                <strong className="text-emerald-700 tabular-nums">
                                                     -{apercuAttributionBourse.montantCalcule.toLocaleString('fr-FR')} FCFA
                                                 </strong>
                                             </div>
@@ -3257,7 +3250,7 @@ export default function DossierFinancierModal({
 
                         {/* SECTION C : AJUSTEMENT DES ARRIÉRÉS N-1 */}
                         {canManageArrieres && (
-                            <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/50 flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+                            <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/70 flex flex-col sm:flex-row sm:items-end justify-between gap-3">
                                 <div className="space-y-1 flex-1">
                                     <Label htmlFor="arrieres_input" className="text-xs font-semibold">
                                         Arriérés reportés des années précédentes (FCFA)
@@ -3268,7 +3261,7 @@ export default function DossierFinancierModal({
                                         min="0"
                                         value={arrieresInput}
                                         onChange={(e) => setArrieresInput(e.target.value)}
-                                        className="h-8 text-xs bg-white dark:bg-slate-900 max-w-xs tabular-nums"
+                                        className="h-8 text-xs bg-white max-w-xs tabular-nums"
                                     />
                                 </div>
                                 <Button
@@ -3286,31 +3279,31 @@ export default function DossierFinancierModal({
                     </div>
                 )}
 
-                {/* ONGLET 3 : OPTIONS (BUS, CANTINE, ACTIVITÉS...) */}
+                {/* ONGLET 3 : FRAIS ANNEXES & OPTIONNELS (TENUES, EXAMENS, TRANSPORT, CRÈCHE...) */}
                 {dossierTab === 'options' && (
                     <div className="space-y-4 pt-1 text-xs">
                         <div className="space-y-2">
-                            <h4 className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                                <Bus className="w-4 h-4 text-amber-600" />
-                                Services optionnels souscrits par cet élève
+                            <h4 className="font-bold text-slate-800 flex items-center gap-1.5">
+                                <PackagePlus className="w-4 h-4 text-amber-600" />
+                                Frais annexes & optionnels souscrits par cet élève
                             </h4>
 
                             {souscriptionsActives.length === 0 ? (
-                                <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-500">
-                                    Cet élève n'est inscrit à aucun frais optionnel (Bus, Cantine, Internat...).
+                                <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-slate-500">
+                                    Cet élève n'est inscrit à aucun frais annexe ou optionnel (tenues, examens, transport, crèche...).
                                 </div>
                             ) : (
                                 <div className="space-y-2">
                                     {souscriptionsActives.map((s) => (
                                         <div
                                             key={s.id}
-                                            className="p-3 rounded-lg bg-amber-50/60 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 flex items-center justify-between gap-2"
+                                            className="p-3 rounded-lg bg-amber-50/60 border border-amber-200 flex items-center justify-between gap-2"
                                         >
                                             <div>
-                                                <div className="font-bold text-amber-950 dark:text-amber-200">
+                                                <div className="font-bold text-amber-950">
                                                     {s.libelle}
                                                 </div>
-                                                <div className="text-[11px] text-slate-600 dark:text-slate-400">
+                                                <div className="text-[11px] text-slate-600">
                                                     Montant ajouté au dossier :{' '}
                                                     <strong>{s.montant.toLocaleString('fr-FR')} FCFA</strong>
                                                     {s.date_souscription &&
@@ -3343,45 +3336,41 @@ export default function DossierFinancierModal({
                         {canManageOptions && (
                             <form
                                 onSubmit={handleSouscrireOption}
-                                className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-3"
+                                className="p-4 rounded-xl border border-slate-200 bg-white space-y-3"
                             >
-                                <span className="font-bold text-slate-800 dark:text-slate-100 block">
-                                    Inscrire cet élève à un service optionnel
+                                <span className="font-bold text-slate-800 block">
+                                    Inscrire cet élève à un frais annexe / optionnel
                                 </span>
 
                                 {optionsApplicables.length === 0 ? (
                                     <p className="text-slate-500">
-                                        Aucun tarif optionnel (ex : Transport / Bus, Cantine) n'est encore paramétré
+                                        Aucun frais annexe ou optionnel (ex : tenues, frais d'examen, transport, crèche...) n'est encore paramétré
                                         dans la Grille Tarifaire pour ce niveau.
                                     </p>
                                 ) : (
                                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 items-end">
-                                        <div className="space-y-1">
-                                            <Label className="text-xs">Service optionnel</Label>
-                                            <Select
+                                        <div className="space-y-1 min-w-0">
+                                            <Label className="text-xs">Frais annexe / optionnel</Label>
+                                            <SearchableSelect
+                                                options={optionsApplicables.map((opt) => ({
+                                                    value: String(opt.id),
+                                                    label: `${opt.type_frais?.libelle ?? ''}${opt.libelle_tranche ? ` (${opt.libelle_tranche})` : ''}`.trim(),
+                                                    description: `${Number(opt.montant).toLocaleString('fr-FR')} FCFA`,
+                                                }))}
                                                 value={selectedOptionId}
                                                 onValueChange={(val) => {
                                                     setSelectedOptionId(val);
                                                     const opt = optionsApplicables.find((o) => String(o.id) === val);
                                                     if (opt) setMontantOptionCustom(String(Number(opt.montant)));
                                                 }}
-                                            >
-                                                <SelectTrigger className="h-9 text-xs">
-                                                    <SelectValue placeholder="Choisir une option..." />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {optionsApplicables.map((opt) => (
-                                                        <SelectItem key={opt.id} value={String(opt.id)}>
-                                                            {opt.type_frais?.libelle}{' '}
-                                                            {opt.libelle_tranche ? `(${opt.libelle_tranche})` : ''} —{' '}
-                                                            {Number(opt.montant).toLocaleString('fr-FR')} FCFA
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
+                                                placeholder="Choisir une option..."
+                                                searchPlaceholder="Rechercher un service..."
+                                                emptyMessage="Aucune option trouvée."
+                                                className="h-9 text-xs font-normal"
+                                            />
                                         </div>
 
-                                        <div className="space-y-1">
+                                        <div className="space-y-1 min-w-0">
                                             <Label className="text-xs">Montant appliqué (FCFA)</Label>
                                             <Input
                                                 type="number"
@@ -3411,9 +3400,9 @@ export default function DossierFinancierModal({
                 {dossierTab === 'historique' && (
                     <div className="pt-1 space-y-3">
                         {renderPanneauEditionVersement()}
-                        <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-x-auto">
+                        <div className="border border-slate-200 rounded-xl overflow-x-auto">
                             <table className="w-full text-xs">
-                                <thead className="bg-slate-100 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300">
+                                <thead className="bg-slate-100 border-b border-slate-200 text-slate-700">
                                     {historiqueTable.getHeaderGroups().map((hg) => (
                                         <tr key={hg.id}>
                                             {hg.headers.map((header) => (
@@ -3429,7 +3418,7 @@ export default function DossierFinancierModal({
                                         </tr>
                                     ))}
                                 </thead>
-                                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                                <tbody className="divide-y divide-slate-100">
                                     {historiqueTable.getRowModel().rows.length === 0 ? (
                                         <tr>
                                             <td
@@ -3443,7 +3432,7 @@ export default function DossierFinancierModal({
                                         historiqueTable.getRowModel().rows.map((row) => (
                                             <tr
                                                 key={row.id}
-                                                className="hover:bg-slate-50 dark:hover:bg-slate-900/40"
+                                                className="hover:bg-slate-50"
                                             >
                                                 {row.getVisibleCells().map((cell) => (
                                                     <td key={cell.id} className="p-2.5">
@@ -3459,7 +3448,7 @@ export default function DossierFinancierModal({
                     </div>
                 )}
 
-                <DialogFooter className="mt-2 pt-3 border-t border-slate-200 dark:border-slate-800">
+                <DialogFooter className="mt-2 pt-3 border-t border-slate-200">
                     <Button type="button" variant="outline" size="sm" onClick={onClose}>
                         Fermer le dossier
                     </Button>

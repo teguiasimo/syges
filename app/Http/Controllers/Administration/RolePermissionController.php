@@ -149,7 +149,7 @@ class RolePermissionController extends Controller implements HasMiddleware
             'id' => 'competences_apc',
             'name' => 'Pédagogie par Compétences (APC)',
             'description' => 'Compétences périodiques ministérielles, duplication inter-classes et matrice des cotes.',
-            'icon' => 'Sparkles',
+            'icon' => 'CheckSquare',
         ],
         'progression' => [
             'id' => 'progression',
@@ -588,6 +588,11 @@ class RolePermissionController extends Controller implements HasMiddleware
             'module' => 'eleves',
             'label' => 'Importer des élèves en lot',
             'description' => 'Téléverser et intégrer massivement des listes d\'élèves par fichier CSV / Excel.',
+        ],
+        'eleves.merge' => [
+            'module' => 'eleves',
+            'label' => 'Détecter & fusionner les doublons élèves',
+            'description' => 'Scanner les dossiers en doublon, résoudre les conflits de notes et fusionner deux fiches élèves en conservant toute la traçabilité financière et pédagogique.',
         ],
         'inscriptions.reinscrire' => [
             'module' => 'eleves',
@@ -1432,7 +1437,8 @@ class RolePermissionController extends Controller implements HasMiddleware
 
     /**
      * Supprime un rôle personnalisé.
-     * Empêche la suppression des rôles système et des rôles actuellement assignés à des utilisateurs.
+     * Empêche la suppression des rôles système, des rôles actuellement assignés à des utilisateurs
+     * et des rôles qui possèdent encore au moins une permission active.
      *
      * @param  Request  $request  La requête HTTP entrante.
      * @param  Role  $role  Le rôle à supprimer.
@@ -1452,6 +1458,15 @@ class RolePermissionController extends Controller implements HasMiddleware
         $assignedUsersCount = $role->users()->count();
         if ($assignedUsersCount > 0) {
             return back()->with('error', "Impossible de supprimer ce rôle car il est actuellement attribué à {$assignedUsersCount} utilisateur(s).");
+        }
+
+        // 3. Vérification qu'aucune permission n'est actuellement rattachée à ce rôle
+        $assignedPermissionsCount = $role->permissions()->count();
+        if ($assignedPermissionsCount > 0) {
+            return back()->with(
+                'error',
+                "Impossible de supprimer ce rôle car il dispose actuellement de {$assignedPermissionsCount} permission(s). Retirez d'abord toutes ses permissions avant de le supprimer."
+            );
         }
 
         $roleName = $role->name;

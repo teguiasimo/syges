@@ -13,8 +13,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { ArrowRightLeft, AlertTriangle } from 'lucide-react';
-import type { Inscription, EtablissementRef, ClasseRef } from '@/types/eleve';
+import { ArrowRightLeft, AlertTriangle, Info } from 'lucide-react';
+import { SearchableSelect } from '@/components/ui/searchable-select';
+import { buildClasseSearchOptions, flattenClassesFromEtablissements } from '@/lib/utils';
+import type { Inscription, EtablissementRef } from '@/types/eleve';
 
 /**
  * Propriétés du composant TransfertModal.
@@ -28,10 +30,10 @@ interface TransfertModalProps {
 
 /**
  * Modal de transfert d'élèves (unitaire ou groupé) vers une autre classe.
- * Conforme au cadrage V1.1 de Gesco :
- * - Intra-établissement : Réaffectation directe avec note d'historique.
- * - Intra-groupe (autre établissement du groupe) : Clôture de l'inscription précédente (statut 'transfere')
- *   et création de la nouvelle inscription dans l'établissement cible sans ressaisie de l'identité civile.
+ * - Changement de classe (même établissement) : réaffectation directe avec conservation de l'historique scolaire
+ *   et recalcul automatique de la pension attendue et du solde selon le tarif cible.
+ * - Transfert inter-campus (autre établissement) : archivage de l'inscription d'origine et création
+ *   d'une nouvelle inscription dotée d'un compte financier séparé dans le campus d'accueil.
  *
  * @param {TransfertModalProps} props
  * @returns {JSX.Element}
@@ -46,44 +48,61 @@ export function TransfertModal({
     const [targetClasseId, setTargetClasseId] = useState('');
     const [motifTransfert, setMotifTransfert] = useState('');
 
-    // Liste aplatie de toutes les classes disponibles
-    const availableClasses: ClasseRef[] = React.useMemo(() => {
-        const list: ClasseRef[] = [];
-        etablissements.forEach((etab) => {
-            etab.sections?.forEach((sec) => {
-                sec.cycles?.forEach((cyc) => {
-                    cyc.niveaux?.forEach((niv) => {
-                        niv.classes?.forEach((cls) => {
-                            list.push({
-                                ...cls,
-                                niveau: {
-                                    id: niv.id,
-                                    nom: niv.nom,
-                                    code: niv.code,
-                                    cycle: {
-                                        id: cyc.id,
-                                        nom: cyc.nom,
-                                        section: {
-                                            id: sec.id,
-                                            nom: sec.nom,
-                                            etablissement: {
-                                                id: etab.id,
-                                                nom: etab.nom,
-                                            },
-                                        },
-                                    },
-                                },
-                            });
-                        });
-                    });
-                });
-            });
-        });
-        return list;
-    }, [etablissements]);
+    // Liste aplatie de toutes les classes disponibles et options formatées pour SearchableSelect
+    const availableClasses = React.useMemo(
+        () => flattenClassesFromEtablissements(etablissements),
+        [etablissements]
+    );
+
+    const classeOptions = React.useMemo(
+        () => buildClasseSearchOptions(availableClasses),
+        [availableClasses]
+    );
 
     // Classe cible sélectionnée pour information contextuelle
     const targetClasse = availableClasses.find((c) => String(c.id) === targetClasseId);
+
+    /**
+     * Détermine si le transfert s'effectue au sein du même établissement, vers un autre campus
+     * ou de manière mixte selon les élèves sélectionnés, afin d'afficher l'impact financier exact.
+     */
+    const transferScope = React.useMemo(() => {
+        if (!targetClasse) return null;
+
+        const targetEtabId =
+            targetClasse.niveau?.cycle?.section?.etablissement?.id ??
+            targetClasse.etablissement_id ??
+            null;
+
+        let hasSameEtab = false;
+        let hasInterCampus = false;
+
+        inscriptions.forEach((insc) => {
+            const sourceEtabId =
+                insc.etablissement_id ??
+                insc.etablissement?.id ??
+                insc.classe?.niveau?.cycle?.section?.etablissement?.id ??
+                null;
+
+            if (targetEtabId !== null && sourceEtabId !== null && Number(sourceEtabId) === Number(targetEtabId)) {
+                hasSameEtab = true;
+            } else {
+                hasInterCampus = true;
+            }
+        });
+
+        const kind: 'same_etab' | 'inter_campus' | 'mixed' =
+            hasSameEtab && hasInterCampus
+                ? 'mixed'
+                : hasInterCampus
+                  ? 'inter_campus'
+                  : 'same_etab';
+
+        return {
+            kind,
+            targetEtabName: targetClasse.niveau?.cycle?.section?.etablissement?.nom ?? 'Établissement cible',
+        };
+    }, [targetClasse, inscriptions]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -130,7 +149,7 @@ export function TransfertModal({
                         <span>Transférer {inscriptions.length} élève(s)</span>
                     </DialogTitle>
                     <DialogDescription className="text-xs sm:text-sm">
-                        Déplacez un ou plusieurs élèves vers une autre classe de l'établissement ou vers un autre campus du Groupe Scolaire (Cadrage Gesco V1.1).
+                        Déplacez un ou plusieurs élèves vers une autre classe de l'établissement ou vers un autre campus du Groupe Scolaire.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -153,34 +172,57 @@ export function TransfertModal({
                         ))}
                     </div>
 
-                    {/* Sélection de la classe de destination */}
-                    <div>
+                    {/* Sélection de la classe de destination avec recherche et nom d'établissement complet en description */}
+                    <div className="space-y-1.5 min-w-0">
                         <Label htmlFor="dest_classe">Classe de destination *</Label>
-                        <select
+                        <SearchableSelect
                             id="dest_classe"
+                            options={classeOptions}
                             value={targetClasseId}
-                            onChange={(e) => setTargetClasseId(e.target.value)}
-                            required
-                            className="w-full mt-1.5 h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                        >
-                            <option value="">-- Sélectionnez la classe de destination --</option>
-                            {availableClasses.map((cls) => (
-                                <option key={cls.id} value={cls.id}>
-                                    {cls.nom} ({cls.niveau?.nom} — {cls.niveau?.cycle?.section?.etablissement?.nom})
-                                </option>
-                            ))}
-                        </select>
+                            onValueChange={(val) => setTargetClasseId(val)}
+                            placeholder="-- Sélectionnez la classe de destination --"
+                            searchPlaceholder="Rechercher par classe, niveau ou établissement..."
+                            emptyMessage="Aucune classe trouvée pour"
+                        />
                     </div>
 
-                    {/* Alerte si transfert vers un autre établissement (Intra-groupe V1.1) */}
-                    {targetClasse && (
-                        <div className="p-3 rounded-xl border border-blue-200 dark:border-blue-900 bg-blue-50/70 dark:bg-blue-950/30 text-xs text-blue-800 dark:text-blue-300 flex items-start gap-2.5">
-                            <AlertTriangle className="size-4 shrink-0 mt-0.5" />
-                            <div>
-                                <p className="font-semibold">Type de transfert détecté :</p>
-                                <p className="mt-0.5">
-                                    Destination : <strong>{targetClasse.nom}</strong> ({targetClasse.niveau?.cycle?.section?.etablissement?.nom}).
-                                    L'historique scolaire et les dossiers financiers seront préservés.
+                    {/* Bandeau contextuel distinguant changement de classe interne et transfert inter-campus */}
+                    {targetClasse && transferScope && (
+                        <div
+                            className={`p-3 rounded-xl border text-xs flex items-start gap-2.5 ${
+                                transferScope.kind === 'same_etab'
+                                    ? 'border-blue-200 bg-blue-50/70 text-blue-800'
+                                    : 'border-amber-200 bg-amber-50/80 text-amber-900'
+                            }`}
+                        >
+                            {transferScope.kind === 'same_etab' ? (
+                                <Info className="size-4 shrink-0 mt-0.5" />
+                            ) : (
+                                <AlertTriangle className="size-4 shrink-0 mt-0.5" />
+                            )}
+                            <div className="space-y-1">
+                                <p className="font-semibold">
+                                    {transferScope.kind === 'same_etab'
+                                        ? 'Changement de classe (même établissement)'
+                                        : transferScope.kind === 'inter_campus'
+                                          ? 'Transfert inter-campus (autre établissement)'
+                                          : 'Transfert mixte (interne et inter-campus)'}
+                                </p>
+                                <p>
+                                    Destination : <strong>{targetClasse.nom}</strong> ({transferScope.targetEtabName}).{' '}
+                                    {transferScope.kind === 'same_etab' ? (
+                                        <>
+                                            L&apos;historique scolaire (notes, assiduité, discipline) et les paiements ou remises déjà enregistrés sont conservés. Si la classe cible applique un tarif différent, la pension attendue et le solde seront recalculés automatiquement.
+                                        </>
+                                    ) : transferScope.kind === 'inter_campus' ? (
+                                        <>
+                                            L&apos;inscription d&apos;origine et ses paiements restent archivés sur le campus source. Une nouvelle inscription et un compte financier séparé (tarif du campus d&apos;accueil) seront créés immédiatement.
+                                        </>
+                                    ) : (
+                                        <>
+                                            Pour les élèves du même établissement, l&apos;historique est conservé et la pension recalculée selon la classe cible ; pour ceux venant d&apos;un autre campus, une nouvelle inscription et un compte financier séparé seront créés.
+                                        </>
+                                    )}
                                 </p>
                             </div>
                         </div>

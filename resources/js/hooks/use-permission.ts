@@ -44,6 +44,7 @@ export type PermissionName =
     | 'eleves.create'
     | 'eleves.edit'
     | 'eleves.delete'
+    | 'eleves.merge'
     | 'inscriptions.manage'
     | 'inscriptions.transfer'
     // Module Personnel & Ressources Humaines (Gesco 8)
@@ -119,35 +120,35 @@ export interface UsePermissionReturn {
      * @param {PermissionName | string} permission - Nom de la permission à vérifier.
      * @returns {boolean}
      */
-    can: (permission: PermissionName | string) => boolean;
+    can: (permission: PermissionName | (string & {})) => boolean;
     /**
      * Vérifie si l'utilisateur possède au moins une permission parmi la liste fournie.
      *
-     * @param {(PermissionName | string)[]} permissionList - Liste des permissions à tester (OU logique).
+     * @param {(PermissionName | (string & {}))[]} permissionList - Liste des permissions à tester (OU logique).
      * @returns {boolean}
      */
-    canAny: (permissionList: (PermissionName | string)[]) => boolean;
+    canAny: (permissionList: (PermissionName | (string & {}))[]) => boolean;
     /**
      * Vérifie si l'utilisateur possède la totalité des permissions spécifiées.
      *
-     * @param {(PermissionName | string)[]} permissionList - Liste des permissions requises (ET logique).
+     * @param {(PermissionName | (string & {}))[]} permissionList - Liste des permissions requises (ET logique).
      * @returns {boolean}
      */
-    canAll: (permissionList: (PermissionName | string)[]) => boolean;
+    canAll: (permissionList: (PermissionName | (string & {}))[]) => boolean;
     /**
      * Vérifie si l'utilisateur possède un rôle spécifique.
      *
-     * @param {RoleName | string} role - Nom du rôle à vérifier.
+     * @param {RoleName | (string & {})} role - Nom du rôle à vérifier.
      * @returns {boolean}
      */
-    hasRole: (role: RoleName | string) => boolean;
+    hasRole: (role: RoleName | (string & {})) => boolean;
     /**
      * Vérifie si l'utilisateur possède au moins un rôle parmi ceux listés.
      *
-     * @param {(RoleName | string)[]} roleList - Liste des rôles à tester (OU logique).
+     * @param {(RoleName | (string & {}))[]} roleList - Liste des rôles à tester (OU logique).
      * @returns {boolean}
      */
-    hasAnyRole: (roleList: (RoleName | string)[]) => boolean;
+    hasAnyRole: (roleList: (RoleName | (string & {}))[]) => boolean;
 }
 
 /**
@@ -188,7 +189,7 @@ export function usePermission(): UsePermissionReturn {
     /**
      * Vérifie si l'utilisateur a la permission requise.
      */
-    const can = (permission: PermissionName | string): boolean => {
+    const can = (permission: PermissionName | (string & {})): boolean => {
         if (!user) return false;
         if (isSuperAdmin) return true;
         return permissions.includes(permission);
@@ -197,7 +198,7 @@ export function usePermission(): UsePermissionReturn {
     /**
      * Vérifie si l'utilisateur a au moins une des permissions fournies.
      */
-    const canAny = (permissionList: (PermissionName | string)[]): boolean => {
+    const canAny = (permissionList: (PermissionName | (string & {}))[]): boolean => {
         if (!user) return false;
         if (isSuperAdmin) return true;
         return permissionList.some((perm) => permissions.includes(perm));
@@ -206,7 +207,7 @@ export function usePermission(): UsePermissionReturn {
     /**
      * Vérifie si l'utilisateur a toutes les permissions fournies.
      */
-    const canAll = (permissionList: (PermissionName | string)[]): boolean => {
+    const canAll = (permissionList: (PermissionName | (string & {}))[]): boolean => {
         if (!user) return false;
         if (isSuperAdmin) return true;
         return permissionList.every((perm) => permissions.includes(perm));
@@ -215,7 +216,7 @@ export function usePermission(): UsePermissionReturn {
     /**
      * Vérifie si l'utilisateur possède un rôle donné.
      */
-    const hasRole = (role: RoleName | string): boolean => {
+    const hasRole = (role: RoleName | (string & {})): boolean => {
         if (!user) return false;
         return roles.includes(role);
     };
@@ -223,7 +224,7 @@ export function usePermission(): UsePermissionReturn {
     /**
      * Vérifie si l'utilisateur possède au moins un rôle parmi la sélection.
      */
-    const hasAnyRole = (roleList: (RoleName | string)[]): boolean => {
+    const hasAnyRole = (roleList: (RoleName | (string & {}))[]): boolean => {
         if (!user) return false;
         return roleList.some((r) => roles.includes(r));
     };

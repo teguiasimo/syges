@@ -1,13 +1,11 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { type ColumnDef } from '@tanstack/react-table';
 import {
-    Award,
     BookOpen,
     Calendar,
     Download,
     Edit3,
     FileSpreadsheet,
-    FileText,
     GraduationCap,
     Printer,
     School,
@@ -19,6 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { DataTable } from '@/components/ui/data-table';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
     Select,
     SelectContent,
@@ -166,26 +165,19 @@ const breadcrumbs: BreadcrumbItem[] = [
  * @returns {JSX.Element}
  */
 export default function RelevesNotesIndex({
-    etablissements = [],
-    currentEtablissement = null,
-    annees = [],
-    anneeActiveId = 0,
-    periodes = [],
-    classes = [],
-    selectedClasse = null,
-    attributions = [],
-    selectedAttribution = null,
-    selectedEvaluations = [],
-    eleves = [],
-    isGestionnaire = false,
-    filters = {
-        annee_id: 0,
-        classe_id: 0,
-        attribution_id: 0,
-        periode_id: 0,
-        evaluation_id: 0,
-        mode: 'rempli',
-    },
+    etablissements: _etablissements,
+    currentEtablissement: _currentEtablissement,
+    annees,
+    anneeActiveId,
+    periodes,
+    classes,
+    selectedClasse,
+    attributions,
+    selectedAttribution,
+    selectedEvaluations,
+    eleves,
+    isGestionnaire,
+    filters,
 }: RelevesProps) {
     /**
      * Met à jour les filtres d'affichage et recharge les données via Inertia.
@@ -372,8 +364,8 @@ export default function RelevesNotesIndex({
                             <span
                                 className={`font-mono text-xs font-bold ${
                                     numVal < 10
-                                        ? 'text-rose-600 dark:text-rose-400'
-                                        : 'text-emerald-600 dark:text-emerald-400'
+                                        ? 'text-rose-600'
+                                        : 'text-emerald-600'
                                 }`}
                             >
                                 {numVal.toFixed(2)}
@@ -433,7 +425,7 @@ export default function RelevesNotesIndex({
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                     <div className="min-w-0">
                         <div className="flex items-start sm:items-center gap-2.5">
-                            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400">
+                            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700">
                                 <FileSpreadsheet className="size-5" />
                             </div>
                             <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
@@ -465,7 +457,7 @@ export default function RelevesNotesIndex({
                             disabled={!selectedClasse}
                             className="gap-1.5"
                         >
-                            <Printer className="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                            <Printer className="size-4 shrink-0 text-amber-600" />
                             Fiche Vierge (PDF)
                         </Button>
                         <Button
@@ -473,7 +465,7 @@ export default function RelevesNotesIndex({
                             size="sm"
                             onClick={() => handlePrintPdf('rempli')}
                             disabled={!selectedClasse || !selectedAttribution}
-                            className="gap-1.5 border-amber-600 text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-950/40 disabled:opacity-50"
+                            className="gap-1.5 border-amber-600 text-amber-700 hover:bg-amber-50 disabled:opacity-50"
                         >
                             <Download className="size-4 shrink-0" />
                             Relevé Rempli (Matière)
@@ -504,8 +496,8 @@ export default function RelevesNotesIndex({
                                     value={filters.annee_id?.toString() || anneeActiveId.toString()}
                                     onValueChange={(val) => handleFilterChange('annee_id', val)}
                                 >
-                                    <SelectTrigger className="w-full">
-                                        <div className="flex items-center gap-2 truncate">
+                                    <SelectTrigger className="w-full min-w-0 overflow-hidden">
+                                        <div className="flex items-center gap-2 truncate min-w-0 flex-1">
                                             {(() => {
                                                 const an = annees.find((a) => a.id.toString() === (filters.annee_id?.toString() || anneeActiveId.toString()));
                                                 return an && (an.is_current || an.is_active) ? (
@@ -547,21 +539,18 @@ export default function RelevesNotesIndex({
                                     <School className="size-3.5" />
                                     Classe
                                 </label>
-                                <Select
+                                <SearchableSelect
+                                    options={classes.map((cls) => ({
+                                        value: cls.id.toString(),
+                                        label: cls.nom,
+                                    }))}
                                     value={filters.classe_id?.toString() || (selectedClasse?.id?.toString() ?? '')}
                                     onValueChange={(val) => handleFilterChange('classe_id', val)}
-                                >
-                                    <SelectTrigger className="w-full min-w-0 overflow-hidden [&>span]:truncate">
-                                        <SelectValue placeholder="Sélectionnez une classe" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {classes.map((cls) => (
-                                            <SelectItem key={cls.id} value={cls.id.toString()}>
-                                                {cls.nom}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                    placeholder="Sélectionnez une classe"
+                                    searchPlaceholder="Rechercher une classe..."
+                                    emptyMessage="Aucune classe trouvée."
+                                    className="h-9 text-xs font-normal"
+                                />
                             </div>
 
                             {/* 3. Matière & Enseignant (optionnelle pour permettre la fiche polyvalente) */}
@@ -570,26 +559,26 @@ export default function RelevesNotesIndex({
                                     <BookOpen className="size-3.5" />
                                     Matière & Enseignant
                                 </label>
-                                <Select
+                                <SearchableSelect
+                                    options={[
+                                        {
+                                            value: '0',
+                                            label: 'Fiche vierge polyvalente (toutes matières)',
+                                        },
+                                        ...attributions.map((attr) => ({
+                                            value: attr.id.toString(),
+                                            label: attr.matiere?.nom || 'Matière',
+                                            description: isGestionnaire && attr.personnel ? attr.personnel.nom : undefined,
+                                        })),
+                                    ]}
                                     value={filters.attribution_id?.toString() || (selectedAttribution?.id?.toString() ?? '0')}
-                                    onValueChange={(val) => handleFilterChange('attribution_id', val)}
+                                    onValueChange={(val) => handleFilterChange('attribution_id', val || '0')}
                                     disabled={!selectedClasse}
-                                >
-                                    <SelectTrigger className="w-full min-w-0 overflow-hidden [&>span]:truncate">
-                                        <SelectValue placeholder="Toutes matières / Vierge" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="0" className="font-medium text-amber-700 dark:text-amber-400">
-                                            📋 Fiche vierge polyvalente (toutes matières)
-                                        </SelectItem>
-                                        {attributions.map((attr) => (
-                                            <SelectItem key={attr.id} value={attr.id.toString()} className="max-w-md truncate">
-                                                {attr.matiere?.nom}
-                                                {isGestionnaire && attr.personnel ? ` (${attr.personnel.nom})` : ''}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                    placeholder="Toutes matières / Vierge"
+                                    searchPlaceholder="Rechercher une matière..."
+                                    emptyMessage="Aucune matière trouvée."
+                                    className="h-9 text-xs font-normal"
+                                />
                             </div>
 
                             {/* 4. Période / Trimestre */}
@@ -668,7 +657,7 @@ export default function RelevesNotesIndex({
                             {selectedAttribution && (
                                 <Link
                                     href={`/administration/notes?attribution_id=${selectedAttribution.id}&annee_id=${filters.annee_id || anneeActiveId}`}
-                                    className="text-xs font-medium text-rose-600 hover:text-rose-700 dark:text-rose-400 flex items-center gap-1"
+                                    className="text-xs font-medium text-rose-600 hover:text-rose-700 flex items-center gap-1"
                                 >
                                     <Edit3 className="size-3.5 shrink-0" />
                                     Basculer vers la Saisie des Notes
@@ -694,7 +683,7 @@ export default function RelevesNotesIndex({
                         </Card>
 
                         <Card className="bg-amber-500/5 border-amber-500/20 p-4 flex items-center gap-3">
-                            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600">
                                 <BookOpen className="size-5" />
                             </div>
                             <div className="min-w-0">
@@ -711,7 +700,7 @@ export default function RelevesNotesIndex({
                         </Card>
 
                         <Card className="bg-emerald-500/5 border-emerald-500/20 p-4 flex items-center gap-3">
-                            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
                                 <Users className="size-5" />
                             </div>
                             <div className="min-w-0">

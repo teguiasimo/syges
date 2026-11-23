@@ -258,7 +258,17 @@ class Eleve extends Model
     }
 
     /**
-     * Scope pour rechercher des élèves par nom, prénom, matricule ou téléphone.
+     * Historique des fusions de doublons absorbés dans ce dossier Maître.
+     *
+     * @return HasMany<EleveFusionAudit>
+     */
+    public function fusionsAudit(): HasMany
+    {
+        return $this->hasMany(EleveFusionAudit::class, 'master_eleve_id');
+    }
+
+    /**
+     * Scope pour rechercher des élèves par nom, prénom, matricule, ancien matricule fusionné ou téléphone.
      */
     public function scopeSearch(Builder $query, ?string $search): Builder
     {
@@ -273,7 +283,11 @@ class Eleve extends Model
                 ->orWhere('prenom', 'like', $term)
                 ->orWhere('matricule', 'like', $term)
                 ->orWhere('matricule_national', 'like', $term)
-                ->orWhere('telephone_parent', 'like', $term);
+                ->orWhere('telephone_parent', 'like', $term)
+                ->orWhereHas('fusionsAudit', function (Builder $fq) use ($term) {
+                    $fq->where('absorbed_matricule', 'like', $term)
+                        ->orWhere('absorbed_nom_complet', 'like', $term);
+                });
         });
     }
 

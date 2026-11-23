@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
     Select,
     SelectContent,
@@ -142,7 +143,7 @@ function calculerBornesPeriode(
 export default function GenerateurEtatsFinanciersModal({
     open,
     onOpenChange,
-    etablissements = [],
+    etablissements,
     currentEtablissementId,
     currentEtablissementNom,
     isSuperAdmin = false,
@@ -403,28 +404,28 @@ export default function GenerateurEtatsFinanciersModal({
             titre: 'État Synthétique (Jour / Niveau)',
             description: 'Cumuls par jour, par niveau/classe et par rubrique',
             icon: <FileSpreadsheet className="w-4 h-4 text-emerald-600 shrink-0" />,
-            accent: 'border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/30',
+            accent: 'border-emerald-500 bg-emerald-50/70',
         },
         {
             key: 'journal_detaille',
             titre: 'Journal Détaillé des Reçus',
             description: 'Liste chronologique complète des encaissements',
             icon: <FileText className="w-4 h-4 text-sky-600 shrink-0" />,
-            accent: 'border-sky-500 bg-sky-50/70 dark:bg-sky-950/30',
+            accent: 'border-sky-500 bg-sky-50/70',
         },
         {
             key: 'liste_insolvables',
             titre: 'Liste des Élèves Insolvables',
             description: 'Élèves ayant une échéance échue impayée à la date de fin',
             icon: <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />,
-            accent: 'border-red-500 bg-red-50/70 dark:bg-red-950/30',
+            accent: 'border-red-500 bg-red-50/70',
         },
         {
             key: 'liste_en_regle',
             titre: 'Liste des Élèves en Règle',
             description: 'Élèves soldés ou à jour de leurs tranches à la date de fin',
             icon: <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />,
-            accent: 'border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/30',
+            accent: 'border-emerald-500 bg-emerald-50/70',
         },
         ...(allowBilanEntreesSorties
             ? [
@@ -433,7 +434,7 @@ export default function GenerateurEtatsFinanciersModal({
                       titre: 'Bilan Entrées / Sorties',
                       description: 'Compte d’exploitation Recettes vs Dépenses validées',
                       icon: <Scale className="w-4 h-4 text-amber-600 shrink-0" />,
-                      accent: 'border-amber-500 bg-amber-50/70 dark:bg-amber-950/30',
+                      accent: 'border-amber-500 bg-amber-50/70',
                   },
               ]
             : []),
@@ -445,7 +446,7 @@ export default function GenerateurEtatsFinanciersModal({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto">
                 <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2 text-slate-900 dark:text-slate-100">
+                    <DialogTitle className="flex items-center gap-2 text-slate-900">
                         <Printer className="w-5 h-5 text-emerald-600 shrink-0" />
                         <span>Générateur d'États Financiers (PDF)</span>
                     </DialogTitle>
@@ -457,7 +458,7 @@ export default function GenerateurEtatsFinanciersModal({
                 <form onSubmit={handleGenererPdf} className="space-y-4">
                     {/* 1. CHOIX DU MODÈLE D'ÉTAT */}
                     <div className="space-y-2">
-                        <Label className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                        <Label className="text-xs font-bold uppercase tracking-wider text-slate-700">
                             1. Nature de l'État à Générer
                         </Label>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -471,12 +472,12 @@ export default function GenerateurEtatsFinanciersModal({
                                         className={`text-left p-3 rounded-xl border transition-all cursor-pointer flex items-start gap-2.5 ${
                                             actif
                                                 ? `${opt.accent} ring-1 ring-emerald-500/30 shadow-2xs`
-                                                : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300'
+                                                : 'border-slate-200 bg-white hover:border-slate-300'
                                         }`}
                                     >
                                         <div className="mt-0.5">{opt.icon}</div>
                                         <div className="min-w-0">
-                                            <div className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                                            <div className="text-xs font-bold text-slate-900">
                                                 {opt.titre}
                                             </div>
                                             <div className="text-[11px] text-slate-500 leading-snug mt-0.5">
@@ -490,16 +491,16 @@ export default function GenerateurEtatsFinanciersModal({
                     </div>
 
                     {/* 2. PÉRIODE : DATE DE DÉBUT & DATE DE FIN */}
-                    <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/60 space-y-3">
+                    <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/70 space-y-3">
                         <div className="flex flex-wrap items-center justify-between gap-2">
-                            <Label className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                            <Label className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
                                 <CalendarRange className="w-4 h-4 text-emerald-600" />
                                 <span>2. Période (Date de début & Date de fin)</span>
                             </Label>
 
                             <Badge
                                 variant="outline"
-                                className="text-[11px] font-semibold bg-white dark:bg-slate-900 border-emerald-200 text-emerald-800 dark:text-emerald-300"
+                                className="text-[11px] font-semibold bg-white border-emerald-200 text-emerald-800"
                             >
                                 Du {formatDate(dateDebut)} au {formatDate(dateFin)}
                             </Badge>
@@ -523,7 +524,7 @@ export default function GenerateurEtatsFinanciersModal({
                                     className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-colors cursor-pointer ${
                                         preset === item.id
                                             ? 'bg-emerald-600 text-white border-emerald-600'
-                                            : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-emerald-400'
+                                            : 'bg-white text-slate-700 border-slate-200 hover:border-emerald-400'
                                     }`}
                                 >
                                     {item.label}
@@ -544,7 +545,7 @@ export default function GenerateurEtatsFinanciersModal({
                                         setDateDebut(e.target.value);
                                         setPreset('personnalise');
                                     }}
-                                    className="h-9 text-xs bg-white dark:bg-slate-900"
+                                    className="h-9 text-xs bg-white"
                                     required
                                 />
                             </div>
@@ -561,7 +562,7 @@ export default function GenerateurEtatsFinanciersModal({
                                         setDateFin(e.target.value);
                                         setPreset('personnalise');
                                     }}
-                                    className="h-9 text-xs bg-white dark:bg-slate-900"
+                                    className="h-9 text-xs bg-white"
                                     required
                                 />
                             </div>
@@ -569,9 +570,9 @@ export default function GenerateurEtatsFinanciersModal({
                     </div>
 
                     {/* 3. HIÉRARCHIE SCOLAIRE : ÉTABLISSEMENT -> SECTION -> CYCLE -> NIVEAU -> CLASSE */}
-                    <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-3">
+                    <div className="p-3.5 rounded-xl border border-slate-200 bg-white space-y-3">
                         <div className="flex items-center justify-between gap-2">
-                            <Label className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                            <Label className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
                                 <Filter className="w-4 h-4 text-emerald-600" />
                                 <span>3. Périmètre Scolaire (Établissement → Classe)</span>
                             </Label>
@@ -594,35 +595,34 @@ export default function GenerateurEtatsFinanciersModal({
 
                         {/* Sélecteur d'établissement (actif pour Super-Admin multi-campus, verrouillé sinon) */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <div className="space-y-1">
+                            <div className="space-y-1 min-w-0">
                                 <Label className="text-xs font-semibold flex items-center gap-1">
                                     <Building2 className="w-3.5 h-3.5 text-emerald-600" />
                                     <span>Établissement</span>
                                 </Label>
                                 {canSwitchEtablissement ? (
-                                    <Select
+                                    <SearchableSelect
+                                        options={etablissements.map((et) => ({
+                                            value: String(et.id),
+                                            label: et.nom,
+                                            description: et.code ? `Code : ${et.code}` : undefined,
+                                        }))}
                                         value={selectedEtabId}
                                         onValueChange={(val) => {
+                                            if (!val) return;
                                             setSelectedEtabId(val);
                                             setSectionId('all');
                                             setCycleId('all');
                                             setNiveauId('all');
                                             setClasseId('all');
                                         }}
-                                    >
-                                        <SelectTrigger className="h-9 text-xs bg-white dark:bg-slate-900">
-                                            <SelectValue placeholder="Choisir un établissement..." />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {etablissements.map((et) => (
-                                                <SelectItem key={et.id} value={String(et.id)}>
-                                                    {et.nom}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                        placeholder="Choisir un établissement..."
+                                        searchPlaceholder="Rechercher un établissement..."
+                                        emptyMessage="Aucun établissement trouvé."
+                                        className="h-9 text-xs font-normal bg-white"
+                                    />
                                 ) : (
-                                    <div className="h-9 px-3 rounded-md border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex items-center justify-between text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                    <div className="h-9 px-3 rounded-md border border-slate-200 bg-slate-50 flex items-center justify-between text-xs font-semibold text-slate-700">
                                         <span className="truncate">
                                             {activeEtablissement?.nom ??
                                                 currentEtablissementNom ??
@@ -639,7 +639,7 @@ export default function GenerateurEtatsFinanciersModal({
                                         Mode de Règlement
                                     </Label>
                                     <Select value={modePaiement} onValueChange={setModePaiement}>
-                                        <SelectTrigger className="h-9 text-xs bg-white dark:bg-slate-900">
+                                        <SelectTrigger className="h-9 text-xs bg-white">
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -657,7 +657,7 @@ export default function GenerateurEtatsFinanciersModal({
                         </div>
 
                         {estBilanGlobal ? (
-                            <p className="text-[11px] text-slate-500 bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200/70 dark:border-amber-900 rounded-lg p-2.5">
+                            <p className="text-[11px] text-slate-500 bg-amber-50/70 border border-amber-200/70 rounded-lg p-2.5">
                                 Le bilan comptable Entrées / Sorties consolide les recettes et les dépenses de fonctionnement à l'échelle de l'établissement sélectionné sur la période choisie.
                             </p>
                         ) : (
@@ -748,33 +748,35 @@ export default function GenerateurEtatsFinanciersModal({
                                     <Label className="text-[11px] font-semibold text-slate-600">
                                         Classe
                                     </Label>
-                                    <Select value={classeId} onValueChange={setClasseId}>
-                                        <SelectTrigger className="h-9 text-xs">
-                                            <SelectValue placeholder="Toutes les classes" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="all">Toutes les classes</SelectItem>
-                                            {availableClasses.map((cl) => (
-                                                <SelectItem key={cl.id} value={String(cl.id)}>
-                                                    {cl.nom}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                    <SearchableSelect
+                                        options={[
+                                            { value: 'all', label: 'Toutes les classes' },
+                                            ...availableClasses.map((cl) => ({
+                                                value: String(cl.id),
+                                                label: cl.nom,
+                                            })),
+                                        ]}
+                                        value={classeId}
+                                        onValueChange={(val) => setClasseId(val || 'all')}
+                                        placeholder="Toutes les classes"
+                                        searchPlaceholder="Rechercher une classe..."
+                                        emptyMessage="Aucune classe trouvée."
+                                        className="h-9 text-xs font-normal"
+                                    />
                                 </div>
                             </div>
                         )}
                     </div>
 
                     {/* RÉSUMÉ AVANT IMPRESSION */}
-                    <div className="px-3.5 py-2.5 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-                        <div className="text-slate-700 dark:text-slate-200">
-                            <span className="font-bold text-emerald-800 dark:text-emerald-300">
+                    <div className="px-3.5 py-2.5 rounded-xl bg-emerald-50/70 border border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                        <div className="text-slate-700">
+                            <span className="font-bold text-emerald-800">
                                 Périmètre retenu :
                             </span>{' '}
                             {resumePerimetre}
                         </div>
-                        <span className="font-mono text-[11px] font-bold text-emerald-700 dark:text-emerald-400 shrink-0">
+                        <span className="font-mono text-[11px] font-bold text-emerald-700 shrink-0">
                             {formatDate(dateDebut)} → {formatDate(dateFin)}
                         </span>
                     </div>

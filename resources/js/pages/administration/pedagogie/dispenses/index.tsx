@@ -10,22 +10,17 @@ import {
     flexRender,
 } from '@tanstack/react-table';
 import {
-    ShieldAlert,
     HeartPulse,
     Printer,
     Plus,
     Trash2,
     Edit2,
     Search,
-    RotateCw,
-    School,
     CheckCircle2,
     XCircle,
     Clock,
     FileText,
     ArrowLeft,
-    AlertCircle,
-    UserCheck,
     Check,
     ChevronLeft,
     ChevronRight,
@@ -37,7 +32,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
     Dialog,
     DialogContent,
@@ -85,20 +81,20 @@ interface DispensesPageProps {
  * - Registre et impression du Procès-Verbal officiel (PV) de dispenses pour les examens MINESEC.
  */
 export default function DispensesIndex({
-    dispenses = [],
+    dispenses,
     stats,
-    inscriptions = [],
-    matieres = [],
-    periodes = [],
-    etablissements = [],
+    inscriptions,
+    matieres,
+    periodes,
+    etablissements,
     selectedEtabId,
     selectedAnneeId,
-    anneesScolaires = [],
-    filters = {},
+    anneesScolaires: _anneesScolaires,
+    filters,
 }: DispensesPageProps) {
     // États de filtrage
-    const [selectedEtab, setSelectedEtab] = useState<number>(selectedEtabId);
-    const [selectedAnnee, setSelectedAnnee] = useState<number>(selectedAnneeId);
+    const [selectedEtab, _setSelectedEtab] = useState<number>(selectedEtabId);
+    const [selectedAnnee, _setSelectedAnnee] = useState<number>(selectedAnneeId);
     const [selectedClasse, setSelectedClasse] = useState<string>(filters.classe_id || '');
     const [selectedMatiere, setSelectedMatiere] = useState<string>(filters.matiere_id || '');
     const [selectedType, setSelectedType] = useState<string>(filters.type_dispense || '');
@@ -185,6 +181,14 @@ export default function DispensesIndex({
      */
     const handleCreateDispense = (e: React.FormEvent) => {
         e.preventDefault();
+        if (!formData.inscription_id) {
+            toast.error('Veuillez sélectionner un élève concerné.', { position: 'top-right' });
+            return;
+        }
+        if (!formData.matiere_id) {
+            toast.error('Veuillez sélectionner une matière.', { position: 'top-right' });
+            return;
+        }
         router.post(
             '/administration/pedagogie/dispenses',
             {
@@ -346,8 +350,8 @@ export default function DispensesIndex({
                             variant="secondary"
                             className={
                                 row.original.type_dispense === 'medicale'
-                                    ? 'bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300 border-sky-300'
-                                    : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-amber-300'
+                                    ? 'bg-sky-100 text-sky-800 border-sky-300'
+                                    : 'bg-amber-100 text-amber-800 border-amber-300'
                             }
                         >
                             {row.original.type_dispense === 'medicale' ? 'Médicale / EPS' : ucfirst(row.original.type_dispense)}
@@ -397,7 +401,7 @@ export default function DispensesIndex({
                     const st = row.original.statut;
                     if (st === 'validee') {
                         return (
-                            <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 text-xs">
+                            <Badge className="bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs">
                                 <CheckCircle2 className="size-3 mr-1" />
                                 Validée
                             </Badge>
@@ -405,7 +409,7 @@ export default function DispensesIndex({
                     }
                     if (st === 'en_attente') {
                         return (
-                            <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 text-xs">
+                            <Badge className="bg-amber-100 text-amber-800 border border-amber-300 text-xs">
                                 <Clock className="size-3 mr-1" />
                                 En attente
                             </Badge>
@@ -413,14 +417,14 @@ export default function DispensesIndex({
                     }
                     if (st === 'rejetee') {
                         return (
-                            <Badge className="bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-300 text-xs">
+                            <Badge className="bg-rose-100 text-rose-800 border border-rose-300 text-xs">
                                 <XCircle className="size-3 mr-1" />
                                 Rejetée
                             </Badge>
                         );
                     }
                     return (
-                        <Badge className="bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 text-xs">
+                        <Badge className="bg-gray-100 text-gray-700 text-xs">
                             Expirée
                         </Badge>
                     );
@@ -548,7 +552,7 @@ export default function DispensesIndex({
                         <Button
                             variant="outline"
                             onClick={handlePrintPv}
-                            className="gap-2 h-9 text-xs font-semibold border-teal-300 text-teal-700 hover:bg-teal-50 dark:border-teal-800 dark:text-teal-300"
+                            className="gap-2 h-9 text-xs font-semibold border-teal-300 text-teal-700 hover:bg-teal-50"
                         >
                             <Printer className="size-3.5 shrink-0" />
                             Imprimer PV Officiel (PDF)
@@ -587,7 +591,7 @@ export default function DispensesIndex({
                                 <p className="text-xs font-medium text-muted-foreground truncate">Total Dispenses</p>
                                 <h3 className="text-2xl font-bold tracking-tight text-foreground mt-0.5 tabular-nums">{stats.total_dispenses}</h3>
                             </div>
-                            <div className="p-2.5 shrink-0 rounded-lg bg-teal-100 text-teal-700 dark:bg-teal-950 dark:text-teal-300">
+                            <div className="p-2.5 shrink-0 rounded-lg bg-teal-100 text-teal-700">
                                 <FileText className="size-5" />
                             </div>
                         </CardContent>
@@ -599,7 +603,7 @@ export default function DispensesIndex({
                                 <p className="text-xs font-medium text-muted-foreground truncate">Dispenses EPS (Sport)</p>
                                 <h3 className="text-2xl font-bold tracking-tight text-foreground mt-0.5 tabular-nums">{stats.total_eps}</h3>
                             </div>
-                            <div className="p-2.5 shrink-0 rounded-lg bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300">
+                            <div className="p-2.5 shrink-0 rounded-lg bg-sky-100 text-sky-700">
                                 <Activity className="size-5" />
                             </div>
                         </CardContent>
@@ -611,7 +615,7 @@ export default function DispensesIndex({
                                 <p className="text-xs font-medium text-muted-foreground truncate">Dispenses Validées</p>
                                 <h3 className="text-2xl font-bold tracking-tight text-foreground mt-0.5 tabular-nums">{stats.total_validees}</h3>
                             </div>
-                            <div className="p-2.5 shrink-0 rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                            <div className="p-2.5 shrink-0 rounded-lg bg-emerald-100 text-emerald-700">
                                 <CheckCircle2 className="size-5" />
                             </div>
                         </CardContent>
@@ -623,7 +627,7 @@ export default function DispensesIndex({
                                 <p className="text-xs font-medium text-muted-foreground truncate">En Attente de Visa</p>
                                 <h3 className="text-2xl font-bold tracking-tight text-foreground mt-0.5 tabular-nums">{stats.total_en_attente}</h3>
                             </div>
-                            <div className="p-2.5 shrink-0 rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+                            <div className="p-2.5 shrink-0 rounded-lg bg-amber-100 text-amber-700">
                                 <Clock className="size-5" />
                             </div>
                         </CardContent>
@@ -635,47 +639,54 @@ export default function DispensesIndex({
                     <CardContent className="p-4 sm:p-5">
                         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">
                             {/* Classe */}
-                            <div>
+                            <div className="min-w-0">
                                 <label className="text-xs font-medium text-muted-foreground mb-1 block">Classe</label>
-                                <select
+                                <SearchableSelect
+                                    options={[
+                                        { value: '', label: 'Toutes les classes' },
+                                        ...allClasses.map((c) => ({
+                                            value: String(c.id),
+                                            label: c.nom,
+                                        })),
+                                    ]}
                                     value={selectedClasse}
-                                    onChange={(e) => {
-                                        setSelectedClasse(e.target.value);
-                                        handleFilterChange({ classe_id: e.target.value });
+                                    onValueChange={(val) => {
+                                        setSelectedClasse(val);
+                                        handleFilterChange({ classe_id: val });
                                     }}
-                                    className="w-full h-9 px-3 rounded-md border border-input bg-background text-xs focus:ring-1 focus:ring-ring"
-                                >
-                                    <option value="">Toutes les classes</option>
-                                    {allClasses.map((c) => (
-                                        <option key={c.id} value={c.id}>
-                                            {c.nom}
-                                        </option>
-                                    ))}
-                                </select>
+                                    placeholder="Toutes les classes"
+                                    searchPlaceholder="Rechercher une classe..."
+                                    emptyMessage="Aucune classe trouvée."
+                                    className="h-9 text-xs font-normal"
+                                />
                             </div>
 
                             {/* Matière */}
-                            <div>
+                            <div className="min-w-0">
                                 <label className="text-xs font-medium text-muted-foreground mb-1 block">Matière</label>
-                                <select
+                                <SearchableSelect
+                                    options={[
+                                        { value: '', label: 'Toutes les matières' },
+                                        ...matieres.map((m) => ({
+                                            value: String(m.id),
+                                            label: m.nom,
+                                            description: m.code,
+                                        })),
+                                    ]}
                                     value={selectedMatiere}
-                                    onChange={(e) => {
-                                        setSelectedMatiere(e.target.value);
-                                        handleFilterChange({ matiere_id: e.target.value });
+                                    onValueChange={(val) => {
+                                        setSelectedMatiere(val);
+                                        handleFilterChange({ matiere_id: val });
                                     }}
-                                    className="w-full h-9 px-3 rounded-md border border-input bg-background text-xs focus:ring-1 focus:ring-ring"
-                                >
-                                    <option value="">Toutes les matières</option>
-                                    {matieres.map((m) => (
-                                        <option key={m.id} value={m.id}>
-                                            {m.nom} ({m.code})
-                                        </option>
-                                    ))}
-                                </select>
+                                    placeholder="Toutes les matières"
+                                    searchPlaceholder="Rechercher une matière..."
+                                    emptyMessage="Aucune matière trouvée."
+                                    className="h-9 text-xs font-normal"
+                                />
                             </div>
 
                             {/* Type */}
-                            <div>
+                            <div className="min-w-0">
                                 <label className="text-xs font-medium text-muted-foreground mb-1 block">Type de dispense</label>
                                 <select
                                     value={selectedType}
@@ -694,7 +705,7 @@ export default function DispensesIndex({
                             </div>
 
                             {/* Statut */}
-                            <div>
+                            <div className="min-w-0">
                                 <label className="text-xs font-medium text-muted-foreground mb-1 block">Statut</label>
                                 <select
                                     value={selectedStatut}
@@ -713,7 +724,7 @@ export default function DispensesIndex({
                             </div>
 
                             {/* Recherche textuelle */}
-                            <div>
+                            <div className="min-w-0">
                                 <label className="text-xs font-medium text-muted-foreground mb-1 block">Recherche</label>
                                 <div className="relative">
                                     <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
@@ -737,7 +748,7 @@ export default function DispensesIndex({
                 {/* Tableau TanStack Table avec défilement horizontal sécurisé sur mobile */}
                 <Card className="border-border/60 shadow-sm overflow-hidden min-w-0">
                     <div className="overflow-x-auto">
-                        <table className="w-full min-w-[820px] text-left border-collapse text-sm">
+                        <table className="w-full min-w-205 text-left border-collapse text-sm">
                             <thead>
                                 {table.getHeaderGroups().map((headerGroup) => (
                                     <tr key={headerGroup.id} className="border-b bg-muted/40 text-muted-foreground text-xs font-semibold">
@@ -840,42 +851,41 @@ export default function DispensesIndex({
                     </DialogHeader>
 
                     <form onSubmit={handleCreateDispense} className="space-y-3.5 py-2">
-                        <div>
+                        <div className="min-w-0">
                             <label className="text-xs font-semibold text-foreground mb-1 block">Élève concerné *</label>
-                            <select
-                                required
+                            <SearchableSelect
+                                options={inscriptions.map((i) => ({
+                                    value: String(i.id),
+                                    label: `${i.eleve.nom} ${i.eleve.prenom}`,
+                                    description: `${i.eleve.matricule} · ${i.classe?.nom ?? ''}`,
+                                    group: i.classe?.nom || 'Autres',
+                                }))}
                                 value={formData.inscription_id}
-                                onChange={(e) => setFormData({ ...formData, inscription_id: e.target.value })}
-                                className="w-full h-9 px-3 rounded-md border border-input bg-background text-xs font-medium"
-                            >
-                                <option value="">Sélectionner un élève...</option>
-                                {inscriptions.map((i) => (
-                                    <option key={i.id} value={i.id}>
-                                        {i.eleve.nom} {i.eleve.prenom} ({i.eleve.matricule} - {i.classe?.nom})
-                                    </option>
-                                ))}
-                            </select>
+                                onValueChange={(v) => setFormData({ ...formData, inscription_id: v })}
+                                placeholder="Sélectionner un élève..."
+                                searchPlaceholder="Rechercher un élève (nom, matricule, classe)..."
+                                emptyMessage="Aucun élève trouvé."
+                            />
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <div>
+                            <div className="min-w-0">
                                 <label className="text-xs font-semibold text-foreground mb-1 block">Matière *</label>
-                                <select
-                                    required
+                                <SearchableSelect
+                                    options={matieres.map((m) => ({
+                                        value: String(m.id),
+                                        label: m.nom,
+                                        description: m.code,
+                                    }))}
                                     value={formData.matiere_id}
-                                    onChange={(e) => setFormData({ ...formData, matiere_id: e.target.value })}
-                                    className="w-full h-9 px-3 rounded-md border border-input bg-background text-xs"
-                                >
-                                    <option value="">Sélectionner la matière...</option>
-                                    {matieres.map((m) => (
-                                        <option key={m.id} value={m.id}>
-                                            {m.nom} ({m.code})
-                                        </option>
-                                    ))}
-                                </select>
+                                    onValueChange={(v) => setFormData({ ...formData, matiere_id: v })}
+                                    placeholder="Sélectionner la matière..."
+                                    searchPlaceholder="Rechercher une matière..."
+                                    emptyMessage="Aucune matière trouvée."
+                                />
                             </div>
 
-                            <div>
+                            <div className="min-w-0">
                                 <label className="text-xs font-semibold text-foreground mb-1 block">Type de dispense *</label>
                                 <select
                                     value={formData.type_dispense}
@@ -891,7 +901,7 @@ export default function DispensesIndex({
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <div>
+                            <div className="min-w-0">
                                 <label className="text-xs font-medium text-muted-foreground mb-1 block">Période concernée</label>
                                 <select
                                     value={formData.periode_id}
@@ -907,7 +917,7 @@ export default function DispensesIndex({
                                 </select>
                             </div>
 
-                            <div>
+                            <div className="min-w-0">
                                 <label className="text-xs font-medium text-muted-foreground mb-1 block">Statut</label>
                                 <select
                                     value={formData.statut}
@@ -977,13 +987,13 @@ export default function DispensesIndex({
                             </div>
                         </div>
 
-                        <div className="flex items-center gap-2 p-2.5 rounded-md bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800">
+                        <div className="flex items-center gap-2 p-2.5 rounded-md bg-emerald-50 border border-emerald-200">
                             <Checkbox
                                 id="neutraliser"
                                 checked={formData.neutraliser_coefficient}
                                 onCheckedChange={(c) => setFormData({ ...formData, neutraliser_coefficient: !!c })}
                             />
-                            <label htmlFor="neutraliser" className="text-xs text-emerald-900 dark:text-emerald-200 cursor-pointer font-medium">
+                            <label htmlFor="neutraliser" className="text-xs text-emerald-900 cursor-pointer font-medium">
                                 Neutraliser le coefficient de la matière sur le bulletin (Recommandé MINESEC)
                             </label>
                         </div>
@@ -1012,23 +1022,23 @@ export default function DispensesIndex({
 
                     <form onSubmit={handleUpdateDispense} className="space-y-3.5 py-2">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <div>
+                            <div className="min-w-0">
                                 <label className="text-xs font-semibold text-foreground mb-1 block">Matière *</label>
-                                <select
-                                    required
+                                <SearchableSelect
+                                    options={matieres.map((m) => ({
+                                        value: String(m.id),
+                                        label: m.nom,
+                                        description: m.code,
+                                    }))}
                                     value={editFormData.matiere_id}
-                                    onChange={(e) => setEditFormData({ ...editFormData, matiere_id: e.target.value })}
-                                    className="w-full h-9 px-3 rounded-md border border-input bg-background text-xs"
-                                >
-                                    {matieres.map((m) => (
-                                        <option key={m.id} value={m.id}>
-                                            {m.nom} ({m.code})
-                                        </option>
-                                    ))}
-                                </select>
+                                    onValueChange={(v) => setEditFormData({ ...editFormData, matiere_id: v })}
+                                    placeholder="Sélectionner la matière..."
+                                    searchPlaceholder="Rechercher une matière..."
+                                    emptyMessage="Aucune matière trouvée."
+                                />
                             </div>
 
-                            <div>
+                            <div className="min-w-0">
                                 <label className="text-xs font-semibold text-foreground mb-1 block">Statut *</label>
                                 <select
                                     value={editFormData.statut}
@@ -1095,13 +1105,13 @@ export default function DispensesIndex({
                             </div>
                         </div>
 
-                        <div className="flex items-center gap-2 p-2.5 rounded-md bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800">
+                        <div className="flex items-center gap-2 p-2.5 rounded-md bg-emerald-50 border border-emerald-200">
                             <Checkbox
                                 id="neutraliser_edit"
                                 checked={editFormData.neutraliser_coefficient}
                                 onCheckedChange={(c) => setEditFormData({ ...editFormData, neutraliser_coefficient: !!c })}
                             />
-                            <label htmlFor="neutraliser_edit" className="text-xs text-emerald-900 dark:text-emerald-200 cursor-pointer font-medium">
+                            <label htmlFor="neutraliser_edit" className="text-xs text-emerald-900 cursor-pointer font-medium">
                                 Neutraliser le coefficient de la matière sur le bulletin
                             </label>
                         </div>

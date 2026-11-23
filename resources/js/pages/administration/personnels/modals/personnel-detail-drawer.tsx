@@ -1,22 +1,12 @@
 import {
-    Briefcase,
     Building2,
-    Calendar,
     CheckCircle2,
-    Clock,
-    FileText,
     GraduationCap,
     KeyRound,
-    Mail,
-    MapPin,
     Phone,
-    Shield,
-    User,
     UserX,
-    X,
 } from 'lucide-react';
 import React from 'react';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -57,13 +47,13 @@ export function PersonnelDetailDrawer({
     const getStatusVariant = (statut: string) => {
         switch (statut) {
             case 'Actif':
-                return 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-400 dark:border-emerald-800';
+                return 'bg-emerald-50 text-emerald-700 border-emerald-200';
             case 'En congé':
-                return 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/50 dark:text-blue-400 dark:border-blue-800';
+                return 'bg-blue-50 text-blue-700 border-blue-200';
             case 'Suspendu':
-                return 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/50 dark:text-amber-400 dark:border-amber-800';
+                return 'bg-amber-50 text-amber-700 border-amber-200';
             default:
-                return 'bg-zinc-100 text-zinc-700 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700';
+                return 'bg-zinc-100 text-zinc-700 border-zinc-200';
         }
     };
 
@@ -93,8 +83,8 @@ export function PersonnelDetailDrawer({
                         </div>
 
                         {personnel.user && (
-                            <div className="flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded-lg bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 self-start sm:self-auto">
-                                <KeyRound className="size-4 text-teal-600 dark:text-teal-400" />
+                            <div className="flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded-lg bg-teal-50 text-teal-700 border border-teal-200 self-start sm:self-auto">
+                                <KeyRound className="size-4 text-teal-600" />
                                 <span>Compte SYGES lié ({personnel.user.login})</span>
                             </div>
                         )}
@@ -105,7 +95,7 @@ export function PersonnelDetailDrawer({
                     {/* CARTE 1 : AFFECTATION & CONTRAT */}
                     <div className="p-4 rounded-xl bg-card border shadow-xs space-y-3">
                         <div className="flex items-center gap-2 text-sm font-semibold text-foreground border-b pb-2">
-                            <Building2 className="size-4 text-blue-600 dark:text-blue-400" />
+                            <Building2 className="size-4 text-blue-600" />
                             <span>Affectation Administrative & Contrat</span>
                         </div>
 
@@ -156,9 +146,9 @@ export function PersonnelDetailDrawer({
 
                     {/* CARTE 2 : VOLET PÉDAGOGIQUE (ENSEIGNANT) */}
                     {personnel.is_enseignant && (
-                        <div className="p-4 rounded-xl bg-teal-50/40 dark:bg-teal-950/20 border border-teal-100 dark:border-teal-900/40 space-y-3">
+                        <div className="p-4 rounded-xl bg-teal-50/40 border border-teal-100 space-y-3">
                             <div className="flex items-center gap-2 text-sm font-semibold text-foreground border-b pb-2">
-                                <GraduationCap className="size-4 text-teal-600 dark:text-teal-400" />
+                                <GraduationCap className="size-4 text-teal-600" />
                                 <span>Profil Pédagogique & Charge d'Enseignement</span>
                             </div>
 
@@ -179,7 +169,7 @@ export function PersonnelDetailDrawer({
 
                                 <div>
                                     <span className="text-muted-foreground block">Quota Hebdomadaire</span>
-                                    <strong className="text-teal-700 dark:text-teal-300 text-sm font-semibold">
+                                    <strong className="text-teal-700 text-sm font-semibold">
                                         {personnel.volume_horaire_hebdo} heures / sem.
                                     </strong>
                                 </div>
@@ -197,14 +187,14 @@ export function PersonnelDetailDrawer({
                     {/* CARTE 3 : COORDONNÉES ET CONTACTS */}
                     <div className="p-4 rounded-xl bg-card border shadow-xs space-y-3">
                         <div className="flex items-center gap-2 text-sm font-semibold text-foreground border-b pb-2">
-                            <Phone className="size-4 text-amber-600 dark:text-amber-400" />
+                            <Phone className="size-4 text-amber-600" />
                             <span>Coordonnées & Informations Personnelles</span>
                         </div>
 
                         <div className="grid grid-cols-1 min-[420px]:grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
                             <div>
                                 <span className="text-muted-foreground block">Téléphone Principal</span>
-                                <a href={`tel:${personnel.telephone}`} className="text-teal-600 dark:text-teal-400 hover:underline font-medium text-sm">
+                                <a href={`tel:${personnel.telephone}`} className="text-teal-600 hover:underline font-medium text-sm">
                                     {personnel.telephone}
                                 </a>
                             </div>
@@ -219,7 +209,7 @@ export function PersonnelDetailDrawer({
                             <div>
                                 <span className="text-muted-foreground block">Email</span>
                                 {personnel.email ? (
-                                    <a href={`mailto:${personnel.email}`} className="text-teal-600 dark:text-teal-400 hover:underline font-medium">
+                                    <a href={`mailto:${personnel.email}`} className="text-teal-600 hover:underline font-medium">
                                         {personnel.email}
                                     </a>
                                 ) : (
@@ -254,7 +244,7 @@ export function PersonnelDetailDrawer({
                     {/* CARTE 4 : COMPTE UTILISATEUR APPLICATIF */}
                     <div className="p-4 rounded-xl bg-card border shadow-xs space-y-3">
                         <div className="flex items-center gap-2 text-sm font-semibold text-foreground border-b pb-2">
-                            <KeyRound className="size-4 text-teal-600 dark:text-teal-400" />
+                            <KeyRound className="size-4 text-teal-600" />
                             <span>Accès Applicatif SYGES</span>
                         </div>
 

@@ -103,6 +103,15 @@ export default function NouvelleSeanceModal({
     const handleSubmit = (e?: React.FormEvent, keepOpen = false) => {
         if (e) e.preventDefault();
 
+        if (!data.classe_id) {
+            toast.error('Veuillez sélectionner une classe bénéficiaire.', { position: 'top-right' });
+            return;
+        }
+        if (!data.attribution_id) {
+            toast.error('Veuillez sélectionner un cours et un enseignant.', { position: 'top-right' });
+            return;
+        }
+
         transform((formValues) => ({
             ...formValues,
             annee_scolaire_id: anneeId,
@@ -153,7 +162,7 @@ export default function NouvelleSeanceModal({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2 text-base sm:text-lg font-bold text-slate-800 dark:text-slate-100">
+                    <DialogTitle className="flex items-center gap-2 text-base sm:text-lg font-bold text-slate-800">
                         <CalendarPlus className="w-5 h-5 text-teal-600 shrink-0" />
                         <span>Planifier un Cours Hebdomadaire</span>
                     </DialogTitle>
@@ -163,32 +172,30 @@ export default function NouvelleSeanceModal({
                 </DialogHeader>
 
                 <form onSubmit={(e) => handleSubmit(e, false)} className="space-y-3.5 py-2">
-                    <div className="space-y-1">
+                    <div className="space-y-1 min-w-0">
                         <Label htmlFor="classe_id" className="text-xs font-semibold">
                             Classe bénéficiaire <span className="text-rose-500">*</span>
                         </Label>
-                        <Select
+                        <SearchableSelect
+                            id="classe_id"
+                            options={classes.map((c) => ({
+                                value: String(c.id),
+                                label: c.nom,
+                            }))}
                             value={data.classe_id}
                             onValueChange={(val) => {
                                 setData('classe_id', val);
                                 setData('attribution_id', '');
                             }}
-                        >
-                            <SelectTrigger id="classe_id" className="text-xs h-9">
-                                <SelectValue placeholder="Sélectionner une classe..." />
-                            </SelectTrigger>
-                            <SelectContent className="max-h-56">
-                                {classes.map((c) => (
-                                    <SelectItem key={c.id} value={String(c.id)} className="text-xs">
-                                        {c.nom}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                            placeholder="Sélectionner une classe..."
+                            searchPlaceholder="Rechercher une classe..."
+                            emptyMessage="Aucune classe trouvée."
+                            className="text-xs h-9 font-normal"
+                        />
                         {errors.classe_id && <p className="text-xs text-rose-500">{errors.classe_id}</p>}
                     </div>
 
-                    <div className="space-y-1">
+                    <div className="space-y-1 min-w-0">
                         <Label htmlFor="attribution_id" className="text-xs font-semibold">
                             Cours / Matière & Enseignant <span className="text-rose-500">*</span>
                         </Label>
@@ -200,14 +207,14 @@ export default function NouvelleSeanceModal({
                             placeholder={data.classe_id ? 'Sélectionner un cours...' : 'Choisissez d\'abord une classe'}
                             searchPlaceholder="Rechercher une matière ou un enseignant..."
                             emptyMessage="Aucun cours trouvé pour"
-                            className="text-xs h-9 w-full"
+                            className="text-xs h-9 w-full font-normal"
                         />
                         {errors.attribution_id && <p className="text-xs text-rose-500">{errors.attribution_id}</p>}
                     </div>
 
                     {/* Grille adaptative empilant jour/salle et horaires sur mobile */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div className="space-y-1">
+                        <div className="space-y-1 min-w-0">
                             <Label htmlFor="jour_semaine" className="text-xs font-semibold">
                                 Jour <span className="text-rose-500">*</span>
                             </Label>
@@ -229,26 +236,27 @@ export default function NouvelleSeanceModal({
                             </Select>
                         </div>
 
-                        <div className="space-y-1">
+                        <div className="space-y-1 min-w-0">
                             <Label htmlFor="salle_id" className="text-xs font-semibold">
                                 Salle physique (Optionnel)
                             </Label>
-                            <Select
+                            <SearchableSelect
+                                id="salle_id"
+                                options={[
+                                    { value: 'none', label: 'Aucune salle spécifique' },
+                                    ...salles.map((s) => ({
+                                        value: String(s.id),
+                                        label: s.nom,
+                                        description: `${s.capacite_places} pl.`,
+                                    })),
+                                ]}
                                 value={data.salle_id}
                                 onValueChange={(val) => setData('salle_id', val)}
-                            >
-                                <SelectTrigger id="salle_id" className="text-xs h-9">
-                                    <SelectValue placeholder="Attribution libre" />
-                                </SelectTrigger>
-                                <SelectContent className="max-h-56">
-                                    <SelectItem value="none">Aucune salle spécifique</SelectItem>
-                                    {salles.map((s) => (
-                                        <SelectItem key={s.id} value={String(s.id)} className="text-xs">
-                                            {s.nom} ({s.capacite_places} pl.)
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                                placeholder="Attribution libre"
+                                searchPlaceholder="Rechercher une salle..."
+                                emptyMessage="Aucune salle trouvée."
+                                className="text-xs h-9 font-normal"
+                            />
                             {errors.salle_id && <p className="text-xs text-rose-500">{errors.salle_id}</p>}
                         </div>
                     </div>
@@ -302,7 +310,7 @@ export default function NouvelleSeanceModal({
                             variant="outline"
                             onClick={() => handleSubmit(undefined, true)}
                             disabled={processing || !data.attribution_id}
-                            className="w-full sm:w-auto border-teal-200 text-teal-700 dark:border-teal-800 dark:text-teal-300 hover:bg-teal-50 dark:hover:bg-teal-950 font-semibold gap-1.5"
+                            className="w-full sm:w-auto border-teal-200 text-teal-700 hover:bg-teal-50 font-semibold gap-1.5"
                             title="Enregistre ce créneau et garde la modale ouverte pour programmer un autre horaire"
                         >
                             <Plus className="w-4 h-4 text-teal-600 shrink-0" />

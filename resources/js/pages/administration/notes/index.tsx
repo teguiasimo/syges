@@ -1,14 +1,12 @@
 import { Head, router, usePage } from '@inertiajs/react';
 import { type ColumnDef } from '@tanstack/react-table';
 import {
-    AlertCircle,
     Award,
     BookOpen,
     Calculator,
     CheckCircle2,
     Edit3,
     FileSpreadsheet,
-    GraduationCap,
     Lock,
     Save,
     Unlock,
@@ -169,7 +167,7 @@ export default function NotesIndex({
     }, [attributionsDeLaClasse, isGestionnaire]);
 
     // Liste plate de toutes les évaluations disponibles
-    const toutesLesEvaluations = useMemo(() => {
+    const _toutesLesEvaluations = useMemo(() => {
         return periodes.flatMap((p) => p.evaluations);
     }, [periodes]);
 
@@ -468,10 +466,10 @@ export default function NotesIndex({
                     if (!cote) return <span className="text-muted-foreground text-xs">-</span>;
 
                     const styles: Record<CoteAPC, string> = {
-                        CTBA: 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300',
-                        CBA: 'bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-950 dark:text-blue-300',
-                        CMA: 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-300',
-                        CNA: 'bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950 dark:text-rose-300',
+                        CTBA: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+                        CBA: 'bg-blue-100 text-blue-800 border-blue-300',
+                        CMA: 'bg-amber-100 text-amber-800 border-amber-300',
+                        CNA: 'bg-rose-100 text-rose-800 border-rose-300',
                     };
 
                     return (
@@ -543,7 +541,7 @@ export default function NotesIndex({
                                     {t('notes.locked_badge')}
                                 </Badge>
                             ) : (
-                                <Badge variant="secondary" className="flex items-center gap-1 shrink-0 bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                                <Badge variant="secondary" className="flex items-center gap-1 shrink-0 bg-emerald-100 text-emerald-800">
                                     <CheckCircle2 className="h-3 w-3" />
                                     {t('notes.open_badge')}
                                 </Badge>
@@ -561,7 +559,7 @@ export default function NotesIndex({
                                 variant="outline"
                                 size="sm"
                                 asChild
-                                className="gap-1.5 border-blue-500/50 text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/40"
+                                className="gap-1.5 border-blue-500/50 text-blue-600 hover:bg-blue-50"
                                 title="Génère la matrice croisée de la classe avec toutes les matières en colonnes et les élèves en lignes pour affichage et contrôle"
                             >
                                 <a
@@ -569,7 +567,7 @@ export default function NotesIndex({
                                     target="_blank"
                                     rel="noopener noreferrer"
                                 >
-                                    <FileSpreadsheet className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                                    <FileSpreadsheet className="h-4 w-4 text-blue-600" />
                                     État de Remplissage (PDF)
                                 </a>
                             </Button>
@@ -635,7 +633,7 @@ export default function NotesIndex({
                                     }}
                                 >
                                     <SelectTrigger className="h-9 w-full min-w-0 overflow-hidden [&>span]:truncate [&>span]:block">
-                                        <div className="flex items-center gap-2 truncate">
+                                        <div className="flex items-center gap-2 truncate min-w-0 flex-1">
                                             {(selectedAnneeObj?.is_active || selectedAnneeObj?.is_current) && (
                                                 <span className="relative flex h-2 w-2 shrink-0" title="Année scolaire active">
                                                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -672,24 +670,21 @@ export default function NotesIndex({
                                 <label className="text-xs font-semibold text-muted-foreground mb-1 block">
                                     {t('notes.select_classe')}
                                 </label>
-                                <Select
+                                <SearchableSelect
+                                    options={classes.map((c) => ({
+                                        value: String(c.id),
+                                        label: c.nom,
+                                    }))}
                                     value={selectedClasse}
                                     onValueChange={(val) => {
                                         setSelectedClasse(val);
                                         setSelectedAttribution('');
                                     }}
-                                >
-                                    <SelectTrigger className="h-9 w-full min-w-0 overflow-hidden [&>span]:truncate [&>span]:block">
-                                        <SelectValue placeholder="Choisir une classe" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {classes.map((c) => (
-                                            <SelectItem key={c.id} value={String(c.id)}>
-                                                {c.nom}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                    placeholder="Choisir une classe"
+                                    searchPlaceholder="Rechercher une classe..."
+                                    emptyMessage="Aucune classe trouvée."
+                                    className="h-9 w-full min-w-0 text-xs font-normal"
+                                />
                             </div>
 
                             {/* Matière / Cours Attribué */}
@@ -752,7 +747,7 @@ export default function NotesIndex({
                     <div className="grid grid-cols-1 min-[420px]:grid-cols-2 lg:grid-cols-4 gap-3">
                         <Card className="border-border/60">
                             <CardContent className="p-3 flex items-center gap-3">
-                                <div className="p-2 shrink-0 rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-950/50">
+                                <div className="p-2 shrink-0 rounded-lg bg-blue-50 text-blue-600">
                                     <Users className="h-5 w-5" />
                                 </div>
                                 <div className="min-w-0">
@@ -764,7 +759,7 @@ export default function NotesIndex({
 
                         <Card className="border-border/60">
                             <CardContent className="p-3 flex items-center gap-3">
-                                <div className="p-2 shrink-0 rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50">
+                                <div className="p-2 shrink-0 rounded-lg bg-emerald-50 text-emerald-600">
                                     <CheckCircle2 className="h-5 w-5" />
                                 </div>
                                 <div className="min-w-0">
@@ -778,7 +773,7 @@ export default function NotesIndex({
 
                         <Card className="border-border/60">
                             <CardContent className="p-3 flex items-center gap-3">
-                                <div className="p-2 shrink-0 rounded-lg bg-teal-50 text-teal-600 dark:bg-teal-950/50">
+                                <div className="p-2 shrink-0 rounded-lg bg-teal-50 text-teal-600">
                                     <Calculator className="h-5 w-5" />
                                 </div>
                                 <div className="min-w-0">
@@ -790,7 +785,7 @@ export default function NotesIndex({
 
                         <Card className="border-border/60">
                             <CardContent className="p-3 flex items-center gap-3">
-                                <div className="p-2 shrink-0 rounded-lg bg-rose-50 text-rose-600 dark:bg-rose-950/50">
+                                <div className="p-2 shrink-0 rounded-lg bg-rose-50 text-rose-600">
                                     <Award className="h-5 w-5" />
                                 </div>
                                 <div className="min-w-0">
@@ -822,8 +817,8 @@ export default function NotesIndex({
                     <div className="flex flex-col gap-3 min-w-0">
                         {/* Bannière informative lorsque l'évaluation ou la session est verrouillée */}
                         {isLocked && (
-                            <div className="flex items-center gap-2.5 px-4 py-3 rounded-lg border border-amber-200 bg-amber-50/80 text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200 text-xs sm:text-sm">
-                                <Lock className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                            <div className="flex items-center gap-2.5 px-4 py-3 rounded-lg border border-amber-200 bg-amber-50/80 text-amber-900 text-xs sm:text-sm">
+                                <Lock className="h-4 w-4 shrink-0 text-amber-600" />
                                 <span>
                                     <strong>Session verrouillée :</strong> La saisie des notes pour cette évaluation est close (verrouillage administratif ou date limite de saisie dépassée). Les notes sont consultables en lecture seule.
                                 </span>
@@ -832,10 +827,10 @@ export default function NotesIndex({
 
                         {/* Barre d'affectation globale de compétence de session (masquée par défaut) */}
                         {showApcSessionBar && (
-                            <Card className="border-teal-200 bg-teal-50/50 dark:border-teal-900 dark:bg-teal-950/20">
+                            <Card className="border-teal-200 bg-teal-50/50">
                                 <CardContent className="p-3.5 flex flex-col sm:flex-row sm:items-center gap-3">
                                     <div className="flex-1 min-w-0">
-                                        <label className="text-xs font-semibold text-teal-950 dark:text-teal-200 block mb-1">
+                                        <label className="text-xs font-semibold text-teal-950 block mb-1">
                                             Compétence évaluée pour cette session (APC - Nouvelles normes Cameroun)
                                         </label>
                                         <Input

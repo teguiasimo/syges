@@ -17,7 +17,6 @@ import {
     RefreshCw,
     Rocket,
     ShieldCheck,
-    Sparkles,
     Tag,
     Wifi,
     WifiOff,
@@ -210,7 +209,7 @@ function ReleaseTypeBadge({ type }: { type: ReleaseType }) {
         return (
             <Badge
                 variant="outline"
-                className="gap-1.5 border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-800/70 dark:bg-rose-950/50 dark:text-rose-300 font-semibold"
+                className="gap-1.5 border-rose-200 bg-rose-50 text-rose-700 font-semibold"
             >
                 <Rocket className="size-3.5" />
                 <span>Majeure (Fonctionnalités lourdes)</span>
@@ -222,9 +221,9 @@ function ReleaseTypeBadge({ type }: { type: ReleaseType }) {
         return (
             <Badge
                 variant="outline"
-                className="gap-1.5 border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-800/70 dark:bg-sky-950/50 dark:text-sky-300 font-semibold"
+                className="gap-1.5 border-sky-200 bg-sky-50 text-sky-700 font-semibold"
             >
-                <Sparkles className="size-3.5" />
+                <Layers className="size-3.5" />
                 <span>Mineure (Nouvelles fonctionnalités)</span>
             </Badge>
         );
@@ -233,7 +232,7 @@ function ReleaseTypeBadge({ type }: { type: ReleaseType }) {
     return (
         <Badge
             variant="outline"
-            className="gap-1.5 border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800/70 dark:bg-emerald-950/50 dark:text-emerald-300 font-semibold"
+            className="gap-1.5 border-emerald-200 bg-emerald-50 text-emerald-700 font-semibold"
         >
             <Wrench className="size-3.5" />
             <span>Patch (Correction de bugs)</span>
@@ -484,8 +483,8 @@ export default function SystemUpdateIndex({
                 header: 'Tag Version',
                 cell: ({ row }) => (
                     <div className="flex items-center gap-2.5">
-                        <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 px-2.5 py-1 font-mono text-xs font-bold text-foreground border border-slate-200 dark:border-slate-700">
-                            <Tag className="size-3.5 text-sky-600 dark:text-sky-400" />
+                        <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-2.5 py-1 font-mono text-xs font-bold text-foreground border border-slate-200">
+                            <Tag className="size-3.5 text-sky-600" />
                             {row.original.tag}
                         </span>
                         <span className="font-mono text-[11px] text-muted-foreground">
@@ -536,7 +535,7 @@ export default function SystemUpdateIndex({
                         return (
                             <Badge
                                 variant="outline"
-                                className="gap-1 border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-700 dark:bg-amber-950/50 dark:text-amber-300 font-semibold"
+                                className="gap-1 border-amber-300 bg-amber-50 text-amber-800 font-semibold"
                             >
                                 <ArrowUpCircle className="size-3.5" />
                                 Mise à jour prête
@@ -590,7 +589,7 @@ export default function SystemUpdateIndex({
                 header: 'Fichier SQL',
                 cell: ({ row }) => (
                     <div className="flex items-center gap-2">
-                        <Database className="size-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                        <Database className="size-4 text-emerald-600 shrink-0" />
                         <span className="font-mono text-xs font-semibold text-foreground break-all">
                             {row.original.filename}
                         </span>
@@ -625,7 +624,7 @@ export default function SystemUpdateIndex({
                         asChild
                         variant="outline"
                         size="sm"
-                        className="h-8 gap-1.5 border-sky-200 bg-sky-50/80 text-sky-700 hover:bg-sky-100 hover:text-sky-800 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-300 text-xs cursor-pointer"
+                        className="h-8 gap-1.5 border-sky-200 bg-sky-50/80 text-sky-700 hover:bg-sky-100 hover:text-sky-800 text-xs cursor-pointer"
                     >
                         <a
                             href={`/administration/system-update/backups/${encodeURIComponent(row.original.filename)}`}
@@ -669,7 +668,7 @@ export default function SystemUpdateIndex({
                             {row.original.from_version}
                         </span>
                         <span className="text-muted-foreground">→</span>
-                        <span className="rounded bg-sky-50 dark:bg-sky-950/60 border border-sky-200 dark:border-sky-800 px-2 py-0.5 font-bold text-sky-700 dark:text-sky-300">
+                        <span className="rounded bg-sky-50 border border-sky-200 px-2 py-0.5 font-bold text-sky-700">
                             {row.original.to_version}
                         </span>
                     </div>
@@ -734,8 +733,8 @@ export default function SystemUpdateIndex({
                                 className={cn(
                                     'gap-1.5 px-2.5 py-1 text-xs font-semibold shrink-0',
                                     isOnline
-                                        ? 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300'
-                                        : 'border-red-300 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950/50 dark:text-red-300',
+                                        ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                                        : 'border-red-300 bg-red-50 text-red-700',
                                 )}
                             >
                                 {isOnline ? (
@@ -769,7 +768,7 @@ export default function SystemUpdateIndex({
                             {isBackingUp ? (
                                 <Loader2 className="size-4 animate-spin" />
                             ) : (
-                                <Database className="size-4 text-emerald-600 dark:text-emerald-400" />
+                                <Database className="size-4 text-emerald-600" />
                             )}
                             <span>Sauvegarder la BDD (.SQL)</span>
                         </Button>
@@ -815,16 +814,16 @@ export default function SystemUpdateIndex({
 
                 {/* Alerte explicite si la connexion Internet ne passe pas */}
                 {!isOnline && (
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl border border-red-300 bg-red-50/90 dark:border-red-900 dark:bg-red-950/40 p-4 sm:p-5">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl border border-red-300 bg-red-50/90 p-4 sm:p-5">
                         <div className="flex items-start gap-3.5">
-                            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-red-100 dark:bg-red-900/60 text-red-700 dark:text-red-300">
+                            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-red-100 text-red-700">
                                 <WifiOff className="size-5" />
                             </div>
                             <div className="space-y-1">
-                                <h2 className="text-sm sm:text-base font-bold text-red-900 dark:text-red-200">
+                                <h2 className="text-sm sm:text-base font-bold text-red-900">
                                     La connexion Internet ne passe pas sur ce serveur
                                 </h2>
-                                <p className="text-xs sm:text-sm text-red-800/90 dark:text-red-300/90">
+                                <p className="text-xs sm:text-sm text-red-800/90">
                                     Impossible de joindre GitHub pour télécharger de nouvelles versions. Veuillez
                                     connecter la machine à Internet (Wi-Fi, câble réseau ou partage 4G) puis
                                     cliquez sur <strong>Rechercher une mise à jour</strong>.
@@ -847,16 +846,16 @@ export default function SystemUpdateIndex({
 
                 {/* Bannière verte de fin de mise à jour invitant à actualiser la page */}
                 {completedVersion && (
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl border-2 border-emerald-400 bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-950/50 p-5 shadow-sm">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl border-2 border-emerald-400 bg-emerald-50 p-5 shadow-sm">
                         <div className="flex items-start gap-3.5">
                             <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-xs">
                                 <CheckCircle2 className="size-6" />
                             </div>
                             <div className="space-y-1">
-                                <h2 className="text-base sm:text-lg font-bold text-emerald-950 dark:text-emerald-100">
+                                <h2 className="text-base sm:text-lg font-bold text-emerald-950">
                                     Mise à jour vers {completedVersion} terminée avec succès !
                                 </h2>
-                                <p className="text-xs sm:text-sm text-emerald-900/90 dark:text-emerald-200/90">
+                                <p className="text-xs sm:text-sm text-emerald-900/90">
                                     La base de données a été sauvegardée et migrée, et tous les caches du serveur
                                     ont été optimisés. Cliquez sur le bouton ci-contre pour actualiser la page et
                                     utiliser immédiatement les nouvelles fonctionnalités.
@@ -876,11 +875,11 @@ export default function SystemUpdateIndex({
 
                 {/* Grille de cartes KPI résumant l'état technique actuel */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-                    <Card className="border-slate-200/90 dark:border-slate-800 shadow-2xs">
+                    <Card className="border-slate-200/90 shadow-2xs">
                         <CardHeader className="pb-2">
                             <CardDescription className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider">
                                 <span>Version Installée</span>
-                                <Tag className="size-4 text-sky-600 dark:text-sky-400" />
+                                <Tag className="size-4 text-sky-600" />
                             </CardDescription>
                             <CardTitle className="text-2xl font-extrabold font-mono text-foreground">
                                 {versionInfo.version}
@@ -898,11 +897,11 @@ export default function SystemUpdateIndex({
                         </CardContent>
                     </Card>
 
-                    <Card className="border-slate-200/90 dark:border-slate-800 shadow-2xs">
+                    <Card className="border-slate-200/90 shadow-2xs">
                         <CardHeader className="pb-2">
                             <CardDescription className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider">
                                 <span>Politique de Versions</span>
-                                <Layers className="size-4 text-emerald-600 dark:text-emerald-400" />
+                                <Layers className="size-4 text-emerald-600" />
                             </CardDescription>
                             <CardTitle className="text-lg font-bold text-foreground">
                                 Tags SemVer Validés
@@ -920,11 +919,11 @@ export default function SystemUpdateIndex({
                         </CardContent>
                     </Card>
 
-                    <Card className="border-slate-200/90 dark:border-slate-800 shadow-2xs">
+                    <Card className="border-slate-200/90 shadow-2xs">
                         <CardHeader className="pb-2">
                             <CardDescription className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider">
                                 <span>Sauvegardes SQL</span>
-                                <Database className="size-4 text-amber-600 dark:text-amber-400" />
+                                <Database className="size-4 text-amber-600" />
                             </CardDescription>
                             <CardTitle className="text-2xl font-extrabold text-foreground">
                                 {backups.length}
@@ -940,18 +939,18 @@ export default function SystemUpdateIndex({
                         </CardContent>
                     </Card>
 
-                    <Card className="border-slate-200/90 dark:border-slate-800 shadow-2xs">
+                    <Card className="border-slate-200/90 shadow-2xs">
                         <CardHeader className="pb-2">
                             <CardDescription className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider">
                                 <span>Copie Développeur</span>
-                                <Mail className="size-4 text-blue-600 dark:text-blue-400" />
+                                <Mail className="size-4 text-blue-600" />
                             </CardDescription>
                             <CardTitle className="text-sm sm:text-base font-bold text-foreground truncate">
                                 {developerEmail}
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="text-xs text-muted-foreground space-y-1">
-                            <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400 font-medium">
+                            <div className="flex items-center gap-1.5 text-emerald-700 font-medium">
                                 <ShieldCheck className="size-3.5 shrink-0" />
                                 <span>Accès exclusif Super Admin</span>
                             </div>
@@ -962,7 +961,7 @@ export default function SystemUpdateIndex({
 
                 {/* Carte détaillée lorsqu'une nouvelle version SemVer validée est détectée */}
                 {checkResult && checkResult.online && checkResult.has_update && checkResult.latest_version && (
-                    <Card className="border-2 border-sky-300 dark:border-sky-800 bg-sky-50/40 dark:bg-sky-950/20 shadow-sm">
+                    <Card className="border-2 border-sky-300 bg-sky-50/40 shadow-sm">
                         <CardHeader className="pb-3">
                             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                                 <div className="space-y-1">
@@ -1004,7 +1003,7 @@ export default function SystemUpdateIndex({
                         <CardContent className="space-y-4">
                             {checkResult.release_notes &&
                                 checkResult.release_notes !== checkResult.release_subject && (
-                                    <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-card p-3.5 text-xs sm:text-sm whitespace-pre-line text-foreground">
+                                    <div className="rounded-xl border border-slate-200 bg-card p-3.5 text-xs sm:text-sm whitespace-pre-line text-foreground">
                                         {checkResult.release_notes}
                                     </div>
                                 )}
@@ -1014,14 +1013,14 @@ export default function SystemUpdateIndex({
                                     <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                                         Détail des correctifs et évolutions inclus ({checkResult.changelog.length})
                                     </h3>
-                                    <div className="max-h-48 overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-800 bg-card divide-y divide-border">
+                                    <div className="max-h-48 overflow-y-auto rounded-xl border border-slate-200 bg-card divide-y divide-border">
                                         {checkResult.changelog.map((commit) => (
                                             <div
                                                 key={commit.hash}
                                                 className="flex items-center justify-between gap-3 px-3.5 py-2 text-xs"
                                             >
                                                 <div className="flex items-center gap-2.5 min-w-0">
-                                                    <code className="font-mono text-[11px] text-sky-700 dark:text-sky-400 shrink-0">
+                                                    <code className="font-mono text-[11px] text-sky-700 shrink-0">
                                                         {commit.hash}
                                                     </code>
                                                     <span className="truncate text-foreground">
@@ -1042,19 +1041,19 @@ export default function SystemUpdateIndex({
 
                 {/* Bandeau de confirmation lorsque l'application est déjà à jour après vérification */}
                 {checkResult && checkResult.online && checkResult.is_up_to_date && !completedVersion && (
-                    <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50/70 dark:border-emerald-900/60 dark:bg-emerald-950/30 px-4 py-3 text-xs sm:text-sm text-emerald-900 dark:text-emerald-200">
-                        <CheckCircle2 className="size-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50/70 px-4 py-3 text-xs sm:text-sm text-emerald-900">
+                        <CheckCircle2 className="size-5 text-emerald-600 shrink-0" />
                         <span>{checkResult.message}</span>
                     </div>
                 )}
 
                 {/* Bandeau d'erreur technique Git/SSH éventuel */}
                 {checkResult && checkResult.online && !checkResult.success && (
-                    <div className="flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/40 p-4 text-xs sm:text-sm text-amber-950 dark:text-amber-200">
-                        <AlertTriangle className="size-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                    <div className="flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-xs sm:text-sm text-amber-950">
+                        <AlertTriangle className="size-5 text-amber-600 shrink-0 mt-0.5" />
                         <div className="space-y-1">
                             <p className="font-semibold">{checkResult.message}</p>
-                            <p className="text-xs text-amber-800/90 dark:text-amber-300/80">
+                            <p className="text-xs text-amber-800/90">
                                 Consultez la documentation{' '}
                                 <code className="font-mono">docs/GUIDE_DEPLOYMENT_SERVEUR.md</code> pour la
                                 configuration de la clé SSH GitHub sans mot de passe.
@@ -1065,7 +1064,7 @@ export default function SystemUpdateIndex({
 
                 {/* Journal visuel en direct des étapes du pipeline lors d'une mise à jour */}
                 {pipelineSteps.length > 0 && (
-                    <Card className="border-slate-200 dark:border-slate-800">
+                    <Card className="border-slate-200">
                         <CardHeader className="pb-3">
                             <CardTitle className="text-base font-bold">
                                 Progression des étapes de mise à jour du serveur
@@ -1083,18 +1082,18 @@ export default function SystemUpdateIndex({
                                         className={cn(
                                             'flex items-start gap-3 rounded-xl border p-3 text-xs',
                                             step.status === 'success' &&
-                                                'border-emerald-200 bg-emerald-50/50 dark:border-emerald-900/50 dark:bg-emerald-950/20',
+                                                'border-emerald-200 bg-emerald-50/50',
                                             step.status === 'error' &&
-                                                'border-red-200 bg-red-50/60 dark:border-red-900/60 dark:bg-red-950/30',
+                                                'border-red-200 bg-red-50/60',
                                             step.status === 'pending' &&
-                                                'border-sky-200 bg-sky-50/50 dark:border-sky-900/50 dark:bg-sky-950/20',
+                                                'border-sky-200 bg-sky-50/50',
                                         )}
                                     >
                                         {step.status === 'success' && (
-                                            <CheckCircle2 className="size-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                                            <CheckCircle2 className="size-4 text-emerald-600 shrink-0 mt-0.5" />
                                         )}
                                         {step.status === 'error' && (
-                                            <XCircle className="size-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+                                            <XCircle className="size-4 text-red-600 shrink-0 mt-0.5" />
                                         )}
                                         {step.status === 'pending' && (
                                             <Loader2 className="size-4 text-sky-600 animate-spin shrink-0 mt-0.5" />
@@ -1112,8 +1111,8 @@ export default function SystemUpdateIndex({
 
                 {/* Légende pédagogique de la norme SemVer exigée */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div className="flex items-start gap-3 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-card p-3.5">
-                        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400">
+                    <div className="flex items-start gap-3 rounded-xl border border-slate-200/80 bg-card p-3.5">
+                        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-rose-50 text-rose-600">
                             <Rocket className="size-4" />
                         </div>
                         <div className="text-xs space-y-0.5">
@@ -1124,9 +1123,9 @@ export default function SystemUpdateIndex({
                         </div>
                     </div>
 
-                    <div className="flex items-start gap-3 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-card p-3.5">
-                        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-sky-50 dark:bg-sky-950/50 text-sky-600 dark:text-sky-400">
-                            <Sparkles className="size-4" />
+                    <div className="flex items-start gap-3 rounded-xl border border-slate-200/80 bg-card p-3.5">
+                        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-sky-50 text-sky-600">
+                            <Layers className="size-4" />
                         </div>
                         <div className="text-xs space-y-0.5">
                             <p className="font-bold text-foreground">Version Mineure (v0.X.0)</p>
@@ -1136,8 +1135,8 @@ export default function SystemUpdateIndex({
                         </div>
                     </div>
 
-                    <div className="flex items-start gap-3 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-card p-3.5">
-                        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400">
+                    <div className="flex items-start gap-3 rounded-xl border border-slate-200/80 bg-card p-3.5">
+                        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
                             <Wrench className="size-4" />
                         </div>
                         <div className="text-xs space-y-0.5">
@@ -1154,15 +1153,15 @@ export default function SystemUpdateIndex({
                     <div className="overflow-x-auto pb-1">
                         <TabsList className="h-auto p-1 gap-1">
                             <TabsTrigger value="versions" className="gap-2 py-1.5 text-xs sm:text-sm cursor-pointer">
-                                <Tag className="size-4 text-sky-600 dark:text-sky-400" />
+                                <Tag className="size-4 text-sky-600" />
                                 <span>Catalogue des Versions ({tagsCatalog.length})</span>
                             </TabsTrigger>
                             <TabsTrigger value="backups" className="gap-2 py-1.5 text-xs sm:text-sm cursor-pointer">
-                                <Database className="size-4 text-emerald-600 dark:text-emerald-400" />
+                                <Database className="size-4 text-emerald-600" />
                                 <span>Sauvegardes SQL ({backups.length})</span>
                             </TabsTrigger>
                             <TabsTrigger value="history" className="gap-2 py-1.5 text-xs sm:text-sm cursor-pointer">
-                                <History className="size-4 text-amber-600 dark:text-amber-400" />
+                                <History className="size-4 text-amber-600" />
                                 <span>Historique des Mises à Jour ({history.length})</span>
                             </TabsTrigger>
                         </TabsList>
@@ -1238,7 +1237,7 @@ export default function SystemUpdateIndex({
                             <ReleaseTypeBadge type={confirmReleaseType} />
                         </div>
 
-                        <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-muted/40 p-3.5 space-y-2">
+                        <div className="rounded-xl border border-slate-200 bg-muted/40 p-3.5 space-y-2">
                             <p className="font-semibold text-foreground text-xs uppercase tracking-wider">
                                 Opérations automatiques exécutées par le serveur :
                             </p>

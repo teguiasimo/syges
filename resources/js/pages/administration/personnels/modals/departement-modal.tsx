@@ -136,7 +136,7 @@ export function DepartementModal({
             <DialogContent className="w-[95vw] sm:max-w-lg p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
                 <DialogHeader className="border-b pb-4">
                     <DialogTitle className="text-lg font-bold flex items-center gap-2 text-foreground">
-                        <div className="p-2 rounded-lg bg-teal-50 dark:bg-teal-950/50 text-teal-600 dark:text-teal-400 border border-teal-200 dark:border-teal-900/50 shrink-0">
+                        <div className="p-2 rounded-lg bg-teal-50 text-teal-600 border border-teal-200 shrink-0">
                             <BookOpen className="size-4" />
                         </div>
                         <span>{isEditing ? `Modifier : ${departement.nom}` : 'Nouveau Département Pédagogique'}</span>
@@ -236,9 +236,9 @@ export function DepartementModal({
                                 variant="outline"
                                 disabled={processing}
                                 onClick={() => handleSave(true)}
-                                className="cursor-pointer text-xs border-teal-500/50 text-teal-700 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-950/50 font-medium w-full sm:w-auto"
+                                className="cursor-pointer text-xs border-teal-500/50 text-teal-700 hover:bg-teal-50 font-medium w-full sm:w-auto"
                             >
-                                <PlusCircle className="size-4 mr-1.5 text-teal-600 dark:text-teal-400" />
+                                <PlusCircle className="size-4 mr-1.5 text-teal-600" />
                                 + Nouveau
                             </Button>
                         )}

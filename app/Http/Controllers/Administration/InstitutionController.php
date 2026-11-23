@@ -13,6 +13,7 @@ use App\Models\MatiereNiveau;
 use App\Models\Niveau;
 use App\Models\Section;
 use App\Models\Serie;
+use App\Scopes\EtablissementScope;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
@@ -100,8 +101,22 @@ class InstitutionController extends Controller implements HasMiddleware
         $selectedCycle = null;
         $selectedNiveau = null;
 
-        // Résolution hermétique du contexte multi-établissement selon les droits de l'utilisateur
-        $context = $this->resolveEtablissementContext($request, null, ['sections']);
+        // Résolution hermétique du contexte multi-établissement avec décompte complet des dépendances bloquantes
+        // (withoutGlobalScope(EtablissementScope) évite le filtrage mono-campus tout en respectant SoftDeletes)
+        $etabWithCounts = [
+            'sections',
+            'cycles',
+            'niveaux',
+            'classes' => fn ($q) => $q->withoutGlobalScope(EtablissementScope::class),
+            'inscriptions' => fn ($q) => $q->withoutGlobalScope(EtablissementScope::class),
+            'personnels' => fn ($q) => $q->withoutGlobalScope(EtablissementScope::class),
+            'users',
+            'periodes' => fn ($q) => $q->withoutGlobalScope(EtablissementScope::class),
+            'fraisScolaires' => fn ($q) => $q->withoutGlobalScope(EtablissementScope::class),
+            'comptesFinanciers' => fn ($q) => $q->withoutGlobalScope(EtablissementScope::class),
+            'depenses' => fn ($q) => $q->withoutGlobalScope(EtablissementScope::class),
+        ];
+        $context = $this->resolveEtablissementContext($request, null, $etabWithCounts);
         $etablissements = $context['etablissements'];
         $canAccessAll = (bool) ($context['canAccessAll'] ?? $context['isSuperAdmin']);
 
@@ -123,9 +138,17 @@ class InstitutionController extends Controller implements HasMiddleware
             $selectedEtablissement = $etablissement;
             // Assure la présence des séries par défaut pour cet établissement
             Serie::seedDefaultsForEtablissement($etablissement->id);
+            $seriesUsageCounts = Classe::withoutGlobalScope(EtablissementScope::class)
+                ->where('etablissement_id', $etablissement->id)
+                ->selectRaw('serie, COUNT(*) as total')
+                ->groupBy('serie')
+                ->pluck('total', 'serie');
             $series = Serie::where('etablissement_id', $etablissement->id)
                 ->orderBy('id')
-                ->get();
+                ->get()
+                ->each(function (Serie $serie) use ($seriesUsageCounts): void {
+                    $serie->setAttribute('classes_count', (int) ($seriesUsageCounts[$serie->nom] ?? 0));
+                });
             $sections = Section::where('etablissement_id', $etablissement->id)
                 ->withCount(['cycles'])
                 ->get();
@@ -140,7 +163,11 @@ class InstitutionController extends Controller implements HasMiddleware
                 if ($cycleId && $cycle = Cycle::where('section_id', $section->id)->find($cycleId)) {
                     $selectedCycle = $cycle;
                     $niveaux = Niveau::where('cycle_id', $cycle->id)
-                        ->withCount(['classes'])
+                        ->withCount([
+                            'classes' => fn ($q) => $q->withoutGlobalScope(EtablissementScope::class),
+                            'fraisScolaires' => fn ($q) => $q->withoutGlobalScope(EtablissementScope::class),
+                            'matiereNiveaux',
+                        ])
                         ->orderBy('ordre')
                         ->get();
 
@@ -390,7 +417,10 @@ class InstitutionController extends Controller implements HasMiddleware
         $validated['verrou_solvabilite_actif'] = false;
         $validated['bonus_paiement_anticipe_actif'] = false;
         $validated['montant_bonus_anticipe'] = 3000;
-        Etablissement::create($validated);
+        $etablissement = Etablissement::create($validated);
+
+        // Synchronisation initiale de la fiche personnel du Chef d'Établissement si renseigné à la création
+        app(PersonnelController::class)->ensureChefEtablissementPersonnelExists($etablissement->id);
 
         return back()->with('success', 'L\'établissement « '.$validated['nom'].' » a été créé avec succès.');
     }
@@ -517,7 +547,7 @@ class InstitutionController extends Controller implements HasMiddleware
 
             // Caisse & Solvabilité Financière (Module 11)
             'verrou_solvabilite_actif' => ['required', 'boolean'],
-            'bonus_paiement_anticipe_actif' => ['required', 'boolean'],
+            'bonus_paiement_anticipe_actif' => ['sometimes', 'boolean'],
             'montant_bonus_anticipe' => ['nullable', 'numeric', 'min:0'],
             'date_limite_bonus' => ['nullable', 'date'],
         ]);
@@ -528,11 +558,20 @@ class InstitutionController extends Controller implements HasMiddleware
 
         $etablissement->update($validated);
 
+        // Synchronisation unidirectionnelle Établissement -> Personnel directeur (sans toucher à la table users)
+        app(PersonnelController::class)->ensureChefEtablissementPersonnelExists($etablissement->id);
+
         return back()->with('success', 'Les paramètres et règles de l\'établissement « '.$etablissement->nom.' » ont été enregistrés avec succès.');
     }
 
     /**
-     * Supprime un établissement s'il ne contient aucune section.
+     * Supprime un établissement uniquement s'il est totalement vierge de toute dépendance
+     * (sections, cycles, niveaux, classes, inscriptions, personnels, utilisateurs, périodes,
+     * frais scolaires, comptes financiers et dépenses).
+     *
+     * @param  Request  $request  Requête HTTP entrante.
+     * @param  Etablissement  $etablissement  Établissement ciblé.
+     * @return RedirectResponse Redirection avec toast de succès ou d'erreur détaillé.
      */
     public function destroyEtablissement(Request $request, Etablissement $etablissement): RedirectResponse
     {
@@ -543,8 +582,32 @@ class InstitutionController extends Controller implements HasMiddleware
             abort(403, 'Accès non autorisé : vous ne disposez pas de la permission de suppression des établissements.');
         }
 
-        if ($etablissement->sections()->exists()) {
-            return back()->with('error', 'Suppression impossible : cet établissement contient encore des sections pédagogiques.');
+        // Vérification exhaustive des dépendances pédagogiques, RH et financières actives
+        $blockers = $etablissement->getDeletionBlockers();
+        if (! empty($blockers)) {
+            $labels = [
+                'sections' => 'section(s) pédagogique(s)',
+                'cycles' => 'cycle(s)',
+                'niveaux' => 'niveau(x) d\'étude',
+                'classes' => 'classe(s)',
+                'inscriptions' => 'inscription(s) d\'élève(s)',
+                'personnels' => 'membre(s) du personnel',
+                'users' => 'compte(s) utilisateur(s)',
+                'periodes' => 'période(s) / trimestre(s)',
+                'frais_scolaires' => 'tarif(s) de frais scolaires',
+                'comptes_financiers' => 'compte(s) financier(s) élève(s)',
+                'depenses' => 'dépense(s) de caisse',
+            ];
+
+            $details = [];
+            foreach ($blockers as $key => $count) {
+                $details[] = $count.' '.($labels[$key] ?? $key);
+            }
+
+            return back()->with(
+                'error',
+                "Suppression impossible : l'établissement « {$etablissement->nom} » contient encore des données actives (".implode(', ', $details).').'
+            );
         }
 
         $nom = $etablissement->nom;
@@ -1035,13 +1098,13 @@ class InstitutionController extends Controller implements HasMiddleware
     {
         abort_unless($request->user()->can('structures.manage'), 403, 'Permission requise : structures.manage');
 
-        if ($niveau->classes()->exists()) {
+        if ($niveau->classes()->withoutGlobalScope(EtablissementScope::class)->exists()) {
             $msg = 'Suppression impossible : ce niveau contient encore des classes actives.';
 
             return back()->with('error', $msg)->withErrors(['error' => $msg]);
         }
 
-        if (FraisScolaire::where('niveau_id', $niveau->id)->exists()) {
+        if (FraisScolaire::withoutGlobalScope(EtablissementScope::class)->where('niveau_id', $niveau->id)->exists()) {
             $msg = 'Suppression impossible : des frais scolaires sont actuellement rattachés à ce niveau.';
 
             return back()->with('error', $msg)->withErrors(['error' => $msg]);
@@ -1315,7 +1378,6 @@ class InstitutionController extends Controller implements HasMiddleware
      * @param  string  $field  Nom de la colonne cible en base (ex: 'logo', 'logo_filigrane').
      * @param  string  $fileField  Nom du champ fichier multipart (ex: 'logo_file', 'logo_filigrane_file').
      * @param  string  $folder  Sous-répertoire cible dans `storage/app/public`.
-     * @return void
      */
     private function processImageUpload(
         Request $request,

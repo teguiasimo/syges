@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
     Select,
     SelectContent,
@@ -117,7 +118,7 @@ export function EditPersonnelModal({
     departements,
     availableUsers,
 }: EditPersonnelModalProps) {
-    const { data, setData, put, processing, errors, reset, clearErrors } = useForm({
+    const { data, setData, put, processing, errors, reset: _reset, clearErrors } = useForm({
         nom: '',
         prenom: '',
         sexe: 'M' as 'M' | 'F',
@@ -218,7 +219,7 @@ export function EditPersonnelModal({
             <DialogContent className="w-[95vw] sm:max-w-4xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
                 <DialogHeader className="border-b pb-4">
                     <DialogTitle className="text-xl font-bold flex items-center gap-2 text-foreground">
-                        <div className="p-2 rounded-lg bg-teal-50 dark:bg-teal-950/50 text-teal-600 dark:text-teal-400 border border-teal-200 dark:border-teal-900/50 shrink-0">
+                        <div className="p-2 rounded-lg bg-teal-50 text-teal-600 border border-teal-200 shrink-0">
                             <Briefcase className="size-5" />
                         </div>
                         <span>Modifier la fiche : {personnel.nom} {personnel.prenom}</span>
@@ -226,7 +227,7 @@ export function EditPersonnelModal({
                     <DialogDescription className="text-xs sm:text-sm text-muted-foreground mt-1 flex items-center gap-3 flex-wrap">
                         <span>Matricule officiel : <strong className="text-foreground font-mono">{personnel.matricule}</strong></span>
                         {personnel.user && (
-                            <span className="inline-flex items-center gap-1 text-teal-600 dark:text-teal-400 font-medium">
+                            <span className="inline-flex items-center gap-1 text-teal-600 font-medium">
                                 <KeyRound className="size-3.5" /> Compte utilisateur SYGES actif
                             </span>
                         )}
@@ -388,28 +389,31 @@ export function EditPersonnelModal({
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                            <div>
+                            <div className="min-w-0">
                                 <Label htmlFor="edit_etablissement_id" className="text-xs font-semibold">
                                     Établissement <span className="text-rose-500">*</span>
                                 </Label>
-                                <Select
-                                    value={String(data.etablissement_id)}
-                                    onValueChange={(val) => setData('etablissement_id', Number(val))}
-                                >
-                                    <SelectTrigger id="edit_etablissement_id" className="mt-1 h-9 text-sm">
-                                        <SelectValue placeholder="Choisir un établissement" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {etablissements.map((etab) => (
-                                            <SelectItem key={etab.id} value={String(etab.id)}>
-                                                {etab.nom} ({etab.code})
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <div className="mt-1">
+                                    <SearchableSelect
+                                        id="edit_etablissement_id"
+                                        options={etablissements.map((etab) => ({
+                                            value: String(etab.id),
+                                            label: etab.nom,
+                                            description: etab.code ? `Code : ${etab.code}` : undefined,
+                                        }))}
+                                        value={String(data.etablissement_id)}
+                                        onValueChange={(val) => {
+                                            if (val) setData('etablissement_id', Number(val));
+                                        }}
+                                        placeholder="Choisir un établissement"
+                                        searchPlaceholder="Rechercher un établissement..."
+                                        emptyMessage="Aucun établissement trouvé."
+                                        className="h-9 text-sm font-normal"
+                                    />
+                                </div>
                             </div>
 
-                            <div>
+                            <div className="min-w-0">
                                 <Label htmlFor="edit_fonction" className="text-xs font-semibold">
                                     Fonction principale <span className="text-rose-500">*</span>
                                 </Label>
@@ -543,30 +547,33 @@ export function EditPersonnelModal({
                         </div>
 
                         {data.is_enseignant && (
-                            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 p-4 rounded-xl bg-blue-50/40 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/40 animate-in fade-in-50">
-                                <div>
+                            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 p-4 rounded-xl bg-blue-50/40 border border-blue-100 animate-in fade-in-50">
+                                <div className="min-w-0">
                                     <Label htmlFor="edit_departement_id" className="text-xs font-semibold">
                                         Département pédagogique
                                     </Label>
-                                    <Select
-                                        value={data.departement_id ? String(data.departement_id) : 'none'}
-                                        onValueChange={(val) => setData('departement_id', val === 'none' ? '' : Number(val))}
-                                    >
-                                        <SelectTrigger id="edit_departement_id" className="mt-1 h-9 text-sm bg-background">
-                                            <SelectValue placeholder="Aucun département" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="none">Aucun département</SelectItem>
-                                            {departements.map((dep) => (
-                                                <SelectItem key={dep.id} value={String(dep.id)}>
-                                                    {dep.nom} {dep.code ? `(${dep.code})` : ''}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                    <div className="mt-1">
+                                        <SearchableSelect
+                                            id="edit_departement_id"
+                                            options={[
+                                                { value: 'none', label: 'Aucun département' },
+                                                ...departements.map((dep) => ({
+                                                    value: String(dep.id),
+                                                    label: dep.nom,
+                                                    description: dep.code ? `Code : ${dep.code}` : undefined,
+                                                })),
+                                            ]}
+                                            value={data.departement_id ? String(data.departement_id) : 'none'}
+                                            onValueChange={(val) => setData('departement_id', !val || val === 'none' ? '' : Number(val))}
+                                            placeholder="Aucun département"
+                                            searchPlaceholder="Rechercher un département..."
+                                            emptyMessage="Aucun département trouvé."
+                                            className="h-9 text-sm font-normal bg-background"
+                                        />
+                                    </div>
                                 </div>
 
-                                <div>
+                                <div className="min-w-0">
                                     <Label htmlFor="edit_specialite" className="text-xs font-semibold">
                                         Spécialité / Discipline
                                     </Label>
@@ -612,33 +619,39 @@ export function EditPersonnelModal({
                     {/* SECTION 4 : COMPTE UTILISATEUR RATTACHÉ */}
                     <div className="space-y-4 pt-2 border-t">
                         <div className="flex items-center gap-2">
-                            <KeyRound className="size-4 text-teal-600 dark:text-teal-400" />
+                            <KeyRound className="size-4 text-teal-600" />
                             <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">
                                 4. Liaison Compte Utilisateur SYGES
                             </h3>
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div>
+                            <div className="min-w-0">
                                 <Label htmlFor="edit_user_id" className="text-xs font-semibold">
                                     Compte utilisateur rattaché
                                 </Label>
-                                <Select
-                                    value={data.user_id ? String(data.user_id) : 'none'}
-                                    onValueChange={(val) => setData('user_id', val === 'none' ? '' : Number(val))}
-                                >
-                                    <SelectTrigger id="edit_user_id" className="mt-1 h-9 text-sm">
-                                        <SelectValue placeholder="Aucun compte rattaché" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="none">Aucun compte utilisateur (dissocier)</SelectItem>
-                                        {userOptions.map((u) => (
-                                            <SelectItem key={u.id} value={String(u.id)}>
-                                                {u.name} (login: {u.login})
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <div className="mt-1">
+                                    <SearchableSelect
+                                        id="edit_user_id"
+                                        options={[
+                                            {
+                                                value: 'none',
+                                                label: 'Aucun compte utilisateur (dissocier)',
+                                            },
+                                            ...userOptions.map((u) => ({
+                                                value: String(u.id),
+                                                label: u.name,
+                                                description: `login : ${u.login}`,
+                                            })),
+                                        ]}
+                                        value={data.user_id ? String(data.user_id) : 'none'}
+                                        onValueChange={(val) => setData('user_id', !val || val === 'none' ? '' : Number(val))}
+                                        placeholder="Aucun compte rattaché"
+                                        searchPlaceholder="Rechercher par nom ou login..."
+                                        emptyMessage="Aucun compte utilisateur trouvé."
+                                        className="h-9 text-sm font-normal"
+                                    />
+                                </div>
                             </div>
                         </div>
                     </div>

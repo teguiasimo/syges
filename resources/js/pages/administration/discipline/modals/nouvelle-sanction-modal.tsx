@@ -12,6 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
     Select,
     SelectContent,
@@ -55,8 +56,25 @@ export default function NouvelleSanctionModal({
         decide_par: 'Conseil de Discipline',
     });
 
+    // Options formatées pour la recherche d'élèves par nom, matricule ou classe
+    const inscriptionOptions = React.useMemo(
+        () =>
+            inscriptions.map((ins) => ({
+                value: String(ins.id),
+                label: [ins.eleve?.nom, ins.eleve?.prenom].filter(Boolean).join(' '),
+                group: ins.classe?.nom || 'Élèves',
+                description: `${ins.eleve?.matricule || 'N/A'} • ${ins.classe?.nom || 'Sans classe'}`,
+            })),
+        [inscriptions]
+    );
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+
+        if (!data.inscription_id) {
+            toast.error('Veuillez sélectionner un élève concerné.', { position: 'top-right' });
+            return;
+        }
 
         transform((formValues) => ({
             ...formValues,
@@ -85,7 +103,7 @@ export default function NouvelleSanctionModal({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto p-4 sm:p-6">
                 <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2 text-lg font-bold text-slate-800 dark:text-slate-100">
+                    <DialogTitle className="flex items-center gap-2 text-lg font-bold text-slate-800">
                         <AlertOctagon className="w-5 h-5 text-rose-600 shrink-0" />
                         <span>Prononcer une Sanction Disciplinaire</span>
                     </DialogTitle>
@@ -95,25 +113,19 @@ export default function NouvelleSanctionModal({
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit} className="space-y-4 py-2">
-                    <div className="space-y-1">
+                    <div className="space-y-1 min-w-0">
                         <Label htmlFor="inscription_id" className="text-xs sm:text-sm font-medium">
                             Élève concerné <span className="text-rose-500">*</span>
                         </Label>
-                        <Select
+                        <SearchableSelect
+                            id="inscription_id"
+                            options={inscriptionOptions}
                             value={data.inscription_id}
                             onValueChange={(val) => setData('inscription_id', val)}
-                        >
-                            <SelectTrigger id="inscription_id" className="w-full">
-                                <SelectValue placeholder="Sélectionner un élève..." />
-                            </SelectTrigger>
-                            <SelectContent className="max-h-60">
-                                {inscriptions.map((ins) => (
-                                    <SelectItem key={ins.id} value={String(ins.id)}>
-                                        {ins.eleve?.nom} {ins.eleve?.prenom} — {ins.classe?.nom} ({ins.eleve?.matricule})
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                            placeholder="Sélectionner un élève..."
+                            searchPlaceholder="Tapez un nom, matricule ou classe..."
+                            emptyMessage="Aucun élève trouvé pour"
+                        />
                         {errors.inscription_id && (
                             <p className="text-xs text-rose-500">{errors.inscription_id}</p>
                         )}

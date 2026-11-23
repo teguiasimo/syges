@@ -1,7 +1,9 @@
 import { Head, Link, router } from '@inertiajs/react';
 import {
+    AlertTriangle,
     ArrowLeft,
     Check,
+    ExternalLink,
     GraduationCap,
     PlusCircle,
     Upload,
@@ -9,8 +11,10 @@ import {
     Users,
     X,
 } from 'lucide-react';
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { EleveAvatar } from '@/components/eleves/eleve-avatar';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -29,10 +33,15 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { formatDateForInput } from '@/lib/utils';
+import {
+    buildClasseSearchOptions,
+    buildEtablissementSearchOptions,
+    flattenClassesFromEtablissements,
+    formatDate,
+    formatDateForInput,
+} from '@/lib/utils';
 import type {
     AnneeScolaireRef,
-    ClasseRef,
     EtablissementRef,
 } from '@/types/eleve';
 
@@ -75,6 +84,24 @@ export default function CreateEleve({
     const [photoPreview, setPhotoPreview] = useState<string | null>(null);
     const photoInputRef = useRef<HTMLInputElement>(null);
 
+    // Détection temps réel d'éventuels doublons existants avant enregistrement
+    interface PotentialDuplicateItem {
+        eleve_id: number;
+        matricule: string;
+        nom_complet: string;
+        sexe?: string | null;
+        date_naissance?: string | null;
+        telephone_parent?: string | null;
+        photo_url?: string | null;
+        classe_nom: string;
+        etablissement_nom: string;
+        score: number;
+        raisons: string[];
+    }
+    const [potentialDuplicates, setPotentialDuplicates] = useState<PotentialDuplicateItem[]>([]);
+    const [confirmNotDuplicate, setConfirmNotDuplicate] = useState(false);
+    const duplicateAlertRef = useRef<HTMLDivElement>(null);
+
     // Données du formulaire
     const [formData, setFormData] = useState({
         // 1. État Civil
@@ -102,60 +129,22 @@ export default function CreateEleve({
     });
 
     /**
-     * Liste aplatie des classes disponibles filtrées selon l'établissement sélectionné.
+     * Liste aplatie et options formatées pour SearchableSelect, filtrées par campus sans coupure de nom.
      */
-    const availableClasses: ClasseRef[] = useMemo(() => {
-        const list: ClasseRef[] = [];
-        etablissements.forEach((etab) => {
-            if (!selectedEtabId || String(etab.id) === selectedEtabId) {
-                etab.sections?.forEach((sec) => {
-                    sec.cycles?.forEach((cyc) => {
-                        cyc.niveaux?.forEach((niv) => {
-                            niv.classes?.forEach((cls) => {
-                                list.push({
-                                    ...cls,
-                                    niveau: {
-                                        id: niv.id,
-                                        nom: niv.nom,
-                                        code: niv.code,
-                                        cycle: {
-                                            id: cyc.id,
-                                            nom: cyc.nom,
-                                            section: {
-                                                id: sec.id,
-                                                nom: sec.nom,
-                                                etablissement: {
-                                                    id: etab.id,
-                                                    nom: etab.nom,
-                                                },
-                                            },
-                                        },
-                                    },
-                                });
-                            });
-                        });
-                    });
-                });
-            }
-        });
-        return list;
-    }, [etablissements, selectedEtabId]);
+    const availableClasses = useMemo(
+        () => flattenClassesFromEtablissements(etablissements, selectedEtabId),
+        [etablissements, selectedEtabId]
+    );
 
-    /**
-     * Options formatées pour le sélecteur avec recherche de la classe d'affectation.
-     * Inclut le niveau, la section et tronque élégamment le campus pour préserver l'ergonomie visuelle.
-     */
-    const classeOptions: SearchableOption[] = useMemo(() => {
-        return availableClasses.map((cls) => {
-            const etabNom = cls.niveau?.cycle?.section?.etablissement?.nom || '';
-            const etabAbrege = etabNom.length > 25 ? `${etabNom.substring(0, 25)}…` : etabNom;
-            return {
-                value: String(cls.id),
-                label: `${cls.nom} (${cls.niveau?.nom || 'Niveau'}${etabAbrege ? ` — ${etabAbrege}` : ''})`,
-                group: cls.niveau?.nom || 'Classes',
-            };
-        });
-    }, [availableClasses]);
+    const classeOptions: SearchableOption[] = useMemo(
+        () => buildClasseSearchOptions(availableClasses),
+        [availableClasses]
+    );
+
+    const etablissementOptions: SearchableOption[] = useMemo(
+        () => [{ value: '', label: 'Tous les campus' }, ...buildEtablissementSearchOptions(etablissements)],
+        [etablissements]
+    );
 
     /**
      * Gestionnaire de chargement de la photo d'identité.
@@ -164,14 +153,32 @@ export default function CreateEleve({
      */
     const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
-        if (file) {
-            setPhotoFile(file);
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                setPhotoPreview(event.target?.result as string);
-            };
-            reader.readAsDataURL(file);
+        if (!file) return;
+
+        // Vérifier la taille maximale avant l'envoi (5 Mo) pour prévenir un rejet serveur silencieux
+        if (file.size > 5 * 1024 * 1024) {
+            setErrors((prev) => ({ ...prev, photo: 'La photo ne doit pas dépasser 5 Mo.' }));
+            toast.error('Photo trop volumineuse (max 5 Mo).', {
+                position: 'top-right',
+            });
+            if (photoInputRef.current) {
+                photoInputRef.current.value = '';
+            }
+            return;
         }
+
+        setErrors((prev) => {
+            if (!prev.photo) return prev;
+            const next = { ...prev };
+            delete next.photo;
+            return next;
+        });
+        setPhotoFile(file);
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            setPhotoPreview(event.target?.result as string);
+        };
+        reader.readAsDataURL(file);
     };
 
     /**
@@ -180,6 +187,12 @@ export default function CreateEleve({
     const removePhoto = () => {
         setPhotoFile(null);
         setPhotoPreview(null);
+        setErrors((prev) => {
+            if (!prev.photo) return prev;
+            const next = { ...prev };
+            delete next.photo;
+            return next;
+        });
         if (photoInputRef.current) {
             photoInputRef.current.value = '';
         }
@@ -209,9 +222,74 @@ export default function CreateEleve({
             is_redoublant: '0',
         });
         setSelectedClasseId('');
+        setPotentialDuplicates([]);
+        setConfirmNotDuplicate(false);
         removePhoto();
         setErrors({});
     };
+
+    /**
+     * Vérifie silencieusement en temps réel (debounce 400 ms) si un dossier élève proche
+     * existe déjà dans la base afin de prévenir les doublons sans bloquer les jumeaux/homonymes.
+     */
+    useEffect(() => {
+        const nomTrim = formData.nom.trim();
+        if (nomTrim.length < 2) {
+            setPotentialDuplicates([]);
+            setConfirmNotDuplicate(false);
+            return;
+        }
+
+        const controller = new AbortController();
+        const timer = window.setTimeout(async () => {
+            try {
+                const csrfMeta = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+                const xsrfMatch = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/);
+                const xsrfToken = xsrfMatch ? decodeURIComponent(xsrfMatch[1]) : '';
+
+                const res = await fetch('/administration/eleves/check-doublons', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    signal: controller.signal,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Accept: 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        ...(csrfMeta ? { 'X-CSRF-TOKEN': csrfMeta } : {}),
+                        ...(xsrfToken ? { 'X-XSRF-TOKEN': xsrfToken } : {}),
+                    },
+                    body: JSON.stringify({
+                        nom: nomTrim,
+                        prenom: formData.prenom.trim() || null,
+                        date_naissance: formData.date_naissance || null,
+                        telephone_parent: formData.telephone_parent.trim() || null,
+                        classe_id: selectedClasseId ? Number(selectedClasseId) : null,
+                        annee_scolaire_id: formData.annee_scolaire_id ? Number(formData.annee_scolaire_id) : null,
+                    }),
+                });
+
+                if (!res.ok) return;
+                const payload = (await res.json()) as { matches?: PotentialDuplicateItem[] };
+                const nextMatches = payload.matches ?? [];
+                setPotentialDuplicates(nextMatches);
+                setConfirmNotDuplicate(false);
+            } catch {
+                // Requête annulée lors d'une frappe rapide : ignorée silencieusement
+            }
+        }, 400);
+
+        return () => {
+            window.clearTimeout(timer);
+            controller.abort();
+        };
+    }, [
+        formData.nom,
+        formData.prenom,
+        formData.date_naissance,
+        formData.telephone_parent,
+        formData.annee_scolaire_id,
+        selectedClasseId,
+    ]);
 
     /**
      * Soumission du formulaire avec choix de l'action après enregistrement.
@@ -238,6 +316,15 @@ export default function CreateEleve({
             return;
         }
 
+        // Garde-fou anti-doublon : si un ou plusieurs profils très proches existent, demander confirmation explicite
+        if (potentialDuplicates.length > 0 && !confirmNotDuplicate) {
+            toast.error('Doublon potentiel détecté : vérifiez les fiches existantes ou confirmez qu’il s’agit d’un élève différent.', {
+                position: 'top-right',
+            });
+            duplicateAlertRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return;
+        }
+
         setLoading(true);
 
         const payload = new FormData();
@@ -256,6 +343,7 @@ export default function CreateEleve({
         }
 
         router.post('/administration/eleves', payload, {
+            forceFormData: true,
             preserveScroll: action === 'save_and_new',
             onSuccess: () => {
                 setLoading(false);
@@ -306,7 +394,7 @@ export default function CreateEleve({
                             </Link>
                         </div>
                         <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight text-foreground flex items-center gap-2.5">
-                            <div className="p-2 rounded-xl bg-teal-50 dark:bg-teal-950/50 text-teal-600 border border-teal-200 dark:border-teal-900/50 shrink-0">
+                            <div className="p-2 rounded-xl bg-teal-50 text-teal-600 border border-teal-200 shrink-0">
                                 <GraduationCap className="size-6" />
                             </div>
                             <span>Nouvel Élève & Inscription Scolaire</span>
@@ -334,7 +422,7 @@ export default function CreateEleve({
                                         </Link>
                                     </Button>
                                 </TooltipTrigger>
-                                <TooltipContent side="bottom" className="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 shadow-md font-normal">
+                                <TooltipContent side="bottom" className="bg-white text-slate-700 border border-slate-200 shadow-md font-normal">
                                     Abandonner la saisie et retourner au registre des élèves
                                 </TooltipContent>
                             </Tooltip>
@@ -350,13 +438,13 @@ export default function CreateEleve({
                                         variant="outline"
                                         disabled={loading}
                                         onClick={() => submitForm('save_and_new')}
-                                        className="cursor-pointer text-xs h-9 border-teal-500/50 text-teal-700 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-950/50 font-medium gap-1.5"
+                                        className="cursor-pointer text-xs h-9 border-teal-500/50 text-teal-700 hover:bg-teal-50 font-medium gap-1.5"
                                     >
                                         <PlusCircle className="size-3.5 text-teal-600" />
                                         + Nouveau
                                     </Button>
                                 </TooltipTrigger>
-                                <TooltipContent side="bottom" className="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 shadow-md font-normal">
+                                <TooltipContent side="bottom" className="bg-white text-slate-700 border border-slate-200 shadow-md font-normal">
                                     Enregistrer cet élève et vider le formulaire pour inscrire le suivant
                                 </TooltipContent>
                             </Tooltip>
@@ -374,7 +462,7 @@ export default function CreateEleve({
                                         {loading ? 'Enregistrement...' : 'Enregistrer'}
                                     </Button>
                                 </TooltipTrigger>
-                                <TooltipContent side="bottom" className="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 shadow-md font-normal">
+                                <TooltipContent side="bottom" className="bg-white text-slate-700 border border-slate-200 shadow-md font-normal">
                                     Enregistrer l'élève et retourner à la liste du registre
                                 </TooltipContent>
                             </Tooltip>
@@ -390,18 +478,124 @@ export default function CreateEleve({
                     }}
                     className="space-y-8"
                 >
+                    {/* BANDEAU D'ALERTE ANTI-DOUBLON EN TEMPS RÉEL (SANS BLOQUER LES JUMEAUX / HOMONYMES) */}
+                    {potentialDuplicates.length > 0 && (
+                        <div
+                            ref={duplicateAlertRef}
+                            className="rounded-2xl border-2 border-amber-400 bg-amber-50/90 p-4 sm:p-5 space-y-3 shadow-xs"
+                        >
+                            <div className="flex items-start gap-3">
+                                <div className="p-2 rounded-xl bg-amber-100 text-amber-700 border border-amber-300 shrink-0">
+                                    <AlertTriangle className="size-5" />
+                                </div>
+                                <div className="min-w-0 flex-1 space-y-1">
+                                    <h3 className="text-sm font-bold text-amber-950">
+                                        Doublon potentiel détecté ({potentialDuplicates.length} dossier(s) similaire(s) déjà existant(s))
+                                    </h3>
+                                    <p className="text-xs text-amber-900">
+                                        Vérifiez ci-dessous si cet élève n&apos;est pas déjà enregistré afin d&apos;éviter de créer un deuxième matricule pour la même personne.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                {potentialDuplicates.map((dup) => (
+                                    <div
+                                        key={dup.eleve_id}
+                                        className="rounded-xl border border-amber-200 bg-white p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                                    >
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            <div className="size-10 rounded-xl border bg-slate-50 overflow-hidden shrink-0 flex items-center justify-center">
+                                                <EleveAvatar photoUrl={dup.photo_url} alt={dup.nom_complet} />
+                                            </div>
+                                            <div className="min-w-0 space-y-0.5">
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <span className="font-bold text-sm text-foreground">{dup.nom_complet}</span>
+                                                    <Badge variant="outline" className="font-mono text-[10px]">
+                                                        {dup.matricule}
+                                                    </Badge>
+                                                    <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-800 border-amber-300 tabular-nums">
+                                                        {dup.score} %
+                                                    </Badge>
+                                                </div>
+                                                <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+                                                    <span className="font-semibold text-slate-700">{dup.classe_nom}</span>
+                                                    {dup.date_naissance && (
+                                                        <>
+                                                            <span>•</span>
+                                                            <span>Né(e) le {formatDate(dup.date_naissance)}</span>
+                                                        </>
+                                                    )}
+                                                    {dup.telephone_parent && (
+                                                        <>
+                                                            <span>•</span>
+                                                            <span className="font-mono">{dup.telephone_parent}</span>
+                                                        </>
+                                                    )}
+                                                </div>
+                                                <div className="flex flex-wrap gap-1 pt-0.5">
+                                                    {dup.raisons.map((r, idx) => (
+                                                        <span
+                                                            key={idx}
+                                                            className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100/80 text-amber-900 font-medium"
+                                                        >
+                                                            {r}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            asChild
+                                            className="h-8 text-xs gap-1.5 border-amber-300 text-amber-900 hover:bg-amber-100 shrink-0"
+                                        >
+                                            <a
+                                                href={`/administration/eleves?search=${encodeURIComponent(dup.matricule)}`}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                            >
+                                                <ExternalLink className="size-3.5" />
+                                                Voir ce dossier
+                                            </a>
+                                        </Button>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Case de confirmation explicite permettant d'inscrire un vrai jumeau ou homonyme */}
+                            <label
+                                htmlFor="confirm-not-duplicate"
+                                className="flex items-start gap-2.5 pt-2 border-t border-amber-200 cursor-pointer select-none text-xs text-amber-950 font-medium"
+                            >
+                                <Checkbox
+                                    id="confirm-not-duplicate"
+                                    checked={confirmNotDuplicate}
+                                    onCheckedChange={(v) => setConfirmNotDuplicate(Boolean(v))}
+                                    className="mt-0.5 border-amber-600 data-[state=checked]:bg-amber-600 data-[state=checked]:border-amber-600"
+                                />
+                                <span>
+                                    Je confirme qu&apos;il s&apos;agit bien d&apos;un élève différent (ex. jumeaux ou vrais homonymes) et je souhaite créer un nouveau dossier.
+                                </span>
+                            </label>
+                        </div>
+                    )}
+
                     {/* BLOC 1 : ÉTAT CIVIL, IDENTITÉ & AFFECTATION SCOLAIRE */}
-                    <div className="rounded-2xl border-2 border-slate-300/90 dark:border-slate-700 bg-card shadow-sm overflow-visible transition-all duration-200 hover:shadow-md hover:border-slate-400 dark:hover:border-slate-600">
+                    <div className="rounded-2xl border-2 border-slate-300/90 bg-card shadow-sm overflow-visible transition-all duration-200 hover:shadow-md hover:border-slate-400">
                         {/* En-tête de bloc avec bannière dégradée */}
-                        <div className="rounded-t-2xl bg-linear-to-r from-slate-200/95 via-teal-100/70 to-slate-200/80 dark:from-slate-800 dark:via-teal-950/40 dark:to-slate-800/90 px-6 py-4 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center gap-3">
+                        <div className="rounded-t-2xl bg-linear-to-r from-slate-200/95 via-teal-100/70 to-slate-200/80 px-6 py-4 border-b-2 border-slate-300 flex flex-wrap items-center gap-3">
                             <div className="flex size-9 items-center justify-center rounded-xl bg-linear-to-br from-teal-600 to-teal-800 text-white font-bold shadow-xs shrink-0">
                                 <User className="size-4" />
                             </div>
                             <div>
-                                <h2 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
+                                <h2 className="text-base font-bold text-slate-900 tracking-tight">
                                     1. État Civil, Identité & Affectation Scolaire
                                 </h2>
-                                <p className="text-xs text-slate-600 dark:text-slate-400">
+                                <p className="text-xs text-slate-600">
                                     Informations d'état civil, identification, photo officielle et affectation dans la classe d'accueil.
                                 </p>
                             </div>
@@ -410,8 +604,8 @@ export default function CreateEleve({
                         {/* Corps du bloc État Civil */}
                         <div className="p-6 bg-card space-y-6">
                             {/* Zone Photo d'identité */}
-                            <div className="flex flex-col sm:flex-row items-center gap-6 p-4 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800">
-                                <div className="relative size-24 rounded-full overflow-hidden border-2 border-dashed border-indigo-300 dark:border-indigo-800 bg-white dark:bg-slate-900 flex items-center justify-center shadow-xs shrink-0">
+                            <div className="flex flex-col sm:flex-row items-center gap-6 p-4 rounded-xl bg-slate-50 border border-slate-200">
+                                <div className="relative size-24 rounded-full overflow-hidden border-2 border-dashed border-indigo-300 bg-white flex items-center justify-center shadow-xs shrink-0">
                                     {photoPreview ? (
                                         <img
                                             src={photoPreview}
@@ -425,7 +619,7 @@ export default function CreateEleve({
                                 <div className="space-y-1.5 text-center sm:text-left flex-1">
                                     <div className="text-sm font-semibold text-foreground">Photo d'identité officielle</div>
                                     <p className="text-xs text-muted-foreground">
-                                        Format JPG ou PNG, max 1 Mo. Recommandé pour les cartes d'élèves et trombinoscopes.
+                                        Format JPG, PNG ou WEBP, max 5 Mo. Recommandé pour les cartes d'élèves et trombinoscopes.
                                     </p>
                                     <div className="flex items-center gap-2 pt-1 justify-center sm:justify-start">
                                         <input
@@ -451,12 +645,13 @@ export default function CreateEleve({
                                                 variant="ghost"
                                                 size="sm"
                                                 onClick={removePhoto}
-                                                className="h-8 text-xs text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"
+                                                className="h-8 text-xs text-rose-500 hover:text-rose-600 hover:bg-rose-50 cursor-pointer"
                                             >
                                                 Supprimer
                                             </Button>
                                         )}
                                     </div>
+                                    {errors.photo && <p className="text-rose-500 text-xs mt-1">{errors.photo}</p>}
                                 </div>
                             </div>
 
@@ -572,10 +767,10 @@ export default function CreateEleve({
                                 {/* ─── Ligne 3 : Matricules partagés équitablement sur 2×2 cols (matricule interne non cliquable) ─── */}
                                 <div className="col-span-2">
                                     <div className="flex items-center justify-between mb-1">
-                                        <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                        <span className="text-xs font-semibold text-slate-700">
                                             Matricule interne
                                         </span>
-                                        <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                                        <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                                             Attribué automatiquement
                                         </span>
                                     </div>
@@ -588,7 +783,7 @@ export default function CreateEleve({
                                             tabIndex={-1}
                                             value={formData.matricule}
                                             placeholder="ex: ESP-PRI-2026-0001 (Attribué automatiquement)"
-                                            className="h-9 text-sm font-mono uppercase bg-slate-100/80 dark:bg-slate-900/60 text-slate-500 dark:text-slate-400 border-dashed focus-visible:ring-0 pointer-events-none select-none disabled:opacity-90"
+                                            className="h-9 text-sm font-mono uppercase bg-slate-100/80 text-slate-500 border-dashed focus-visible:ring-0 pointer-events-none select-none disabled:opacity-90"
                                         />
                                     </div>
                                     <p className="text-[11px] text-muted-foreground mt-1">
@@ -626,10 +821,10 @@ export default function CreateEleve({
                                      Ligne 1 : Année | Filtre campus | Classe | Statut
                                      Ligne 2 : Redoublant (checkbox)
                                      ═══════════════════════════════════════════════════════════ */}
-                                <div className="col-span-2 sm:col-span-4 pt-4 border-t border-slate-200 dark:border-slate-800">
+                                <div className="col-span-2 sm:col-span-4 pt-4 border-t border-slate-200">
                                     <div className="flex items-center gap-2 mb-3">
-                                        <GraduationCap className="size-4 text-indigo-600 dark:text-indigo-400" />
-                                        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                                        <GraduationCap className="size-4 text-indigo-600" />
+                                        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
                                             Affectation Scolaire & Inscription
                                         </h3>
                                     </div>
@@ -660,35 +855,27 @@ export default function CreateEleve({
                                             </Select>
                                         </div>
 
-                                        <div>
+                                        <div className="min-w-0">
                                             <Label htmlFor="filtre_etablissement" className="text-xs font-semibold">
                                                 Filtre par Campus
                                             </Label>
-                                            <Select
-                                                value={selectedEtabId}
-                                                onValueChange={(val) => {
-                                                    setSelectedEtabId(val);
-                                                    setSelectedClasseId('');
-                                                }}
-                                            >
-                                                <SelectTrigger id="filtre_etablissement" className="mt-1 h-9 text-sm">
-                                                    <SelectValue placeholder="Tous les campus" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="">Tous les campus</SelectItem>
-                                                    {etablissements.map((etab) => {
-                                                        const campusCourt = etab.nom.length > 25 ? `${etab.nom.substring(0, 25)}…` : etab.nom;
-                                                        return (
-                                                            <SelectItem key={etab.id} value={String(etab.id)} title={etab.nom}>
-                                                                {campusCourt}
-                                                            </SelectItem>
-                                                        );
-                                                    })}
-                                                </SelectContent>
-                                            </Select>
+                                            <div className="mt-1">
+                                                <SearchableSelect
+                                                    id="filtre_etablissement"
+                                                    options={etablissementOptions}
+                                                    value={selectedEtabId}
+                                                    onValueChange={(val) => {
+                                                        setSelectedEtabId(val);
+                                                        setSelectedClasseId('');
+                                                    }}
+                                                    placeholder="Tous les campus"
+                                                    searchPlaceholder="Rechercher un campus..."
+                                                    emptyMessage="Aucun campus trouvé pour"
+                                                />
+                                            </div>
                                         </div>
 
-                                        <div>
+                                        <div className="min-w-0">
                                             <Label htmlFor="classe_id" className="text-xs font-semibold">
                                                 Classe d'affectation <span className="text-rose-500">*</span>
                                             </Label>
@@ -750,17 +937,17 @@ export default function CreateEleve({
                         </div>
 
                     {/* BLOC 2 : FILIATION & RESPONSABLES LÉGAUX */}
-                    <div className="rounded-2xl border-2 border-slate-300/90 dark:border-slate-700 bg-card shadow-sm overflow-visible transition-all duration-200 hover:shadow-md hover:border-slate-400 dark:hover:border-slate-600">
+                    <div className="rounded-2xl border-2 border-slate-300/90 bg-card shadow-sm overflow-visible transition-all duration-200 hover:shadow-md hover:border-slate-400">
                         {/* En-tête de bloc dégradé teal */}
-                        <div className="rounded-t-2xl bg-linear-to-r from-slate-200/95 via-teal-100/70 to-slate-200/80 dark:from-slate-800 dark:via-teal-950/40 dark:to-slate-800/90 px-6 py-4 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center gap-3">
+                        <div className="rounded-t-2xl bg-linear-to-r from-slate-200/95 via-teal-100/70 to-slate-200/80 px-6 py-4 border-b-2 border-slate-300 flex flex-wrap items-center gap-3">
                             <div className="flex size-9 items-center justify-center rounded-xl bg-linear-to-br from-teal-600 to-emerald-700 text-white font-bold shadow-xs shrink-0">
                                 <Users className="size-4" />
                             </div>
                             <div>
-                                <h2 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
+                                <h2 className="text-base font-bold text-slate-900 tracking-tight">
                                     2. Filiation & Coordonnées des Responsables Légaux
                                 </h2>
-                                <p className="text-xs text-slate-600 dark:text-slate-400">
+                                <p className="text-xs text-slate-600">
                                     Contacts parents et tuteurs essentiels pour les alertes SMS de scolarité, discipline et portail parents.
                                 </p>
                             </div>
@@ -821,7 +1008,7 @@ export default function CreateEleve({
                                         placeholder="ex : 699 00 11 22"
                                         className="mt-1 h-9 text-sm"
                                     />
-                                    <p className="text-[11px] text-teal-600 dark:text-teal-400 mt-1 font-medium">
+                                    <p className="text-[11px] text-teal-600 mt-1 font-medium">
                                         SMS de présence, bulletins et accès portail parents.
                                     </p>
                                     {errors.telephone_parent && (
@@ -887,7 +1074,7 @@ export default function CreateEleve({
                                 variant="outline"
                                 disabled={loading}
                                 onClick={() => submitForm('save_and_new')}
-                                className="cursor-pointer text-xs h-10 border-teal-600/40 text-teal-700 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-950/50 font-medium w-full sm:w-auto"
+                                className="cursor-pointer text-xs h-10 border-teal-600/40 text-teal-700 hover:bg-teal-50 font-medium w-full sm:w-auto"
                             >
                                 <PlusCircle className="size-4 mr-1.5 text-teal-600" />
                                 Enregistrer & Nouveau

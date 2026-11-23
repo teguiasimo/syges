@@ -7,6 +7,7 @@ use App\Models\BourseRemise;
 use App\Models\Caisse;
 use App\Models\CategorieFrais;
 use App\Models\Classe;
+use App\Models\ClotureCaisse;
 use App\Models\CompteFinancierEleve;
 use App\Models\Cycle;
 use App\Models\Eleve;
@@ -21,10 +22,12 @@ use App\Models\PenaliteEleve;
 use App\Models\Personnel;
 use App\Models\ReglementDivers;
 use App\Models\Section;
+use App\Models\SouscriptionFraisOptionnel;
 use App\Models\TypeFrais;
 use App\Models\User;
 use App\Services\FinanceService;
 use Carbon\Carbon;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -44,12 +47,16 @@ use Tests\TestCase;
  */
 class FinanceCaisseTest extends TestCase
 {
-    use \Illuminate\Foundation\Testing\RefreshDatabase;
+    use RefreshDatabase;
 
     public ?User $unauthorizedUser = null;
+
     public ?Inscription $inscription = null;
+
     public ?TypeFrais $typeFrais = null;
+
     public ?FraisScolaire $fraisScolaire = null;
+
     public ?Personnel $caissier = null;
 
     protected function setUp(): void
@@ -402,7 +409,7 @@ class FinanceCaisseTest extends TestCase
         ]);
 
         $this->assertTrue(
-            \App\Models\ClotureCaisse::where('etablissement_id', $this->etablissement->id)
+            ClotureCaisse::where('etablissement_id', $this->etablissement->id)
                 ->where('personnel_id', $this->caissier->id)
                 ->whereDate('date_cloture', $today)
                 ->where('statut', 'cloturee')
@@ -1089,8 +1096,6 @@ class FinanceCaisseTest extends TestCase
      * Vérifie que l'impression PDF du Bilan Détaillé des Versements transmet les filtres
      * hiérarchiques (section, cycle, niveau, classe) dans l'ordre attendu par FinanceService
      * et isole correctement la classe ciblée.
-     *
-     * @return void
      */
     public function test_bilan_detaille_pdf_transmet_filtres_hierarchiques_dans_bon_ordre(): void
     {
@@ -1154,8 +1159,6 @@ class FinanceCaisseTest extends TestCase
      * Vérifie que le reçu de caisse s'imprime par défaut en A4 Portrait avec 2 exemplaires
      * (Parent/Élève + Souche Administration) sur une seule page pour <= 4 lignes de ventilation,
      * et bascule automatiquement en 1 exemplaire pleine page A4 au-delà de 4 lignes.
-     *
-     * @return void
      */
     public function test_impression_recu_a4_deux_exemplaires_et_bascule_automatique(): void
     {
@@ -1229,8 +1232,6 @@ class FinanceCaisseTest extends TestCase
      * Vérifie que le reçu d'encaissement divers s'imprime en A4 Portrait avec 2 exemplaires
      * (Versant/Client + Souche Administration) sur 1 page par défaut, et bascule en 1 exemplaire
      * lorsque les observations dépassent 180 caractères.
-     *
-     * @return void
      */
     public function test_impression_recu_divers_a4_deux_exemplaires_et_bascule_automatique(): void
     {
@@ -1671,6 +1672,102 @@ class FinanceCaisseTest extends TestCase
         $this->assertEquals(15000.0, (float) $compte->total_paye);
         $this->assertEquals(85000.0, (float) $compte->solde_restant);
     }
+
+    /**
+     * Vérifie que les bilans (détaillé et résumé) intègrent et détaillent les frais annexes/optionnels
+     * dans le cumul exigible afin que (Exigible - Réduction - Versé = Solde Dû) soit toujours exact.
+     */
+    public function test_bilans_incluent_et_detaillent_les_frais_annexes_optionnels_dans_lexigible(): void
+    {
+        $financeService = app(FinanceService::class);
+        $compte = $financeService->initialiserCompteEleve($this->inscription);
+
+        // Ajout d'un frais optionnel de 85 000 FCFA (ex: Frais de Bus)
+        $typeBus = TypeFrais::create([
+            'etablissement_id' => $this->etablissement->id,
+            'code' => 'BUS-OPT-TEST',
+            'libelle' => 'FRAIS BUS',
+            'obligatoire' => false,
+            'ordre_priorite' => 5,
+            'periodicite' => 'annuel',
+            'montant_defaut' => 85000,
+        ]);
+
+        $fraisBus = FraisScolaire::create([
+            'annee_scolaire_id' => $this->annee->id,
+            'etablissement_id' => $this->etablissement->id,
+            'niveau_id' => $this->classe->niveau_id,
+            'type_frais_id' => $typeBus->id,
+            'tranche_numero' => 1,
+            'ordre_priorite' => 5,
+            'libelle_tranche' => 'FRAIS BUS',
+            'montant' => 85000,
+            'obligatoire' => false,
+            'date_limite' => Carbon::today()->addMonth()->toDateString(),
+        ]);
+
+        SouscriptionFraisOptionnel::create([
+            'compte_financier_id' => $compte->id,
+            'frais_scolaire_id' => $fraisBus->id,
+            'montant' => 85000,
+            'date_souscription' => Carbon::today()->toDateString(),
+            'statut' => 'actif',
+        ]);
+        $compte->actualiserSolde();
+
+        // Versement partiel de 10 000 FCFA
+        $financeService->enregistrerVersement([
+            'compte_financier_id' => $compte->id,
+            'montant_total' => 10000,
+            'mode_paiement' => 'especes',
+            'ventilations' => [
+                [
+                    'frais_scolaire_id' => $this->fraisScolaire->id,
+                    'type_frais_id' => $this->typeFrais->id,
+                    'libelle' => 'Tranche 1 - Scolarité',
+                    'montant' => 10000,
+                ],
+            ],
+        ], $this->caissier, $this->adminUser);
+
+        $bilanDetaille = $financeService->obtenirBilanDetailleVersements($this->etablissement->id, $this->annee->id);
+        $ligne = $bilanDetaille['eleves'][0];
+
+        $this->assertEquals(100000.0, $ligne['scolarite_base']);
+        $this->assertEquals(85000.0, $ligne['frais_annexes']);
+        $this->assertEquals(185000.0, $ligne['a_verser']);
+        $this->assertEquals(10000.0, $ligne['verse']);
+        $this->assertEquals(175000.0, $ligne['reste']);
+        $this->assertStringContainsString('FRAIS BUS', $ligne['details_annexes']);
+        $this->assertEquals(
+            $bilanDetaille['total_a_verser'] - $bilanDetaille['total_reduction'] - $bilanDetaille['total_verse'],
+            $bilanDetaille['total_reste']
+        );
+
+        $bilanResume = $financeService->obtenirBilanResumeRecouvrement($this->etablissement->id, $this->annee->id);
+        $this->assertEquals(185000.0, $bilanResume['total_a_verser']);
+        $this->assertEquals(175000.0, $bilanResume['total_reste']);
+
+        // Vérifie le rendu Blade conditionnel : colonne « Frais Annexes » présente avec options, masquée sans options
+        $htmlAvecAnnexes = view('finances.bilan_detaille', array_merge($bilanDetaille, [
+            'annee' => $this->annee,
+            'etablissement' => $this->etablissement,
+        ]))->render();
+        $this->assertStringContainsString('Frais Annexes', $htmlAvecAnnexes);
+        $this->assertStringContainsString('FRAIS BUS', $htmlAvecAnnexes);
+
+        // Sans frais annexes dans la classe -> la colonne Frais Annexes n'est pas affichée
+        $bilanSansAnnexes = $bilanDetaille;
+        $bilanSansAnnexes['total_frais_annexes'] = 0.0;
+        $bilanSansAnnexes['classes'][0]['total_frais_annexes'] = 0.0;
+        $bilanSansAnnexes['classes'][0]['eleves'][0]['frais_annexes'] = 0.0;
+        $bilanSansAnnexes['classes'][0]['eleves'][0]['details_annexes'] = '';
+
+        $htmlSansAnnexes = view('finances.bilan_detaille', array_merge($bilanSansAnnexes, [
+            'annee' => $this->annee,
+            'etablissement' => $this->etablissement,
+        ]))->render();
+        $this->assertStringNotContainsString('Frais Annexes', $htmlSansAnnexes);
+        $this->assertStringContainsString('Montant Exigible', $htmlSansAnnexes);
+    }
 }
-
-

@@ -144,9 +144,9 @@ export default function ModeleEcheanceModal({
                     </div>
 
                     {/* Bloc des tranches d'échéances adapté mobile (empilé) et desktop (12 colonnes) */}
-                    <div className="border dark:border-slate-800 rounded-lg p-3 bg-slate-50 dark:bg-slate-900/60 space-y-3">
+                    <div className="border rounded-lg p-3 bg-slate-50 space-y-3">
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                            <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">Tranches d'échéances et dates butoirs</span>
+                            <span className="text-sm font-semibold text-slate-800">Tranches d'échéances et dates butoirs</span>
                             <Button type="button" size="sm" variant="outline" onClick={handleAddTranche} className="w-full sm:w-auto h-8 gap-1">
                                 <Plus className="w-3.5 h-3.5 shrink-0" />
                                 Ajouter une tranche
@@ -155,8 +155,8 @@ export default function ModeleEcheanceModal({
 
                         <div className="space-y-2">
                             {tranches.map((t, idx) => (
-                                <div key={idx} className="grid grid-cols-2 sm:grid-cols-12 gap-2 items-center bg-white dark:bg-slate-950 p-2.5 sm:p-2 rounded border border-slate-200 dark:border-slate-800">
-                                    <div className="col-span-1 sm:col-span-1 text-xs font-bold sm:text-center text-slate-600 dark:text-slate-300">
+                                <div key={idx} className="grid grid-cols-2 sm:grid-cols-12 gap-2 items-center bg-white p-2.5 sm:p-2 rounded border border-slate-200">
+                                    <div className="col-span-1 sm:col-span-1 text-xs font-bold sm:text-center text-slate-600">
                                         T{t.tranche_numero}
                                     </div>
                                     <div className="col-span-1 sm:col-span-1 sm:order-last text-right">
@@ -165,7 +165,7 @@ export default function ModeleEcheanceModal({
                                             variant="ghost"
                                             size="sm"
                                             onClick={() => handleRemoveTranche(idx)}
-                                            className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/50"
+                                            className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
                                         >
                                             <Trash2 className="w-3.5 h-3.5" />
                                         </Button>

@@ -44,7 +44,7 @@ export interface Personnel {
     /** Date de prise de service / embauche (YYYY-MM-DD) */
     date_embauche: string;
     /** Statut administratif (Actif, En congé, Démissionnaire, Retraité, Suspendu, Licencié) */
-    statut: 'Actif' | 'En congé' | 'Démissionnaire' | 'Retraité' | 'Suspendu' | 'Licencié' | string;
+    statut: 'Actif' | 'En congé' | 'Démissionnaire' | 'Retraité' | 'Suspendu' | 'Licencié' | (string & {});
     /** Numéro de sécurité sociale / CNPS */
     numero_cnps?: string | null;
     /** Diplôme le plus élevé certifié */

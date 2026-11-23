@@ -12,15 +12,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { CompteFinancierEleve, FraisScolaire, SouscriptionFraisOptionnel } from '@/types/finance';
-import { Bus, Trash2, PlusCircle, CheckCircle2 } from 'lucide-react';
+import { PackagePlus, Trash2, PlusCircle, CheckCircle2 } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 
 interface SouscriptionOptionModalProps {
@@ -132,16 +126,16 @@ export default function SouscriptionOptionModal({
             {activeCompte && (
             <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2 text-slate-800 dark:text-slate-100">
-                        <Bus className="w-5 h-5 text-indigo-600" />
-                        Services & Prestations Optionnels (Bus, Cantine...)
+                    <DialogTitle className="flex items-center gap-2 text-slate-800">
+                        <PackagePlus className="w-5 h-5 text-amber-600" />
+                        Frais Annexes & Optionnels
                     </DialogTitle>
                 </DialogHeader>
 
                 {/* Bannière élève */}
-                <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3 rounded-lg flex items-center justify-between text-xs">
+                <div className="bg-slate-50 border border-slate-200 p-3 rounded-lg flex items-center justify-between text-xs">
                     <div>
-                        <span className="font-bold text-slate-900 dark:text-slate-100">
+                        <span className="font-bold text-slate-900">
                             {activeCompte.eleve?.nom} {activeCompte.eleve?.prenom}
                         </span>
                         <div className="text-slate-500">
@@ -155,7 +149,7 @@ export default function SouscriptionOptionModal({
 
                 {/* Liste des souscriptions actives */}
                 <div className="mt-2">
-                    <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    <Label className="text-xs font-semibold text-slate-700">
                         Souscriptions Actives ({souscriptionsActives.length})
                     </Label>
                     <div className="mt-1.5 space-y-2">
@@ -167,14 +161,14 @@ export default function SouscriptionOptionModal({
                             souscriptionsActives.map(sub => (
                                 <div
                                     key={sub.id}
-                                    className="flex items-center justify-between p-2.5 bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 rounded-md text-xs"
+                                    className="flex items-center justify-between p-2.5 bg-indigo-50/60 border border-indigo-200 rounded-md text-xs"
                                 >
                                     <div>
-                                        <div className="font-semibold text-indigo-900 dark:text-indigo-200 flex items-center gap-1.5">
+                                        <div className="font-semibold text-indigo-900 flex items-center gap-1.5">
                                             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                                             {sub.frais_scolaire?.type_frais?.libelle ?? 'Service Optionnel'}
                                             {sub.observations && (
-                                                <span className="text-[11px] font-normal text-slate-600 dark:text-slate-400">
+                                                <span className="text-[11px] font-normal text-slate-600">
                                                     ({sub.observations})
                                                 </span>
                                             )}
@@ -184,7 +178,7 @@ export default function SouscriptionOptionModal({
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <span className="font-bold text-indigo-700 dark:text-indigo-300">
+                                        <span className="font-bold text-indigo-700">
                                             {Number(sub.montant).toLocaleString('fr-FR')} FCFA
                                         </span>
                                         <Button
@@ -205,28 +199,30 @@ export default function SouscriptionOptionModal({
                 </div>
 
                 {/* Formulaire de nouvelle souscription */}
-                <form onSubmit={handleSubscribe} className="mt-4 border-t border-slate-200 dark:border-slate-800 pt-3 space-y-3">
-                    <div className="flex items-center gap-1 text-xs font-semibold text-slate-800 dark:text-slate-200">
+                <form onSubmit={handleSubscribe} className="mt-4 border-t border-slate-200 pt-3 space-y-3">
+                    <div className="flex items-center gap-1 text-xs font-semibold text-slate-800">
                         <PlusCircle className="w-4 h-4 text-emerald-600" />
                         Ajouter une prestation optionnelle
                     </div>
 
-                    <div className="space-y-1">
+                    <div className="space-y-1 min-w-0">
                         <Label htmlFor="frais-optionnel" className="text-xs">
                             Prestation / Option disponible *
                         </Label>
-                        <Select value={selectedFraisId} onValueChange={handleFraisChange}>
-                            <SelectTrigger id="frais-optionnel" className="h-9 text-xs">
-                                <SelectValue placeholder="Sélectionner une option (Bus, Cantine...)" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {optionsApplicables.map(f => (
-                                    <SelectItem key={f.id} value={f.id.toString()} className="text-xs">
-                                        {f.type_frais?.libelle} {f.libelle_tranche ? `(${f.libelle_tranche})` : ''} — {Number(f.montant).toLocaleString('fr-FR')} FCFA
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                        <SearchableSelect
+                            id="frais-optionnel"
+                            options={optionsApplicables.map((f) => ({
+                                value: f.id.toString(),
+                                label: `${f.type_frais?.libelle ?? ''}${f.libelle_tranche ? ` (${f.libelle_tranche})` : ''}`.trim(),
+                                description: `${Number(f.montant).toLocaleString('fr-FR')} FCFA`,
+                            }))}
+                            value={selectedFraisId}
+                            onValueChange={handleFraisChange}
+                            placeholder="Sélectionner un frais annexe (tenue, examen, transport...)"
+                            searchPlaceholder="Rechercher une option..."
+                            emptyMessage="Aucune option trouvée."
+                            className="h-9 text-xs font-normal"
+                        />
                         {optionsApplicables.length === 0 && (
                             <p className="text-[11px] text-amber-600">
                                 Aucun frais marqué comme optionnel n'a été paramétré dans la grille tarifaire pour ce niveau.
@@ -234,8 +230,8 @@ export default function SouscriptionOptionModal({
                         )}
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1 min-w-0">
                             <Label htmlFor="montant-option" className="text-xs">
                                 Montant facturé (FCFA) *
                             </Label>
@@ -250,7 +246,7 @@ export default function SouscriptionOptionModal({
                                 required
                             />
                         </div>
-                        <div className="space-y-1">
+                        <div className="space-y-1 min-w-0">
                             <Label htmlFor="obs-option" className="text-xs">
                                 Précisions / Arrêt / Formule
                             </Label>

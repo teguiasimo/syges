@@ -108,6 +108,16 @@ interface EtablissementItem {
     logo_url?: string | null;
     filigrane_url?: string | null;
     sections_count?: number;
+    cycles_count?: number;
+    niveaux_count?: number;
+    classes_count?: number;
+    inscriptions_count?: number;
+    personnels_count?: number;
+    users_count?: number;
+    periodes_count?: number;
+    frais_scolaires_count?: number;
+    comptes_financiers_count?: number;
+    depenses_count?: number;
 }
 
 interface SectionItem {
@@ -139,12 +149,15 @@ interface NiveauItem {
     nom_en?: string | null;
     ordre: number;
     classes_count?: number;
+    frais_scolaires_count?: number;
+    matiere_niveaux_count?: number;
 }
 
 interface SerieItem {
     id: number;
     etablissement_id: number;
     nom: string;
+    classes_count?: number;
 }
 
 interface ClasseItem {
@@ -225,12 +238,13 @@ export default function InstitutionIndex({
     // Référence pour mémoriser le dernier message affiché et éviter les doublons (notamment en React StrictMode)
     const lastToastRef = React.useRef<string | null>(null);
 
-    // Notifications Toasts avec déduplication stricte
+    // Notifications Toasts avec déduplication stricte (position haut à droite et fond vert sur succès)
     React.useEffect(() => {
         if (flash?.success && lastToastRef.current !== flash.success) {
             lastToastRef.current = flash.success;
             toast.success(flash.success, {
                 id: 'institution-flash-success',
+                position: 'top-right',
                 style: {
                     backgroundColor: '#10b981',
                     color: '#ffffff',
@@ -242,6 +256,7 @@ export default function InstitutionIndex({
             lastToastRef.current = flash.error;
             toast.error(flash.error, {
                 id: 'institution-flash-error',
+                position: 'top-right',
             });
         }
     }, [flash]);
@@ -506,7 +521,7 @@ export default function InstitutionIndex({
                 return (
                     <div className="flex items-center gap-3">
                         <div
-                            className="size-10 shrink-0 rounded-xl border border-border/80 bg-slate-50 dark:bg-slate-900 p-1 flex items-center justify-center overflow-hidden shadow-xs relative"
+                            className="size-10 shrink-0 rounded-xl border border-border/80 bg-slate-50 p-1 flex items-center justify-center overflow-hidden shadow-xs relative"
                             title={hasOwnLogo ? "Logo propre à cet établissement" : "Logo hérité de l'institution faîtière (repli automatique)"}
                         >
                             {displayLogo ? (
@@ -516,7 +531,7 @@ export default function InstitutionIndex({
                                     className="max-h-full max-w-full object-contain"
                                 />
                             ) : (
-                                <Building2 className="size-5 text-emerald-600 dark:text-emerald-400" />
+                                <Building2 className="size-5 text-emerald-600" />
                             )}
                             {hasOwnLogo && (
                                 <span
@@ -529,7 +544,7 @@ export default function InstitutionIndex({
                             <div className="font-semibold text-sm text-foreground flex flex-wrap items-center gap-1.5">
                                 <span>{item.nom}</span>
                                 {hasOwnLogo ? (
-                                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-medium text-emerald-700 bg-emerald-50 border-emerald-200 dark:text-emerald-300 dark:bg-emerald-950/40">
+                                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-medium text-emerald-700 bg-emerald-50 border-emerald-200">
                                         Logo propre
                                     </Badge>
                                 ) : institution.logo ? (
@@ -573,7 +588,7 @@ export default function InstitutionIndex({
             accessorKey: 'sections_count',
             header: 'Sections',
             cell: ({ row }) => (
-                <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300">
+                <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
                     <Layers className="size-3" />
                     {row.original.sections_count || 0} section(s)
                 </span>
@@ -593,7 +608,7 @@ export default function InstitutionIndex({
                             size="icon"
                             title="Explorer les sections de cet établissement"
                             onClick={() => handleNavigateBreadcrumb({ etablissement_id: item.id })}
-                            className="size-8 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 hover:text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800/60 cursor-pointer shadow-xs"
+                            className="size-8 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 hover:text-emerald-800 cursor-pointer shadow-xs"
                         >
                             <ChevronRight className="size-4" />
                             <span className="sr-only">Explorer</span>
@@ -606,7 +621,7 @@ export default function InstitutionIndex({
                                     size="icon"
                                     asChild
                                     title="Paramètres & Règles de l'établissement"
-                                    className="size-8 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 hover:text-amber-800 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800/60 cursor-pointer shadow-xs"
+                                    className="size-8 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 hover:text-amber-800 cursor-pointer shadow-xs"
                                 >
                                     <Link href={`/administration/etablissements/${item.id}/settings`}>
                                         <Sliders className="size-4" />
@@ -620,31 +635,96 @@ export default function InstitutionIndex({
                                     size="icon"
                                     title="Modifier l'établissement"
                                     onClick={() => handleOpenEditEtablissement(item)}
-                                    className="size-8 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 hover:text-blue-700 dark:bg-blue-950/50 dark:text-blue-400 dark:border-blue-800/60 cursor-pointer shadow-xs"
+                                    className="size-8 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 hover:text-blue-700 cursor-pointer shadow-xs"
                                 >
                                     <Edit2 className="size-4" />
                                     <span className="sr-only">Modifier</span>
                                 </Button>
 
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    title="Supprimer l'établissement"
-                                    onClick={() => {
-                                        confirmDelete({
-                                            title: "Supprimer l'établissement",
-                                            itemType: "l'établissement",
-                                            itemName: item.nom,
-                                            description: "Cette action effacera définitivement ce campus ainsi que toutes les sections, cycles, niveaux, classes et inscriptions rattachés.",
-                                            onConfirm: () => router.delete(`/administration/etablissements/${item.id}`),
-                                        });
-                                    }}
-                                    className="size-8 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 hover:text-rose-700 dark:bg-rose-950/50 dark:text-rose-400 dark:border-rose-800/60 cursor-pointer shadow-xs"
-                                >
-                                    <Trash2 className="size-4" />
-                                    <span className="sr-only">Supprimer</span>
-                                </Button>
+                                {(() => {
+                                    // Recense les dépendances pédagogiques, RH et financières bloquant la suppression du campus
+                                    const blockers: { label: string; count: number }[] = [
+                                        { label: 'section(s) pédagogique(s)', count: item.sections_count ?? 0 },
+                                        { label: 'cycle(s)', count: item.cycles_count ?? 0 },
+                                        { label: 'niveau(x) d\'étude', count: item.niveaux_count ?? 0 },
+                                        { label: 'classe(s)', count: item.classes_count ?? 0 },
+                                        { label: 'inscription(s) d\'élève(s)', count: item.inscriptions_count ?? 0 },
+                                        { label: 'membre(s) du personnel', count: item.personnels_count ?? 0 },
+                                        { label: 'compte(s) utilisateur(s)', count: item.users_count ?? 0 },
+                                        { label: 'période(s) / trimestre(s)', count: item.periodes_count ?? 0 },
+                                        { label: 'tarif(s) de frais scolaires', count: item.frais_scolaires_count ?? 0 },
+                                        { label: 'compte(s) financier(s) élève(s)', count: item.comptes_financiers_count ?? 0 },
+                                        { label: 'dépense(s) de caisse', count: item.depenses_count ?? 0 },
+                                    ].filter((b) => b.count > 0);
+
+                                    if (blockers.length > 0) {
+                                        return (
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                title="Suppression verrouillée : cet établissement contient encore des données actives. Cliquez pour voir le détail."
+                                                onClick={() => {
+                                                    confirmDelete({
+                                                        title: 'Suppression verrouillée',
+                                                        variant: 'warning',
+                                                        itemType: "l'établissement",
+                                                        itemName: item.nom,
+                                                        confirmLabel: 'Compris',
+                                                        cancelLabel: 'Fermer',
+                                                        description: (
+                                                            <div className="space-y-3 text-sm text-left">
+                                                                <p>
+                                                                    L'établissement <strong>« {item.nom} »</strong> ne peut pas être supprimé car il contient encore des éléments actifs :
+                                                                </p>
+                                                                <div className="bg-amber-500/10 border border-amber-200 rounded-lg p-3 space-y-1.5 text-xs text-foreground">
+                                                                    {blockers.map((blocker) => (
+                                                                        <div key={blocker.label} className="flex items-center gap-2">
+                                                                            <Lock className="size-3.5 text-amber-600 shrink-0" />
+                                                                            <span>
+                                                                                <strong>{blocker.count}</strong> {blocker.label}
+                                                                            </span>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                                <p className="text-xs text-muted-foreground">
+                                                                    Par sécurité, un établissement doit être totalement vidé de ses structures pédagogiques, personnels, comptes et données financières avant toute suppression.
+                                                                </p>
+                                                            </div>
+                                                        ),
+                                                        onConfirm: () => {},
+                                                    });
+                                                }}
+                                                className="size-8 rounded-lg bg-amber-50 text-amber-600 border border-amber-200 hover:bg-amber-100 hover:text-amber-700 cursor-pointer shadow-xs"
+                                            >
+                                                <Lock className="size-4" />
+                                                <span className="sr-only">Suppression verrouillée</span>
+                                            </Button>
+                                        );
+                                    }
+
+                                    return (
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="icon"
+                                            title="Supprimer l'établissement"
+                                            onClick={() => {
+                                                confirmDelete({
+                                                    title: "Supprimer l'établissement",
+                                                    itemType: "l'établissement",
+                                                    itemName: item.nom,
+                                                    description: "Cet établissement est vierge (aucune section, personnel, élève ni donnée financière). Il sera définitivement supprimé.",
+                                                    onConfirm: () => router.delete(`/administration/etablissements/${item.id}`),
+                                                });
+                                            }}
+                                            className="size-8 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 hover:text-rose-700 cursor-pointer shadow-xs"
+                                        >
+                                            <Trash2 className="size-4" />
+                                            <span className="sr-only">Supprimer</span>
+                                        </Button>
+                                    );
+                                })()}
                             </>
                         )}
                     </div>
@@ -678,8 +758,8 @@ export default function InstitutionIndex({
                 <Badge
                     variant="outline"
                     className={`font-semibold uppercase ${row.original.langue === 'fr'
-                            ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300'
-                            : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300'
+                            ? 'bg-blue-50 text-blue-700 border-blue-200'
+                            : 'bg-amber-50 text-amber-700 border-amber-200'
                         }`}
                 >
                     {row.original.langue === 'fr' ? 'Français (FR)' : 'English (EN)'}
@@ -690,7 +770,7 @@ export default function InstitutionIndex({
             accessorKey: 'cycles_count',
             header: 'Cycles',
             cell: ({ row }) => (
-                <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300">
+                <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
                     <GraduationCap className="size-3" />
                     {row.original.cycles_count || 0} cycle(s)
                 </span>
@@ -714,7 +794,7 @@ export default function InstitutionIndex({
                                     section_id: item.id,
                                 })
                             }
-                            className="size-8 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 hover:text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300 cursor-pointer shadow-xs"
+                            className="size-8 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 hover:text-emerald-800 cursor-pointer shadow-xs"
                         >
                             <ChevronRight className="size-4" />
                             <span className="sr-only">Explorer</span>
@@ -738,31 +818,65 @@ export default function InstitutionIndex({
                                         });
                                         setIsSectionModalOpen(true);
                                     }}
-                                    className="size-8 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 hover:text-blue-700 dark:bg-blue-950/50 dark:text-blue-400 cursor-pointer shadow-xs"
+                                    className="size-8 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 hover:text-blue-700 cursor-pointer shadow-xs"
                                 >
                                     <Edit2 className="size-4" />
                                     <span className="sr-only">Modifier</span>
                                 </Button>
 
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    title="Supprimer la section"
-                                    onClick={() => {
-                                        confirmDelete({
-                                            title: "Supprimer la section",
-                                            itemType: "la section",
-                                            itemName: item.nom,
-                                            description: "Cette suppression supprimera l'ensemble des cycles, niveaux et classes rattachés à cette section.",
-                                            onConfirm: () => router.delete(`/administration/sections/${item.id}`),
-                                        });
-                                    }}
-                                    className="size-8 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 hover:text-rose-700 dark:bg-rose-950/50 dark:text-rose-400 cursor-pointer shadow-xs"
-                                >
-                                    <Trash2 className="size-4" />
-                                    <span className="sr-only">Supprimer</span>
-                                </Button>
+                                {(item.cycles_count ?? 0) > 0 ? (
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        title={`Suppression verrouillée : cette section contient encore ${item.cycles_count} cycle(s).`}
+                                        onClick={() => {
+                                            confirmDelete({
+                                                title: 'Suppression verrouillée',
+                                                variant: 'warning',
+                                                itemType: 'la section',
+                                                itemName: item.nom,
+                                                confirmLabel: 'Compris',
+                                                cancelLabel: 'Fermer',
+                                                description: (
+                                                    <div className="space-y-2.5 text-sm text-left">
+                                                        <p>
+                                                            La section <strong>« {item.nom} »</strong> ne peut pas être supprimée car elle contient encore <strong>{item.cycles_count} cycle(s) pédagogique(s)</strong>.
+                                                        </p>
+                                                        <p className="text-xs text-muted-foreground">
+                                                            Supprimez ou videz d'abord les cycles rattachés à cette section avant de pouvoir la supprimer.
+                                                        </p>
+                                                    </div>
+                                                ),
+                                                onConfirm: () => {},
+                                            });
+                                        }}
+                                        className="size-8 rounded-lg bg-amber-50 text-amber-600 border border-amber-200 hover:bg-amber-100 hover:text-amber-700 cursor-pointer shadow-xs"
+                                    >
+                                        <Lock className="size-4" />
+                                        <span className="sr-only">Suppression verrouillée</span>
+                                    </Button>
+                                ) : (
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        title="Supprimer la section"
+                                        onClick={() => {
+                                            confirmDelete({
+                                                title: 'Supprimer la section',
+                                                itemType: 'la section',
+                                                itemName: item.nom,
+                                                description: "Cette section est vide (aucun cycle rattaché). Elle sera définitivement supprimée.",
+                                                onConfirm: () => router.delete(`/administration/sections/${item.id}`),
+                                            });
+                                        }}
+                                        className="size-8 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 hover:text-rose-700 cursor-pointer shadow-xs"
+                                    >
+                                        <Trash2 className="size-4" />
+                                        <span className="sr-only">Supprimer</span>
+                                    </Button>
+                                )}
                             </>
                         )}
                     </div>
@@ -799,7 +913,7 @@ export default function InstitutionIndex({
             header: 'Diplôme Officiel',
             cell: ({ row }) => (
                 row.original.diplome_fin_cycle ? (
-                    <Badge variant="secondary" className="font-semibold text-xs bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300">
+                    <Badge variant="secondary" className="font-semibold text-xs bg-indigo-50 text-indigo-700 border-indigo-200">
                         {row.original.diplome_fin_cycle}
                     </Badge>
                 ) : (
@@ -811,7 +925,7 @@ export default function InstitutionIndex({
             accessorKey: 'niveaux_count',
             header: 'Niveaux',
             cell: ({ row }) => (
-                <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-200 dark:bg-violet-950/40 dark:text-violet-300">
+                <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-200">
                     <BookOpen className="size-3" />
                     {row.original.niveaux_count || 0} niveau(x)
                 </span>
@@ -836,7 +950,7 @@ export default function InstitutionIndex({
                                     cycle_id: item.id,
                                 })
                             }
-                            className="size-8 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 hover:text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300 cursor-pointer shadow-xs"
+                            className="size-8 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 hover:text-emerald-800 cursor-pointer shadow-xs"
                         >
                             <ChevronRight className="size-4" />
                             <span className="sr-only">Explorer</span>
@@ -861,31 +975,65 @@ export default function InstitutionIndex({
                                         });
                                         setIsCycleModalOpen(true);
                                     }}
-                                    className="size-8 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 hover:text-blue-700 dark:bg-blue-950/50 dark:text-blue-400 cursor-pointer shadow-xs"
+                                    className="size-8 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 hover:text-blue-700 cursor-pointer shadow-xs"
                                 >
                                     <Edit2 className="size-4" />
                                     <span className="sr-only">Modifier</span>
                                 </Button>
 
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    title="Supprimer le cycle"
-                                    onClick={() => {
-                                        confirmDelete({
-                                            title: "Supprimer le cycle",
-                                            itemType: "le cycle",
-                                            itemName: item.nom,
-                                            description: "Cette action effacera tous les niveaux scolaires et les classes associés à ce cycle.",
-                                            onConfirm: () => router.delete(`/administration/cycles/${item.id}`),
-                                        });
-                                    }}
-                                    className="size-8 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 hover:text-rose-700 dark:bg-rose-950/50 dark:text-rose-400 cursor-pointer shadow-xs"
-                                >
-                                    <Trash2 className="size-4" />
-                                    <span className="sr-only">Supprimer</span>
-                                </Button>
+                                {(item.niveaux_count ?? 0) > 0 ? (
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        title={`Suppression verrouillée : ce cycle contient encore ${item.niveaux_count} niveau(x) d'étude.`}
+                                        onClick={() => {
+                                            confirmDelete({
+                                                title: 'Suppression verrouillée',
+                                                variant: 'warning',
+                                                itemType: 'le cycle',
+                                                itemName: item.nom,
+                                                confirmLabel: 'Compris',
+                                                cancelLabel: 'Fermer',
+                                                description: (
+                                                    <div className="space-y-2.5 text-sm text-left">
+                                                        <p>
+                                                            Le cycle <strong>« {item.nom} »</strong> ne peut pas être supprimé car il contient encore <strong>{item.niveaux_count} niveau(x) d'étude</strong>.
+                                                        </p>
+                                                        <p className="text-xs text-muted-foreground">
+                                                            Supprimez d'abord les niveaux rattachés à ce cycle avant de pouvoir le supprimer.
+                                                        </p>
+                                                    </div>
+                                                ),
+                                                onConfirm: () => {},
+                                            });
+                                        }}
+                                        className="size-8 rounded-lg bg-amber-50 text-amber-600 border border-amber-200 hover:bg-amber-100 hover:text-amber-700 cursor-pointer shadow-xs"
+                                    >
+                                        <Lock className="size-4" />
+                                        <span className="sr-only">Suppression verrouillée</span>
+                                    </Button>
+                                ) : (
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        title="Supprimer le cycle"
+                                        onClick={() => {
+                                            confirmDelete({
+                                                title: 'Supprimer le cycle',
+                                                itemType: 'le cycle',
+                                                itemName: item.nom,
+                                                description: "Ce cycle est vide (aucun niveau rattaché). Il sera définitivement supprimé.",
+                                                onConfirm: () => router.delete(`/administration/cycles/${item.id}`),
+                                            });
+                                        }}
+                                        className="size-8 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 hover:text-rose-700 cursor-pointer shadow-xs"
+                                    >
+                                        <Trash2 className="size-4" />
+                                        <span className="sr-only">Supprimer</span>
+                                    </Button>
+                                )}
                             </>
                         )}
                     </div>
@@ -921,7 +1069,7 @@ export default function InstitutionIndex({
             accessorKey: 'classes_count',
             header: 'Classes rattachées',
             cell: ({ row }) => (
-                <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-cyan-50 text-cyan-700 border border-cyan-200 dark:bg-cyan-950/40 dark:text-cyan-300">
+                <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-cyan-50 text-cyan-700 border border-cyan-200">
                     <Users className="size-3" />
                     {row.original.classes_count || 0} classe(s)
                 </span>
@@ -947,7 +1095,7 @@ export default function InstitutionIndex({
                                     niveau_id: item.id,
                                 })
                             }
-                            className="size-8 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 hover:text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300 cursor-pointer shadow-xs"
+                            className="size-8 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 hover:text-emerald-800 cursor-pointer shadow-xs"
                         >
                             <ChevronRight className="size-4" />
                             <span className="sr-only">Explorer</span>
@@ -971,31 +1119,88 @@ export default function InstitutionIndex({
                                         });
                                         setIsNiveauModalOpen(true);
                                     }}
-                                    className="size-8 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 hover:text-blue-700 dark:bg-blue-950/50 dark:text-blue-400 cursor-pointer shadow-xs"
+                                    className="size-8 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 hover:text-blue-700 cursor-pointer shadow-xs"
                                 >
                                     <Edit2 className="size-4" />
                                     <span className="sr-only">Modifier</span>
                                 </Button>
 
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    title="Supprimer le niveau"
-                                    onClick={() => {
-                                        confirmDelete({
-                                            title: "Supprimer le niveau",
-                                            itemType: "le niveau",
-                                            itemName: item.nom,
-                                            description: "Toutes les classes rattachées à ce niveau ainsi que leurs cours seront définitivement supprimés.",
-                                            onConfirm: () => router.delete(`/administration/niveaux/${item.id}`),
-                                        });
-                                    }}
-                                    className="size-8 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 hover:text-rose-700 dark:bg-rose-950/50 dark:text-rose-400 cursor-pointer shadow-xs"
-                                >
-                                    <Trash2 className="size-4" />
-                                    <span className="sr-only">Supprimer</span>
-                                </Button>
+                                {(() => {
+                                    // Vérifie toutes les liaisons bloquantes du niveau (classes, tarifs, coefficients)
+                                    const niveauBlockers: { label: string; count: number }[] = [
+                                        { label: 'classe(s) active(s)', count: item.classes_count ?? 0 },
+                                        { label: 'tarif(s) de frais scolaires', count: item.frais_scolaires_count ?? 0 },
+                                        { label: 'coefficient(s) de matière(s)', count: item.matiere_niveaux_count ?? 0 },
+                                    ].filter((b) => b.count > 0);
+
+                                    if (niveauBlockers.length > 0) {
+                                        return (
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                title="Suppression verrouillée : ce niveau possède encore des classes, tarifs ou coefficients rattachés."
+                                                onClick={() => {
+                                                    confirmDelete({
+                                                        title: 'Suppression verrouillée',
+                                                        variant: 'warning',
+                                                        itemType: 'le niveau',
+                                                        itemName: item.nom,
+                                                        confirmLabel: 'Compris',
+                                                        cancelLabel: 'Fermer',
+                                                        description: (
+                                                            <div className="space-y-3 text-sm text-left">
+                                                                <p>
+                                                                    Le niveau <strong>« {item.nom} »</strong> ne peut pas être supprimé car il possède encore des dépendances actives :
+                                                                </p>
+                                                                <div className="bg-amber-500/10 border border-amber-200 rounded-lg p-3 space-y-1.5 text-xs text-foreground">
+                                                                    {niveauBlockers.map((blocker) => (
+                                                                        <div key={blocker.label} className="flex items-center gap-2">
+                                                                            <Lock className="size-3.5 text-amber-600 shrink-0" />
+                                                                            <span>
+                                                                                <strong>{blocker.count}</strong> {blocker.label}
+                                                                            </span>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                                <p className="text-xs text-muted-foreground">
+                                                                    Retirez d'abord ces liaisons avant de pouvoir supprimer ce niveau.
+                                                                </p>
+                                                            </div>
+                                                        ),
+                                                        onConfirm: () => {},
+                                                    });
+                                                }}
+                                                className="size-8 rounded-lg bg-amber-50 text-amber-600 border border-amber-200 hover:bg-amber-100 hover:text-amber-700 cursor-pointer shadow-xs"
+                                            >
+                                                <Lock className="size-4" />
+                                                <span className="sr-only">Suppression verrouillée</span>
+                                            </Button>
+                                        );
+                                    }
+
+                                    return (
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="icon"
+                                            title="Supprimer le niveau"
+                                            onClick={() => {
+                                                confirmDelete({
+                                                    title: 'Supprimer le niveau',
+                                                    itemType: 'le niveau',
+                                                    itemName: item.nom,
+                                                    description: "Ce niveau est vierge (aucune classe, frais scolaire ni coefficient). Il sera définitivement supprimé.",
+                                                    onConfirm: () => router.delete(`/administration/niveaux/${item.id}`),
+                                                });
+                                            }}
+                                            className="size-8 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 hover:text-rose-700 cursor-pointer shadow-xs"
+                                        >
+                                            <Trash2 className="size-4" />
+                                            <span className="sr-only">Supprimer</span>
+                                        </Button>
+                                    );
+                                })()}
                             </>
                         )}
                     </div>
@@ -1069,7 +1274,7 @@ export default function InstitutionIndex({
                             title={`${inscriptions} élève(s) inscrit(s)`}
                             className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-md border ${
                                 inscriptions > 0
-                                    ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800'
+                                    ? 'bg-blue-50 text-blue-700 border-blue-200'
                                     : 'bg-muted/50 text-muted-foreground border-muted'
                             }`}
                         >
@@ -1080,7 +1285,7 @@ export default function InstitutionIndex({
                             title={`${attributions} matière(s) / enseignant(s) attribué(s)`}
                             className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-md border ${
                                 attributions > 0
-                                    ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800'
+                                    ? 'bg-amber-50 text-amber-700 border-amber-200'
                                     : 'bg-muted/50 text-muted-foreground border-muted'
                             }`}
                         >
@@ -1109,8 +1314,8 @@ export default function InstitutionIndex({
                             can.classes_manage ? 'cursor-pointer hover:shadow-xs' : 'cursor-default'
                         } ${
                             item.is_active
-                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300'
-                                : 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300'
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                : 'bg-rose-50 text-rose-700 border-rose-200'
                         }`}
                     >
                         {/* Commutateur visuel miniature */}
@@ -1149,7 +1354,7 @@ export default function InstitutionIndex({
                             size="icon"
                             title="Imprimer la fiche d'appel de cette classe (PDF)"
                             onClick={() => window.open(`/administration/documents/fiche-appel/${item.id}`, '_blank')}
-                            className="size-8 rounded-lg bg-sky-50 text-sky-600 border border-sky-200 hover:bg-sky-100 hover:text-sky-700 dark:bg-sky-950/50 dark:text-sky-400 cursor-pointer shadow-xs"
+                            className="size-8 rounded-lg bg-sky-50 text-sky-600 border border-sky-200 hover:bg-sky-100 hover:text-sky-700 cursor-pointer shadow-xs"
                         >
                             <Printer className="size-4" />
                             <span className="sr-only">Fiche d'appel</span>
@@ -1161,7 +1366,7 @@ export default function InstitutionIndex({
                             size="icon"
                             title="Imprimer la liste officielle des élèves de cette classe (PDF)"
                             onClick={() => window.open(`/administration/documents/liste-eleves/${item.id}?type=definitive`, '_blank')}
-                            className="size-8 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100 hover:text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400 cursor-pointer shadow-xs"
+                            className="size-8 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100 hover:text-emerald-700 cursor-pointer shadow-xs"
                         >
                             <FileText className="size-4" />
                             <span className="sr-only">Liste des élèves</span>
@@ -1184,7 +1389,7 @@ export default function InstitutionIndex({
                                 });
                                 setIsClasseModalOpen(true);
                             }}
-                            className="size-8 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 hover:text-blue-700 dark:bg-blue-950/50 dark:text-blue-400 cursor-pointer shadow-xs"
+                            className="size-8 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 hover:text-blue-700 cursor-pointer shadow-xs"
                         >
                             <Edit2 className="size-4" />
                             <span className="sr-only">Modifier</span>
@@ -1209,7 +1414,7 @@ export default function InstitutionIndex({
                                                 <p>
                                                     La classe <strong>« {item.nom} »</strong> ne peut pas être supprimée car elle contient des données pédagogiques actives :
                                                 </p>
-                                                <div className="bg-amber-500/10 border border-amber-200 dark:border-amber-800 rounded-lg p-3 space-y-1.5 text-xs text-foreground">
+                                                <div className="bg-amber-500/10 border border-amber-200 rounded-lg p-3 space-y-1.5 text-xs text-foreground">
                                                     {(item.attributions_count ?? 0) > 0 && (
                                                         <div className="flex items-center gap-2">
                                                             <BookOpen className="size-3.5 text-amber-600 shrink-0" />
@@ -1241,7 +1446,7 @@ export default function InstitutionIndex({
                                         },
                                     });
                                 }}
-                                className="size-8 rounded-lg bg-amber-50 text-amber-600 border border-amber-200 hover:bg-amber-100 hover:text-amber-700 dark:bg-amber-950/50 dark:text-amber-400 cursor-pointer shadow-xs"
+                                className="size-8 rounded-lg bg-amber-50 text-amber-600 border border-amber-200 hover:bg-amber-100 hover:text-amber-700 cursor-pointer shadow-xs"
                             >
                                 <Lock className="size-4" />
                                 <span className="sr-only">Suppression verrouillée</span>
@@ -1261,7 +1466,7 @@ export default function InstitutionIndex({
                                         onConfirm: () => router.delete(`/administration/classes/${item.id}`),
                                     });
                                 }}
-                                className="size-8 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 hover:text-rose-700 dark:bg-rose-950/50 dark:text-rose-400 cursor-pointer shadow-xs"
+                                className="size-8 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 hover:text-rose-700 cursor-pointer shadow-xs"
                             >
                                 <Trash2 className="size-4" />
                                 <span className="sr-only">Supprimer</span>
@@ -1464,7 +1669,7 @@ export default function InstitutionIndex({
                     <div className="flex flex-wrap items-center justify-between gap-4">
                         <div>
                             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground flex items-center gap-2.5">
-                                <School className="size-7 text-indigo-600 dark:text-indigo-400" />
+                                <School className="size-7 text-indigo-600" />
                                 Institution & Structure Pédagogique
                             </h1>
                             <p className="text-muted-foreground text-sm mt-1">
@@ -1474,28 +1679,28 @@ export default function InstitutionIndex({
                     </div>
 
                     {/* Fil d'Ariane interactif (Approche A) harmonisé avec style contrasté et troncature anti-débordement */}
-                    <nav className="flex items-center flex-wrap gap-2 text-xs text-slate-700 dark:text-slate-300 p-3.5 rounded-2xl bg-linear-to-r from-slate-200/90 via-slate-100/95 to-slate-200/80 dark:from-slate-850 dark:via-slate-800 dark:to-slate-850 border-2 border-slate-300/90 dark:border-slate-700 shadow-xs">
+                    <nav className="flex items-center flex-wrap gap-2 text-xs text-slate-700 p-3.5 rounded-2xl bg-linear-to-r from-slate-200/90 via-slate-100/95 to-slate-200/80 border-2 border-slate-300/90 shadow-xs">
                         <button
                             type="button"
                             onClick={() => handleNavigateBreadcrumb({})}
                             title={`Institution faîtière : ${institution.nom}`}
-                            className="flex items-center gap-1.5 font-semibold text-slate-800 dark:text-slate-200 hover:text-primary transition-colors cursor-pointer max-w-45 sm:max-w-60 md:max-w-75"
+                            className="flex items-center gap-1.5 font-semibold text-slate-800 hover:text-primary transition-colors cursor-pointer max-w-45 sm:max-w-60 md:max-w-75"
                         >
-                            <Home className="size-3.5 shrink-0 text-indigo-600 dark:text-indigo-400" />
+                            <Home className="size-3.5 shrink-0 text-indigo-600" />
                             <span className="truncate">{institution.nom}</span>
                         </button>
 
                         {breadcrumbs.slice(1).map((step, idx) => (
                             <React.Fragment key={idx}>
-                                <ChevronRight className="size-3 shrink-0 text-slate-400 dark:text-slate-500" />
+                                <ChevronRight className="size-3 shrink-0 text-slate-400" />
                                 <button
                                     type="button"
                                     onClick={() => handleNavigateBreadcrumb(step.params)}
                                     title={step.label}
                                     className={`transition-colors cursor-pointer max-w-35 sm:max-w-50 md:max-w-65 ${
                                         idx === breadcrumbs.length - 2
-                                            ? 'text-slate-900 dark:text-white font-bold bg-white dark:bg-slate-900 px-2.5 py-0.5 rounded-lg border border-slate-300 dark:border-slate-700 shadow-xs'
-                                            : 'font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                                            ? 'text-slate-900 font-bold bg-white px-2.5 py-0.5 rounded-lg border border-slate-300 shadow-xs'
+                                            : 'font-medium text-slate-600 hover:text-slate-900'
                                     }`}
                                 >
                                     <span className="truncate block">{step.label}</span>
@@ -1509,18 +1714,18 @@ export default function InstitutionIndex({
                 {!selectedEtablissement && (
                     <div className="space-y-6">
                         {/* Fiche d'identité de l'institution avec en-tête contrasté */}
-                        <div className="rounded-2xl border-2 border-slate-300/90 dark:border-slate-700 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400 dark:hover:border-slate-600">
+                        <div className="rounded-2xl border-2 border-slate-300/90 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400">
                             {/* Bandeau d'en-tête contrasté */}
-                            <div className="bg-linear-to-r from-slate-200/95 via-indigo-100/70 to-slate-200/80 dark:from-slate-800 dark:via-indigo-950/40 dark:to-slate-800/90 px-6 py-4 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
+                            <div className="bg-linear-to-r from-slate-200/95 via-indigo-100/70 to-slate-200/80 px-6 py-4 border-b-2 border-slate-300 flex flex-wrap items-center justify-between gap-4">
                                 <div className="flex items-center gap-3">
                                     <div className="flex size-9 items-center justify-center rounded-xl bg-linear-to-br from-indigo-600 to-violet-700 text-white font-bold shadow-xs shrink-0">
                                         <School className="size-4" />
                                     </div>
                                     <div>
-                                        <span className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                                        <span className="text-xs font-bold text-slate-900 uppercase tracking-wider">
                                             Groupe Scolaire & Institution Faîtière
                                         </span>
-                                        <p className="text-xs text-slate-600 dark:text-slate-400">
+                                        <p className="text-xs text-slate-600">
                                             Organisme faîtier, tutelles administratives et siège social de référence
                                         </p>
                                     </div>
@@ -1558,7 +1763,7 @@ export default function InstitutionIndex({
                                 <div className="flex flex-wrap items-start justify-between gap-4">
                                     <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-5 max-w-3xl min-w-0">
                                         {institution.logo && (
-                                            <div className="size-16 sm:size-20 shrink-0 rounded-2xl border border-border/80 bg-slate-50 dark:bg-slate-900 p-1.5 shadow-xs flex items-center justify-center overflow-hidden">
+                                            <div className="size-16 sm:size-20 shrink-0 rounded-2xl border border-border/80 bg-slate-50 p-1.5 shadow-xs flex items-center justify-center overflow-hidden">
                                                 <img
                                                     src={institution.logo}
                                                     alt={`Logo de ${institution.nom}`}
@@ -1580,7 +1785,7 @@ export default function InstitutionIndex({
                                                 <p className="text-xs sm:text-sm text-muted-foreground italic">{institution.nom_en}</p>
                                             )}
                                             {institution.devise && (
-                                                <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400 pt-1">
+                                                <p className="text-xs font-medium text-emerald-600 pt-1">
                                                     « {institution.devise} » {institution.devise_en ? `/ "${institution.devise_en}"` : ''}
                                                 </p>
                                             )}
@@ -1618,17 +1823,17 @@ export default function InstitutionIndex({
                         </div>
 
                         {/* Liste des campus et établissements encadrée dans une carte avec bandeau d'en-tête contrasté */}
-                        <div className="rounded-2xl border-2 border-slate-300/90 dark:border-slate-700 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400 dark:hover:border-slate-600">
-                            <div className="bg-linear-to-r from-slate-200/95 via-emerald-100/70 to-slate-200/80 dark:from-slate-800 dark:via-emerald-950/40 dark:to-slate-800/90 px-6 py-4 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
+                        <div className="rounded-2xl border-2 border-slate-300/90 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400">
+                            <div className="bg-linear-to-r from-slate-200/95 via-emerald-100/70 to-slate-200/80 px-6 py-4 border-b-2 border-slate-300 flex flex-wrap items-center justify-between gap-4">
                                 <div className="flex items-center gap-3">
                                     <div className="flex size-9 items-center justify-center rounded-xl bg-linear-to-br from-emerald-600 to-teal-700 text-white font-bold shadow-xs shrink-0">
                                         <Building2 className="size-4" />
                                     </div>
                                     <div>
-                                        <h3 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
+                                        <h3 className="text-base font-bold text-slate-900 tracking-tight">
                                             Campus & Établissements Scolaires
                                         </h3>
-                                        <p className="text-xs text-slate-600 dark:text-slate-400">
+                                        <p className="text-xs text-slate-600">
                                             Cliquez sur la flèche verte d'un établissement pour explorer ses sections, cycles et classes.
                                         </p>
                                     </div>
@@ -1662,11 +1867,11 @@ export default function InstitutionIndex({
                 {selectedEtablissement && !selectedSection && (
                     <div className="space-y-6">
                         {/* En-tête de l'établissement actif */}
-                        <div className="rounded-2xl border-2 border-slate-300/90 dark:border-slate-700 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400 dark:hover:border-slate-600">
-                            <div className="bg-linear-to-r from-slate-200/95 via-emerald-100/70 to-slate-200/80 dark:from-slate-800 dark:via-emerald-950/40 dark:to-slate-800/90 px-6 py-4.5 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
+                        <div className="rounded-2xl border-2 border-slate-300/90 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400">
+                            <div className="bg-linear-to-r from-slate-200/95 via-emerald-100/70 to-slate-200/80 px-6 py-4.5 border-b-2 border-slate-300 flex flex-wrap items-center justify-between gap-4">
                                 <div className="flex items-center gap-3.5">
                                     <div
-                                        className="size-12 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 p-1 flex items-center justify-center shadow-xs shrink-0 overflow-hidden relative"
+                                        className="size-12 rounded-xl bg-slate-50 border border-slate-300 p-1 flex items-center justify-center shadow-xs shrink-0 overflow-hidden relative"
                                         title={selectedEtablissement.logo ? "Logo propre à l'établissement" : "Logo hérité de l'institution (repli automatique)"}
                                     >
                                         {(selectedEtablissement.logo || selectedEtablissement.effective_logo || institution.logo) ? (
@@ -1676,7 +1881,7 @@ export default function InstitutionIndex({
                                                 className="max-h-full max-w-full object-contain"
                                             />
                                         ) : (
-                                            <Building2 className="size-6 text-emerald-600 dark:text-emerald-400" />
+                                            <Building2 className="size-6 text-emerald-600" />
                                         )}
                                         {selectedEtablissement.logo && (
                                             <span
@@ -1688,17 +1893,17 @@ export default function InstitutionIndex({
 
                                     <div className="space-y-1">
                                         <div className="flex flex-wrap items-center gap-2">
-                                            <span className="font-mono text-xs font-bold text-emerald-800 dark:text-emerald-300 bg-white dark:bg-slate-900 px-2.5 py-0.5 rounded-md border border-slate-300 dark:border-slate-700 shadow-xs">
+                                            <span className="font-mono text-xs font-bold text-emerald-800 bg-white px-2.5 py-0.5 rounded-md border border-slate-300 shadow-xs">
                                                 {selectedEtablissement.code}
                                             </span>
-                                            <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight">
+                                            <h2 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
                                                 {selectedEtablissement.nom}
                                             </h2>
-                                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
+                                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
                                                 Établissement Actif
                                             </span>
                                             {selectedEtablissement.logo ? (
-                                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-medium text-emerald-700 bg-emerald-50 border-emerald-200 dark:text-emerald-300 dark:bg-emerald-950/40">
+                                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-medium text-emerald-700 bg-emerald-50 border-emerald-200">
                                                     Logo propre
                                                 </Badge>
                                             ) : institution.logo ? (
@@ -1707,8 +1912,8 @@ export default function InstitutionIndex({
                                                 </Badge>
                                             ) : null}
                                         </div>
-                                        <p className="text-xs text-slate-600 dark:text-slate-400">
-                                            Chef d'établissement : <span className="font-medium text-slate-900 dark:text-white">{selectedEtablissement.nom_chef_etablissement || 'Non désigné'}</span> • Statut : <span className="font-medium text-slate-900 dark:text-white">{selectedEtablissement.statut_juridique.replace('_', ' ')}</span>
+                                        <p className="text-xs text-slate-600">
+                                            Chef d'établissement : <span className="font-medium text-slate-900">{selectedEtablissement.nom_chef_etablissement || 'Non désigné'}</span> • Statut : <span className="font-medium text-slate-900">{selectedEtablissement.statut_juridique.replace('_', ' ')}</span>
                                         </p>
                                     </div>
                                 </div>
@@ -1741,17 +1946,17 @@ export default function InstitutionIndex({
                         </div>
 
                         {/* Tableau des sections encadré dans une carte avec bandeau d'en-tête */}
-                        <div className="rounded-2xl border-2 border-slate-300/90 dark:border-slate-700 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400 dark:hover:border-slate-600">
-                            <div className="bg-linear-to-r from-slate-200/95 via-teal-100/70 to-slate-200/80 dark:from-slate-800 dark:via-teal-950/40 dark:to-slate-800/90 px-6 py-4 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
+                        <div className="rounded-2xl border-2 border-slate-300/90 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400">
+                            <div className="bg-linear-to-r from-slate-200/95 via-teal-100/70 to-slate-200/80 px-6 py-4 border-b-2 border-slate-300 flex flex-wrap items-center justify-between gap-4">
                                 <div className="flex items-center gap-3">
                                     <div className="flex size-9 items-center justify-center rounded-xl bg-linear-to-br from-teal-600 to-emerald-700 text-white font-bold shadow-xs shrink-0">
                                         <Layers className="size-4" />
                                     </div>
                                     <div>
-                                        <h3 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
+                                        <h3 className="text-base font-bold text-slate-900 tracking-tight">
                                             Sections d'Enseignement (Sous-systèmes)
                                         </h3>
-                                        <p className="text-xs text-slate-600 dark:text-slate-400">
+                                        <p className="text-xs text-slate-600">
                                             Sous-systèmes éducatifs francophone, anglophone ou technique de l'établissement.
                                         </p>
                                     </div>
@@ -1773,8 +1978,8 @@ export default function InstitutionIndex({
                 {selectedSection && !selectedCycle && (
                     <div className="space-y-6">
                         {/* En-tête de la section active */}
-                        <div className="rounded-2xl border-2 border-slate-300/90 dark:border-slate-700 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400 dark:hover:border-slate-600">
-                            <div className="bg-linear-to-r from-slate-200/95 via-teal-100/70 to-slate-200/80 dark:from-slate-800 dark:via-teal-950/40 dark:to-slate-800/90 px-6 py-4.5 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
+                        <div className="rounded-2xl border-2 border-slate-300/90 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400">
+                            <div className="bg-linear-to-r from-slate-200/95 via-teal-100/70 to-slate-200/80 px-6 py-4.5 border-b-2 border-slate-300 flex flex-wrap items-center justify-between gap-4">
                                 <div className="flex items-center gap-3.5">
                                     <div className="size-10 rounded-xl bg-linear-to-br from-teal-600 to-emerald-700 text-white font-bold text-sm flex items-center justify-center shadow-xs shrink-0">
                                         <Layers className="size-5" />
@@ -1782,18 +1987,18 @@ export default function InstitutionIndex({
 
                                     <div className="space-y-1">
                                         <div className="flex flex-wrap items-center gap-2">
-                                            <span className="font-mono text-xs font-bold text-teal-800 dark:text-teal-300 bg-white dark:bg-slate-900 px-2.5 py-0.5 rounded-md border border-slate-300 dark:border-slate-700 shadow-xs uppercase">
+                                            <span className="font-mono text-xs font-bold text-teal-800 bg-white px-2.5 py-0.5 rounded-md border border-slate-300 shadow-xs uppercase">
                                                 {selectedSection.langue}
                                             </span>
-                                            <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight">
+                                            <h2 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
                                                 {selectedSection.nom}
                                             </h2>
-                                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-teal-100 dark:bg-teal-950/60 text-teal-800 dark:text-teal-300 border border-teal-300 dark:border-teal-700">
+                                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-teal-100 text-teal-800 border border-teal-300">
                                                 Section Active
                                             </span>
                                         </div>
-                                        <p className="text-xs text-slate-600 dark:text-slate-400">
-                                            Sous-système d'enseignement de l'établissement <span className="font-medium text-slate-900 dark:text-white">{selectedEtablissement?.nom}</span>
+                                        <p className="text-xs text-slate-600">
+                                            Sous-système d'enseignement de l'établissement <span className="font-medium text-slate-900">{selectedEtablissement?.nom}</span>
                                         </p>
                                     </div>
                                 </div>
@@ -1824,17 +2029,17 @@ export default function InstitutionIndex({
                         </div>
 
                         {/* Tableau des cycles encadré dans une carte avec bandeau d'en-tête */}
-                        <div className="rounded-2xl border-2 border-slate-300/90 dark:border-slate-700 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400 dark:hover:border-slate-600">
-                            <div className="bg-linear-to-r from-slate-200/95 via-indigo-100/70 to-slate-200/80 dark:from-slate-800 dark:via-indigo-950/40 dark:to-slate-800/90 px-6 py-4 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
+                        <div className="rounded-2xl border-2 border-slate-300/90 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400">
+                            <div className="bg-linear-to-r from-slate-200/95 via-indigo-100/70 to-slate-200/80 px-6 py-4 border-b-2 border-slate-300 flex flex-wrap items-center justify-between gap-4">
                                 <div className="flex items-center gap-3">
                                     <div className="flex size-9 items-center justify-center rounded-xl bg-linear-to-br from-indigo-600 to-violet-700 text-white font-bold shadow-xs shrink-0">
                                         <GraduationCap className="size-4" />
                                     </div>
                                     <div>
-                                        <h3 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
+                                        <h3 className="text-base font-bold text-slate-900 tracking-tight">
                                             Cycles d'Enseignement
                                         </h3>
-                                        <p className="text-xs text-slate-600 dark:text-slate-400">
+                                        <p className="text-xs text-slate-600">
                                             Cycles officiels (1er Cycle, 2nd Cycle...) et diplômes de fin de cursus préparés.
                                         </p>
                                     </div>
@@ -1856,8 +2061,8 @@ export default function InstitutionIndex({
                 {selectedCycle && !selectedNiveau && (
                     <div className="space-y-6">
                         {/* En-tête du cycle actif */}
-                        <div className="rounded-2xl border-2 border-slate-300/90 dark:border-slate-700 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400 dark:hover:border-slate-600">
-                            <div className="bg-linear-to-r from-slate-200/95 via-indigo-100/70 to-slate-200/80 dark:from-slate-800 dark:via-indigo-950/40 dark:to-slate-800/90 px-6 py-4.5 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
+                        <div className="rounded-2xl border-2 border-slate-300/90 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400">
+                            <div className="bg-linear-to-r from-slate-200/95 via-indigo-100/70 to-slate-200/80 px-6 py-4.5 border-b-2 border-slate-300 flex flex-wrap items-center justify-between gap-4">
                                 <div className="flex items-center gap-3.5">
                                     <div className="size-10 rounded-xl bg-linear-to-br from-indigo-600 to-violet-700 text-white font-bold text-sm flex items-center justify-center shadow-xs shrink-0">
                                         <GraduationCap className="size-5" />
@@ -1865,23 +2070,23 @@ export default function InstitutionIndex({
 
                                     <div className="space-y-1">
                                         <div className="flex flex-wrap items-center gap-2">
-                                            <span className="font-mono text-xs font-bold text-indigo-800 dark:text-indigo-300 bg-white dark:bg-slate-900 px-2.5 py-0.5 rounded-md border border-slate-300 dark:border-slate-700 shadow-xs">
+                                            <span className="font-mono text-xs font-bold text-indigo-800 bg-white px-2.5 py-0.5 rounded-md border border-slate-300 shadow-xs">
                                                 {selectedCycle.code}
                                             </span>
-                                            <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight">
+                                            <h2 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
                                                 {selectedCycle.nom}
                                             </h2>
                                             {selectedCycle.diplome_fin_cycle && (
-                                                <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded-md bg-indigo-100 dark:bg-indigo-950/60 text-indigo-800 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-700">
+                                                <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800 border border-indigo-300">
                                                     {selectedCycle.diplome_fin_cycle}
                                                 </span>
                                             )}
-                                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950/60 text-indigo-800 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-700">
+                                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 border border-indigo-300">
                                                 Cycle Actif
                                             </span>
                                         </div>
-                                        <p className="text-xs text-slate-600 dark:text-slate-400">
-                                            Cycle d'enseignement au sein de {selectedSection?.nom?.toLowerCase().startsWith('section') ? 'la ' : 'la section '}<span className="font-medium text-slate-900 dark:text-white">{selectedSection?.nom}</span>
+                                        <p className="text-xs text-slate-600">
+                                            Cycle d'enseignement au sein de {selectedSection?.nom?.toLowerCase().startsWith('section') ? 'la ' : 'la section '}<span className="font-medium text-slate-900">{selectedSection?.nom}</span>
                                         </p>
                                     </div>
                                 </div>
@@ -1911,17 +2116,17 @@ export default function InstitutionIndex({
                         </div>
 
                         {/* Tableau des niveaux encadré dans une carte avec bandeau d'en-tête */}
-                        <div className="rounded-2xl border-2 border-slate-300/90 dark:border-slate-700 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400 dark:hover:border-slate-600">
-                            <div className="bg-linear-to-r from-slate-200/95 via-violet-100/70 to-slate-200/80 dark:from-slate-800 dark:via-violet-950/40 dark:to-slate-800/90 px-6 py-4 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
+                        <div className="rounded-2xl border-2 border-slate-300/90 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400">
+                            <div className="bg-linear-to-r from-slate-200/95 via-violet-100/70 to-slate-200/80 px-6 py-4 border-b-2 border-slate-300 flex flex-wrap items-center justify-between gap-4">
                                 <div className="flex items-center gap-3">
                                     <div className="flex size-9 items-center justify-center rounded-xl bg-linear-to-br from-violet-600 to-purple-700 text-white font-bold shadow-xs shrink-0">
                                         <BookOpen className="size-4" />
                                     </div>
                                     <div>
-                                        <h3 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
+                                        <h3 className="text-base font-bold text-slate-900 tracking-tight">
                                             Niveaux d'Étude (Paliers académiques)
                                         </h3>
-                                        <p className="text-xs text-slate-600 dark:text-slate-400">
+                                        <p className="text-xs text-slate-600">
                                             Paliers académiques et hiérarchie de progression des élèves.
                                         </p>
                                     </div>
@@ -1943,8 +2148,8 @@ export default function InstitutionIndex({
                 {selectedNiveau && (
                     <div className="space-y-6">
                         {/* En-tête du niveau actif */}
-                        <div className="rounded-2xl border-2 border-slate-300/90 dark:border-slate-700 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400 dark:hover:border-slate-600">
-                            <div className="bg-linear-to-r from-slate-200/95 via-violet-100/70 to-slate-200/80 dark:from-slate-800 dark:via-violet-950/40 dark:to-slate-800/90 px-6 py-4.5 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
+                        <div className="rounded-2xl border-2 border-slate-300/90 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400">
+                            <div className="bg-linear-to-r from-slate-200/95 via-violet-100/70 to-slate-200/80 px-6 py-4.5 border-b-2 border-slate-300 flex flex-wrap items-center justify-between gap-4">
                                 <div className="flex items-center gap-3.5">
                                     <div className="size-10 rounded-xl bg-linear-to-br from-violet-600 to-purple-700 text-white font-bold text-sm flex items-center justify-center shadow-xs shrink-0">
                                         <BookOpen className="size-5" />
@@ -1952,18 +2157,18 @@ export default function InstitutionIndex({
 
                                     <div className="space-y-1">
                                         <div className="flex flex-wrap items-center gap-2">
-                                            <span className="font-mono text-xs font-bold text-violet-800 dark:text-violet-300 bg-white dark:bg-slate-900 px-2.5 py-0.5 rounded-md border border-slate-300 dark:border-slate-700 shadow-xs">
+                                            <span className="font-mono text-xs font-bold text-violet-800 bg-white px-2.5 py-0.5 rounded-md border border-slate-300 shadow-xs">
                                                 #{selectedNiveau.ordre}
                                             </span>
-                                            <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight">
+                                            <h2 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
                                                 {selectedNiveau.nom.toLowerCase().startsWith('niveau') ? selectedNiveau.nom : `Niveau ${selectedNiveau.nom}`}
                                             </h2>
-                                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-violet-100 dark:bg-violet-950/60 text-violet-800 dark:text-violet-300 border border-violet-300 dark:border-violet-700">
+                                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-violet-100 text-violet-800 border border-violet-300">
                                                 Niveau Actif
                                             </span>
                                         </div>
-                                        <p className="text-xs text-slate-600 dark:text-slate-400">
-                                            Paliers d'enseignement au sein du {selectedCycle?.nom?.toLowerCase().includes('cycle') ? '' : 'cycle '}<span className="font-medium text-slate-900 dark:text-white">{selectedCycle?.nom}</span>
+                                        <p className="text-xs text-slate-600">
+                                            Paliers d'enseignement au sein du {selectedCycle?.nom?.toLowerCase().includes('cycle') ? '' : 'cycle '}<span className="font-medium text-slate-900">{selectedCycle?.nom}</span>
                                         </p>
                                     </div>
                                 </div>
@@ -1976,7 +2181,7 @@ export default function InstitutionIndex({
                                             size="sm"
                                             variant="outline"
                                             onClick={handleOpenCreateSerie}
-                                            className="gap-2 cursor-pointer border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs h-9"
+                                            className="gap-2 cursor-pointer border-slate-300 bg-white text-slate-700 hover:bg-slate-100 text-xs h-9"
                                         >
                                             <Tag className="size-3.5 text-primary" />
                                             <span>Gérer les Séries ({series.length})</span>
@@ -2010,17 +2215,17 @@ export default function InstitutionIndex({
                         </div>
 
                         {/* Tableau des classes encadré dans une carte avec bandeau d'en-tête */}
-                        <div className="rounded-2xl border-2 border-slate-300/90 dark:border-slate-700 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400 dark:hover:border-slate-600">
-                            <div className="bg-linear-to-r from-slate-200/95 via-sky-100/70 to-slate-200/80 dark:from-slate-800 dark:via-sky-950/40 dark:to-slate-800/90 px-6 py-4 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
+                        <div className="rounded-2xl border-2 border-slate-300/90 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400">
+                            <div className="bg-linear-to-r from-slate-200/95 via-sky-100/70 to-slate-200/80 px-6 py-4 border-b-2 border-slate-300 flex flex-wrap items-center justify-between gap-4">
                                 <div className="flex items-center gap-3">
                                     <div className="flex size-9 items-center justify-center rounded-xl bg-linear-to-br from-sky-600 to-indigo-600 text-white font-bold shadow-xs shrink-0">
                                         <Users className="size-4" />
                                     </div>
                                     <div>
-                                        <h3 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
+                                        <h3 className="text-base font-bold text-slate-900 tracking-tight">
                                             Classes d'Élèves
                                         </h3>
-                                        <p className="text-xs text-slate-600 dark:text-slate-400">
+                                        <p className="text-xs text-slate-600">
                                             Divisions pédagogiques, effectifs maximaux et cours dispensés.
                                         </p>
                                     </div>
@@ -2036,10 +2241,10 @@ export default function InstitutionIndex({
                                             const etabParam = selectedEtablissement ? `?etablissement_id=${selectedEtablissement.id}` : '';
                                             window.open(`/administration/documents/liste-classes${etabParam}`, '_blank');
                                         }}
-                                        className="gap-2 cursor-pointer border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs h-9 shadow-xs"
+                                        className="gap-2 cursor-pointer border-slate-300 bg-white text-slate-700 hover:bg-slate-100 text-xs h-9 shadow-xs"
                                         title="Imprimer le tableau récapitulatif officiel des classes (PDF)"
                                     >
-                                        <Printer className="size-3.5 text-indigo-600 dark:text-indigo-400" />
+                                        <Printer className="size-3.5 text-indigo-600" />
                                         <span>Liste des Classes (PDF)</span>
                                     </Button>
                                 </div>
@@ -2223,11 +2428,11 @@ export default function InstitutionIndex({
                         </div>
 
                         {/* Champ Logo propre au campus avec fallback institution */}
-                        <div className="space-y-1.5 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800">
+                        <div className="space-y-1.5 p-3.5 rounded-xl bg-slate-50 border border-slate-200">
                             <Label className="text-xs font-semibold text-foreground flex items-center justify-between">
                                 <span>Logo / Blason du Campus</span>
                                 {etablissementLogoPreview ? (
-                                    <Badge variant="outline" className="text-[10px] text-emerald-700 bg-emerald-50 border-emerald-200 dark:text-emerald-300 dark:bg-emerald-950/40">
+                                    <Badge variant="outline" className="text-[10px] text-emerald-700 bg-emerald-50 border-emerald-200">
                                         Logo propre au campus
                                     </Badge>
                                 ) : institution.logo ? (
@@ -2248,7 +2453,7 @@ export default function InstitutionIndex({
                             {/* Zone d'aperçu et téléversement du logo adaptative sur petits écrans */}
                             <div className="flex flex-col sm:flex-row sm:items-center gap-3 pt-1">
                                 {etablissementLogoPreview ? (
-                                    <div className="relative group size-14 shrink-0 rounded-xl border border-border bg-white dark:bg-slate-900 p-1 flex items-center justify-center overflow-hidden shadow-xs">
+                                    <div className="relative group size-14 shrink-0 rounded-xl border border-border bg-white p-1 flex items-center justify-center overflow-hidden shadow-xs">
                                         <img
                                             src={etablissementLogoPreview}
                                             alt="Logo établissement"
@@ -2307,7 +2512,7 @@ export default function InstitutionIndex({
                                                 variant="ghost"
                                                 size="sm"
                                                 onClick={() => handleRemoveEtablissementImage('logo', 'logo_file', setEtablissementLogoPreview, etablissementFileInputRef)}
-                                                className="cursor-pointer text-xs h-8 gap-1 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                                                className="cursor-pointer text-xs h-8 gap-1 text-rose-600 hover:text-rose-700 hover:bg-rose-50"
                                             >
                                                 <Trash2 className="size-3.5" />
                                                 <span>Supprimer</span>
@@ -2333,7 +2538,7 @@ export default function InstitutionIndex({
                             <div className="flex items-center justify-between gap-2">
                                 <Label className="text-xs font-semibold">Logo Filigrane Officiel (Optionnel)</Label>
                                 {etablissementFiligranePreview ? (
-                                    <Badge variant="outline" className="text-[10px] text-emerald-700 bg-emerald-50 border-emerald-200 dark:text-emerald-300 dark:bg-emerald-950/40">
+                                    <Badge variant="outline" className="text-[10px] text-emerald-700 bg-emerald-50 border-emerald-200">
                                         Filigrane propre
                                     </Badge>
                                 ) : institution.logo_filigrane ? (
@@ -2351,7 +2556,7 @@ export default function InstitutionIndex({
                             />
                             <div className="flex items-center gap-3">
                                 {etablissementFiligranePreview ? (
-                                    <div className="relative group size-14 shrink-0 rounded-xl border border-border bg-white dark:bg-slate-900 p-1 flex items-center justify-center overflow-hidden shadow-xs">
+                                    <div className="relative group size-14 shrink-0 rounded-xl border border-border bg-white p-1 flex items-center justify-center overflow-hidden shadow-xs">
                                         <img
                                             src={etablissementFiligranePreview}
                                             alt="Filigrane campus"
@@ -2754,7 +2959,7 @@ export default function InstitutionIndex({
 
                         {/* Commutateur Statut Actif / Inactif (notamment lors de l'édition) */}
                         {editingClasse && (
-                            <div className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/50">
+                            <div className="flex items-center justify-between p-3 rounded-xl border border-slate-200 bg-slate-50/70">
                                 <div className="space-y-0.5 pr-2">
                                     <Label className="text-xs font-semibold flex items-center gap-1.5 cursor-pointer" htmlFor="classe-status-switch">
                                         <span>Statut d'activité de la classe</span>
@@ -2762,8 +2967,8 @@ export default function InstitutionIndex({
                                             variant="outline"
                                             className={`text-[10px] px-1.5 py-0 font-medium ${
                                                 classeForm.data.is_active
-                                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300'
-                                                    : 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300'
+                                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                    : 'bg-rose-50 text-rose-700 border-rose-200'
                                             }`}
                                         >
                                             {classeForm.data.is_active ? 'Active' : 'Inactive'}
@@ -2782,7 +2987,7 @@ export default function InstitutionIndex({
                                     aria-checked={classeForm.data.is_active}
                                     onClick={() => classeForm.setData('is_active', !classeForm.data.is_active)}
                                     className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
-                                        classeForm.data.is_active ? 'bg-emerald-600' : 'bg-slate-300 dark:bg-slate-700'
+                                        classeForm.data.is_active ? 'bg-emerald-600' : 'bg-slate-300'
                                     }`}
                                 >
                                     <span
@@ -2909,25 +3114,56 @@ export default function InstitutionIndex({
                                                     <Edit2 className="size-3.5" />
                                                     <span className="sr-only">Modifier</span>
                                                 </Button>
-                                                <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    onClick={() => {
-                                                        confirmDelete({
-                                                            title: "Supprimer la série",
-                                                            itemType: "la série",
-                                                            itemName: s.nom,
-                                                            description: "Cette série ne doit pas être assignée à des classes existantes.",
-                                                            onConfirm: () => router.delete(`/administration/series/${s.id}`),
-                                                        });
-                                                    }}
-                                                    className="size-7 text-rose-600 hover:bg-rose-50 cursor-pointer"
-                                                    title="Supprimer cette série"
-                                                >
-                                                    <Trash2 className="size-3.5" />
-                                                    <span className="sr-only">Supprimer</span>
-                                                </Button>
+                                                {(s.classes_count ?? 0) > 0 ? (
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        onClick={() => {
+                                                            confirmDelete({
+                                                                title: 'Suppression verrouillée',
+                                                                variant: 'warning',
+                                                                itemType: 'la série',
+                                                                itemName: s.nom,
+                                                                confirmLabel: 'Compris',
+                                                                cancelLabel: 'Fermer',
+                                                                description: (
+                                                                    <div className="space-y-2 text-sm text-left">
+                                                                        <p>
+                                                                            La série <strong>« {s.nom} »</strong> est actuellement assignée à <strong>{s.classes_count} classe(s)</strong> et ne peut pas être supprimée.
+                                                                        </p>
+                                                                    </div>
+                                                                ),
+                                                                onConfirm: () => {},
+                                                            });
+                                                        }}
+                                                        className="size-7 text-amber-600 hover:bg-amber-50 cursor-pointer"
+                                                        title={`Suppression verrouillée : assignée à ${s.classes_count} classe(s).`}
+                                                    >
+                                                        <Lock className="size-3.5" />
+                                                        <span className="sr-only">Suppression verrouillée</span>
+                                                    </Button>
+                                                ) : (
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        onClick={() => {
+                                                            confirmDelete({
+                                                                title: 'Supprimer la série',
+                                                                itemType: 'la série',
+                                                                itemName: s.nom,
+                                                                description: "Cette série n'est assignée à aucune classe. Elle sera définitivement supprimée.",
+                                                                onConfirm: () => router.delete(`/administration/series/${s.id}`),
+                                                            });
+                                                        }}
+                                                        className="size-7 text-rose-600 hover:bg-rose-50 cursor-pointer"
+                                                        title="Supprimer cette série"
+                                                    >
+                                                        <Trash2 className="size-3.5" />
+                                                        <span className="sr-only">Supprimer</span>
+                                                    </Button>
+                                                )}
                                             </div>
                                         </div>
                                     ))}

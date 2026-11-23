@@ -1,4 +1,4 @@
-import { Head, router, useForm, usePage } from '@inertiajs/react';
+import { Head, router, useForm } from '@inertiajs/react';
 import { type ColumnDef } from '@tanstack/react-table';
 import {
     BookOpen,
@@ -8,13 +8,10 @@ import {
     Trash2,
     Layers,
     SlidersHorizontal,
-    Calculator,
     AlertTriangle,
     CheckCircle2,
-    Shield,
     ArrowUpDown,
     Check,
-    X,
     Filter,
     Building2,
     Globe,
@@ -490,15 +487,15 @@ export default function MatiereIndex({
         }
     };
 
-    // Auto-génération des standards MINESEC/MINEDUB pour le campus actif
+    // Auto-génération des standards officiels (3 blocs Scientifiques, Littéraires et Complémentaires) pour le campus actif
     const handleSeedStandards = () => {
         if (!canManage) return;
         confirmDelete({
             title: 'Initialisation du catalogue officiel',
             variant: 'primary',
-            confirmLabel: 'Initialiser le catalogue',
-            promptText: `Voulez-vous initialiser le catalogue officiel et les blocs standards pour ${selectedEtablissement ? selectedEtablissement.nom : "l'établissement actif"} ?`,
-            description: `Les matières officielles du tronc commun et les blocs pédagogiques adaptés à l'ordre d'enseignement de l'établissement seront configurés dans le système.`,
+            confirmLabel: 'Initialiser les standards',
+            promptText: `Voulez-vous initialiser le catalogue officiel et les 3 blocs pédagogiques standards pour ${selectedEtablissement ? selectedEtablissement.nom : "l'établissement actif"} ?`,
+            description: `Les 3 blocs pédagogiques standards (Scientifiques, Littéraires et Complémentaires) ainsi que les matières officielles du tronc commun seront configurés dans le système.`,
             onConfirm: () => {
                 router.post(
                     '/administration/matieres/standards',
@@ -690,21 +687,29 @@ export default function MatiereIndex({
         }
     };
 
-    // Helper de badges couleur pour les blocs
+    /**
+     * Retourne les classes Tailwind d'affichage du badge d'un bloc pédagogique selon sa couleur.
+     * Utilise une palette sobre et lisible (bleu, émeraude, ambre, ciel, sarcelle, rose, ardoise).
+     *
+     * @param {string | null | undefined} couleur Clé de couleur enregistrée pour le bloc.
+     * @returns {string} Classes CSS du badge.
+     */
     const getBlocBadgeStyle = (couleur?: string | null) => {
         switch (couleur) {
             case 'blue':
-                return 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900/50';
+                return 'bg-blue-50 text-blue-700 border-blue-200';
             case 'emerald':
-                return 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900/50';
+                return 'bg-emerald-50 text-emerald-700 border-emerald-200';
             case 'amber':
-                return 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900/50';
-            case 'purple':
-                return 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-900/50';
+                return 'bg-amber-50 text-amber-700 border-amber-200';
+            case 'sky':
+                return 'bg-sky-50 text-sky-700 border-sky-200';
+            case 'teal':
+                return 'bg-teal-50 text-teal-700 border-teal-200';
             case 'rose':
-                return 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900/50';
+                return 'bg-rose-50 text-rose-700 border-rose-200';
             default:
-                return 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-900/50';
+                return 'bg-slate-100 text-slate-700 border-slate-200';
         }
     };
 
@@ -729,7 +734,7 @@ export default function MatiereIndex({
             cell: ({ row }) => {
                 const item = row.original;
                 return (
-                    <div className="flex flex-col gap-0.5 max-w-[280px] sm:max-w-[340px] md:max-w-[380px]">
+                    <div className="flex flex-col gap-0.5 max-w-70 sm:max-w-85 md:max-w-95">
                         <div className="flex items-center gap-2 min-w-0">
                             <Badge variant="outline" className="font-mono text-xs font-semibold px-2 py-0.5 shrink-0">
                                 {item.matiere.code}
@@ -809,7 +814,7 @@ export default function MatiereIndex({
                 const note = row.original.note_eliminatoire;
                 if (note !== null && note !== undefined) {
                     return (
-                        <Badge variant="outline" className="bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900/50 flex items-center gap-1 w-fit text-xs">
+                        <Badge variant="outline" className="bg-rose-50 text-rose-700 border-rose-200 flex items-center gap-1 w-fit text-xs">
                             <AlertTriangle className="size-3" />
                             ≤ {note}/20
                         </Badge>
@@ -826,12 +831,12 @@ export default function MatiereIndex({
                 return (
                     <div className="flex flex-wrap gap-1">
                         {item.is_facultative && (
-                            <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900/50 text-xs">
+                            <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-xs">
                                 Bonus &gt; 10
                             </Badge>
                         )}
                         {item.is_comptabilisee ? (
-                            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900/50 text-xs">
+                            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs">
                                 Comptabilisée
                             </Badge>
                         ) : (
@@ -873,7 +878,7 @@ export default function MatiereIndex({
                                         });
                                         setIsCoefficientModalOpen(true);
                                     }}
-                                    className="size-8 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 dark:bg-blue-950/50 dark:text-blue-400 cursor-pointer shadow-xs"
+                                    className="size-8 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 cursor-pointer shadow-xs"
                                 >
                                     <Edit2 className="size-3.5" />
                                     <span className="sr-only">Modifier</span>
@@ -898,7 +903,7 @@ export default function MatiereIndex({
                                             },
                                         });
                                     }}
-                                    className="size-8 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 dark:bg-rose-950/50 dark:text-rose-400 cursor-pointer shadow-xs"
+                                    className="size-8 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 cursor-pointer shadow-xs"
                                 >
                                     <Trash2 className="size-3.5" />
                                     <span className="sr-only">Supprimer</span>
@@ -948,7 +953,7 @@ export default function MatiereIndex({
             ),
             cell: ({ row }) => (
                 <span
-                    className="font-medium text-foreground text-sm truncate max-w-[280px] sm:max-w-[360px] block"
+                    className="font-medium text-foreground text-sm truncate max-w-70 sm:max-w-90 block"
                     title={row.original.nom}
                 >
                     {truncateText(row.original.nom, 45)}
@@ -962,7 +967,7 @@ export default function MatiereIndex({
                 const libelle = row.original.libelle_bulletin || row.original.nom;
                 return (
                     <span
-                        className="text-xs text-muted-foreground truncate max-w-[220px] block"
+                        className="text-xs text-muted-foreground truncate max-w-55 block"
                         title={libelle}
                     >
                         {truncateText(libelle, 35)}
@@ -977,15 +982,15 @@ export default function MatiereIndex({
                 const etab = row.original.etablissement;
                 if (etab) {
                     return (
-                        <Badge variant="outline" className="text-xs bg-slate-50 text-slate-700 border-slate-300 dark:bg-slate-900/50 dark:text-slate-300 gap-1 font-normal">
-                            <Building2 className="size-3 text-violet-600 dark:text-violet-400" />
+                        <Badge variant="outline" className="text-xs bg-slate-50 text-slate-700 border-slate-300 gap-1 font-normal">
+                            <Building2 className="size-3 text-blue-600" />
                             <span>{etab.code || etab.nom}</span>
                         </Badge>
                     );
                 }
                 return (
-                    <Badge variant="outline" className="text-xs bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950/40 dark:text-violet-300 dark:border-violet-900/50 gap-1 font-normal">
-                        <Globe className="size-3 text-violet-500" />
+                    <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 gap-1 font-normal">
+                        <Globe className="size-3 text-blue-600" />
                         <span>Tronc Commun</span>
                     </Badge>
                 );
@@ -996,11 +1001,11 @@ export default function MatiereIndex({
             header: () => <span className="text-xs font-semibold uppercase tracking-wider">Statut</span>,
             cell: ({ row }) => (
                 row.original.is_active ? (
-                    <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900/50 text-xs">
+                    <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs">
                         Actif
                     </Badge>
                 ) : (
-                    <Badge variant="outline" className="bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900/50 text-xs">
+                    <Badge variant="outline" className="bg-rose-50 text-rose-700 border-rose-200 text-xs">
                         Désactivé
                     </Badge>
                 )
@@ -1043,7 +1048,7 @@ export default function MatiereIndex({
                                         });
                                         setIsMatiereModalOpen(true);
                                     }}
-                                    className="size-8 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 dark:bg-blue-950/50 dark:text-blue-400 cursor-pointer shadow-xs"
+                                    className="size-8 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 cursor-pointer shadow-xs"
                                 >
                                     <Edit2 className="size-3.5" />
                                     <span className="sr-only">Modifier</span>
@@ -1067,7 +1072,7 @@ export default function MatiereIndex({
                                             },
                                         });
                                     }}
-                                    className="size-8 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 dark:bg-rose-950/50 dark:text-rose-400 cursor-pointer shadow-xs"
+                                    className="size-8 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 cursor-pointer shadow-xs"
                                 >
                                     <Trash2 className="size-3.5" />
                                     <span className="sr-only">Supprimer</span>
@@ -1170,7 +1175,7 @@ export default function MatiereIndex({
                                         });
                                         setIsGroupeModalOpen(true);
                                     }}
-                                    className="size-8 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 dark:bg-blue-950/50 dark:text-blue-400 cursor-pointer shadow-xs"
+                                    className="size-8 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100 cursor-pointer shadow-xs"
                                 >
                                     <Edit2 className="size-3.5" />
                                     <span className="sr-only">Modifier</span>
@@ -1194,7 +1199,7 @@ export default function MatiereIndex({
                                             },
                                         });
                                     }}
-                                    className="size-8 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 dark:bg-rose-950/50 dark:text-rose-400 cursor-pointer shadow-xs"
+                                    className="size-8 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 cursor-pointer shadow-xs"
                                 >
                                     <Trash2 className="size-3.5" />
                                     <span className="sr-only">Supprimer</span>
@@ -1217,11 +1222,11 @@ export default function MatiereIndex({
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground flex items-center gap-2.5">
-                            <BookOpen className="size-7 text-violet-600 dark:text-violet-400" />
+                            <BookOpen className="size-7 text-blue-600" />
                             Matières & Coefficients
                         </h1>
                         <p className="text-muted-foreground text-xs sm:text-sm mt-1">
-                            Catalogue central des disciplines, blocs pédagogiques officiels (MINESEC/MINEDUB) et grille des coefficients par niveau.
+                            Catalogue central des disciplines, blocs pédagogiques standards (Scientifiques, Littéraires, Complémentaires) et grille des coefficients par niveau.
                         </p>
                     </div>
 
@@ -1232,8 +1237,9 @@ export default function MatiereIndex({
                                 variant="outline"
                                 size="sm"
                                 onClick={handleSeedStandards}
-                                className="gap-1.5 cursor-pointer border-violet-200 hover:bg-violet-50 text-violet-700 dark:border-violet-900/50 dark:hover:bg-violet-950/50 dark:text-violet-300"
+                                className="gap-2 cursor-pointer bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-300 font-semibold shadow-xs transition-colors"
                             >
+                                <Layers className="size-4 shrink-0" />
                                 <span>Initialiser les Standards</span>
                             </Button>
                         )}
@@ -1242,19 +1248,19 @@ export default function MatiereIndex({
 
                 {/* 2. SÉLECTEUR DE CAMPUS / ÉTABLISSEMENT */}
                 {etablissements && etablissements.length > 0 && (
-                    <div className="rounded-2xl border-2 border-slate-300/90 dark:border-slate-700 bg-card shadow-xs overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400 dark:hover:border-slate-600">
+                    <div className="rounded-2xl border-2 border-slate-300/90 bg-card shadow-xs overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400">
                         {/* En-tête contrasté */}
-                        <div className="bg-linear-to-r from-slate-200/95 via-violet-100/60 to-slate-200/80 dark:from-slate-800 dark:via-violet-950/30 dark:to-slate-800/90 px-6 py-3.5 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center justify-between gap-2">
+                        <div className="bg-linear-to-r from-slate-200/95 via-blue-100/60 to-slate-200/80 px-6 py-3.5 border-b-2 border-slate-300 flex flex-wrap items-center justify-between gap-2">
                             <div className="flex items-center gap-2.5">
-                                <div className="flex size-7 items-center justify-center rounded-lg bg-violet-600 text-white shadow-xs">
+                                <div className="flex size-7 items-center justify-center rounded-lg bg-blue-600 text-white shadow-xs">
                                     <Building2 className="size-4" />
                                 </div>
-                                <span className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                                <span className="text-xs font-bold text-slate-900 uppercase tracking-wider">
                                     Campus & Établissement
                                 </span>
                             </div>
                             {etablissements.length > 1 && (
-                                <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">
+                                <span className="text-xs text-slate-600 font-medium">
                                     Sélectionnez un campus pour configurer ses blocs pédagogiques, son catalogue et ses coefficients.
                                 </span>
                             )}
@@ -1273,8 +1279,8 @@ export default function MatiereIndex({
                                                 onClick={() => handleSelectEtablissement(etab.id)}
                                                 className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer border shrink-0 whitespace-nowrap ${
                                                     isSelected
-                                                        ? 'bg-violet-600 text-white border-violet-600 shadow-xs'
-                                                        : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-900'
+                                                        ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+                                                        : 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200 hover:text-slate-900'
                                                 }`}
                                             >
                                                 <span className="font-mono text-[11px] opacity-85">{etab.code}</span>
@@ -1286,7 +1292,7 @@ export default function MatiereIndex({
                                 </div>
                             ) : (
                                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                    <Badge variant="secondary" className="font-mono font-bold text-violet-800 bg-violet-100 border border-violet-300 dark:bg-violet-950/60 dark:text-violet-300">
+                                    <Badge variant="secondary" className="font-mono font-bold text-blue-800 bg-blue-100 border border-blue-300">
                                         {selectedEtablissement?.code}
                                     </Badge>
                                     <span className="font-semibold text-foreground text-sm">{selectedEtablissement?.nom}</span>
@@ -1304,7 +1310,7 @@ export default function MatiereIndex({
                         onClick={() => handleTabChange('groupes')}
                         className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-medium border-b-2 transition-all cursor-pointer shrink-0 whitespace-nowrap ${
                             activeTab === 'groupes'
-                                ? 'border-violet-600 text-violet-600 dark:text-violet-400 dark:border-violet-400 font-semibold'
+                                ? 'border-blue-600 text-blue-600 font-semibold'
                                 : 'border-transparent text-muted-foreground hover:text-foreground'
                         }`}
                     >
@@ -1320,7 +1326,7 @@ export default function MatiereIndex({
                         onClick={() => handleTabChange('catalogue')}
                         className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-medium border-b-2 transition-all cursor-pointer shrink-0 whitespace-nowrap ${
                             activeTab === 'catalogue'
-                                ? 'border-violet-600 text-violet-600 dark:text-violet-400 dark:border-violet-400 font-semibold'
+                                ? 'border-blue-600 text-blue-600 font-semibold'
                                 : 'border-transparent text-muted-foreground hover:text-foreground'
                         }`}
                     >
@@ -1336,7 +1342,7 @@ export default function MatiereIndex({
                         onClick={() => handleTabChange('coefficients')}
                         className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-medium border-b-2 transition-all cursor-pointer shrink-0 whitespace-nowrap ${
                             activeTab === 'coefficients'
-                                ? 'border-violet-600 text-violet-600 dark:text-violet-400 dark:border-violet-400 font-semibold'
+                                ? 'border-blue-600 text-blue-600 font-semibold'
                                 : 'border-transparent text-muted-foreground hover:text-foreground'
                         }`}
                     >
@@ -1358,7 +1364,7 @@ export default function MatiereIndex({
                                 <p className="text-sm font-medium text-foreground flex items-center gap-2">
                                     Blocs Pédagogiques & Pôles d'Enseignement
                                     {selectedEtablissement && (
-                                        <Badge variant="outline" className="text-xs font-normal border-violet-200 bg-violet-50 text-violet-700 dark:bg-violet-950/50 dark:text-violet-300">
+                                        <Badge variant="outline" className="text-xs font-normal border-blue-200 bg-blue-50 text-blue-700">
                                             {selectedEtablissement.nom}
                                         </Badge>
                                     )}
@@ -1407,7 +1413,7 @@ export default function MatiereIndex({
                                     type="button"
                                     size="sm"
                                     onClick={handleOpenAddMatiere}
-                                    className="gap-2 cursor-pointer bg-violet-600 hover:bg-violet-700 text-white font-medium shadow-xs shrink-0"
+                                    className="gap-2 cursor-pointer bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-xs shrink-0"
                                 >
                                     <Plus className="size-4" />
                                     <span>Nouvelle Matière</span>
@@ -1440,42 +1446,34 @@ export default function MatiereIndex({
                                 {/* Indicateur contextuel du Campus scolaire actif */}
                                 {selectedEtablissement && (
                                     <div className="flex items-center gap-2">
-                                        <Badge variant="outline" className="font-medium text-xs bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950/50 dark:text-violet-300 gap-1.5 py-1 px-2.5">
-                                            <Building2 className="size-3.5 text-violet-600 dark:text-violet-400" />
+                                        <Badge variant="outline" className="font-medium text-xs bg-blue-50 text-blue-700 border-blue-200 gap-1.5 py-1 px-2.5">
+                                            <Building2 className="size-3.5 text-blue-600" />
                                             <span>Campus : <strong>{selectedEtablissement.nom}</strong></span>
                                         </Badge>
                                     </div>
                                 )}
 
                                 {/* Filtre par Niveau scolaire adaptatif sur mobile */}
-                                <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full sm:w-auto">
+                                <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full sm:w-auto min-w-0">
                                     <Filter className="size-4 text-muted-foreground shrink-0" />
                                     <span className="text-xs font-semibold uppercase text-muted-foreground shrink-0">Niveau :</span>
-                                    <Select
-                                        value={selectedNiveau ? String(selectedNiveau.id) : ''}
-                                        onValueChange={handleSelectNiveau}
-                                    >
-                                        <SelectTrigger className="w-full sm:w-64 cursor-pointer">
-                                            <SelectValue placeholder="Sélectionner un niveau" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {niveaux.map((niv) => {
-                                                const etabName = getEtablissementName(niv);
-                                                return (
-                                                    <SelectItem key={niv.id} value={String(niv.id)} className="cursor-pointer">
-                                                        <div className="flex flex-col text-left py-0.5">
-                                                            <span className="font-medium text-foreground">{niv.nom} ({niv.code})</span>
-                                                            {etabName && (
-                                                                <span className="text-[11px] text-muted-foreground">
-                                                                    {etabName}
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    </SelectItem>
-                                                );
-                                            })}
-                                        </SelectContent>
-                                    </Select>
+                                    <div className="w-full sm:w-72 min-w-0">
+                                        <SearchableSelect
+                                            options={niveaux.map((niv) => ({
+                                                value: String(niv.id),
+                                                label: `${niv.nom} (${niv.code})`,
+                                                description: getEtablissementName(niv) || undefined,
+                                            }))}
+                                            value={selectedNiveau ? String(selectedNiveau.id) : ''}
+                                            onValueChange={(val) => {
+                                                if (val) handleSelectNiveau(val);
+                                            }}
+                                            placeholder="Sélectionner un niveau"
+                                            searchPlaceholder="Rechercher un niveau ou campus..."
+                                            emptyMessage="Aucun niveau trouvé."
+                                            className="h-9 text-xs font-normal"
+                                        />
+                                    </div>
                                 </div>
 
                                 {seriesDisponibles.length > 1 && (
@@ -1508,7 +1506,7 @@ export default function MatiereIndex({
                                             size="sm"
                                             variant="outline"
                                             onClick={handleOpenDuplicateModal}
-                                            className="gap-2 cursor-pointer border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
+                                            className="gap-2 cursor-pointer border-emerald-300 text-emerald-700 hover:bg-emerald-50"
                                         >
                                             <Copy className="size-4" />
                                             <span>Dupliquer la grille</span>
@@ -1532,12 +1530,12 @@ export default function MatiereIndex({
 
                         {/* Bandeau d'information contextuelle d'appartenance de la grille */}
                         {selectedNiveau && (
-                            <div className="flex flex-wrap items-center gap-2.5 px-4 py-2.5 rounded-xl bg-violet-50/50 dark:bg-violet-950/20 border border-violet-200/60 dark:border-violet-900/40 text-xs">
+                            <div className="flex flex-wrap items-center gap-2.5 px-4 py-2.5 rounded-xl bg-blue-50/50 border border-blue-200/70 text-xs">
                                 <span className="font-semibold text-foreground flex items-center gap-1.5">
-                                    <Building2 className="size-3.5 text-violet-600 dark:text-violet-400" />
+                                    <Building2 className="size-3.5 text-blue-600" />
                                     Établissement rattaché :
                                 </span>
-                                <Badge variant="outline" className="bg-background text-foreground font-medium text-xs border-violet-200 dark:border-violet-800">
+                                <Badge variant="outline" className="bg-background text-foreground font-medium text-xs border-blue-200">
                                     {getEtablissementName(selectedNiveau) || 'Établissement Principal'}
                                 </Badge>
 
@@ -1578,7 +1576,7 @@ export default function MatiereIndex({
                                     <CardContent className="p-4 flex flex-col justify-center">
                                         <span className="text-xs font-medium text-muted-foreground uppercase">Somme Coefficients</span>
                                         <div className="mt-1 flex items-baseline gap-2">
-                                            <span className="text-2xl font-bold text-violet-600 dark:text-violet-400">
+                                            <span className="text-2xl font-bold text-blue-600 tabular-nums">
                                                 {statsCoefficients.totalCoefficients}
                                             </span>
                                             <span className="text-xs text-muted-foreground">points pondérés</span>
@@ -1590,7 +1588,7 @@ export default function MatiereIndex({
                                     <CardContent className="p-4 flex flex-col justify-center">
                                         <span className="text-xs font-medium text-muted-foreground uppercase">Matières Facultatives</span>
                                         <div className="mt-1 flex items-baseline gap-2">
-                                            <span className="text-2xl font-bold text-amber-600 dark:text-amber-400">
+                                            <span className="text-2xl font-bold text-amber-600">
                                                 {statsCoefficients.totalFacultatives}
                                             </span>
                                             <span className="text-xs text-muted-foreground">bonus &gt; 10</span>
@@ -1602,7 +1600,7 @@ export default function MatiereIndex({
                                     <CardContent className="p-4 flex flex-col justify-center">
                                         <span className="text-xs font-medium text-muted-foreground uppercase">Notes Éliminatoires</span>
                                         <div className="mt-1 flex items-baseline gap-2">
-                                            <span className="text-2xl font-bold text-rose-600 dark:text-rose-400">
+                                            <span className="text-2xl font-bold text-rose-600">
                                                 {statsCoefficients.totalEliminatoires}
                                             </span>
                                             <span className="text-xs text-muted-foreground">disqualifiantes</span>
@@ -1615,7 +1613,7 @@ export default function MatiereIndex({
                         {/* État vide si aucune matière n'est configurée pour ce niveau */}
                         {coefficients.length === 0 ? (
                             <div className="flex flex-col items-center justify-center p-8 rounded-xl border border-dashed border-border/80 bg-muted/20 text-center space-y-3">
-                                <div className="size-12 rounded-full bg-violet-100 dark:bg-violet-950/50 flex items-center justify-center text-violet-600 dark:text-violet-400">
+                                <div className="size-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
                                     <BookOpen className="size-6" />
                                 </div>
                                 <div className="space-y-1">
@@ -1632,7 +1630,7 @@ export default function MatiereIndex({
                                                 size="sm"
                                                 variant="outline"
                                                 onClick={handleOpenDuplicateModal}
-                                                className="gap-1.5 border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 cursor-pointer"
+                                                className="gap-1.5 border-emerald-300 text-emerald-700 hover:bg-emerald-50 cursor-pointer"
                                             >
                                                 <Copy className="size-4" />
                                                 <span>Dupliquer la grille depuis un autre niveau</span>
@@ -1687,13 +1685,13 @@ export default function MatiereIndex({
 
                     <form onSubmit={(e) => submitCoefficient(e, false)} className="space-y-3 pt-1">
                         {/* Contexte discret : Niveau & Campus scolaire */}
-                        <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-1.5 rounded-lg bg-violet-50/70 dark:bg-violet-950/30 border border-violet-200/60 dark:border-violet-900/40 text-xs">
+                        <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-1.5 rounded-lg bg-blue-50/70 border border-blue-200/70 text-xs">
                             <span className="font-semibold text-foreground flex items-center gap-1.5">
-                                <Building2 className="size-3.5 text-violet-600 dark:text-violet-400 shrink-0" />
-                                Niveau : <strong className="text-violet-700 dark:text-violet-300">{selectedNiveau?.nom} ({selectedNiveau?.code})</strong>
+                                <Building2 className="size-3.5 text-blue-600 shrink-0" />
+                                Niveau : <strong className="text-blue-700">{selectedNiveau?.nom} ({selectedNiveau?.code})</strong>
                             </span>
                             {(getEtablissementName(selectedNiveau) || selectedEtablissement?.nom) && (
-                                <span className="text-[11px] text-muted-foreground truncate max-w-[200px]">
+                                <span className="text-[11px] text-muted-foreground truncate max-w-50">
                                     {getEtablissementName(selectedNiveau) || selectedEtablissement?.nom}
                                 </span>
                             )}
@@ -1727,7 +1725,7 @@ export default function MatiereIndex({
 
                         {/* Ligne 2 : Bloc Pédagogique et Série / Filière (empilés sur mobile) */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <div>
+                            <div className="min-w-0">
                                 <Label htmlFor="coef_groupe_id" className="text-xs font-semibold">
                                     Bloc Pédagogique <span className="text-rose-500">*</span>
                                 </Label>
@@ -1751,7 +1749,7 @@ export default function MatiereIndex({
                                 )}
                             </div>
 
-                            <div>
+                            <div className="min-w-0">
                                 <Label htmlFor="coef_serie" className="text-xs font-semibold">Série / Filière</Label>
                                 {seriesDisponibles.length > 1 ? (
                                     <Select
@@ -1904,7 +1902,7 @@ export default function MatiereIndex({
                                         size="sm"
                                         disabled={coefficientForm.processing}
                                         onClick={(e) => submitCoefficient(e, true)}
-                                        className="gap-1.5 cursor-pointer shrink-0 bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-100 border border-slate-300 dark:border-slate-700"
+                                        className="gap-1.5 cursor-pointer shrink-0 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300"
                                     >
                                         <Plus className="size-3.5" />
                                         <span>Enregistrer & Nouveau</span>
@@ -1914,7 +1912,7 @@ export default function MatiereIndex({
                                     type="submit"
                                     size="sm"
                                     disabled={coefficientForm.processing}
-                                    className="bg-violet-600 hover:bg-violet-700 text-white cursor-pointer shrink-0 font-medium px-4"
+                                    className="bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shrink-0 font-medium px-4"
                                 >
                                     {coefficientForm.processing ? 'Enregistrement...' : 'Enregistrer'}
                                 </Button>
@@ -1928,7 +1926,7 @@ export default function MatiereIndex({
             {/* MODALE 2 : CATALOGUE DES MATIÈRES (CRÉATION / MODIFICATION)       */}
             {/* ================================================================= */}
             <Dialog open={isMatiereModalOpen} onOpenChange={setIsMatiereModalOpen}>
-                <DialogContent className="sm:max-w-[480px]">
+                <DialogContent className="sm:max-w-120">
                     <DialogHeader className="pb-1">
                         <DialogTitle className="text-base sm:text-lg">
                             {editingMatiere ? 'Modifier la Matière' : 'Ajouter une Discipline au Catalogue'}
@@ -1936,31 +1934,36 @@ export default function MatiereIndex({
                     </DialogHeader>
 
                     <form onSubmit={(e) => submitMatiere(e, false)} className="space-y-3 pt-1">
-                        {/* Portée / Rattachement Campus avec affichage du sigle uniquement */}
-                        <div>
+                        {/* Portée / Rattachement Campus avec recherche et nom complet */}
+                        <div className="min-w-0">
                             <Label htmlFor="mat_etablissement_id" className="text-xs font-semibold">
                                 Portée & Rattachement Campus
                             </Label>
-                            <Select
-                                value={matiereForm.data.etablissement_id ? String(matiereForm.data.etablissement_id) : 'common'}
-                                onValueChange={(val) =>
-                                    matiereForm.setData('etablissement_id', val === 'common' ? null : Number(val))
-                                }
-                            >
-                                <SelectTrigger id="mat_etablissement_id" className="mt-1 h-9 cursor-pointer text-xs">
-                                    <SelectValue placeholder="Sélectionner la portée..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="common" className="cursor-pointer text-xs">
-                                        🌐 Tronc Commun (Tous les campus)
-                                    </SelectItem>
-                                    {etablissements.map((etab) => (
-                                        <SelectItem key={etab.id} value={String(etab.id)} className="cursor-pointer text-xs">
-                                            🏫 Campus : {etab.code}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <div className="mt-1">
+                                <SearchableSelect
+                                    id="mat_etablissement_id"
+                                    options={[
+                                        {
+                                            value: 'common',
+                                            label: 'Tronc Commun (Tous les campus)',
+                                            description: 'Partagé sur l’ensemble des établissements',
+                                        },
+                                        ...etablissements.map((etab) => ({
+                                            value: String(etab.id),
+                                            label: etab.nom,
+                                            description: etab.code ? `Code : ${etab.code}` : undefined,
+                                        })),
+                                    ]}
+                                    value={matiereForm.data.etablissement_id ? String(matiereForm.data.etablissement_id) : 'common'}
+                                    onValueChange={(val) =>
+                                        matiereForm.setData('etablissement_id', !val || val === 'common' ? null : Number(val))
+                                    }
+                                    placeholder="Sélectionner la portée..."
+                                    searchPlaceholder="Rechercher un établissement..."
+                                    emptyMessage="Aucun établissement trouvé."
+                                    className="h-9 text-xs font-normal"
+                                />
+                            </div>
                         </div>
 
                         {/* Ligne 1 : Code officiel & Intitulé (empilés sur mobile, 5/7 dès 640px) */}
@@ -2019,7 +2022,7 @@ export default function MatiereIndex({
                                 checked={matiereForm.data.is_active}
                                 onCheckedChange={(checked) => matiereForm.setData('is_active', Boolean(checked))}
                             />
-                            <Label htmlFor="mat_active" className="text-xs cursor-pointer font-medium select-none text-slate-700 dark:text-slate-300">
+                            <Label htmlFor="mat_active" className="text-xs cursor-pointer font-medium select-none text-slate-700">
                                 Discipline active dans les établissements
                             </Label>
                         </div>
@@ -2043,7 +2046,7 @@ export default function MatiereIndex({
                                         size="sm"
                                         disabled={matiereForm.processing}
                                         onClick={(e) => submitMatiere(e, true)}
-                                        className="gap-1 cursor-pointer shrink-0 text-xs h-8 px-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-100 border border-slate-300 dark:border-slate-700"
+                                        className="gap-1 cursor-pointer shrink-0 text-xs h-8 px-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300"
                                     >
                                         <Plus className="size-3" />
                                         <span>Enregistrer & Nouveau</span>
@@ -2053,7 +2056,7 @@ export default function MatiereIndex({
                                     type="submit"
                                     size="sm"
                                     disabled={matiereForm.processing}
-                                    className="bg-violet-600 hover:bg-violet-700 text-white cursor-pointer shrink-0 text-xs h-8 px-3 font-medium"
+                                    className="bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shrink-0 text-xs h-8 px-3 font-medium"
                                 >
                                     {matiereForm.processing ? 'Enregistrement...' : 'Enregistrer'}
                                 </Button>
@@ -2076,10 +2079,10 @@ export default function MatiereIndex({
 
                     <form onSubmit={(e) => submitGroupe(e, false)} className="space-y-3 pt-1">
                         {/* Contexte discret : Campus scolaire */}
-                        <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-1.5 rounded-lg bg-violet-50/70 dark:bg-violet-950/30 border border-violet-200/60 dark:border-violet-900/40 text-xs">
+                        <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-1.5 rounded-lg bg-blue-50/70 border border-blue-200/70 text-xs">
                             <span className="font-semibold text-foreground flex items-center gap-1.5">
-                                <Building2 className="size-3.5 text-violet-600 dark:text-violet-400 shrink-0" />
-                                Campus : <strong className="text-violet-700 dark:text-violet-300">{selectedEtablissement ? selectedEtablissement.nom : 'Établissement par défaut'}</strong>
+                                <Building2 className="size-3.5 text-blue-600 shrink-0" />
+                                Campus : <strong className="text-blue-700">{selectedEtablissement ? selectedEtablissement.nom : 'Établissement par défaut'}</strong>
                             </span>
                             <span className="text-[11px] text-muted-foreground">
                                 Structure du bulletin
@@ -2158,7 +2161,7 @@ export default function MatiereIndex({
                                         <SelectItem value="blue" className="cursor-pointer text-xs">Bleu (Scientifiques)</SelectItem>
                                         <SelectItem value="emerald" className="cursor-pointer text-xs">Émeraude / Vert (Littéraires)</SelectItem>
                                         <SelectItem value="amber" className="cursor-pointer text-xs">Ambre / Orange (Complémentaires)</SelectItem>
-                                        <SelectItem value="purple" className="cursor-pointer text-xs">Violet</SelectItem>
+                                        <SelectItem value="sky" className="cursor-pointer text-xs">Bleu Ciel / Azur</SelectItem>
                                         <SelectItem value="rose" className="cursor-pointer text-xs">Rose</SelectItem>
                                     </SelectContent>
                                 </Select>
@@ -2183,7 +2186,7 @@ export default function MatiereIndex({
                                         size="sm"
                                         disabled={groupeForm.processing}
                                         onClick={(e) => submitGroupe(e, true)}
-                                        className="gap-1.5 cursor-pointer shrink-0 bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-100 border border-slate-300 dark:border-slate-700"
+                                        className="gap-1.5 cursor-pointer shrink-0 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300"
                                     >
                                         <Plus className="size-3.5" />
                                         <span>Enregistrer & Nouveau</span>
@@ -2193,7 +2196,7 @@ export default function MatiereIndex({
                                     type="submit"
                                     size="sm"
                                     disabled={groupeForm.processing}
-                                    className="bg-violet-600 hover:bg-violet-700 text-white cursor-pointer shrink-0 font-medium px-4"
+                                    className="bg-blue-600 hover:bg-blue-700 text-white cursor-pointer shrink-0 font-medium px-4"
                                 >
                                     {groupeForm.processing ? 'Enregistrement...' : 'Enregistrer'}
                                 </Button>
@@ -2207,11 +2210,11 @@ export default function MatiereIndex({
             {/* MODALE 4 : DUPLICATION DE LA GRILLE DE COEFFICIENTS (OPTION 1)     */}
             {/* ================================================================= */}
             <Dialog open={isDuplicateModalOpen} onOpenChange={setIsDuplicateModalOpen}>
-                <DialogContent className="sm:max-w-[540px]">
+                <DialogContent className="sm:max-w-135">
                     <form onSubmit={handleDuplicateSubmit}>
                         <DialogHeader>
                             <div className="flex items-center gap-3">
-                                <div className="p-2.5 rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400">
+                                <div className="p-2.5 rounded-xl bg-emerald-100 text-emerald-700">
                                     <Copy className="size-5" />
                                 </div>
                                 <div>
@@ -2252,36 +2255,30 @@ export default function MatiereIndex({
                             </div>
 
                             {/* Sélection du niveau source */}
-                            <div className="space-y-1.5">
+                            <div className="space-y-1.5 min-w-0">
                                 <Label htmlFor="duplicate_source_niveau" className="text-xs font-semibold">
                                     Niveau source à copier <span className="text-destructive">*</span>
                                 </Label>
-                                <Select
+                                <SearchableSelect
+                                    id="duplicate_source_niveau"
+                                    options={niveaux
+                                        .filter((n) => n.id !== selectedNiveau?.id)
+                                        .map((niv) => {
+                                            const count = niv.matiere_niveaux_count ?? 0;
+                                            return {
+                                                value: String(niv.id),
+                                                label: niv.nom,
+                                                description: `${count > 0 ? `${count} matière(s)` : 'vide'}${niv.cycle?.nom ? ` · ${niv.cycle.nom}` : ''}`,
+                                                group: niv.cycle?.nom || 'Niveaux',
+                                            };
+                                        })}
                                     value={duplicateSourceId}
                                     onValueChange={(val) => setDuplicateSourceId(val)}
-                                >
-                                    <SelectTrigger id="duplicate_source_niveau" className="h-10 text-xs">
-                                        <SelectValue placeholder="Choisir le niveau source..." />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {niveaux
-                                            .filter((n) => n.id !== selectedNiveau?.id)
-                                            .map((niv) => {
-                                                const count = niv.matiere_niveaux_count ?? 0;
-                                                return (
-                                                    <SelectItem key={niv.id} value={String(niv.id)} className="text-xs">
-                                                        <div className="flex items-center justify-between w-full gap-4">
-                                                            <span className="font-medium">{niv.nom}</span>
-                                                            <span className="text-[11px] text-muted-foreground">
-                                                                {count > 0 ? `${count} matière(s)` : 'vide'}
-                                                                {niv.cycle?.nom ? ` • ${niv.cycle.nom}` : ''}
-                                                            </span>
-                                                        </div>
-                                                    </SelectItem>
-                                                );
-                                            })}
-                                    </SelectContent>
-                                </Select>
+                                    placeholder="Choisir le niveau source..."
+                                    searchPlaceholder="Rechercher un niveau source..."
+                                    emptyMessage="Aucun niveau trouvé."
+                                    className="h-10 text-xs font-normal"
+                                />
                             </div>
 
                             {/* Périmètre de duplication si série spécialisée active */}
@@ -2296,7 +2293,7 @@ export default function MatiereIndex({
                                             onClick={() => setDuplicateScope('all_series')}
                                             className={`p-2.5 rounded-lg border text-left cursor-pointer transition-colors ${
                                                 duplicateScope === 'all_series'
-                                                    ? 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/30 text-emerald-900 dark:text-emerald-200'
+                                                    ? 'border-emerald-500 bg-emerald-50/50 text-emerald-900'
                                                     : 'border-muted hover:bg-muted/40 text-muted-foreground'
                                             }`}
                                         >
@@ -2310,7 +2307,7 @@ export default function MatiereIndex({
                                             onClick={() => setDuplicateScope('active_serie')}
                                             className={`p-2.5 rounded-lg border text-left cursor-pointer transition-colors ${
                                                 duplicateScope === 'active_serie'
-                                                    ? 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/30 text-emerald-900 dark:text-emerald-200'
+                                                    ? 'border-emerald-500 bg-emerald-50/50 text-emerald-900'
                                                     : 'border-muted hover:bg-muted/40 text-muted-foreground'
                                             }`}
                                         >
@@ -2324,12 +2321,12 @@ export default function MatiereIndex({
                             )}
 
                             {/* Explication du Mode de Copie : Option 1 (Recommandée) */}
-                            <div className="rounded-xl border border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/60 dark:bg-emerald-950/30 p-3.5 space-y-1.5 text-xs text-emerald-950 dark:text-emerald-200">
+                            <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3.5 space-y-1.5 text-xs text-emerald-950">
                                 <div className="flex items-center gap-2 font-semibold">
-                                    <CheckCircle2 className="size-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                                    <CheckCircle2 className="size-4 text-emerald-600 shrink-0" />
                                     <span>Mode de copie : Option 1 (Non destructif)</span>
                                 </div>
-                                <p className="text-[11px] leading-relaxed text-emerald-800 dark:text-emerald-300/90 pl-6">
+                                <p className="text-[11px] leading-relaxed text-emerald-800 pl-6">
                                     <strong>Compléter uniquement les matières manquantes</strong> : Les matières déjà configurées dans <em>{selectedNiveau?.nom}</em> seront intégralement préservées avec leurs coefficients actuels sans risque d'écrasement. Seules les nouvelles matières seront ajoutées.
                                 </p>
                             </div>

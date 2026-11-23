@@ -62,7 +62,7 @@ export default function JustifierModal({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6">
                 <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2 text-base sm:text-lg font-bold text-slate-800 dark:text-slate-100">
+                    <DialogTitle className="flex items-center gap-2 text-base sm:text-lg font-bold text-slate-800">
                         <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
                         <span>Justifier une Absence / Retard</span>
                     </DialogTitle>

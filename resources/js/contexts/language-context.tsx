@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useTransition, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { router, usePage } from '@inertiajs/react';
 import { translate, type Locale, type TranslationKey } from '@/locales';
 
@@ -26,7 +26,7 @@ interface LanguageContextType {
      * @param {Record<string, string | number>} [params] Paramètres dynamiques de remplacement.
      * @returns {string} Le texte traduit.
      */
-    t: (key: TranslationKey | string, params?: Record<string, string | number>) => string;
+    t: (key: TranslationKey | (string & {}), params?: Record<string, string | number>) => string;
 
     /**
      * Formate une date selon la langue active avec l'API standard Intl.
@@ -139,7 +139,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
      * Traduction d'une clé.
      */
     const t = useCallback(
-        (key: TranslationKey | string, params?: Record<string, string | number>) => {
+        (key: TranslationKey | (string & {}), params?: Record<string, string | number>) => {
             return translate(locale, key, params);
         },
         [locale]

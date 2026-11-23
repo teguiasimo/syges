@@ -1,5 +1,5 @@
 import { router } from '@inertiajs/react';
-import { Award, Check, School, UserCheck, Users, X } from 'lucide-react';
+import { Award, Check } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -12,13 +12,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { getClasseTitulaireLabel, type ClasseWithAttributions, type EnseignantWithWorkload } from '@/types/attribution';
 
 /**
@@ -94,7 +88,7 @@ export function ProfesseurPrincipalModal({
             <DialogContent className="sm:max-w-md">
                 <DialogHeader className="border-b pb-4">
                     <DialogTitle className="text-base sm:text-lg font-bold flex items-center gap-2 text-foreground">
-                        <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-950/50 text-amber-600 border border-amber-200 dark:border-amber-900/50 shrink-0">
+                        <div className="p-2 rounded-lg bg-amber-50 text-amber-600 border border-amber-200 shrink-0">
                             <Award className="size-5" />
                         </div>
                         <span>{titulaireLabel} : {classe.nom}</span>
@@ -105,49 +99,38 @@ export function ProfesseurPrincipalModal({
                 </DialogHeader>
 
                 <div className="space-y-4 py-3">
-                    <div>
+                    <div className="space-y-1.5 min-w-0">
                         <Label htmlFor="pp_select" className="text-xs font-semibold">
                             Sélectionner l'enseignant responsable
                         </Label>
-                        <Select
+                        <SearchableSelect
+                            id="pp_select"
+                            options={[
+                                {
+                                    value: 'none',
+                                    label: 'Aucun responsable désigné',
+                                    group: 'Titulaire / Aucun',
+                                },
+                                ...teachersOfClass.map((ens) => ({
+                                    value: String(ens.id),
+                                    label: `★ ${[ens.nom, ens.prenom].filter(Boolean).join(' ')}`,
+                                    description: `${ens.specialite || 'Général'} (${ens.matricule})`,
+                                    group: `Enseignants de la classe (${teachersOfClass.length})`,
+                                })),
+                                ...otherTeachers.map((ens) => ({
+                                    value: String(ens.id),
+                                    label: [ens.nom, ens.prenom].filter(Boolean).join(' '),
+                                    description: `${ens.specialite || 'Général'} (${ens.matricule})`,
+                                    group: 'Autres enseignants disponibles',
+                                })),
+                            ]}
                             value={selectedPersonnelId}
-                            onValueChange={setSelectedPersonnelId}
-                        >
-                            <SelectTrigger id="pp_select" className="mt-1 h-9 text-sm">
-                                <SelectValue placeholder={`Choisir (${titulaireLabel.toLowerCase()})`} />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="none">
-                                    <em className="text-muted-foreground">Aucun responsable désigné</em>
-                                </SelectItem>
-
-                                {teachersOfClass.length > 0 && (
-                                    <>
-                                        <div className="px-2 py-1 text-[11px] font-bold text-muted-foreground uppercase tracking-wider bg-muted/40">
-                                            Enseignants de la classe ({teachersOfClass.length})
-                                        </div>
-                                        {teachersOfClass.map((ens) => (
-                                            <SelectItem key={ens.id} value={String(ens.id)}>
-                                                ★ {ens.nom} {ens.prenom} ({ens.specialite || 'Général'})
-                                            </SelectItem>
-                                        ))}
-                                    </>
-                                )}
-
-                                {otherTeachers.length > 0 && (
-                                    <>
-                                        <div className="px-2 py-1 text-[11px] font-bold text-muted-foreground uppercase tracking-wider bg-muted/40">
-                                            Autres enseignants disponibles
-                                        </div>
-                                        {otherTeachers.map((ens) => (
-                                            <SelectItem key={ens.id} value={String(ens.id)}>
-                                                {ens.nom} {ens.prenom} ({ens.specialite || 'Général'})
-                                            </SelectItem>
-                                        ))}
-                                    </>
-                                )}
-                            </SelectContent>
-                        </Select>
+                            onValueChange={(val) => setSelectedPersonnelId(val || 'none')}
+                            placeholder={`Choisir (${titulaireLabel.toLowerCase()})`}
+                            searchPlaceholder="Rechercher un enseignant..."
+                            emptyMessage="Aucun enseignant trouvé."
+                            className="h-9 text-sm font-normal"
+                        />
                     </div>
                 </div>
 

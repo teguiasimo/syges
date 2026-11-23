@@ -15,15 +15,10 @@ import {
     Check,
     RefreshCw,
     X,
-    Filter,
     Calendar,
     Award,
-    HelpCircle,
     CheckSquare,
-    Square,
-    Layers,
     Clock,
-    Sparkles,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -41,12 +36,15 @@ import { SearchableSelect, type SearchableOption } from '@/components/ui/searcha
 import {
     Tooltip,
     TooltipContent,
-    TooltipProvider,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
-import { formatDate } from '@/lib/utils';
-import type { EtablissementRef, AnneeScolaireRef, ClasseRef } from '@/types/eleve';
+import {
+    buildClasseSearchOptions,
+    flattenClassesFromEtablissements,
+    formatDate,
+} from '@/lib/utils';
+import type { EtablissementRef, AnneeScolaireRef } from '@/types/eleve';
 
 /**
  * Interface décrivant les détails de scolarité passée d'un ancien élève.
@@ -138,7 +136,7 @@ export default function ReinscriptionPage({
     anneesScolaires,
     selectedAnneeId,
     sourceAnneeId,
-    can,
+    can: _can,
 }: ReinscriptionPageProps) {
     // Lecture de l'onglet actif depuis les query params ou 'lot' par défaut
     const initialTab = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('tab') === 'individuel'
@@ -152,56 +150,16 @@ export default function ReinscriptionPage({
 
     const [submitting, setSubmitting] = useState(false);
 
-    // ─────────────────────────────────────────────────────────────
-    // EXTRACTION DE LA LISTE DE TOUTES LES CLASSES DU SYSTÈME
-    // ─────────────────────────────────────────────────────────────
-    const availableClasses: ClasseRef[] = useMemo(() => {
-        const list: ClasseRef[] = [];
-        etablissements.forEach((etab) => {
-            etab.sections?.forEach((sec) => {
-                sec.cycles?.forEach((cyc) => {
-                    cyc.niveaux?.forEach((niv) => {
-                        niv.classes?.forEach((cls) => {
-                            list.push({
-                                ...cls,
-                                niveau: {
-                                    id: niv.id,
-                                    nom: niv.nom,
-                                    code: niv.code,
-                                    cycle: {
-                                        id: cyc.id,
-                                        nom: cyc.nom,
-                                        section: {
-                                            id: sec.id,
-                                            nom: sec.nom,
-                                            etablissement: {
-                                                id: etab.id,
-                                                nom: etab.nom,
-                                            },
-                                        },
-                                    },
-                                },
-                            });
-                        });
-                    });
-                });
-            });
-        });
-        return list;
-    }, [etablissements]);
+    // Extraction des classes disponibles et options formatées pour SearchableSelect (sans coupure du nom d'établissement)
+    const availableClasses = useMemo(
+        () => flattenClassesFromEtablissements(etablissements),
+        [etablissements]
+    );
 
-    // Options formatées pour SearchableSelect (avec regroupement par niveau et campus)
-    const classeOptions: SearchableOption[] = useMemo(() => {
-        return availableClasses.map((cls) => {
-            const etabNom = cls.niveau?.cycle?.section?.etablissement?.nom || '';
-            const etabAbrege = etabNom.length > 25 ? `${etabNom.substring(0, 25)}…` : etabNom;
-            return {
-                value: String(cls.id),
-                label: `${cls.nom} (${cls.niveau?.nom || 'Niveau'}${etabAbrege ? ` — ${etabAbrege}` : ''})`,
-                group: cls.niveau?.nom || 'Classes',
-            };
-        });
-    }, [availableClasses]);
+    const classeOptions: SearchableOption[] = useMemo(
+        () => buildClasseSearchOptions(availableClasses),
+        [availableClasses]
+    );
 
     // ─────────────────────────────────────────────────────────────
     // 1. ÉTATS & LOGIQUE POUR LA PROMOTION COLLECTIVE (EN LOT)
@@ -271,7 +229,7 @@ export default function ReinscriptionPage({
     // Recharger la liste dès que la classe source ou l'une des années change
     useEffect(() => {
         if (batchSourceClasseId) {
-            loadBatchEleves(batchSourceClasseId, srcAnneeId, destAnneeId);
+            void loadBatchEleves(batchSourceClasseId, srcAnneeId, destAnneeId);
         }
     }, [batchSourceClasseId, srcAnneeId, destAnneeId]);
 
@@ -397,7 +355,7 @@ export default function ReinscriptionPage({
                     );
                     if (afterAction === 'stay') {
                         // Recharger la cohorte source
-                        loadBatchEleves(batchSourceClasseId, srcAnneeId, destAnneeId);
+                        void loadBatchEleves(batchSourceClasseId, srcAnneeId, destAnneeId);
                     }
                 },
                 onError: (err) => {
@@ -533,6 +491,11 @@ export default function ReinscriptionPage({
     const currentTargetClasse = availableClasses.find((c) => String(c.id) === batchTargetClasseId);
     const currentSourceClasse = availableClasses.find((c) => String(c.id) === batchSourceClasseId);
 
+    // Contrôles de cohérence temporelle pour guider l'utilisateur lorsque l'année cible est bloquante
+    const hasOnlyOneAnnee = anneesScolaires.length <= 1;
+    const isSameAnneeSourceAndDest = Boolean(srcAnneeId && destAnneeId && srcAnneeId === destAnneeId);
+    const destAnneeLabel = anneesScolaires.find((a) => String(a.id) === destAnneeId)?.nom ?? 'l\'année cible';
+
     return (
         <>
             <Head title="Réinscription & Promotion des Anciens Élèves | SYGES" />
@@ -554,7 +517,7 @@ export default function ReinscriptionPage({
                             </Link>
                         </div>
                         <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight text-foreground flex items-center gap-2.5 sm:gap-3">
-                            <div className="p-2 rounded-xl sm:p-2.5 sm:rounded-2xl bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shrink-0">
+                            <div className="p-2 rounded-xl sm:p-2.5 sm:rounded-2xl bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
                                 <UserCheck className="size-6 sm:size-7" />
                             </div>
                             <span>Réinscription & Promotion des Anciens Élèves</span>
@@ -573,7 +536,7 @@ export default function ReinscriptionPage({
                                 Année Cible (Rentrée)
                             </Label>
                             <Select value={destAnneeId} onValueChange={setDestAnneeId}>
-                                <SelectTrigger className="h-9 min-w-37.5 bg-background font-semibold text-xs border-emerald-300 dark:border-emerald-800">
+                                <SelectTrigger className="h-9 min-w-37.5 bg-background font-semibold text-xs border-emerald-300">
                                     <SelectValue placeholder="Sélectionner..." />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -611,6 +574,35 @@ export default function ReinscriptionPage({
                     </div>
                 </div>
 
+                {/* Bandeau d'avertissement explicatif lorsque l'année source égale l'année cible ou qu'une seule année existe */}
+                {(hasOnlyOneAnnee || isSameAnneeSourceAndDest) && (
+                    <div className="rounded-2xl border border-amber-300 bg-amber-50/80 p-4 flex items-start gap-3 text-xs text-amber-900 shadow-2xs">
+                        <AlertCircle className="size-5 text-amber-600 shrink-0 mt-0.5" />
+                        <div className="space-y-1">
+                            <p className="font-bold text-sm">
+                                {hasOnlyOneAnnee
+                                    ? `Une seule année scolaire configurée (${destAnneeLabel})`
+                                    : `Année Source et Année Cible identiques (${destAnneeLabel})`}
+                            </p>
+                            <p className="leading-relaxed">
+                                {hasOnlyOneAnnee ? (
+                                    <>
+                                        Pour pouvoir réinscrire des élèves, vous devez d&apos;abord créer la nouvelle année scolaire (ex. <strong>2027-2028</strong>) dans{' '}
+                                        <Link href="/administration/institution" className="font-semibold underline underline-offset-2 hover:text-amber-700">
+                                            Institution &amp; Années scolaires
+                                        </Link>
+                                        , puis la sélectionner comme <strong>Année Cible (Rentrée)</strong>. Tant que les élèves sont déjà inscrits sur {destAnneeLabel}, leurs cases de sélection restent verrouillées.
+                                    </>
+                                ) : (
+                                    <>
+                                        Vous consultez la cohorte de <strong>{destAnneeLabel}</strong> avec cette même année en destination : tous les élèves déjà inscrits sur {destAnneeLabel} ont leurs cases désactivées pour éviter les doublons. Sélectionnez une année antérieure dans <strong>Année Source (Origine)</strong> ou une nouvelle année dans <strong>Année Cible (Rentrée)</strong>.
+                                    </>
+                                )}
+                            </p>
+                        </div>
+                    </div>
+                )}
+
                 {/* ───────────────────────────────────────────────────────────── */}
                 {/* SÉLECTEUR DE MODE (ONGLETS MAJEURS) */}
                 {/* ───────────────────────────────────────────────────────────── */}
@@ -620,13 +612,13 @@ export default function ReinscriptionPage({
                         onClick={() => setActiveTab('lot')}
                         className={`flex items-center gap-2.5 px-4 sm:px-5 py-3 text-xs sm:text-sm font-semibold border-b-2 transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                             activeTab === 'lot'
-                                ? 'border-emerald-600 text-emerald-700 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-950/20 rounded-t-xl'
+                                ? 'border-emerald-600 text-emerald-700 bg-emerald-50/50 rounded-t-xl'
                                 : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/30 rounded-t-xl'
                         }`}
                     >
                         <Users className="size-4 shrink-0" />
                         <span>1. Promotion Collective par Classe (En lot)</span>
-                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200">
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-emerald-100 text-emerald-800">
                             Recommandé Rentrée
                         </Badge>
                     </button>
@@ -636,7 +628,7 @@ export default function ReinscriptionPage({
                         onClick={() => setActiveTab('individuel')}
                         className={`flex items-center gap-2.5 px-4 sm:px-5 py-3 text-xs sm:text-sm font-semibold border-b-2 transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                             activeTab === 'individuel'
-                                ? 'border-teal-600 text-teal-700 dark:text-teal-400 bg-teal-50/50 dark:bg-teal-950/20 rounded-t-xl'
+                                ? 'border-teal-600 text-teal-700 bg-teal-50/50 rounded-t-xl'
                                 : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/30 rounded-t-xl'
                         }`}
                     >
@@ -651,11 +643,11 @@ export default function ReinscriptionPage({
                 {activeTab === 'lot' && (
                     <div className="space-y-6">
                         {/* Barre de sélection de la classe source et de la classe cible */}
-                        <div className="rounded-2xl border-2 border-slate-300 dark:border-slate-700 bg-card p-6 shadow-xs space-y-4">
+                        <div className="rounded-2xl border-2 border-slate-300 bg-card p-6 shadow-xs space-y-4">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
                                 {/* Classe d'origine (Année Source) */}
                                 <div className="space-y-2">
-                                    <Label className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                                    <Label className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
                                         <School className="size-4 text-indigo-600" />
                                         Classe d'Origine ({anneesScolaires.find((a) => String(a.id) === srcAnneeId)?.nom ?? 'Année Source'})
                                     </Label>
@@ -673,7 +665,7 @@ export default function ReinscriptionPage({
 
                                 {/* Classe de destination (Nouvelle Année Cible) */}
                                 <div className="space-y-2">
-                                    <Label className="text-xs font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
+                                    <Label className="text-xs font-bold uppercase tracking-wider text-emerald-800 flex items-center gap-1.5">
                                         <School className="size-4 text-emerald-600" />
                                         Classe d'Accueil Cible ({anneesScolaires.find((a) => String(a.id) === destAnneeId)?.nom ?? 'Année Cible'})
                                     </Label>
@@ -693,8 +685,8 @@ export default function ReinscriptionPage({
 
                         {/* Si aucune classe source sélectionnée : État d'incitation */}
                         {!batchSourceClasseId ? (
-                            <div className="rounded-2xl border-2 border-dashed border-slate-300 dark:border-slate-800 p-12 text-center bg-muted/20">
-                                <div className="size-14 mx-auto rounded-2xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 flex items-center justify-center mb-4">
+                            <div className="rounded-2xl border-2 border-dashed border-slate-300 p-12 text-center bg-muted/20">
+                                <div className="size-14 mx-auto rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-4">
                                     <Users className="size-7" />
                                 </div>
                                 <h3 className="text-base font-bold text-foreground">
@@ -713,12 +705,12 @@ export default function ReinscriptionPage({
                                 <p className="text-xs text-muted-foreground mt-1">Récupération des avis de passage et des dettes scolaires antérieures</p>
                             </div>
                         ) : batchEleves.length === 0 ? (
-                            <div className="rounded-2xl border border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/20 p-8 text-center">
+                            <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-8 text-center">
                                 <AlertCircle className="size-8 mx-auto text-amber-600 mb-2" />
-                                <h3 className="text-sm font-bold text-amber-900 dark:text-amber-200">
+                                <h3 className="text-sm font-bold text-amber-900">
                                     Aucun élève trouvé dans cette classe pour l'année source sélectionnée
                                 </h3>
-                                <p className="text-xs text-amber-700 dark:text-amber-400 mt-1 max-w-md mx-auto">
+                                <p className="text-xs text-amber-700 mt-1 max-w-md mx-auto">
                                     Vérifiez que la classe d'origine {currentSourceClasse?.nom} contenait bien des inscriptions
                                     au cours de l'année scolaire d'origine ou modifiez l'année source en haut à droite.
                                 </p>
@@ -730,26 +722,26 @@ export default function ReinscriptionPage({
                                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-4 rounded-2xl bg-card border border-border shadow-xs">
                                     {/* Compteurs */}
                                     <div className="flex flex-wrap items-center gap-3">
-                                        <div className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200">
+                                        <div className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl bg-slate-100 text-slate-800">
                                             <span>Total cohorte :</span>
                                             <strong className="text-sm">{totalBatchCount}</strong>
                                         </div>
 
-                                        <div className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                                        <div className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200">
                                             <CheckSquare className="size-3.5 text-emerald-600" />
                                             <span>Sélectionnés :</span>
                                             <strong className="text-sm">{selectedBatchCount} sur {eligibleBatchCount} éligibles</strong>
                                         </div>
 
                                         {dejaInscritsCount > 0 && (
-                                            <div className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                                            <div className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-xl bg-blue-50 text-blue-700 border border-blue-200">
                                                 <span>Déjà réinscrits :</span>
                                                 <strong>{dejaInscritsCount}</strong>
                                             </div>
                                         )}
 
                                         {totalArrieresSelected > 0 && (
-                                            <div className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
+                                            <div className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl bg-rose-50 text-rose-700 border border-rose-200">
                                                 <Coins className="size-3.5" />
                                                 <span>Arriérés reportés :</span>
                                                 <strong>{totalArrieresSelected.toLocaleString('fr-FR')} FCFA</strong>
@@ -763,8 +755,9 @@ export default function ReinscriptionPage({
                                             type="button"
                                             variant="outline"
                                             size="sm"
+                                            disabled={eligibleBatchCount === 0}
                                             onClick={handleSelectAllEligible}
-                                            className="h-8 text-xs cursor-pointer gap-1"
+                                            className="h-8 text-xs cursor-pointer gap-1 disabled:cursor-not-allowed"
                                         >
                                             <CheckSquare className="size-3.5 text-emerald-600" />
                                             Tout cocher ({eligibleBatchCount})
@@ -774,8 +767,9 @@ export default function ReinscriptionPage({
                                             type="button"
                                             variant="outline"
                                             size="sm"
+                                            disabled={eligibleBatchCount === 0}
                                             onClick={handleSelectPromusOnly}
-                                            className="h-8 text-xs cursor-pointer gap-1 text-emerald-700 border-emerald-300 dark:text-emerald-400 dark:border-emerald-800"
+                                            className="h-8 text-xs cursor-pointer gap-1 text-emerald-700 border-emerald-300 disabled:cursor-not-allowed"
                                         >
                                             <Award className="size-3.5 text-emerald-600" />
                                             Promus uniquement
@@ -785,8 +779,9 @@ export default function ReinscriptionPage({
                                             type="button"
                                             variant="outline"
                                             size="sm"
+                                            disabled={eligibleBatchCount === 0}
                                             onClick={handleSelectRedoublantsOnly}
-                                            className="h-8 text-xs cursor-pointer gap-1 text-amber-700 border-amber-300 dark:text-amber-400 dark:border-amber-800"
+                                            className="h-8 text-xs cursor-pointer gap-1 text-amber-700 border-amber-300 disabled:cursor-not-allowed"
                                         >
                                             Redoublants uniquement
                                         </Button>
@@ -795,8 +790,9 @@ export default function ReinscriptionPage({
                                             type="button"
                                             variant="ghost"
                                             size="sm"
+                                            disabled={selectedBatchCount === 0}
                                             onClick={handleDeselectAll}
-                                            className="h-8 text-xs cursor-pointer text-muted-foreground hover:text-foreground"
+                                            className="h-8 text-xs cursor-pointer text-muted-foreground hover:text-foreground disabled:cursor-not-allowed"
                                         >
                                             Tout décocher
                                         </Button>
@@ -817,20 +813,41 @@ export default function ReinscriptionPage({
                                 {/* TABLEAU DES ÉLÈVES DE LA CLASSE AVEC DÉBORDEMENT MAÎTRISÉ */}
                                 <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-xs min-w-0">
                                     <div className="overflow-x-auto min-w-0">
-                                        <table className="w-full text-left border-collapse text-xs min-w-[750px]">
+                                        <table className="w-full text-left border-collapse text-xs min-w-187.5">
                                             <thead>
                                                 <tr className="border-b border-border bg-muted/50 font-semibold text-muted-foreground uppercase text-[11px] tracking-wider">
                                                     <th className="p-3 w-12 text-center">
-                                                        <Checkbox
-                                                            checked={
-                                                                eligibleBatchCount > 0 &&
-                                                                selectedBatchCount === eligibleBatchCount
-                                                            }
-                                                            onCheckedChange={(checked) =>
-                                                                checked ? handleSelectAllEligible() : handleDeselectAll()
-                                                            }
-                                                            aria-label="Sélectionner tous les élèves éligibles"
-                                                        />
+                                                        {eligibleBatchCount === 0 ? (
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <span className="inline-flex items-center justify-center cursor-not-allowed">
+                                                                        <Checkbox
+                                                                            checked={false}
+                                                                            disabled
+                                                                            aria-label="Aucun élève éligible à sélectionner"
+                                                                        />
+                                                                    </span>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent side="right">
+                                                                    Aucun élève éligible : tous les élèves de cette classe sont déjà inscrits pour l&apos;année cible.
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                        ) : (
+                                                            <Checkbox
+                                                                checked={
+                                                                    selectedBatchCount === eligibleBatchCount
+                                                                        ? true
+                                                                        : selectedBatchCount > 0
+                                                                          ? 'indeterminate'
+                                                                          : false
+                                                                }
+                                                                onCheckedChange={(checked) =>
+                                                                    checked ? handleSelectAllEligible() : handleDeselectAll()
+                                                                }
+                                                                aria-label="Sélectionner tous les élèves éligibles"
+                                                                className="cursor-pointer"
+                                                            />
+                                                        )}
                                                     </th>
                                                     <th className="p-3">Élève & Identité</th>
                                                     <th className="p-3">Sexe & Âge</th>
@@ -860,16 +877,34 @@ export default function ReinscriptionPage({
                                                                     : 'hover:bg-muted/30'
                                                             }`}
                                                         >
-                                                            {/* Checkbox individuel */}
+                                                            {/* Case à cocher individuelle avec infobulle explicative si déjà inscrit */}
                                                             <td className="p-3 text-center align-middle">
-                                                                <Checkbox
-                                                                    checked={el.is_selected && !el.deja_inscrit}
-                                                                    disabled={el.deja_inscrit}
-                                                                    onCheckedChange={(checked) =>
-                                                                        toggleBatchItem(el.eleve_id, Boolean(checked))
-                                                                    }
-                                                                    aria-label={`Sélectionner ${el.nom_complet}`}
-                                                                />
+                                                                {el.deja_inscrit ? (
+                                                                    <Tooltip>
+                                                                        <TooltipTrigger asChild>
+                                                                            <span className="inline-flex items-center justify-center cursor-not-allowed">
+                                                                                <Checkbox
+                                                                                    checked={false}
+                                                                                    disabled
+                                                                                    aria-label={`${el.nom_complet} déjà inscrit pour l'année cible`}
+                                                                                />
+                                                                            </span>
+                                                                        </TooltipTrigger>
+                                                                        <TooltipContent side="right">
+                                                                            Déjà inscrit pour l&apos;année cible ({destAnneeLabel}
+                                                                            {el.classe_actuelle_nom ? ` — ${el.classe_actuelle_nom}` : ''})
+                                                                        </TooltipContent>
+                                                                    </Tooltip>
+                                                                ) : (
+                                                                    <Checkbox
+                                                                        checked={el.is_selected}
+                                                                        onCheckedChange={(checked) =>
+                                                                            toggleBatchItem(el.eleve_id, Boolean(checked))
+                                                                        }
+                                                                        aria-label={`Sélectionner ${el.nom_complet}`}
+                                                                        className="cursor-pointer"
+                                                                    />
+                                                                )}
                                                             </td>
 
                                                             {/* Nom complet & Matricule */}
@@ -901,10 +936,10 @@ export default function ReinscriptionPage({
                                                                         variant="secondary"
                                                                         className={`text-[10px] px-1.5 py-0 font-semibold ${
                                                                             el.sexe === 'F'
-                                                                                ? 'bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300'
+                                                                                ? 'bg-rose-50 text-rose-700 border border-rose-200'
                                                                                 : el.sexe === 'M'
-                                                                                ? 'bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-300'
-                                                                                : 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300'
+                                                                                ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                                                                                : 'bg-amber-50 text-amber-700 border border-amber-200'
                                                                         }`}
                                                                     >
                                                                         {el.sexe === 'F' ? 'Fille' : el.sexe === 'M' ? 'Garçon' : 'À compléter'}
@@ -929,10 +964,10 @@ export default function ReinscriptionPage({
                                                                         variant="outline"
                                                                         className={`text-[11px] font-semibold px-2 py-0.5 ${
                                                                             el.statut_retenu === 'promu'
-                                                                                ? 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/50 dark:text-emerald-300'
+                                                                                ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
                                                                                 : el.statut_retenu === 'redouble'
-                                                                                ? 'bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/50 dark:text-amber-300'
-                                                                                : 'bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300'
+                                                                                ? 'bg-amber-50 text-amber-800 border-amber-300'
+                                                                                : 'bg-slate-100 text-slate-700 border-slate-300'
                                                                         }`}
                                                                     >
                                                                         {el.decision_conseil}
@@ -1016,14 +1051,14 @@ export default function ReinscriptionPage({
                                                                 {el.deja_inscrit ? (
                                                                     <Badge
                                                                         variant="outline"
-                                                                        className="bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 font-bold"
+                                                                        className="bg-emerald-50 text-emerald-800 border-emerald-300 font-bold"
                                                                     >
                                                                         Inscrit en {el.classe_actuelle_nom || 'Classe'}
                                                                     </Badge>
                                                                 ) : el.is_selected ? (
                                                                     <Badge
                                                                         variant="outline"
-                                                                        className="bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 font-medium"
+                                                                        className="bg-indigo-50 text-indigo-700 border-indigo-200 font-medium"
                                                                     >
                                                                         À inscrire
                                                                     </Badge>
@@ -1042,10 +1077,10 @@ export default function ReinscriptionPage({
                                 </div>
 
                                 {/* BANDEAU DE VALIDATION EN BAS */}
-                                <div className="rounded-2xl border-2 border-emerald-300 dark:border-emerald-800 bg-emerald-500/5 p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
+                                <div className="rounded-2xl border-2 border-emerald-300 bg-emerald-500/5 p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
                                     <div className="space-y-1">
                                         <div className="flex items-center gap-2">
-                                            <Sparkles className="size-5 text-emerald-600" />
+                                            <CheckCircle2 className="size-5 text-emerald-600" />
                                             <h4 className="text-base font-bold text-foreground">
                                                 Valider la promotion collective ({selectedBatchCount} élèves)
                                             </h4>
@@ -1054,7 +1089,7 @@ export default function ReinscriptionPage({
                                             {selectedBatchCount > 0 ? (
                                                 <span>
                                                     Prêt à inscrire <strong>{selectedBatchCount} élève(s)</strong> dans la classe{' '}
-                                                    <strong className="text-emerald-700 dark:text-emerald-400">
+                                                    <strong className="text-emerald-700">
                                                         {currentTargetClasse?.nom || '[Classe non choisie]'}
                                                     </strong>{' '}
                                                     pour l'année scolaire{' '}
@@ -1129,7 +1164,7 @@ export default function ReinscriptionPage({
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                         {/* COLONNE GAUCHE : RECHERCHE ET LISTE D'ÉLÈVES (5 COLONNES) */}
                         <div className="lg:col-span-5 space-y-4">
-                            <div className="rounded-2xl border-2 border-slate-300 dark:border-slate-700 bg-card p-5 shadow-xs space-y-4">
+                            <div className="rounded-2xl border-2 border-slate-300 bg-card p-5 shadow-xs space-y-4">
                                 <div>
                                     <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
                                         <Search className="size-4 text-indigo-600" />
@@ -1175,7 +1210,7 @@ export default function ReinscriptionPage({
                                                     onClick={() => handleSelectIndivEleve(el)}
                                                     className={`p-3.5 rounded-xl border text-xs cursor-pointer transition-all ${
                                                         isSelected
-                                                            ? 'border-indigo-600 bg-indigo-50/60 dark:bg-indigo-950/40 shadow-xs'
+                                                            ? 'border-indigo-600 bg-indigo-50/60 shadow-xs'
                                                             : 'border-border bg-card hover:bg-muted/40'
                                                     }`}
                                                 >
@@ -1250,8 +1285,8 @@ export default function ReinscriptionPage({
                         {/* COLONNE DROITE : FICHE DÉTAILLÉE & FORMULAIRE D'AFFECTATION (7 COLONNES) */}
                         <div className="lg:col-span-7 space-y-6">
                             {!indivSelectedEleve ? (
-                                <div className="rounded-2xl border-2 border-dashed border-slate-300 dark:border-slate-800 p-12 text-center bg-card">
-                                    <div className="size-14 mx-auto rounded-2xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 flex items-center justify-center mb-4">
+                                <div className="rounded-2xl border-2 border-dashed border-slate-300 p-12 text-center bg-card">
+                                    <div className="size-14 mx-auto rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-4">
                                         <UserCheck className="size-7" />
                                     </div>
                                     <h3 className="text-base font-bold text-foreground">
@@ -1265,7 +1300,7 @@ export default function ReinscriptionPage({
                             ) : (
                                 <div className="space-y-6">
                                     {/* CARTE D'IDENTITÉ DE L'ÉLÈVE SÉLECTIONNÉ */}
-                                    <div className="rounded-2xl border border-indigo-200 dark:border-indigo-900 bg-indigo-50/40 dark:bg-indigo-950/20 p-5 space-y-3">
+                                    <div className="rounded-2xl border border-indigo-200 bg-indigo-50/40 p-5 space-y-3">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3">
                                                 <div className="size-11 rounded-full bg-indigo-600 text-white font-bold flex items-center justify-center text-sm shadow-xs">
@@ -1300,7 +1335,7 @@ export default function ReinscriptionPage({
                                         </div>
 
                                         {/* Résumé de scolarité passée */}
-                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-indigo-200/60 dark:border-indigo-900/60 text-xs">
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-indigo-200/60 text-xs">
                                             <div>
                                                 <span className="text-[10px] uppercase font-bold text-muted-foreground block">
                                                     Dernière Classe
@@ -1331,7 +1366,7 @@ export default function ReinscriptionPage({
                                     </div>
 
                                     {/* FORMULAIRE D'AFFECTATION POUR LA NOUVELLE ANNÉE */}
-                                    <div className="rounded-2xl border-2 border-slate-300 dark:border-slate-700 bg-card p-6 shadow-xs space-y-6">
+                                    <div className="rounded-2xl border-2 border-slate-300 bg-card p-6 shadow-xs space-y-6">
                                         <h4 className="text-sm font-bold text-foreground flex items-center gap-2 border-b border-border pb-3">
                                             <CheckCircle2 className="size-4 text-emerald-600" />
                                             Affectation dans la nouvelle classe ({anneesScolaires.find((a) => String(a.id) === destAnneeId)?.nom ?? 'Nouvelle Année'})

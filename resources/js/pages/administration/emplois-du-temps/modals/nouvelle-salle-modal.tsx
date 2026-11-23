@@ -80,7 +80,7 @@ export default function NouvelleSalleModal({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2 text-base sm:text-lg font-bold text-slate-800 dark:text-slate-100">
+                    <DialogTitle className="flex items-center gap-2 text-base sm:text-lg font-bold text-slate-800">
                         <DoorOpen className="w-5 h-5 text-teal-600 shrink-0" />
                         <span>Ajouter une Salle Pédagogique</span>
                     </DialogTitle>

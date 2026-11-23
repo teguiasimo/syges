@@ -2,6 +2,7 @@ import type { InertiaLinkProps } from '@inertiajs/react';
 import { clsx } from 'clsx';
 import type { ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import type { ClasseRef, EtablissementRef } from '@/types/eleve';
 
 export function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));
@@ -74,7 +75,7 @@ export function formatAnneeLabel(nom?: string | null, code?: string | null, sess
     const candidates = [session, code, nom];
     for (const c of candidates) {
         if (!c) continue;
-        const match = c.trim().match(/\b(\d{4}[\/\-]\d{4})\b/);
+        const match = c.trim().match(/\b(\d{4}[/-]\d{4})\b/);
         if (match) {
             return match[1];
         }
@@ -84,7 +85,7 @@ export function formatAnneeLabel(nom?: string | null, code?: string | null, sess
     const raw = session || code || nom || '';
     if (!raw) return '';
     return raw
-        .replace(/^\s*Ann[ée]e\s+scolaire\s*[:\-]?\s*/i, '')
+        .replace(/^\s*Ann[ée]e\s+scolaire\s*[:-]?\s*/i, '')
         .trim();
 }
 /**
@@ -107,14 +108,14 @@ export function truncateText(text?: string | null, maxLength = 45): string {
  * Permet de diversifier visuellement l'affichage des listes et tableaux sans monotonie.
  */
 export const AVATAR_PALETTES = [
-    'bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800',
-    'bg-sky-100 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-800',
-    'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800',
-    'bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800',
-    'bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800',
-    'bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800',
-    'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800',
-    'bg-orange-100 dark:bg-orange-950/60 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800',
+    'bg-indigo-100 text-indigo-700 border-indigo-200',
+    'bg-sky-100 text-sky-700 border-sky-200',
+    'bg-amber-100 text-amber-700 border-amber-200',
+    'bg-rose-100 text-rose-700 border-rose-200',
+    'bg-purple-100 text-purple-700 border-purple-200',
+    'bg-blue-100 text-blue-700 border-blue-200',
+    'bg-emerald-100 text-emerald-700 border-emerald-200',
+    'bg-orange-100 text-orange-700 border-orange-200',
 ];
 
 /**
@@ -130,5 +131,137 @@ export function getAvatarStyle(text: string): string {
     }
     const index = Math.abs(hash) % AVATAR_PALETTES.length;
     return AVATAR_PALETTES[index];
+}
+
+/**
+ * Normalise l'URL d'un média public stocké en base (photo élève, logo, visuel)
+ * afin de garantir son affichage quel que soit l'hôte actif (localhost, syges.test, IP)
+ * et d'éviter les doubles slashs (ex: `//storage/...` interprétés comme un domaine externe).
+ *
+ * @param {string | null} [url] Chemin relatif, URL complète ou Data URI du média.
+ * @returns {string | null} URL prête pour l'attribut `src` d'une balise `<img>`, ou `null` si vide.
+ */
+export function resolveMediaUrl(url?: string | null): string | null {
+    if (!url) return null;
+    const trimmed = url.trim();
+    if (!trimmed) return null;
+
+    if (trimmed.startsWith('data:') || trimmed.startsWith('blob:')) {
+        return trimmed;
+    }
+
+    // Si une URL absolue pointe vers `/storage/...` (ex: APP_URL différent de l'hôte courant),
+    // conserver uniquement `/storage/...` pour résoudre le fichier sur l'origine active.
+    const storageMatch = trimmed.match(/^https?:\/\/[^/]+(\/storage\/.+)$/i);
+    if (storageMatch) {
+        return storageMatch[1];
+    }
+
+    if (/^https?:\/\//i.test(trimmed)) {
+        return trimmed;
+    }
+
+    const normalized = trimmed.replace(/^\/+/, '');
+    if (normalized.startsWith('storage/')) {
+        return `/${normalized}`;
+    }
+
+    if (normalized.startsWith('photos_eleves/') || normalized.startsWith('logos/')) {
+        return `/storage/${normalized}`;
+    }
+
+    return `/${normalized}`;
+}
+
+/**
+ * Aplatit les classes rattachées aux établissements (filtrable par établissement) en conservant
+ * la hiérarchie `niveau.cycle.section.etablissement` nécessaire aux sélecteurs transversaux.
+ *
+ * @param {EtablissementRef[]} etablissements Liste des établissements chargés.
+ * @param {string} [filterEtabId] Identifiant optionnel d'un campus pour restreindre l'extraction.
+ * @returns {ClasseRef[]} Liste plate des classes avec leur contexte hiérarchique complet.
+ */
+export function flattenClassesFromEtablissements(
+    etablissements: EtablissementRef[],
+    filterEtabId?: string
+): ClasseRef[] {
+    const list: ClasseRef[] = [];
+
+    etablissements.forEach((etab) => {
+        if (filterEtabId && String(etab.id) !== filterEtabId) {
+            return;
+        }
+
+        etab.sections?.forEach((sec) => {
+            sec.cycles?.forEach((cyc) => {
+                cyc.niveaux?.forEach((niv) => {
+                    niv.classes?.forEach((cls) => {
+                        list.push({
+                            ...cls,
+                            niveau: {
+                                id: niv.id,
+                                nom: niv.nom,
+                                code: niv.code,
+                                cycle: {
+                                    id: cyc.id,
+                                    nom: cyc.nom,
+                                    section: {
+                                        id: sec.id,
+                                        nom: sec.nom,
+                                        etablissement: {
+                                            id: etab.id,
+                                            nom: etab.nom,
+                                            code: etab.code,
+                                            sigle: etab.sigle,
+                                        },
+                                    },
+                                },
+                            },
+                        });
+                    });
+                });
+            });
+        });
+    });
+
+    return list;
+}
+
+/**
+ * Construit les options d'un sélecteur `SearchableSelect` pour une liste de classes.
+ * Garde un libellé principal concis (`Classe (Niveau)`) et place le nom complet de l'établissement
+ * en description secondaire (toujours indexée par la recherche) afin d'éviter la troncature brutale
+ * et le débordement des noms longs d'établissements.
+ *
+ * @param {ClasseRef[]} classes Liste plate des classes disponibles.
+ * @returns {Array<{ value: string; label: string; group: string; description?: string }>} Options prêtes pour SearchableSelect.
+ */
+export function buildClasseSearchOptions(classes: ClasseRef[]) {
+    return classes.map((cls) => {
+        const niveauNom = cls.niveau?.nom || 'Niveau';
+        const etabNom = cls.niveau?.cycle?.section?.etablissement?.nom || '';
+
+        return {
+            value: String(cls.id),
+            label: `${cls.nom} (${niveauNom})`,
+            group: niveauNom,
+            description: etabNom || undefined,
+        };
+    });
+}
+
+/**
+ * Construit les options `SearchableSelect` pour une liste d'établissements / campus,
+ * en affichant le code court et le nom complet sans coupure ambiguë.
+ *
+ * @param {EtablissementRef[]} etablissements Liste des établissements disponibles.
+ * @returns {Array<{ value: string; label: string; description?: string }>} Options prêtes pour SearchableSelect.
+ */
+export function buildEtablissementSearchOptions(etablissements: EtablissementRef[]) {
+    return etablissements.map((etab) => ({
+        value: String(etab.id),
+        label: etab.nom,
+        description: etab.code ? `Code : ${etab.code}` : undefined,
+    }));
 }
 

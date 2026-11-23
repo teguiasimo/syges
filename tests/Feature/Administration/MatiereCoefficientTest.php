@@ -1,14 +1,19 @@
 <?php
 
-/** @var \Tests\TestCase $this */
+/** @var TestCase $this */
 
+use App\Models\Cycle;
+use App\Models\Etablissement;
 use App\Models\GroupeMatiere;
+use App\Models\Institution;
 use App\Models\Matiere;
 use App\Models\MatiereNiveau;
 use App\Models\Niveau;
+use App\Models\Section;
 use App\Models\User;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
+use Tests\TestCase;
 
 /**
  * Tests de fonctionnalités pour le Module 4 : Gestion des Matières & Coefficients (Gesco).
@@ -24,9 +29,8 @@ use Spatie\Permission\Models\Role;
  * - L'interdiction des doublons matière/niveau/série.
  * - L'initialisation automatique des standards officiels.
  */
-
 beforeEach(function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     Role::firstOrCreate(['name' => 'super-admin', 'guard_name' => 'web']);
 
     $permissions = [
@@ -42,7 +46,7 @@ beforeEach(function () {
     $this->adminUser->assignRole('super-admin');
 
     // Récupération ou création d'une institution et d'un niveau de test
-    $this->institution = \App\Models\Institution::firstOrCreate(
+    $this->institution = Institution::firstOrCreate(
         ['code' => 'INST-TEST'],
         [
             'sigle' => 'TEST-INST',
@@ -55,9 +59,9 @@ beforeEach(function () {
         ]
     );
 
-    $this->etablissement = \App\Models\Etablissement::first();
+    $this->etablissement = Etablissement::first();
     if (! $this->etablissement) {
-        $this->etablissement = \App\Models\Etablissement::firstOrCreate(
+        $this->etablissement = Etablissement::firstOrCreate(
             ['code' => 'TEST-ETAB'],
             [
                 'institution_id' => $this->institution->id,
@@ -69,11 +73,11 @@ beforeEach(function () {
 
     $this->niveau = Niveau::first();
     if (! $this->niveau) {
-        $sec = \App\Models\Section::firstOrCreate(
+        $sec = Section::firstOrCreate(
             ['etablissement_id' => $this->etablissement->id, 'code' => 'SEC-FR'],
             ['nom' => 'Section FR', 'langue' => 'fr']
         );
-        $cyc = \App\Models\Cycle::firstOrCreate(
+        $cyc = Cycle::firstOrCreate(
             ['section_id' => $sec->id, 'code' => 'CYC-1'],
             ['nom' => 'Premier Cycle', 'ordre' => 1]
         );
@@ -107,13 +111,13 @@ beforeEach(function () {
 });
 
 test('guests are redirected to login when visiting matieres page', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $response = $this->get(route('administration.matieres.index'));
     $response->assertRedirect(route('login'));
 });
 
 test('unauthorized users without matieres.view permission cannot access matieres page', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $user = User::factory()->create();
     $this->actingAs($user);
 
@@ -122,7 +126,7 @@ test('unauthorized users without matieres.view permission cannot access matieres
 });
 
 test('authorized users can view matieres page with groups and subjects', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $this->actingAs($this->adminUser);
 
     $response = $this->get(route('administration.matieres.index'));
@@ -143,7 +147,7 @@ test('authorized users can view matieres page with groups and subjects', functio
  * Teste le filtrage de la grille des matières et niveaux par établissement scolaire.
  */
 test('can filter matieres and niveaux by etablissement_id', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $this->actingAs($this->adminUser);
 
     // Requête avec filtrage contextuel sur l'établissement actif
@@ -160,7 +164,7 @@ test('can filter matieres and niveaux by etablissement_id', function () {
 });
 
 test('can create a new pedagogical block (groupe matiere)', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $this->actingAs($this->adminUser);
 
     $response = $this->post(route('administration.matieres.groupes.store'), [
@@ -180,7 +184,7 @@ test('can create a new pedagogical block (groupe matiere)', function () {
 });
 
 test('cannot create a pedagogical block with duplicate code', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $this->actingAs($this->adminUser);
 
     $response = $this->post(route('administration.matieres.groupes.store'), [
@@ -193,7 +197,7 @@ test('cannot create a pedagogical block with duplicate code', function () {
 });
 
 test('can update a pedagogical block', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $this->actingAs($this->adminUser);
 
     $response = $this->put(route('administration.matieres.groupes.update', $this->groupe->id), [
@@ -213,7 +217,7 @@ test('can update a pedagogical block', function () {
 });
 
 test('can delete an unattached pedagogical block', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $this->actingAs($this->adminUser);
 
     $groupeVide = GroupeMatiere::create([
@@ -228,7 +232,7 @@ test('can delete an unattached pedagogical block', function () {
 });
 
 test('cannot delete a pedagogical block with associated coefficients', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $this->actingAs($this->adminUser);
 
     MatiereNiveau::firstOrCreate(
@@ -251,7 +255,7 @@ test('cannot delete a pedagogical block with associated coefficients', function 
 });
 
 test('can add a new subject to general catalogue', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $this->actingAs($this->adminUser);
 
     $response = $this->post(route('administration.matieres.catalogue.store'), [
@@ -271,7 +275,7 @@ test('can add a new subject to general catalogue', function () {
 });
 
 test('can update a subject in catalogue', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $this->actingAs($this->adminUser);
 
     $response = $this->put(route('administration.matieres.catalogue.update', $this->matiere->id), [
@@ -289,7 +293,7 @@ test('can update a subject in catalogue', function () {
 });
 
 test('can configure a subject coefficient for a level and serie with elimination mark', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $this->actingAs($this->adminUser);
 
     $nouvelleMatiere = Matiere::create([
@@ -321,7 +325,7 @@ test('can configure a subject coefficient for a level and serie with elimination
 });
 
 test('cannot configure duplicate subject on same level and serie', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $this->actingAs($this->adminUser);
 
     MatiereNiveau::firstOrCreate(
@@ -352,7 +356,7 @@ test('cannot configure duplicate subject on same level and serie', function () {
 });
 
 test('can update and delete a coefficient configuration', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $this->actingAs($this->adminUser);
 
     $coef = MatiereNiveau::firstOrCreate(
@@ -394,7 +398,7 @@ test('can update and delete a coefficient configuration', function () {
 });
 
 test('can seed standard official subjects and pedagogical blocks', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $this->actingAs($this->adminUser);
 
     $response = $this->post(route('administration.matieres.seed-standards'));
@@ -410,10 +414,10 @@ test('can seed standard official subjects and pedagogical blocks', function () {
  * Teste la coexistence de blocs pédagogiques portant le même code dans deux établissements distincts (isolation SaaS).
  */
 test('can create pedagogical blocks with same code in different establishments without collision', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $this->actingAs($this->adminUser);
 
-    $autreEtab = \App\Models\Etablissement::firstOrCreate(
+    $autreEtab = Etablissement::firstOrCreate(
         ['code' => 'TEST-ETAB-2'],
         [
             'institution_id' => $this->institution->id,
@@ -457,7 +461,7 @@ test('can create pedagogical blocks with same code in different establishments w
  * Teste l'interdiction de doublons de code de bloc au sein d'un même établissement.
  */
 test('cannot create pedagogical block with duplicate code in same establishment', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $this->actingAs($this->adminUser);
 
     $this->post(route('administration.matieres.groupes.store'), [
@@ -481,7 +485,7 @@ test('cannot create pedagogical block with duplicate code in same establishment'
  * Teste la création d'une discipline spécifique à un établissement vs une discipline du tronc commun.
  */
 test('can manage subjects with establishment scope and common core scope', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $this->actingAs($this->adminUser);
 
     // Matière spécifique à l'établissement
@@ -514,13 +518,13 @@ test('can manage subjects with establishment scope and common core scope', funct
 });
 
 /**
- * Teste le seed des standards avec adaptation automatique selon l'ordre d'enseignement de l'établissement.
+ * Teste le seed des standards unifiés (3 blocs du secondaire : Scientifiques, Littéraires, Complémentaires).
  */
 test('seedStandards creates appropriate pedagogical blocks for specific establishment', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $this->actingAs($this->adminUser);
 
-    $etabPrimaire = \App\Models\Etablissement::firstOrCreate(
+    $etabPrimaire = Etablissement::firstOrCreate(
         ['code' => 'TEST-PRIMAIRE'],
         [
             'institution_id' => $this->institution->id,
@@ -534,14 +538,25 @@ test('seedStandards creates appropriate pedagogical blocks for specific establis
     ]);
     $response->assertRedirect();
 
-    // L'école primaire doit recevoir les 4 domaines MINEDUB
+    // L'initialisation des standards conserve systématiquement les 3 blocs unifiés du secondaire
     $this->assertDatabaseHas('groupes_matieres', [
         'etablissement_id' => $etabPrimaire->id,
-        'code' => 'DOM-LANG',
+        'code' => 'BLOC-SCI',
+        'nom' => 'Scientifiques',
     ]);
     $this->assertDatabaseHas('groupes_matieres', [
         'etablissement_id' => $etabPrimaire->id,
-        'code' => 'DOM-SCI',
+        'code' => 'BLOC-LIT',
+        'nom' => 'Littéraires',
+    ]);
+    $this->assertDatabaseHas('groupes_matieres', [
+        'etablissement_id' => $etabPrimaire->id,
+        'code' => 'BLOC-COMP',
+        'nom' => 'Complémentaires',
+    ]);
+    $this->assertDatabaseMissing('groupes_matieres', [
+        'etablissement_id' => $etabPrimaire->id,
+        'code' => 'DOM-LANG',
     ]);
 });
 
@@ -549,7 +564,7 @@ test('seedStandards creates appropriate pedagogical blocks for specific establis
  * Teste la protection par permissions de la duplication de grille de coefficients.
  */
 test('duplicateCoefficients forbids unauthorized users without coefficients.duplicate permission', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $unauthorizedUser = User::factory()->create();
 
     $niveauSource = Niveau::create([
@@ -579,7 +594,7 @@ test('duplicateCoefficients forbids unauthorized users without coefficients.dupl
  * Teste la duplication de grille selon le Mode Option 1 (Compléter uniquement les matières manquantes sans écrasement).
  */
 test('duplicateCoefficients copies only missing subjects preserving existing configuration (Option 1)', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $this->actingAs($this->adminUser);
 
     $niveauSource = Niveau::create([
@@ -678,14 +693,14 @@ test('duplicateCoefficients copies only missing subjects preserving existing con
  * Teste le cloisonnement strict SaaS multi-établissements (Interdiction formelle de duplication inter-campus).
  */
 test('duplicateCoefficients strictly prevents cross-establishment copying to maintain SaaS isolation', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $this->actingAs($this->adminUser);
 
     // Établissement Campus A
     $etabA = $this->etablissement;
 
     // Établissement Campus B distinct
-    $etabB = \App\Models\Etablissement::firstOrCreate(
+    $etabB = Etablissement::firstOrCreate(
         ['code' => 'CAMPUS-B-SAAS'],
         [
             'institution_id' => $this->institution->id,
@@ -703,11 +718,11 @@ test('duplicateCoefficients strictly prevents cross-establishment copying to mai
         'etablissement_id' => $etabA->id,
     ]);
 
-    $secB = \App\Models\Section::firstOrCreate(
+    $secB = Section::firstOrCreate(
         ['etablissement_id' => $etabB->id, 'code' => 'SEC-B'],
         ['nom' => 'Section B Campus B', 'langue' => 'fr']
     );
-    $cycB = \App\Models\Cycle::firstOrCreate(
+    $cycB = Cycle::firstOrCreate(
         ['section_id' => $secB->id, 'code' => 'CYC-B'],
         ['nom' => 'Premier Cycle Campus B', 'ordre' => 1, 'etablissement_id' => $etabB->id]
     );
@@ -733,11 +748,11 @@ test('duplicateCoefficients strictly prevents cross-establishment copying to mai
  * Teste qu'une opération de duplication au sein du Campus A n'impacte pas le Campus B (données 100% neuves et isolées).
  */
 test('duplicateCoefficients within establishment A does not leak or affect establishment B', function () {
-    /** @var \Tests\TestCase $this */
+    /** @var TestCase $this */
     $this->actingAs($this->adminUser);
 
     $etabA = $this->etablissement;
-    $etabB = \App\Models\Etablissement::firstOrCreate(
+    $etabB = Etablissement::firstOrCreate(
         ['code' => 'CAMPUS-ISOLATED'],
         [
             'institution_id' => $this->institution->id,
@@ -763,11 +778,11 @@ test('duplicateCoefficients within establishment A does not leak or affect estab
     ]);
 
     // Campus B : 1 niveau tout neuf
-    $secB = \App\Models\Section::firstOrCreate(
+    $secB = Section::firstOrCreate(
         ['etablissement_id' => $etabB->id, 'code' => 'SEC-ISO-B'],
         ['nom' => 'Section Campus B', 'langue' => 'fr']
     );
-    $cycB = \App\Models\Cycle::firstOrCreate(
+    $cycB = Cycle::firstOrCreate(
         ['section_id' => $secB->id, 'code' => 'CYC-ISO-B'],
         ['nom' => 'Premier Cycle Campus B', 'ordre' => 1, 'etablissement_id' => $etabB->id]
     );

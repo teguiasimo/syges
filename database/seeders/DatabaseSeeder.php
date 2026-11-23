@@ -132,6 +132,7 @@ class DatabaseSeeder extends Seeder
             'eleves.edit' => 'web',
             'eleves.delete' => 'web',
             'eleves.import' => 'web',
+            'eleves.merge' => 'web',
             'inscriptions.reinscrire' => 'web',
             'inscriptions.transfer' => 'web',
             'inscriptions.delete' => 'web',

@@ -118,7 +118,7 @@ export function ImprimerListesModal({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-xl">
                 <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2 text-base sm:text-lg font-bold text-slate-800 dark:text-slate-100">
+                    <DialogTitle className="flex items-center gap-2 text-base sm:text-lg font-bold text-slate-800">
                         <Printer className="size-5 text-teal-600 shrink-0" />
                         <span>Imprimer les Listes &amp; Fiches d'Élèves</span>
                     </DialogTitle>
@@ -139,7 +139,7 @@ export function ImprimerListesModal({
                                 onClick={() => setScope('classe')}
                                 className={`flex flex-col items-start gap-1 p-3 rounded-lg border text-left cursor-pointer transition-all ${
                                     scope === 'classe'
-                                        ? 'border-teal-600 bg-teal-50/60 dark:bg-teal-950/40 text-teal-900 dark:text-teal-200 shadow-2xs font-semibold'
+                                        ? 'border-teal-600 bg-teal-50/60 text-teal-900 shadow-2xs font-semibold'
                                         : 'border-border hover:bg-muted/50 text-muted-foreground'
                                 }`}
                             >
@@ -159,7 +159,7 @@ export function ImprimerListesModal({
                                 onClick={() => setScope('niveau')}
                                 className={`flex flex-col items-start gap-1 p-3 rounded-lg border text-left cursor-pointer transition-all ${
                                     scope === 'niveau'
-                                        ? 'border-teal-600 bg-teal-50/60 dark:bg-teal-950/40 text-teal-900 dark:text-teal-200 shadow-2xs font-semibold'
+                                        ? 'border-teal-600 bg-teal-50/60 text-teal-900 shadow-2xs font-semibold'
                                         : 'border-border hover:bg-muted/50 text-muted-foreground'
                                 }`}
                             >
@@ -179,7 +179,7 @@ export function ImprimerListesModal({
                                 onClick={() => setScope('repertoire')}
                                 className={`flex flex-col items-start gap-1 p-3 rounded-lg border text-left cursor-pointer transition-all ${
                                     scope === 'repertoire'
-                                        ? 'border-teal-600 bg-teal-50/60 dark:bg-teal-950/40 text-teal-900 dark:text-teal-200 shadow-2xs font-semibold'
+                                        ? 'border-teal-600 bg-teal-50/60 text-teal-900 shadow-2xs font-semibold'
                                         : 'border-border hover:bg-muted/50 text-muted-foreground'
                                 }`}
                             >
@@ -234,7 +234,7 @@ export function ImprimerListesModal({
                     )}
 
                     {scope === 'repertoire' && (
-                        <div className="p-3 rounded-lg bg-teal-50/50 dark:bg-teal-950/20 border border-teal-200 dark:border-teal-800 text-teal-800 dark:text-teal-300 text-xs">
+                        <div className="p-3 rounded-lg bg-teal-50/50 border border-teal-200 text-teal-800 text-xs">
                             <p className="font-semibold flex items-center gap-1.5 mb-1">
                                 <School className="size-4 text-teal-600" />
                                 Tableau Récapitulatif Global
@@ -258,7 +258,7 @@ export function ImprimerListesModal({
                                     onClick={() => setDocumentType('definitive')}
                                     className={`h-auto p-2.5 justify-start text-left cursor-pointer transition-all ${
                                         documentType === 'definitive'
-                                            ? 'border-emerald-600 bg-emerald-50/60 dark:bg-emerald-950/40 text-emerald-950 dark:text-emerald-200 font-semibold shadow-2xs'
+                                            ? 'border-emerald-600 bg-emerald-50/60 text-emerald-950 font-semibold shadow-2xs'
                                             : 'hover:bg-muted/50 text-muted-foreground'
                                     }`}
                                 >
@@ -279,7 +279,7 @@ export function ImprimerListesModal({
                                     onClick={() => setDocumentType('provisoire')}
                                     className={`h-auto p-2.5 justify-start text-left cursor-pointer transition-all ${
                                         documentType === 'provisoire'
-                                            ? 'border-amber-600 bg-amber-50/60 dark:bg-amber-950/40 text-amber-950 dark:text-amber-200 font-semibold shadow-2xs'
+                                            ? 'border-amber-600 bg-amber-50/60 text-amber-950 font-semibold shadow-2xs'
                                             : 'hover:bg-muted/50 text-muted-foreground'
                                     }`}
                                 >
@@ -303,7 +303,7 @@ export function ImprimerListesModal({
                                             onClick={() => setDocumentType('fiche_appel_journaliere')}
                                             className={`h-auto p-2.5 justify-start text-left cursor-pointer transition-all ${
                                                 documentType === 'fiche_appel_journaliere'
-                                                    ? 'border-teal-600 bg-teal-50/60 dark:bg-teal-950/40 text-teal-950 dark:text-teal-200 font-semibold shadow-2xs'
+                                                    ? 'border-teal-600 bg-teal-50/60 text-teal-950 font-semibold shadow-2xs'
                                                     : 'hover:bg-muted/50 text-muted-foreground'
                                             }`}
                                         >
@@ -327,7 +327,7 @@ export function ImprimerListesModal({
                                             onClick={() => setDocumentType('fiche_appel')}
                                             className={`h-auto p-2.5 justify-start text-left cursor-pointer transition-all ${
                                                 documentType === 'fiche_appel'
-                                                    ? 'border-sky-600 bg-sky-50/60 dark:bg-sky-950/40 text-sky-950 dark:text-sky-200 font-semibold shadow-2xs'
+                                                    ? 'border-sky-600 bg-sky-50/60 text-sky-950 font-semibold shadow-2xs'
                                                     : 'hover:bg-muted/50 text-muted-foreground'
                                             }`}
                                         >

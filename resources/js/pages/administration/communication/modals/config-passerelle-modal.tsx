@@ -20,7 +20,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { FournisseurSms, SmsConfiguration } from '@/types/communication';
-import { Settings, Shield } from 'lucide-react';
+import { Settings } from 'lucide-react';
 
 interface ConfigPasserelleModalProps {
     open: boolean;
@@ -39,7 +39,7 @@ export default function ConfigPasserelleModal({
     onOpenChange,
     config,
 }: ConfigPasserelleModalProps) {
-    const { data, setData, put, processing, reset, errors } = useForm({
+    const { data, setData, put, processing, reset: _reset, errors } = useForm({
         etablissement_id: config.etablissement_id,
         fournisseur: config.fournisseur as FournisseurSms,
         sender_id: config.sender_id || 'SYGES',
@@ -73,7 +73,7 @@ export default function ConfigPasserelleModal({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2 text-base sm:text-lg font-bold text-slate-800 dark:text-slate-100">
+                    <DialogTitle className="flex items-center gap-2 text-base sm:text-lg font-bold text-slate-800">
                         <Settings className="w-5 h-5 text-teal-600 shrink-0" />
                         <span>Passerelle SMS & Sender ID</span>
                     </DialogTitle>

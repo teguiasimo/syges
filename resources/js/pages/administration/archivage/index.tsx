@@ -3,30 +3,20 @@ import {
     ColumnDef,
     flexRender,
     getCoreRowModel,
-    getPaginationRowModel,
     getSortedRowModel,
     SortingState,
     useReactTable,
 } from '@tanstack/react-table';
 import {
-    AlertCircle,
     Archive,
     Binary,
     Calendar,
-    CheckCircle2,
     Copy,
-    Edit2,
-    FileText,
-    Filter,
     GraduationCap,
     Plus,
-    RefreshCw,
     RotateCcw,
     Search,
     Settings,
-    ShieldAlert,
-    Sparkles,
-    UserCheck,
     Users,
 } from 'lucide-react';
 import React, { useMemo, useState } from 'react';
@@ -68,7 +58,7 @@ import { ArchiverModal } from './modals/archiver-modal';
 import { ConfigurationNumerotationModal } from './modals/configuration-numerotation-modal';
 import { DupliquerAnneeModal } from './modals/dupliquer-annee-modal';
 
-const breadcrumbs: BreadcrumbItem[] = [
+const _breadcrumbs: BreadcrumbItem[] = [
     { title: 'Administration', href: '/administration' },
     { title: 'Centre d\'Archivage & Reconduction', href: '/administration/archivage' },
 ];
@@ -89,7 +79,7 @@ export default function ArchivageIndex({
     const [sorting, setSorting] = useState<SortingState>([]);
     const [search, setSearch] = useState(filters.search || '');
     const [typeEntite, setTypeEntite] = useState(filters.type_entite || 'all');
-    const [selectedMotif, setSelectedMotif] = useState(filters.motif || 'all');
+    const [selectedMotif, _setSelectedMotif] = useState(filters.motif || 'all');
     const [selectedStatut, setSelectedStatut] = useState(filters.statut || 'archive');
 
     // Modals
@@ -140,7 +130,7 @@ export default function ArchivageIndex({
                 accessorKey: 'date_archivage',
                 header: 'Date Archivage',
                 cell: ({ row }) => (
-                    <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-800 dark:text-slate-200">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-800">
                         <Calendar className="w-3.5 h-3.5 text-teal-600" />
                         {formatDate(row.original.date_archivage)}
                     </div>
@@ -152,11 +142,11 @@ export default function ArchivageIndex({
                 cell: ({ row }) => {
                     const type = row.original.type_entite;
                     return type === 'eleve' ? (
-                        <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 hover:bg-blue-100 border border-blue-200 gap-1">
+                        <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100 border border-blue-200 gap-1">
                             <GraduationCap className="w-3 h-3" /> Élève
                         </Badge>
                     ) : (
-                        <Badge className="bg-cyan-100 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-300 hover:bg-cyan-100 border border-cyan-200 gap-1">
+                        <Badge className="bg-cyan-100 text-cyan-800 hover:bg-cyan-100 border border-cyan-200 gap-1">
                             <Users className="w-3 h-3" /> Personnel
                         </Badge>
                     );
@@ -169,7 +159,7 @@ export default function ArchivageIndex({
                     const item = row.original;
                     return (
                         <div className="flex flex-col">
-                            <span className="font-bold text-slate-900 dark:text-slate-100 text-xs">
+                            <span className="font-bold text-slate-900 text-xs">
                                 {item.nom_complet}
                             </span>
                             <span className="text-[11px] font-mono text-slate-500">
@@ -183,7 +173,7 @@ export default function ArchivageIndex({
                 accessorKey: 'derniere_classe_ou_fonction',
                 header: 'Dernière Affectation',
                 cell: ({ row }) => (
-                    <span className="text-xs text-slate-700 dark:text-slate-300 font-medium">
+                    <span className="text-xs text-slate-700 font-medium">
                         {row.original.derniere_classe_ou_fonction ?? '---'}
                     </span>
                 ),
@@ -195,11 +185,11 @@ export default function ArchivageIndex({
                     const m = row.original.motif;
                     return (
                         <div className="flex flex-col">
-                            <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                            <span className="text-xs font-semibold text-slate-800">
                                 {row.original.motif_libelle || m}
                             </span>
                             {row.original.destination && (
-                                <span className="text-[11px] text-teal-600 dark:text-teal-400">
+                                <span className="text-[11px] text-teal-600">
                                     Vers : {row.original.destination}
                                 </span>
                             )}
@@ -213,11 +203,11 @@ export default function ArchivageIndex({
                 cell: ({ row }) => {
                     const st = row.original.statut;
                     return st === 'archive' ? (
-                        <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 hover:bg-amber-100 border border-amber-300">
+                        <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100 border border-amber-300">
                             Archivé
                         </Badge>
                     ) : (
-                        <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 hover:bg-emerald-100 border border-emerald-300">
+                        <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border border-emerald-300">
                             Réintégré
                         </Badge>
                     );
@@ -287,27 +277,27 @@ export default function ArchivageIndex({
                 {/* En-tête */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
-                        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2.5">
-                            <Archive className="w-6 h-6 sm:w-7 sm:h-7 text-teal-600 dark:text-teal-400 shrink-0" />
+                        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground flex items-center gap-2.5">
+                            <Archive className="w-6 h-6 sm:w-7 sm:h-7 text-teal-600 shrink-0" />
                             <span>Centre d'Archivage Administratif & Rentrée</span>
                         </h1>
-                        <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
-                            Traçabilité légale des départs d'élèves/personnel, masques de numérotation séquentiels et assistant de duplication annuelle (Aurore §3.15, §3.16).
+                        <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+                            Traçabilité légale des départs d'élèves/personnel, masques de numérotation séquentiels et assistant de duplication annuelle.
                         </p>
                     </div>
 
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto">
                         <Button
                             variant="outline"
-                            className="w-full sm:w-auto justify-center gap-1.5 border-teal-200 text-teal-700 dark:text-teal-300 hover:bg-teal-50"
+                            className="w-full sm:w-auto justify-center gap-1.5 border-teal-200 text-teal-700 hover:bg-teal-50"
                             onClick={() => setDupliquerModalOpen(true)}
                         >
-                            <Sparkles className="w-4 h-4 text-teal-600" />
+                            <Copy className="w-4 h-4 text-teal-600" />
                             <span>Reconduction Annuelle 1-Clic</span>
                         </Button>
 
                         <Button
-                            className="w-full sm:w-auto justify-center bg-teal-600 hover:bg-teal-700 text-white gap-1.5 shadow"
+                            className="w-full sm:w-auto justify-center bg-teal-600 hover:bg-teal-700 text-white gap-1.5 shadow-xs"
                             onClick={() => setArchiverModalOpen(true)}
                         >
                             <Plus className="w-4 h-4" />
@@ -316,77 +306,88 @@ export default function ArchivageIndex({
                     </div>
                 </div>
 
-                {/* KPI Cards */}
+                {/* Indicateurs clés d'archivage — format sobre et compact harmonisé avec le tableau de bord */}
                 <div className="grid grid-cols-1 min-[420px]:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <Card className="border-l-4 border-l-teal-500 shadow-sm">
-                        <CardHeader className="pb-2">
-                            <CardDescription className="text-xs uppercase font-bold tracking-wider">
+                    <Card className="border-border/80 shadow-2xs py-4 gap-3">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-0 px-4">
+                            <CardTitle className="text-sm font-medium text-muted-foreground">
                                 Total Dossiers Archivés
-                            </CardDescription>
-                            <CardTitle className="text-2xl font-black text-slate-900 dark:text-white">
+                            </CardTitle>
+                            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-teal-50 text-teal-600">
+                                <Archive className="size-4" />
+                            </div>
+                        </CardHeader>
+                        <CardContent className="px-4">
+                            <div className="text-2xl font-bold tracking-tight tabular-nums text-foreground">
                                 {stats.total_archives}
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-xs text-slate-500">
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1">
                                 Archives historiques sécurisées
-                            </div>
+                            </p>
                         </CardContent>
                     </Card>
 
-                    <Card className="border-l-4 border-l-blue-500 shadow-sm">
-                        <CardHeader className="pb-2">
-                            <CardDescription className="text-xs uppercase font-bold tracking-wider">
+                    <Card className="border-border/80 shadow-2xs py-4 gap-3">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-0 px-4">
+                            <CardTitle className="text-sm font-medium text-muted-foreground">
                                 Élèves Archivés
-                            </CardDescription>
-                            <CardTitle className="text-2xl font-black text-blue-600 dark:text-blue-400">
+                            </CardTitle>
+                            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+                                <GraduationCap className="size-4" />
+                            </div>
+                        </CardHeader>
+                        <CardContent className="px-4">
+                            <div className="text-2xl font-bold tracking-tight tabular-nums text-blue-600">
                                 {stats.total_eleves}
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-xs text-slate-500">
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1">
                                 Diplômés, transférés ou exclus
-                            </div>
+                            </p>
                         </CardContent>
                     </Card>
 
-                    <Card className="border-l-4 border-l-cyan-500 shadow-sm">
-                        <CardHeader className="pb-2">
-                            <CardDescription className="text-xs uppercase font-bold tracking-wider">
+                    <Card className="border-border/80 shadow-2xs py-4 gap-3">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-0 px-4">
+                            <CardTitle className="text-sm font-medium text-muted-foreground">
                                 Personnels Archivés
-                            </CardDescription>
-                            <CardTitle className="text-2xl font-black text-cyan-600 dark:text-cyan-400">
-                                {stats.total_personnels}
                             </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-xs text-slate-500">
-                                Retraités, démissionnaires, fins de contrat
+                            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-sky-50 text-sky-600">
+                                <Users className="size-4" />
                             </div>
+                        </CardHeader>
+                        <CardContent className="px-4">
+                            <div className="text-2xl font-bold tracking-tight tabular-nums text-sky-600">
+                                {stats.total_personnels}
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1">
+                                Retraités, démissionnaires, fins de contrat
+                            </p>
                         </CardContent>
                     </Card>
 
-                    <Card className="border-l-4 border-l-amber-500 shadow-sm">
-                        <CardHeader className="pb-2">
-                            <CardDescription className="text-xs uppercase font-bold tracking-wider">
+                    <Card className="border-border/80 shadow-2xs py-4 gap-3">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-0 px-4">
+                            <CardTitle className="text-sm font-medium text-muted-foreground">
                                 Masques Numérotation
-                            </CardDescription>
-                            <CardTitle className="text-2xl font-black text-slate-900 dark:text-white flex items-center gap-2">
-                                <Binary className="w-5 h-5 text-amber-500" />
-                                {configurationsNumerotation.length} Types
                             </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-xs text-slate-500">
-                                Préfixes et souches configurés
+                            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
+                                <Binary className="size-4" />
                             </div>
+                        </CardHeader>
+                        <CardContent className="px-4">
+                            <div className="text-2xl font-bold tracking-tight tabular-nums text-foreground">
+                                {configurationsNumerotation.length} Types
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1">
+                                Préfixes et souches configurés
+                            </p>
                         </CardContent>
                     </Card>
                 </div>
 
                 {/* Onglets : Registre d'Archives vs Masques de numérotation */}
                 <Tabs defaultValue="registre" className="space-y-4">
-                    <TabsList className="flex flex-wrap h-auto gap-1 bg-slate-100 dark:bg-slate-800/60 p-1">
+                    <TabsList className="flex flex-wrap h-auto gap-1 bg-slate-100 p-1">
                         <TabsTrigger value="registre" className="gap-2 text-xs">
                             <Archive className="w-4 h-4" />
                             Registre des Archives Administratives
@@ -404,7 +405,7 @@ export default function ArchivageIndex({
                             <CardContent className="pt-5 space-y-4">
                                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                                     <div className="space-y-1 sm:col-span-2">
-                                        <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                                        <label className="text-xs font-semibold text-slate-600">
                                             Recherche (Nom, Matricule, Destination...)
                                         </label>
                                         <div className="relative">
@@ -420,7 +421,7 @@ export default function ArchivageIndex({
                                     </div>
 
                                     <div className="space-y-1">
-                                        <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                                        <label className="text-xs font-semibold text-slate-600">
                                             Catégorie
                                         </label>
                                         <Select
@@ -442,7 +443,7 @@ export default function ArchivageIndex({
                                     </div>
 
                                     <div className="space-y-1">
-                                        <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                                        <label className="text-xs font-semibold text-slate-600">
                                             État de l'archive
                                         </label>
                                         <Select
@@ -472,7 +473,7 @@ export default function ArchivageIndex({
                                 <Table>
                                     <TableHeader>
                                         {table.getHeaderGroups().map((headerGroup) => (
-                                            <TableRow key={headerGroup.id} className="bg-slate-50 dark:bg-slate-800/50">
+                                            <TableRow key={headerGroup.id} className="bg-slate-50">
                                                 {headerGroup.headers.map((header) => (
                                                     <TableHead key={header.id} className="text-xs font-bold uppercase">
                                                         {header.isPlaceholder
@@ -491,7 +492,7 @@ export default function ArchivageIndex({
                                             table.getRowModel().rows.map((row) => (
                                                 <TableRow
                                                     key={row.id}
-                                                    className="hover:bg-slate-50/70 dark:hover:bg-slate-800/30 transition-colors"
+                                                    className="hover:bg-slate-50/70 transition-colors"
                                                 >
                                                     {row.getVisibleCells().map((cell) => (
                                                         <TableCell key={cell.id} className="py-3">
@@ -519,7 +520,7 @@ export default function ArchivageIndex({
 
                             {/* Pagination */}
                             {archives.last_page > 1 && (
-                                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t bg-slate-50 dark:bg-slate-800/40 text-xs">
+                                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t bg-slate-50 text-xs">
                                     <span className="text-slate-500 text-center sm:text-left">
                                         Affichage de {archives.data.length} sur {archives.total} dossiers
                                     </span>
@@ -561,7 +562,7 @@ export default function ArchivageIndex({
                                         <CardHeader className="pb-3">
                                             <div className="flex items-start justify-between gap-2">
                                                 <div>
-                                                    <CardTitle className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                                                    <CardTitle className="text-sm font-bold text-slate-900">
                                                         {getDocumentTypeTitle(config.type_document)}
                                                     </CardTitle>
                                                     <CardDescription className="text-xs mt-0.5">
@@ -582,11 +583,11 @@ export default function ArchivageIndex({
                                             </div>
                                         </CardHeader>
                                         <CardContent className="space-y-2">
-                                            <div className="rounded-md bg-slate-50 dark:bg-slate-900 p-2.5 text-center border">
+                                            <div className="rounded-md bg-slate-50 p-2.5 text-center border">
                                                 <div className="text-[10px] uppercase font-bold text-slate-500">
                                                     Prochain Numéro
                                                 </div>
-                                                <div className="text-base font-black font-mono tracking-wider text-teal-700 dark:text-teal-300 mt-0.5">
+                                                <div className="text-base font-black font-mono tracking-wider text-teal-700 mt-0.5">
                                                     {preview}
                                                 </div>
                                             </div>

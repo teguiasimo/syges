@@ -221,7 +221,7 @@ export default function NouveauReglementDiversModal({
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2 text-slate-900 dark:text-slate-100">
+                    <DialogTitle className="flex items-center gap-2 text-slate-900">
                         <Receipt className="w-5 h-5 text-emerald-600 shrink-0" />
                         {isEditing ? 'Modifier la Recette Diverse' : 'Nouvelle Recette Diverse'}
                     </DialogTitle>
@@ -258,12 +258,12 @@ export default function NouveauReglementDiversModal({
                             </div>
 
                             {isAddingCategory ? (
-                                <div className="flex items-center gap-1.5 p-1.5 rounded-lg bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800">
+                                <div className="flex items-center gap-1.5 p-1.5 rounded-lg bg-emerald-50/70 border border-emerald-200">
                                     <Input
                                         placeholder="Ex: Cantine..."
                                         value={newCategoryName}
                                         onChange={(e) => setNewCategoryName(e.target.value)}
-                                        className="h-8 text-xs bg-white dark:bg-slate-900"
+                                        className="h-8 text-xs bg-white"
                                         autoFocus
                                         onKeyDown={(e) => {
                                             if (e.key === 'Enter') {

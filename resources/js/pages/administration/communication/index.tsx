@@ -9,14 +9,7 @@ import {
     Settings,
     CheckCircle2,
     XCircle,
-    AlertTriangle,
     Search,
-    Plus,
-    Filter,
-    ShieldAlert,
-    Clock,
-    User,
-    Sparkles,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -101,7 +94,7 @@ export default function CommunicationIndex({
                 return (
                     <div>
                         {/* Formatage obligatoire jj-mm-aaaa via formatDate */}
-                        <span className="font-semibold text-xs text-slate-800 dark:text-slate-200">
+                        <span className="font-semibold text-xs text-slate-800">
                             {row.original.created_at ? formatDate(row.original.created_at) : '-'}
                         </span>
                         <div className="text-[10px] text-slate-500 font-mono">
@@ -116,7 +109,7 @@ export default function CommunicationIndex({
             header: 'Objet de la Campagne',
             cell: ({ row }) => (
                 <div className="min-w-0">
-                    <span className="font-bold text-xs text-slate-900 dark:text-slate-100 block truncate">{row.original.titre}</span>
+                    <span className="font-bold text-xs text-slate-900 block truncate">{row.original.titre}</span>
                     <p className="text-[10px] text-slate-500 line-clamp-1 max-w-xs" title={row.original.message_sanitise}>
                         {row.original.message_sanitise}
                     </p>
@@ -128,11 +121,11 @@ export default function CommunicationIndex({
             header: 'Cible',
             cell: ({ row }) => {
                 const map: Record<TypeCible, { label: string; className: string }> = {
-                    tous: { label: 'Tout l\'établissement', className: 'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/40 dark:text-teal-300' },
-                    section: { label: 'Section', className: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-300' },
-                    niveau: { label: 'Niveau', className: 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300' },
-                    classe: { label: 'Classe', className: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300' },
-                    insolvables: { label: 'Parents Insolvables', className: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300' },
+                    tous: { label: 'Tout l\'établissement', className: 'bg-teal-50 text-teal-700 border-teal-200' },
+                    section: { label: 'Section', className: 'bg-sky-50 text-sky-700 border-sky-200' },
+                    niveau: { label: 'Niveau', className: 'bg-slate-100 text-slate-700 border-slate-200' },
+                    classe: { label: 'Classe', className: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+                    insolvables: { label: 'Parents Insolvables', className: 'bg-rose-50 text-rose-700 border-rose-200' },
                 };
                 const conf = map[row.original.cible_type] || { label: row.original.cible_type, className: '' };
                 return (
@@ -146,7 +139,7 @@ export default function CommunicationIndex({
             accessorKey: 'nombre_destinataires',
             header: () => <div className="text-center">Destinataires</div>,
             cell: ({ row }) => (
-                <div className="text-center font-bold text-xs text-slate-800 dark:text-slate-200">
+                <div className="text-center font-bold text-xs text-slate-800">
                     {row.original.nombre_destinataires} parents
                 </div>
             ),
@@ -155,7 +148,7 @@ export default function CommunicationIndex({
             accessorKey: 'total_credits',
             header: () => <div className="text-center">Crédits Déduits</div>,
             cell: ({ row }) => (
-                <div className="text-center font-mono font-bold text-xs text-teal-600 dark:text-teal-400">
+                <div className="text-center font-mono font-bold text-xs text-teal-600">
                     {row.original.total_credits} SMS
                 </div>
             ),
@@ -201,10 +194,10 @@ export default function CommunicationIndex({
             header: 'Destinataire',
             cell: ({ row }) => (
                 <div className="min-w-0">
-                    <div className="font-bold text-xs text-slate-900 dark:text-slate-100 truncate">
+                    <div className="font-bold text-xs text-slate-900 truncate">
                         {row.original.destinataire_nom ?? 'Parent d\'élève'}
                     </div>
-                    <span className="font-mono text-[10px] text-teal-600 dark:text-teal-400 font-semibold">
+                    <span className="font-mono text-[10px] text-teal-600 font-semibold">
                         {row.original.destinataire_telephone}
                     </span>
                 </div>
@@ -234,7 +227,7 @@ export default function CommunicationIndex({
             accessorKey: 'message',
             header: 'Message (GSM 7-bit)',
             cell: ({ row }) => (
-                <p className="text-xs text-slate-700 dark:text-slate-300 max-w-85 truncate" title={row.original.message}>
+                <p className="text-xs text-slate-700 max-w-85 truncate" title={row.original.message}>
                     {row.original.message}
                 </p>
             ),
@@ -300,19 +293,19 @@ export default function CommunicationIndex({
             {/* Conteneur principal plein écran avec espacement adaptatif et débordement maîtrisé */}
             <div className="flex flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8 min-w-0 w-full">
                 {/* En-tête responsive avec boutons d'actions repliables */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
                     <div>
                         <div className="flex items-center gap-2.5">
                             <div className="p-2 bg-teal-600 rounded-lg text-white shrink-0">
                                 <MessageSquare className="w-5 h-5" />
                             </div>
                             <div>
-                                <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100">
+                                <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
                                     Communication & Notifications SMS
                                 </h1>
                                 <p className="text-xs text-slate-500 mt-0.5">
                                     Établissement : <strong>{currentEtablissement?.nom}</strong> | Expéditeur officiel :{' '}
-                                    <strong className="font-mono text-teal-600 dark:text-teal-400">{config.sender_id}</strong>
+                                    <strong className="font-mono text-teal-600">{config.sender_id}</strong>
                                 </p>
                             </div>
                         </div>
@@ -339,13 +332,13 @@ export default function CommunicationIndex({
 
                 {/* Cartes KPI et Solde adaptatives */}
                 <div className="grid grid-cols-1 min-[420px]:grid-cols-2 lg:grid-cols-4 gap-3">
-                    <Card className={`border-slate-200 dark:border-slate-800 ${isSoldeBas ? 'bg-rose-50/50 dark:bg-rose-950/20 border-rose-200' : 'bg-emerald-50/40 dark:bg-emerald-950/20'}`}>
+                    <Card className={`border-slate-200 ${isSoldeBas ? 'bg-rose-50/50 border-rose-200' : 'bg-emerald-50/40'}`}>
                         <CardContent className="p-3">
                             <div className="flex items-center justify-between">
                                 <span className="text-xs font-semibold text-slate-600">Solde Crédits SMS</span>
                                 <Coins className={`w-4 h-4 ${isSoldeBas ? 'text-rose-600' : 'text-emerald-600'}`} />
                             </div>
-                            <div className={`text-xl font-extrabold mt-1 tabular-nums ${isSoldeBas ? 'text-rose-700' : 'text-emerald-700 dark:text-emerald-400'}`}>
+                            <div className={`text-xl font-extrabold mt-1 tabular-nums ${isSoldeBas ? 'text-rose-700' : 'text-emerald-700'}`}>
                                 {config.solde_credits} SMS
                             </div>
                             <div className="flex items-center justify-between mt-1">
@@ -360,39 +353,39 @@ export default function CommunicationIndex({
                         </CardContent>
                     </Card>
 
-                    <Card className="border-slate-200 dark:border-slate-800">
+                    <Card className="border-slate-200">
                         <CardContent className="p-3">
                             <div className="flex items-center justify-between">
                                 <span className="text-xs font-semibold text-slate-500">Campagnes Diffusées</span>
                                 <Send className="w-4 h-4 text-teal-600" />
                             </div>
-                            <div className="text-lg font-extrabold text-slate-900 dark:text-slate-100 mt-1 tabular-nums">
+                            <div className="text-lg font-extrabold text-slate-900 mt-1 tabular-nums">
                                 {campagnes.length}
                             </div>
                             <span className="text-[10px] text-slate-400">Diffusion groupée aux parents</span>
                         </CardContent>
                     </Card>
 
-                    <Card className="border-slate-200 dark:border-slate-800">
+                    <Card className="border-slate-200">
                         <CardContent className="p-3">
                             <div className="flex items-center justify-between">
                                 <span className="text-xs font-semibold text-slate-500">Total SMS Émis</span>
                                 <Radio className="w-4 h-4 text-slate-500" />
                             </div>
-                            <div className="text-lg font-extrabold text-slate-900 dark:text-slate-100 mt-1 tabular-nums">
+                            <div className="text-lg font-extrabold text-slate-900 mt-1 tabular-nums">
                                 {historiqueSms.length}
                             </div>
                             <span className="text-[10px] text-slate-400">Audit trail & traçabilité</span>
                         </CardContent>
                     </Card>
 
-                    <Card className="border-slate-200 dark:border-slate-800">
+                    <Card className="border-slate-200">
                         <CardContent className="p-3">
                             <div className="flex items-center justify-between">
                                 <span className="text-xs font-semibold text-slate-500">Norme GSM 7-bit</span>
-                                <Sparkles className="w-4 h-4 text-amber-500" />
+                                <Radio className="w-4 h-4 text-amber-500" />
                             </div>
-                            <div className="text-base font-bold text-slate-800 dark:text-slate-200 mt-1">
+                            <div className="text-base font-bold text-slate-800 mt-1">
                                 160 car. / SMS
                             </div>
                             <span className="text-[10px] text-slate-400">Accents sanitisiés sans surcoût</span>
@@ -402,15 +395,15 @@ export default function CommunicationIndex({
 
                 {/* Onglets et Filtres avec défilement fluide */}
                 <div className="space-y-4">
-                    <div className="border-b border-slate-200 dark:border-slate-800 pb-2">
+                    <div className="border-b border-slate-200 pb-2">
                         {/* Onglets avec défilement horizontal sur mobile */}
                         <div className="flex items-center gap-2 overflow-x-auto pb-1 -mb-1 w-full shrink-0">
                             <button
                                 onClick={() => setActiveTab('campagnes')}
                                 className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
                                     activeTab === 'campagnes'
-                                        ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
-                                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
+                                        ? 'bg-slate-900 text-white'
+                                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                                 }`}
                             >
                                 <Send className="w-3.5 h-3.5 shrink-0" />
@@ -420,8 +413,8 @@ export default function CommunicationIndex({
                                 onClick={() => setActiveTab('historique')}
                                 className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
                                     activeTab === 'historique'
-                                        ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
-                                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
+                                        ? 'bg-slate-900 text-white'
+                                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                                 }`}
                             >
                                 <Radio className="w-3.5 h-3.5 shrink-0" />
@@ -431,8 +424,8 @@ export default function CommunicationIndex({
                                 onClick={() => setActiveTab('passerelle')}
                                 className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
                                     activeTab === 'passerelle'
-                                        ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
-                                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
+                                        ? 'bg-slate-900 text-white'
+                                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                                 }`}
                             >
                                 <Settings className="w-3.5 h-3.5 shrink-0" />
@@ -477,7 +470,7 @@ export default function CommunicationIndex({
 
                     {/* Rendu des Tables TanStack avec carte enveloppante scrollable */}
                     {activeTab === 'campagnes' && (
-                        <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-3 sm:p-4 overflow-hidden min-w-0">
+                        <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4 overflow-hidden min-w-0">
                             <DataTable
                                 columns={campagnesColumns}
                                 data={filteredCampagnes}
@@ -486,7 +479,7 @@ export default function CommunicationIndex({
                     )}
 
                     {activeTab === 'historique' && (
-                        <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-3 sm:p-4 overflow-hidden min-w-0">
+                        <div className="bg-white rounded-lg border border-slate-200 p-3 sm:p-4 overflow-hidden min-w-0">
                             <DataTable
                                 columns={historiqueColumns}
                                 data={filteredHistorique}
@@ -496,13 +489,13 @@ export default function CommunicationIndex({
 
                     {activeTab === 'passerelle' && (
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                            <Card className="border-slate-200 dark:border-slate-800">
+                            <Card className="border-slate-200">
                                 <CardContent className="p-4 space-y-4">
                                     <div className="flex items-center justify-between border-b pb-3">
                                         <div className="flex items-center gap-2">
                                             <Settings className="w-5 h-5 text-teal-600 shrink-0" />
                                             <div>
-                                                <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100">
+                                                <h2 className="text-sm font-bold text-slate-800">
                                                     Passerelle Télécom Active
                                                 </h2>
                                                 <span className="text-[10px] text-slate-500">
@@ -516,21 +509,21 @@ export default function CommunicationIndex({
                                     </div>
 
                                     <div className="space-y-2 text-xs">
-                                        <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
+                                        <div className="flex justify-between py-1 border-b border-slate-100">
                                             <span className="text-slate-500">Sender ID (Expéditeur GSM) :</span>
-                                            <span className="font-mono font-bold text-teal-600 dark:text-teal-400">{config.sender_id}</span>
+                                            <span className="font-mono font-bold text-teal-600">{config.sender_id}</span>
                                         </div>
-                                        <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
+                                        <div className="flex justify-between py-1 border-b border-slate-100">
                                             <span className="text-slate-500">Solde de Crédits Actuel :</span>
                                             <span className="font-mono font-bold text-emerald-600">{config.solde_credits} SMS</span>
                                         </div>
-                                        <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
+                                        <div className="flex justify-between py-1 border-b border-slate-100">
                                             <span className="text-slate-500">Alerte Seuil Bas :</span>
-                                            <span className="font-mono text-slate-800 dark:text-slate-200">{config.seuil_alerte_solde} SMS</span>
+                                            <span className="font-mono text-slate-800">{config.seuil_alerte_solde} SMS</span>
                                         </div>
                                         <div className="flex justify-between py-1">
                                             <span className="text-slate-500">URL Endpoint :</span>
-                                            <span className="font-mono text-slate-600 truncate max-w-[180px] sm:max-w-xs">{config.api_url || 'Par défaut SDK'}</span>
+                                            <span className="font-mono text-slate-600 truncate max-w-45 sm:max-w-xs">{config.api_url || 'Par défaut SDK'}</span>
                                         </div>
                                     </div>
 
@@ -552,18 +545,18 @@ export default function CommunicationIndex({
                                 </CardContent>
                             </Card>
 
-                            <Card className="border-slate-200 dark:border-slate-800">
+                            <Card className="border-slate-200">
                                 <CardContent className="p-4 space-y-3">
-                                    <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
-                                        <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
+                                    <h2 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+                                        <Radio className="w-4 h-4 text-amber-500 shrink-0" />
                                         <span>Norme GSM 7-bit & Tarification</span>
                                     </h2>
-                                    <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                                        SYGES intègre un filtre de sanitisation automatique (Gesco V1.1 - Module 14.4).
+                                    <p className="text-xs text-slate-600 leading-relaxed">
+                                        SYGES intègre un filtre de sanitisation automatique.
                                         Tous les caractères accentués français (ex: <code>é, è, ê, à, ç</code>) sont automatiquement convertis
                                         vers leurs équivalents ASCII (<code>e, e, e, a, c</code>).
                                     </p>
-                                    <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-md border border-slate-200 dark:border-slate-700 text-xs space-y-1">
+                                    <div className="p-3 bg-slate-50 rounded-md border border-slate-200 text-xs space-y-1">
                                         <div className="flex justify-between font-semibold">
                                             <span>Format GSM 7-bit standard :</span>
                                             <span className="text-emerald-600">160 caractères = 1 crédit</span>

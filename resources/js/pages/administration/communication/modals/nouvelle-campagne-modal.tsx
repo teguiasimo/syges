@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useForm } from '@inertiajs/react';
 import { toast } from 'sonner';
 import {
@@ -12,6 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
     Select,
     SelectContent,
@@ -21,7 +22,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { TypeCible } from '@/types/communication';
-import { Send, AlertTriangle, Sparkles } from 'lucide-react';
+import { Send, ShieldCheck } from 'lucide-react';
 
 interface NouvelleCampagneModalProps {
     open: boolean;
@@ -46,7 +47,7 @@ export default function NouvelleCampagneModal({
     classes,
     niveaux,
     sections,
-    soldeCredits,
+    soldeCredits: _soldeCredits,
 }: NouvelleCampagneModalProps) {
     const { data, setData, post, processing, reset, errors, transform } = useForm({
         etablissement_id: etablissementId,
@@ -62,6 +63,13 @@ export default function NouvelleCampagneModal({
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+
+        if ((data.cible_type === 'classe' || data.cible_type === 'niveau' || data.cible_type === 'section') && !data.cible_id) {
+            toast.error('Veuillez sélectionner la cible de diffusion.', {
+                position: 'top-right',
+            });
+            return;
+        }
 
         transform((formValues) => ({
             ...formValues,
@@ -90,7 +98,7 @@ export default function NouvelleCampagneModal({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2 text-base sm:text-lg font-bold text-slate-800 dark:text-slate-100">
+                    <DialogTitle className="flex items-center gap-2 text-base sm:text-lg font-bold text-slate-800">
                         <Send className="w-5 h-5 text-teal-600 shrink-0" />
                         <span>Diffuser une Campagne SMS Groupée</span>
                     </DialogTitle>
@@ -141,48 +149,44 @@ export default function NouvelleCampagneModal({
                         </div>
 
                         {data.cible_type === 'classe' && (
-                            <div className="space-y-1">
+                            <div className="space-y-1 min-w-0">
                                 <Label htmlFor="cible_id" className="text-xs font-semibold">
                                     Classe sélectionnée <span className="text-rose-500">*</span>
                                 </Label>
-                                <Select
+                                <SearchableSelect
+                                    id="cible_id"
+                                    options={classes.map((c) => ({
+                                        value: String(c.id),
+                                        label: c.nom,
+                                    }))}
                                     value={data.cible_id}
                                     onValueChange={(val) => setData('cible_id', val)}
-                                >
-                                    <SelectTrigger id="cible_id" className="text-xs h-9 w-full">
-                                        <SelectValue placeholder="Choisir une classe..." />
-                                    </SelectTrigger>
-                                    <SelectContent className="max-h-56">
-                                        {classes.map((c) => (
-                                            <SelectItem key={c.id} value={String(c.id)} className="text-xs">
-                                                {c.nom}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                    placeholder="Choisir une classe..."
+                                    searchPlaceholder="Rechercher une classe..."
+                                    emptyMessage="Aucune classe trouvée."
+                                    className="text-xs h-9 font-normal"
+                                />
                             </div>
                         )}
 
                         {data.cible_type === 'niveau' && (
-                            <div className="space-y-1">
+                            <div className="space-y-1 min-w-0">
                                 <Label htmlFor="cible_id" className="text-xs font-semibold">
                                     Niveau sélectionné <span className="text-rose-500">*</span>
                                 </Label>
-                                <Select
+                                <SearchableSelect
+                                    id="cible_id"
+                                    options={niveaux.map((n) => ({
+                                        value: String(n.id),
+                                        label: n.nom,
+                                    }))}
                                     value={data.cible_id}
                                     onValueChange={(val) => setData('cible_id', val)}
-                                >
-                                    <SelectTrigger id="cible_id" className="text-xs h-9 w-full">
-                                        <SelectValue placeholder="Choisir un niveau..." />
-                                    </SelectTrigger>
-                                    <SelectContent className="max-h-56">
-                                        {niveaux.map((n) => (
-                                            <SelectItem key={n.id} value={String(n.id)} className="text-xs">
-                                                {n.nom}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                    placeholder="Choisir un niveau..."
+                                    searchPlaceholder="Rechercher un niveau..."
+                                    emptyMessage="Aucun niveau trouvé."
+                                    className="text-xs h-9 font-normal"
+                                />
                             </div>
                         )}
 
@@ -228,8 +232,8 @@ export default function NouvelleCampagneModal({
                             required
                         />
                         {errors.message && <p className="text-xs text-rose-500">{errors.message}</p>}
-                        <div className="flex items-center gap-1.5 text-[10px] text-teal-700 dark:text-teal-300 bg-teal-50/80 dark:bg-teal-950/40 p-2 rounded">
-                            <Sparkles className="w-3.5 h-3.5 shrink-0 text-teal-600" />
+                        <div className="flex items-center gap-1.5 text-[10px] text-teal-700 bg-teal-50/80 p-2 rounded">
+                            <ShieldCheck className="w-3.5 h-3.5 shrink-0 text-teal-600" />
                             <span>
                                 <strong>Sanitisation GSM 7-bit active</strong> : les accents (é, è, à, ç) seront nettoyés avant émission pour garantir 160 car./SMS au lieu de 70.
                             </span>

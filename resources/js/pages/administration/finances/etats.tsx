@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import {
     ArrowLeft,
-    Building2,
     CheckCircle2,
     Printer,
     RotateCcw,
@@ -16,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
     Select,
     SelectContent,
@@ -597,56 +597,56 @@ export default function EtatsFinancesPage({
             numero: '01',
             titre: 'Journal des Versements',
             format: 'A4 Paysage',
-            badgeCouleur: 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300',
+            badgeCouleur: 'bg-emerald-50 text-emerald-800 border-emerald-300',
         },
         {
             key: 'journal_resume',
             numero: '02',
             titre: 'Journal Résumé des Versements',
             format: 'A4 Portrait',
-            badgeCouleur: 'bg-teal-50 text-teal-800 border-teal-300 dark:bg-teal-950/60 dark:text-teal-300',
+            badgeCouleur: 'bg-teal-50 text-teal-800 border-teal-300',
         },
         {
             key: 'journal_categories',
             numero: '03',
             titre: 'Journal des Versements par Catégories',
             format: 'A4 Paysage',
-            badgeCouleur: 'bg-sky-50 text-sky-800 border-sky-300 dark:bg-sky-950/60 dark:text-sky-300',
+            badgeCouleur: 'bg-sky-50 text-sky-800 border-sky-300',
         },
         {
             key: 'bilan_resume',
             numero: '04',
             titre: 'Bilan Résumé des Recouvrements',
             format: 'A4 Paysage',
-            badgeCouleur: 'bg-indigo-50 text-indigo-800 border-indigo-300 dark:bg-indigo-950/60 dark:text-indigo-300',
+            badgeCouleur: 'bg-indigo-50 text-indigo-800 border-indigo-300',
         },
         {
             key: 'bilan_detaille',
             numero: '05',
             titre: 'Bilan Détaillé des Versements',
             format: 'A4 Paysage',
-            badgeCouleur: 'bg-blue-50 text-blue-800 border-blue-300 dark:bg-blue-950/60 dark:text-blue-300',
+            badgeCouleur: 'bg-blue-50 text-blue-800 border-blue-300',
         },
         {
             key: 'bilan_reductions',
             numero: '06',
             titre: 'Bilan des Bourses & Réductions',
             format: 'A4 Portrait',
-            badgeCouleur: 'bg-purple-50 text-purple-800 border-purple-300 dark:bg-purple-950/60 dark:text-purple-300',
+            badgeCouleur: 'bg-purple-50 text-purple-800 border-purple-300',
         },
         {
             key: 'liste_insolvables',
             numero: '07',
             titre: 'Liste des Élèves Insolvables',
             format: 'A4 Paysage',
-            badgeCouleur: 'bg-rose-50 text-rose-800 border-rose-300 dark:bg-rose-950/60 dark:text-rose-300',
+            badgeCouleur: 'bg-rose-50 text-rose-800 border-rose-300',
         },
         {
             key: 'suivi_frais',
             numero: '09',
             titre: 'Suivi Nominatif par Frais & Palier',
             format: 'A4 Paysage',
-            badgeCouleur: 'bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/60 dark:text-amber-300',
+            badgeCouleur: 'bg-amber-50 text-amber-800 border-amber-300',
         },
     ];
 
@@ -657,51 +657,56 @@ export default function EtatsFinancesPage({
             {/* Conteneur principal pleine largeur sans plafond artificiel (adapté aux écrans larges et standards) */}
             <div className="flex flex-1 flex-col gap-4 p-4 sm:p-6 min-w-0 w-full">
                 {/* 1. En-tête compact & Navigation */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200">
                     <div className="flex items-center gap-2.5">
                         <Button
                             variant="ghost"
                             size="sm"
                             asChild
-                            className="h-8 px-2 text-xs text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                            className="h-8 px-2 text-xs text-slate-500 hover:text-slate-800"
                         >
                             <Link href="/administration/finances" className="flex items-center gap-1.5">
                                 <ArrowLeft className="w-3.5 h-3.5" />
                                 <span>Finances</span>
                             </Link>
                         </Button>
-                        <span className="text-slate-300 dark:text-slate-700">/</span>
+                        <span className="text-slate-300">/</span>
                         <div className="flex items-center gap-2">
                             <Printer className="w-4 h-4 text-emerald-600" />
-                            <h1 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100">
+                            <h1 className="text-base sm:text-lg font-bold text-slate-900">
                                 États Financiers
                             </h1>
                         </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2 min-w-0">
                         {isSuperAdmin && (
-                            <Select value={selectedEtabId} onValueChange={handleChangeEtablissement}>
-                                <SelectTrigger className="h-8 min-w-50 text-xs bg-white dark:bg-slate-900 font-medium">
-                                    <Building2 className="w-3.5 h-3.5 text-emerald-600 mr-1.5 shrink-0" />
-                                    <SelectValue placeholder="Périmètre..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all" className="font-semibold text-emerald-700 dark:text-emerald-400">
-                                        Complexe Global (Tous campus)
-                                    </SelectItem>
-                                    {etablissements.map((et) => (
-                                        <SelectItem key={et.id} value={String(et.id)}>
-                                            {et.nom}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <div className="w-full sm:w-64 min-w-0">
+                                <SearchableSelect
+                                    options={[
+                                        {
+                                            value: 'all',
+                                            label: 'Complexe Global (Tous campus)',
+                                        },
+                                        ...etablissements.map((et) => ({
+                                            value: String(et.id),
+                                            label: et.nom,
+                                            description: et.code ? `Code : ${et.code}` : undefined,
+                                        })),
+                                    ]}
+                                    value={selectedEtabId}
+                                    onValueChange={(val) => handleChangeEtablissement(val || 'all')}
+                                    placeholder="Périmètre..."
+                                    searchPlaceholder="Rechercher un établissement..."
+                                    emptyMessage="Aucun établissement trouvé."
+                                    className="h-8 text-xs font-medium bg-white"
+                                />
+                            </div>
                         )}
 
                         {currentAnnee && (
                             <Select value={String(currentAnnee.id)} onValueChange={handleChangeAnnee}>
-                                <SelectTrigger className="h-8 text-xs font-semibold border-emerald-300 text-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 dark:text-emerald-300">
+                                <SelectTrigger className="h-8 text-xs font-semibold border-emerald-300 text-emerald-800 bg-emerald-50">
                                     <SelectValue placeholder="Année" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -717,7 +722,7 @@ export default function EtatsFinancesPage({
                 </div>
 
                 {/* 2. Barre de filtrage compacte et fluide */}
-                <div className="bg-slate-50/70 dark:bg-slate-900/50 p-3 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2.5">
+                <div className="bg-slate-50/70 p-3 rounded-xl border border-slate-200 space-y-2.5">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                         {/* Raccourcis temporels */}
                         <div className="flex flex-wrap items-center gap-1">
@@ -735,7 +740,7 @@ export default function EtatsFinancesPage({
                                     className={`px-2 py-0.5 text-[11px] font-semibold rounded transition-colors cursor-pointer ${
                                         periodePreset === preset.id
                                             ? 'bg-emerald-600 text-white shadow-xs'
-                                            : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'
+                                            : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
                                     }`}
                                 >
                                     {preset.label}
@@ -748,7 +753,7 @@ export default function EtatsFinancesPage({
                             variant="ghost"
                             size="sm"
                             onClick={handleResetFilters}
-                            className="h-6 text-[11px] text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 gap-1 px-2"
+                            className="h-6 text-[11px] text-slate-500 hover:text-slate-800 gap-1 px-2"
                         >
                             <RotateCcw className="w-3 h-3" />
                             Réinitialiser
@@ -769,7 +774,7 @@ export default function EtatsFinancesPage({
                                     setDateDebut(e.target.value);
                                     setPeriodePreset('personnalise');
                                 }}
-                                className="h-7 text-xs bg-white dark:bg-slate-900 mt-0.5"
+                                className="h-7 text-xs bg-white mt-0.5"
                             />
                         </div>
 
@@ -785,11 +790,11 @@ export default function EtatsFinancesPage({
                                     setDateFin(e.target.value);
                                     setPeriodePreset('personnalise');
                                 }}
-                                className="h-7 text-xs bg-white dark:bg-slate-900 mt-0.5"
+                                className="h-7 text-xs bg-white mt-0.5"
                             />
                         </div>
 
-                        <div>
+                        <div className="min-w-0">
                             <Label htmlFor="section_id" className="text-[10px] text-slate-500 font-medium">
                                 Section
                             </Label>
@@ -802,7 +807,7 @@ export default function EtatsFinancesPage({
                                     setClasseId('all');
                                 }}
                             >
-                                <SelectTrigger id="section_id" className="h-7 text-xs bg-white dark:bg-slate-900 mt-0.5">
+                                <SelectTrigger id="section_id" className="h-7 text-xs bg-white mt-0.5">
                                     <SelectValue placeholder="Toutes" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -816,7 +821,7 @@ export default function EtatsFinancesPage({
                             </Select>
                         </div>
 
-                        <div>
+                        <div className="min-w-0">
                             <Label htmlFor="niveau_id" className="text-[10px] text-slate-500 font-medium">
                                 Niveau
                             </Label>
@@ -828,7 +833,7 @@ export default function EtatsFinancesPage({
                                 }}
                                 disabled={availableNiveaux.length === 0}
                             >
-                                <SelectTrigger id="niveau_id" className="h-7 text-xs bg-white dark:bg-slate-900 mt-0.5">
+                                <SelectTrigger id="niveau_id" className="h-7 text-xs bg-white mt-0.5">
                                     <SelectValue placeholder="Tous" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -842,35 +847,37 @@ export default function EtatsFinancesPage({
                             </Select>
                         </div>
 
-                        <div>
+                        <div className="min-w-0">
                             <Label htmlFor="classe_id" className="text-[10px] text-slate-500 font-medium">
                                 Classe
                             </Label>
-                            <Select
-                                value={classeId}
-                                onValueChange={setClasseId}
-                                disabled={availableClasses.length === 0}
-                            >
-                                <SelectTrigger id="classe_id" className="h-7 text-xs bg-white dark:bg-slate-900 mt-0.5">
-                                    <SelectValue placeholder="Toutes" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">Toutes classes</SelectItem>
-                                    {availableClasses.map((cl) => (
-                                        <SelectItem key={cl.id} value={String(cl.id)}>
-                                            {cl.nom}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <div className="mt-0.5">
+                                <SearchableSelect
+                                    id="classe_id"
+                                    disabled={availableClasses.length === 0}
+                                    options={[
+                                        { value: 'all', label: 'Toutes classes' },
+                                        ...availableClasses.map((cl) => ({
+                                            value: String(cl.id),
+                                            label: cl.nom,
+                                        })),
+                                    ]}
+                                    value={classeId}
+                                    onValueChange={(val) => setClasseId(val || 'all')}
+                                    placeholder="Toutes"
+                                    searchPlaceholder="Rechercher une classe..."
+                                    emptyMessage="Aucune classe trouvée."
+                                    className="h-7 text-xs font-normal bg-white"
+                                />
+                            </div>
                         </div>
 
-                        <div>
+                        <div className="min-w-0">
                             <Label htmlFor="mode_paiement" className="text-[10px] text-slate-500 font-medium">
                                 Mode
                             </Label>
                             <Select value={modePaiement} onValueChange={setModePaiement}>
-                                <SelectTrigger id="mode_paiement" className="h-7 text-xs bg-white dark:bg-slate-900 mt-0.5">
+                                <SelectTrigger id="mode_paiement" className="h-7 text-xs bg-white mt-0.5">
                                     <SelectValue placeholder="Tous" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -885,52 +892,59 @@ export default function EtatsFinancesPage({
                     </div>
 
                     {/* Ligne 3 : Ciblage optionnel par Catégorie de Frais, Rubrique précise & Palier (États #01, #03 et #09) */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2 border-t border-slate-200/70 dark:border-slate-800">
-                        <div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2 border-t border-slate-200/70">
+                        <div className="min-w-0">
                             <Label htmlFor="categorie_frais_id" className="text-[10px] text-slate-500 font-medium">
                                 Catégorie de Frais (#03, #09)
                             </Label>
-                            <Select
-                                value={categorieFraisId}
-                                onValueChange={(val) => {
-                                    setCategorieFraisId(val);
-                                    setTypeFraisId('all');
-                                }}
-                            >
-                                <SelectTrigger id="categorie_frais_id" className="h-7 text-xs bg-white dark:bg-slate-900 mt-0.5">
-                                    <SelectValue placeholder="Toutes catégories" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">Toutes les catégories</SelectItem>
-                                    {categoriesFrais.map((cat) => (
-                                        <SelectItem key={cat.id} value={String(cat.id)}>
-                                            {cat.nom}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <div className="mt-0.5">
+                                <SearchableSelect
+                                    id="categorie_frais_id"
+                                    options={[
+                                        { value: 'all', label: 'Toutes les catégories' },
+                                        ...categoriesFrais.map((cat) => ({
+                                            value: String(cat.id),
+                                            label: cat.nom,
+                                        })),
+                                    ]}
+                                    value={categorieFraisId}
+                                    onValueChange={(val) => {
+                                        setCategorieFraisId(val || 'all');
+                                        setTypeFraisId('all');
+                                    }}
+                                    placeholder="Toutes catégories"
+                                    searchPlaceholder="Rechercher une catégorie..."
+                                    emptyMessage="Aucune catégorie trouvée."
+                                    className="h-7 text-xs font-normal bg-white"
+                                />
+                            </div>
                         </div>
 
-                        <div>
+                        <div className="min-w-0">
                             <Label htmlFor="type_frais_id" className="text-[10px] text-slate-500 font-medium">
                                 Frais / Palier Précis (#01, #03, #09)
                             </Label>
-                            <Select value={typeFraisId} onValueChange={setTypeFraisId}>
-                                <SelectTrigger id="type_frais_id" className="h-7 text-xs bg-white dark:bg-slate-900 mt-0.5">
-                                    <SelectValue placeholder="Tous les frais" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">Tous les frais / rubriques</SelectItem>
-                                    {availableTypesFrais.map((tf) => (
-                                        <SelectItem key={tf.id} value={String(tf.id)}>
-                                            {tf.libelle}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <div className="mt-0.5">
+                                <SearchableSelect
+                                    id="type_frais_id"
+                                    options={[
+                                        { value: 'all', label: 'Tous les frais / rubriques' },
+                                        ...availableTypesFrais.map((tf) => ({
+                                            value: String(tf.id),
+                                            label: tf.libelle,
+                                        })),
+                                    ]}
+                                    value={typeFraisId}
+                                    onValueChange={(val) => setTypeFraisId(val || 'all')}
+                                    placeholder="Tous les frais"
+                                    searchPlaceholder="Rechercher un frais..."
+                                    emptyMessage="Aucun frais trouvé."
+                                    className="h-7 text-xs font-normal bg-white"
+                                />
+                            </div>
                         </div>
 
-                        <div>
+                        <div className="min-w-0">
                             <Label htmlFor="mode_filtre_frais" className="text-[10px] text-slate-500 font-medium">
                                 Condition sur le Frais (#09)
                             </Label>
@@ -938,7 +952,7 @@ export default function EtatsFinancesPage({
                                 value={modeFiltreFrais}
                                 onValueChange={(val) => setModeFiltreFrais(val as ModeFiltreFrais)}
                             >
-                                <SelectTrigger id="mode_filtre_frais" className="h-7 text-xs bg-white dark:bg-slate-900 mt-0.5">
+                                <SelectTrigger id="mode_filtre_frais" className="h-7 text-xs bg-white mt-0.5">
                                     <SelectValue placeholder="Condition" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -958,7 +972,7 @@ export default function EtatsFinancesPage({
                 {/* 3. Les États & Bilans Globaux (#01 à #07 & #09) */}
                 <div className="space-y-2">
                     <div className="flex items-center justify-between text-xs text-slate-500">
-                        <span className="font-bold uppercase tracking-wider text-[11px] text-slate-600 dark:text-slate-400">
+                        <span className="font-bold uppercase tracking-wider text-[11px] text-slate-600">
                             États & Bilans Globaux (#01 à #07 & #09)
                         </span>
                         <span className="text-[11px] truncate max-w-md hidden sm:inline text-slate-400">
@@ -970,13 +984,13 @@ export default function EtatsFinancesPage({
                         {etatsOfficiels.map((etat) => (
                             <div
                                 key={etat.key}
-                                className="flex items-center justify-between p-2.5 px-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-emerald-500 hover:shadow-2xs transition-all"
+                                className="flex items-center justify-between p-2.5 px-3 rounded-lg border border-slate-200 bg-white hover:border-emerald-500 hover:shadow-2xs transition-all"
                             >
                                 <div className="flex items-center gap-2 min-w-0">
-                                    <span className="font-mono text-[11px] font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 shrink-0">
+                                    <span className="font-mono text-[11px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 shrink-0">
                                         #{etat.numero}
                                     </span>
-                                    <span className="text-xs sm:text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
+                                    <span className="text-xs sm:text-sm font-semibold text-slate-900 truncate">
                                         {etat.titre}
                                     </span>
                                     <Badge variant="outline" className={`text-[9px] px-1.5 py-0 shrink-0 font-medium ${etat.badgeCouleur}`}>
@@ -999,22 +1013,22 @@ export default function EtatsFinancesPage({
                 </div>
 
                 {/* 4. État #08 : Relevé Individuel de l’Élève (Sélection compacte et Popover de 6 élèves max au clic) */}
-                <div className="relative rounded-xl border border-amber-200/90 dark:border-amber-900/50 bg-amber-50/20 dark:bg-amber-950/10 p-3 sm:p-4 shadow-2xs">
+                <div className="relative rounded-xl border border-amber-200/90 bg-amber-50/20 p-3 sm:p-4 shadow-2xs">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div className="flex items-center gap-2 min-w-0">
-                            <span className="font-mono text-[11px] font-bold px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200 shrink-0">
+                            <span className="font-mono text-[11px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 shrink-0">
                                 #08
                             </span>
                             <div className="min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
-                                    <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100">
+                                    <h3 className="text-xs sm:text-sm font-bold text-slate-900">
                                         Relevé Individuel de l’Élève
                                     </h3>
-                                    <Badge variant="outline" className="text-[9px] px-1.5 py-0 font-medium bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/60 dark:text-amber-300">
+                                    <Badge variant="outline" className="text-[9px] px-1.5 py-0 font-medium bg-amber-50 text-amber-800 border-amber-300">
                                         A4 Portrait
                                     </Badge>
                                 </div>
-                                <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 hidden sm:block">
+                                <p className="text-[10px] text-slate-500 mt-0.5 hidden sm:block">
                                     Situation financière complète (échéancier des droits, versements, bourses et solde dû).
                                 </p>
                             </div>
@@ -1033,7 +1047,7 @@ export default function EtatsFinancesPage({
                                     setEleveSearchTerm(e.target.value);
                                     setIsEleveSearchOpen(true);
                                 }}
-                                className="pl-8 pr-7 h-8 text-xs bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 focus-visible:ring-emerald-500 shadow-2xs"
+                                className="pl-8 pr-7 h-8 text-xs bg-white border-slate-300 focus-visible:ring-emerald-500 shadow-2xs"
                             />
                             {eleveSearchTerm && (
                                 <button
@@ -1041,7 +1055,7 @@ export default function EtatsFinancesPage({
                                     onClick={() => {
                                         setEleveSearchTerm('');
                                     }}
-                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 cursor-pointer"
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
                                     title="Effacer la recherche"
                                 >
                                     <X className="w-3.5 h-3.5" />
@@ -1050,8 +1064,8 @@ export default function EtatsFinancesPage({
 
                             {/* Menu déroulant / Popover flottant (affiché uniquement au focus / clic sur le champ) */}
                             {isEleveSearchOpen && (
-                                <div className="absolute right-0 top-full mt-1.5 w-full sm:w-96 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl z-50 p-2 space-y-1 animate-in fade-in-0 zoom-in-95">
-                                    <div className="flex items-center justify-between px-2 py-1 text-[11px] font-semibold text-slate-500 border-b border-slate-100 dark:border-slate-800">
+                                <div className="absolute right-0 top-full mt-1.5 w-full sm:w-96 bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-2 space-y-1 animate-in fade-in-0 zoom-in-95">
+                                    <div className="flex items-center justify-between px-2 py-1 text-[11px] font-semibold text-slate-500 border-b border-slate-100">
                                         <span>Suggestions ({suggestionsEleves.length} sur {filteredEleves.length})</span>
                                         {classeId !== 'all' && (
                                             <span className="text-[10px] text-emerald-600 font-medium truncate max-w-30">
@@ -1065,20 +1079,20 @@ export default function EtatsFinancesPage({
                                             {suggestionsEleves.map((el) => (
                                                 <div
                                                     key={el.id}
-                                                    className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/80 border border-transparent hover:border-slate-200 dark:hover:border-slate-800 transition-colors gap-2"
+                                                    className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-colors gap-2"
                                                 >
                                                     <div className="flex items-center gap-2 min-w-0">
-                                                        <div className="size-7 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0 text-slate-600 dark:text-slate-300">
+                                                        <div className="size-7 rounded-full bg-slate-100 flex items-center justify-center shrink-0 text-slate-600">
                                                             <User className="size-3.5" />
                                                         </div>
                                                         <div className="min-w-0">
-                                                            <div className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate" title={el.nom_complet}>
+                                                            <div className="text-xs font-semibold text-slate-900 truncate" title={el.nom_complet}>
                                                                 {el.nom_complet}
                                                             </div>
                                                             <div className="text-[10px] text-slate-500 flex items-center gap-1.5 truncate">
                                                                 <span className="font-mono">Mat: {el.matricule}</span>
                                                                 <span>•</span>
-                                                                <span className="font-medium text-slate-600 dark:text-slate-400">{el.classe ?? 'N/A'}</span>
+                                                                <span className="font-medium text-slate-600">{el.classe ?? 'N/A'}</span>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -1112,7 +1126,7 @@ export default function EtatsFinancesPage({
                 </div>
 
                 {/* 5. Autres éditions complémentaires */}
-                <div className="pt-2 border-t border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+                <div className="pt-2 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
                     <span className="text-[11px] font-medium text-slate-400">
                         Autres éditions complémentaires :
                     </span>
@@ -1121,7 +1135,7 @@ export default function EtatsFinancesPage({
                             variant="outline"
                             size="sm"
                             onClick={() => handleGenererEtat('recettes_diverses', 'État des Recettes Diverses')}
-                            className="h-7 text-xs gap-1.5 bg-white dark:bg-slate-900"
+                            className="h-7 text-xs gap-1.5 bg-white"
                         >
                             <Wallet className="w-3 h-3 text-purple-600" />
                             Recettes Diverses
@@ -1130,7 +1144,7 @@ export default function EtatsFinancesPage({
                             variant="outline"
                             size="sm"
                             onClick={() => handleGenererEtat('liste_en_regle', 'Liste des Élèves en Règle')}
-                            className="h-7 text-xs gap-1.5 bg-white dark:bg-slate-900"
+                            className="h-7 text-xs gap-1.5 bg-white"
                         >
                             <CheckCircle2 className="w-3 h-3 text-teal-600" />
                             Élèves en Règle
@@ -1139,7 +1153,7 @@ export default function EtatsFinancesPage({
                             variant="outline"
                             size="sm"
                             onClick={() => handleGenererEtat('bilan_entrees_sorties', 'Bilan Trésorerie')}
-                            className="h-7 text-xs gap-1.5 bg-white dark:bg-slate-900"
+                            className="h-7 text-xs gap-1.5 bg-white"
                         >
                             <Scale className="w-3 h-3 text-indigo-600" />
                             Bilan Trésorerie

@@ -2,14 +2,11 @@ import { useForm } from '@inertiajs/react';
 import {
     Briefcase,
     Building2,
-    Calendar,
     GraduationCap,
     KeyRound,
     Mail,
     Phone,
     Plus,
-    Shield,
-    Sparkles,
     User,
     UserCheck,
 } from 'lucide-react';
@@ -27,6 +24,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
     Select,
     SelectContent,
@@ -34,7 +32,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
 import type {
     AvailableUserOption,
     Departement,
@@ -216,7 +213,7 @@ export function CreatePersonnelModal({
             <DialogContent className="w-[95vw] sm:max-w-4xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
                 <DialogHeader className="border-b pb-4">
                     <DialogTitle className="text-xl font-bold flex items-center gap-2 text-foreground">
-                        <div className="p-2 rounded-lg bg-teal-50 dark:bg-teal-950/50 text-teal-600 dark:text-teal-400 border border-teal-200 dark:border-teal-900/50 shrink-0">
+                        <div className="p-2 rounded-lg bg-teal-50 text-teal-600 border border-teal-200 shrink-0">
                             <Briefcase className="size-5" />
                         </div>
                         <span>Enregistrer un nouveau membre du personnel</span>
@@ -230,7 +227,7 @@ export function CreatePersonnelModal({
                     {/* SECTION 1 : ÉTAT CIVIL & COORDONNÉES */}
                     <div className="space-y-4">
                         <div className="flex items-center gap-2 border-b pb-2">
-                            <User className="size-4 text-teal-600 dark:text-teal-400" />
+                            <User className="size-4 text-teal-600" />
                             <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">
                                 1. État Civil & Contact
                             </h3>
@@ -381,35 +378,38 @@ export function CreatePersonnelModal({
                     {/* SECTION 2 : AFFECTATION & CONTRAT */}
                     <div className="space-y-4 pt-2">
                         <div className="flex items-center gap-2 border-b pb-2">
-                            <Building2 className="size-4 text-blue-600 dark:text-blue-400" />
+                            <Building2 className="size-4 text-blue-600" />
                             <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">
                                 2. Affectation & Données RH
                             </h3>
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                            <div>
+                            <div className="min-w-0">
                                 <Label htmlFor="etablissement_id" className="text-xs font-semibold">
                                     Établissement d'affectation <span className="text-rose-500">*</span>
                                 </Label>
-                                <Select
-                                    value={String(data.etablissement_id)}
-                                    onValueChange={(val) => setData('etablissement_id', Number(val))}
-                                >
-                                    <SelectTrigger id="etablissement_id" className="mt-1 h-9 text-sm">
-                                        <SelectValue placeholder="Sélectionner un établissement" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {etablissements.map((etab) => (
-                                            <SelectItem key={etab.id} value={String(etab.id)}>
-                                                {etab.nom} ({etab.code})
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <div className="mt-1">
+                                    <SearchableSelect
+                                        id="etablissement_id"
+                                        options={etablissements.map((etab) => ({
+                                            value: String(etab.id),
+                                            label: etab.nom,
+                                            description: etab.code ? `Code : ${etab.code}` : undefined,
+                                        }))}
+                                        value={String(data.etablissement_id)}
+                                        onValueChange={(val) => {
+                                            if (val) setData('etablissement_id', Number(val));
+                                        }}
+                                        placeholder="Sélectionner un établissement"
+                                        searchPlaceholder="Rechercher un établissement..."
+                                        emptyMessage="Aucun établissement trouvé."
+                                        className="h-9 text-sm font-normal"
+                                    />
+                                </div>
                             </div>
 
-                            <div>
+                            <div className="min-w-0">
                                 <Label htmlFor="fonction_principale" className="text-xs font-semibold">
                                     Fonction principale <span className="text-rose-500">*</span>
                                 </Label>
@@ -527,7 +527,7 @@ export function CreatePersonnelModal({
                     <div className="space-y-4 pt-2 border-t">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                                <GraduationCap className="size-4 text-indigo-600 dark:text-indigo-400" />
+                                <GraduationCap className="size-4 text-indigo-600" />
                                 <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">
                                     3. Profil Pédagogique (Enseignant)
                                 </h3>
@@ -545,30 +545,33 @@ export function CreatePersonnelModal({
                         </div>
 
                         {data.is_enseignant && (
-                            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 p-4 rounded-xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/40 animate-in fade-in-50">
-                                <div>
+                            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 p-4 rounded-xl bg-indigo-50/50 border border-indigo-100 animate-in fade-in-50">
+                                <div className="min-w-0">
                                     <Label htmlFor="departement_id" className="text-xs font-semibold">
                                         Département pédagogique
                                     </Label>
-                                    <Select
-                                        value={data.departement_id ? String(data.departement_id) : 'none'}
-                                        onValueChange={(val) => setData('departement_id', val === 'none' ? '' : Number(val))}
-                                    >
-                                        <SelectTrigger id="departement_id" className="mt-1 h-9 text-sm bg-background">
-                                            <SelectValue placeholder="Aucun département" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="none">Aucun département</SelectItem>
-                                            {departements.map((dep) => (
-                                                <SelectItem key={dep.id} value={String(dep.id)}>
-                                                    {dep.nom} {dep.code ? `(${dep.code})` : ''}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                    <div className="mt-1">
+                                        <SearchableSelect
+                                            id="departement_id"
+                                            options={[
+                                                { value: 'none', label: 'Aucun département' },
+                                                ...departements.map((dep) => ({
+                                                    value: String(dep.id),
+                                                    label: dep.nom,
+                                                    description: dep.code ? `Code : ${dep.code}` : undefined,
+                                                })),
+                                            ]}
+                                            value={data.departement_id ? String(data.departement_id) : 'none'}
+                                            onValueChange={(val) => setData('departement_id', !val || val === 'none' ? '' : Number(val))}
+                                            placeholder="Aucun département"
+                                            searchPlaceholder="Rechercher un département..."
+                                            emptyMessage="Aucun département trouvé."
+                                            className="h-9 text-sm font-normal bg-background"
+                                        />
+                                    </div>
                                 </div>
 
-                                <div>
+                                <div className="min-w-0">
                                     <Label htmlFor="specialite" className="text-xs font-semibold">
                                         Spécialité / Discipline
                                     </Label>
@@ -620,7 +623,7 @@ export function CreatePersonnelModal({
                     <div className="space-y-4 pt-2 border-t">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                                <KeyRound className="size-4 text-purple-600 dark:text-purple-400" />
+                                <KeyRound className="size-4 text-purple-600" />
                                 <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">
                                     4. Compte d'Accès SYGES (Optionnel)
                                 </h3>
@@ -678,9 +681,9 @@ export function CreatePersonnelModal({
 
                         {/* Formulaire de création de compte utilisateur */}
                         {accountMode === 'create' && (
-                            <div className="p-4 rounded-xl bg-purple-50/60 dark:bg-purple-950/20 border border-purple-100 dark:border-purple-900/40 space-y-4 animate-in fade-in-50">
-                                <div className="flex items-center gap-2 text-xs text-purple-800 dark:text-purple-300 font-medium">
-                                    <Sparkles className="size-4 text-purple-600 dark:text-purple-400" />
+                            <div className="p-4 rounded-xl bg-purple-50/60 border border-purple-100 space-y-4 animate-in fade-in-50">
+                                <div className="flex items-center gap-2 text-xs text-purple-800 font-medium">
+                                    <UserCheck className="size-4 text-purple-600" />
                                     <span>Un compte utilisateur actif sera immédiatement créé et relié à cette fiche de personnel.</span>
                                 </div>
 
@@ -728,7 +731,7 @@ export function CreatePersonnelModal({
                                         />
                                     </div>
 
-                                    <div>
+                                    <div className="min-w-0">
                                         <Label htmlFor="user_role" className="text-xs font-semibold">
                                             Rôle de sécurité Spatie
                                         </Label>
@@ -754,25 +757,24 @@ export function CreatePersonnelModal({
 
                         {/* Liaison avec un compte utilisateur existant */}
                         {accountMode === 'link' && (
-                            <div className="p-4 rounded-xl bg-muted/40 border border-border space-y-3 animate-in fade-in-50">
+                            <div className="p-4 rounded-xl bg-muted/40 border border-border space-y-3 animate-in fade-in-50 min-w-0">
                                 <Label htmlFor="user_id" className="text-xs font-semibold">
                                     Sélectionnez le compte utilisateur SYGES à associer
                                 </Label>
-                                <Select
+                                <SearchableSelect
+                                    id="user_id"
+                                    options={availableUsers.map((u) => ({
+                                        value: String(u.id),
+                                        label: u.name,
+                                        description: `${u.login}${u.email ? ` · ${u.email}` : ''}`,
+                                    }))}
                                     value={data.user_id ? String(data.user_id) : ''}
-                                    onValueChange={(val) => setData('user_id', Number(val))}
-                                >
-                                    <SelectTrigger id="user_id" className="h-9 text-sm">
-                                        <SelectValue placeholder="Choisir un compte utilisateur disponible" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {availableUsers.map((u) => (
-                                            <SelectItem key={u.id} value={String(u.id)}>
-                                                {u.name} (login: {u.login}, email: {u.email})
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                    onValueChange={(val) => setData('user_id', val ? Number(val) : '')}
+                                    placeholder="Choisir un compte utilisateur disponible"
+                                    searchPlaceholder="Rechercher par nom, login ou email..."
+                                    emptyMessage="Aucun compte utilisateur disponible."
+                                    className="h-9 text-sm font-normal"
+                                />
                             </div>
                         )}
                     </div>

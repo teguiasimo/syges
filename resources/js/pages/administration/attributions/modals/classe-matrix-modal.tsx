@@ -19,13 +19,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
     Table,
     TableBody,
@@ -78,7 +72,7 @@ export function ClasseMatrixModal({
     onClose,
     anneeScolaireId,
     enseignants,
-    matieres,
+    matieres: _matieres,
     matiereNiveaux,
 }: ClasseMatrixModalProps) {
     const [rows, setRows] = useState<MatrixRowState[]>([]);
@@ -152,7 +146,7 @@ export function ClasseMatrixModal({
                     const r = row.original;
                     return (
                         <div className="py-0.5">
-                            <div className="font-semibold text-foreground text-xs truncate max-w-[220px]" title={r.nom}>
+                            <div className="font-semibold text-foreground text-xs truncate max-w-55" title={r.nom}>
                                 {truncateText(r.nom, 40)}
                             </div>
                             <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-muted-foreground">
@@ -182,30 +176,33 @@ export function ClasseMatrixModal({
                     const r = row.original;
                     return (
                         <div className="min-w-56">
-                            <Select
+                            <SearchableSelect
+                                options={[
+                                    {
+                                        value: 'none',
+                                        label: 'Non attribué (vacant)',
+                                        group: 'Statut',
+                                    },
+                                    ...enseignants.map((ens) => ({
+                                        value: String(ens.id),
+                                        label: `${[ens.nom, ens.prenom].filter(Boolean).join(' ')} (${ens.matricule})`,
+                                        description: `${ens.specialite || 'Enseignement'} • [${ens.heures_attribuees}h / ${ens.volume_horaire_hebdo}h]`,
+                                        group: ens.departement?.nom || 'Corps professoral',
+                                    })),
+                                ]}
                                 value={r.personnel_id ? String(r.personnel_id) : 'none'}
                                 onValueChange={(val) =>
                                     handleRowChange(
                                         r.matiere_id,
                                         'personnel_id',
-                                        val === 'none' ? null : Number(val)
+                                        !val || val === 'none' ? null : Number(val)
                                     )
                                 }
-                            >
-                                <SelectTrigger className="h-8 text-xs bg-background">
-                                    <SelectValue placeholder="Choisir un enseignant" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="none">
-                                        <em className="text-muted-foreground">Non attribué (vacant)</em>
-                                    </SelectItem>
-                                    {enseignants.map((ens) => (
-                                        <SelectItem key={ens.id} value={String(ens.id)}>
-                                            {ens.nom} {ens.prenom} ({ens.matricule}) [{ens.heures_attribuees}h / {ens.volume_horaire_hebdo}h]
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                                placeholder="Choisir un enseignant"
+                                searchPlaceholder="Rechercher un enseignant..."
+                                emptyMessage="Aucun enseignant trouvé."
+                                className="h-8 text-xs font-normal bg-background"
+                            />
                         </div>
                     );
                 },
@@ -242,11 +239,11 @@ export function ClasseMatrixModal({
                 cell: ({ row }) => (
                     <div className="text-right">
                         {row.original.personnel_id ? (
-                            <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-400 dark:border-emerald-800 text-[10px] font-semibold">
+                            <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-semibold">
                                 Pourvu
                             </Badge>
                         ) : (
-                            <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/50 dark:text-amber-400 dark:border-amber-800 text-[10px] font-semibold">
+                            <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-[10px] font-semibold">
                                 Non pourvu
                             </Badge>
                         )}
@@ -311,7 +308,7 @@ export function ClasseMatrixModal({
                 <DialogHeader className="border-b pb-4">
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                         <div className="flex items-start sm:items-center gap-3 min-w-0">
-                            <div className="p-2.5 rounded-xl bg-teal-50 dark:bg-teal-950/50 text-teal-600 border border-teal-200 dark:border-teal-900/50 shrink-0">
+                            <div className="p-2.5 rounded-xl bg-teal-50 text-teal-600 border border-teal-200 shrink-0">
                                 <Layers className="size-6" />
                             </div>
                             <div className="min-w-0">
@@ -342,7 +339,7 @@ export function ClasseMatrixModal({
                 {/* TABLEAU TANSTACK TABLE DES MATIÈRES AU PROGRAMME */}
                 <div className="space-y-4 pt-2 min-w-0">
                     <div className="rounded-lg border overflow-hidden">
-                        <Table className="min-w-[680px] text-xs">
+                        <Table className="min-w-170 text-xs">
                             <TableHeader className="bg-muted/50 text-muted-foreground font-semibold uppercase text-[10px] tracking-wider">
                                 {matrixTable.getHeaderGroups().map((headerGroup) => (
                                     <TableRow key={headerGroup.id}>

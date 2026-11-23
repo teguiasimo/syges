@@ -160,7 +160,7 @@ export default function AuthSplitLayout({
                                             className="h-full w-full object-cover object-center transform scale-102 transition-transform duration-6000 ease-out"
                                         />
                                         {/* Dégradé doux pour faire ressortir la légende sans masquer l'image */}
-                                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/25 to-transparent" />
+                                        <div className="absolute inset-0 bg-linear-to-t from-slate-950/90 via-slate-950/25 to-transparent" />
                                     </div>
                                 ))}
 
@@ -257,7 +257,7 @@ export default function AuthSplitLayout({
                     </div>
 
                     {/* Carte de connexion centrée, fluide sur mobile/tablette comme sur grand écran */}
-                    <div className="my-auto mx-auto w-full max-w-md sm:max-w-lg lg:max-w-md xl:max-w-[29rem] 2xl:max-w-[31rem]">
+                    <div className="my-auto mx-auto w-full max-w-md sm:max-w-lg lg:max-w-md xl:max-w-116 2xl:max-w-124">
                         <div className="rounded-3xl border border-border/70 bg-card/95 p-8 sm:p-10 shadow-xl backdrop-blur-xl">
                             {/* Titre sobre */}
                             <div className="space-y-1.5 text-center mb-7">

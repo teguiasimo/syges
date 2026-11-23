@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
     Select,
     SelectContent,
@@ -57,6 +58,28 @@ export function ArchiverModal({
         observations: '',
     });
 
+    // Options formatées pour la recherche d'élèves et de personnels actifs sans débordement horizontal
+    const eleveOptions = React.useMemo(
+        () =>
+            elevesActifs.map((el) => ({
+                value: String(el.id),
+                label: [el.nom, el.prenom].filter(Boolean).join(' '),
+                description: `Matricule : ${el.matricule}`,
+            })),
+        [elevesActifs]
+    );
+
+    const personnelOptions = React.useMemo(
+        () =>
+            personnelsActifs.map((p) => ({
+                value: String(p.id),
+                label: [p.nom, p.prenom].filter(Boolean).join(' '),
+                group: p.fonction_principale || 'Personnel',
+                description: `${p.fonction_principale} • Matricule : ${p.matricule}`,
+            })),
+        [personnelsActifs]
+    );
+
     const handleTypeChange = (type: 'eleve' | 'personnel') => {
         setTypeEntite(type);
         setData((prev) => ({
@@ -70,6 +93,15 @@ export function ArchiverModal({
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+
+        if (typeEntite === 'eleve' && !data.eleve_id) {
+            toast.error('Veuillez sélectionner un élève actif à archiver.', { position: 'top-right' });
+            return;
+        }
+        if (typeEntite === 'personnel' && !data.personnel_id) {
+            toast.error('Veuillez sélectionner un membre du personnel à archiver.', { position: 'top-right' });
+            return;
+        }
 
         post('/administration/archivage', {
             preserveScroll: true,
@@ -93,7 +125,7 @@ export function ArchiverModal({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="w-[95vw] sm:max-w-xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
                 <DialogHeader>
-                    <div className="flex items-center gap-2 text-teal-600 dark:text-teal-400">
+                    <div className="flex items-center gap-2 text-teal-600">
                         <Archive className="w-5 h-5 shrink-0" />
                         <DialogTitle className="text-base sm:text-lg">Archiver un dossier administratif</DialogTitle>
                     </div>
@@ -104,12 +136,12 @@ export function ArchiverModal({
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     {/* Choix Élève ou Personnel */}
-                    <div className="flex flex-col min-[420px]:flex-row rounded-lg border p-1 bg-slate-50 dark:bg-slate-900 gap-1">
+                    <div className="flex flex-col min-[420px]:flex-row rounded-lg border p-1 bg-slate-50 gap-1">
                         <button
                             type="button"
                             className={`flex-1 flex items-center justify-center gap-2 py-2 text-xs font-semibold rounded-md transition-all ${
                                 typeEntite === 'eleve'
-                                    ? 'bg-white dark:bg-slate-800 text-teal-600 dark:text-teal-400 shadow-sm'
+                                    ? 'bg-white text-teal-600 shadow-sm'
                                     : 'text-slate-500 hover:text-slate-900'
                             }`}
                             onClick={() => handleTypeChange('eleve')}
@@ -121,7 +153,7 @@ export function ArchiverModal({
                             type="button"
                             className={`flex-1 flex items-center justify-center gap-2 py-2 text-xs font-semibold rounded-md transition-all ${
                                 typeEntite === 'personnel'
-                                    ? 'bg-white dark:bg-slate-800 text-teal-600 dark:text-teal-400 shadow-sm'
+                                    ? 'bg-white text-teal-600 shadow-sm'
                                     : 'text-slate-500 hover:text-slate-900'
                             }`}
                             onClick={() => handleTypeChange('personnel')}
@@ -131,51 +163,39 @@ export function ArchiverModal({
                         </button>
                     </div>
 
-                    {/* Sélection de la personne */}
+                    {/* Sélection de la personne avec zone de recherche intégrée */}
                     {typeEntite === 'eleve' ? (
-                        <div className="space-y-1.5">
+                        <div className="space-y-1.5 min-w-0">
                             <Label htmlFor="eleve_id" className="text-xs font-semibold">
                                 Sélectionner l'Élève <span className="text-rose-500">*</span>
                             </Label>
-                            <Select
+                            <SearchableSelect
+                                id="eleve_id"
+                                options={eleveOptions}
                                 value={data.eleve_id}
                                 onValueChange={(val) => setData('eleve_id', val)}
-                            >
-                                <SelectTrigger id="eleve_id">
-                                    <SelectValue placeholder="Choisir un élève actif..." />
-                                </SelectTrigger>
-                                <SelectContent className="max-h-60">
-                                    {elevesActifs.map((el) => (
-                                        <SelectItem key={el.id} value={String(el.id)}>
-                                            {el.nom} {el.prenom} ({el.matricule})
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                                placeholder="Choisir un élève actif..."
+                                searchPlaceholder="Rechercher par nom, prénom ou matricule..."
+                                emptyMessage="Aucun élève actif trouvé pour"
+                            />
                             {errors.eleve_id && (
                                 <p className="text-xs text-rose-500">{errors.eleve_id}</p>
                             )}
                         </div>
                     ) : (
-                        <div className="space-y-1.5">
+                        <div className="space-y-1.5 min-w-0">
                             <Label htmlFor="personnel_id" className="text-xs font-semibold">
                                 Sélectionner le Membre du Personnel <span className="text-rose-500">*</span>
                             </Label>
-                            <Select
+                            <SearchableSelect
+                                id="personnel_id"
+                                options={personnelOptions}
                                 value={data.personnel_id}
                                 onValueChange={(val) => setData('personnel_id', val)}
-                            >
-                                <SelectTrigger id="personnel_id">
-                                    <SelectValue placeholder="Choisir un personnel..." />
-                                </SelectTrigger>
-                                <SelectContent className="max-h-60">
-                                    {personnelsActifs.map((p) => (
-                                        <SelectItem key={p.id} value={String(p.id)}>
-                                            {p.nom} {p.prenom} ({p.fonction_principale} - {p.matricule})
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                                placeholder="Choisir un personnel..."
+                                searchPlaceholder="Rechercher par nom, fonction ou matricule..."
+                                emptyMessage="Aucun membre du personnel trouvé pour"
+                            />
                             {errors.personnel_id && (
                                 <p className="text-xs text-rose-500">{errors.personnel_id}</p>
                             )}

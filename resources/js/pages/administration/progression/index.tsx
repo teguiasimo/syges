@@ -3,7 +3,6 @@ import {
     ColumnDef,
     flexRender,
     getCoreRowModel,
-    getPaginationRowModel,
     getSortedRowModel,
     SortingState,
     useReactTable,
@@ -14,19 +13,12 @@ import {
     Calendar,
     CheckCircle2,
     Clock,
-    Download,
     Edit2,
-    FileSpreadsheet,
-    Filter,
-    Layers,
     Plus,
     Printer,
     Search,
-    ShieldAlert,
     ShieldCheck,
     Trash2,
-    UserCheck,
-    XCircle,
 } from 'lucide-react';
 import React, { useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -35,11 +27,11 @@ import { Button } from '@/components/ui/button';
 import {
     Card,
     CardContent,
-    CardDescription,
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
     Select,
     SelectContent,
@@ -61,7 +53,7 @@ import type { FicheProgression, ProgressionPageProps } from '@/types/progression
 import { NouvelleSeanceModal } from './modals/nouvelle-seance-modal';
 import { VisaSeanceModal } from './modals/visa-seance-modal';
 
-const breadcrumbs: BreadcrumbItem[] = [
+const _breadcrumbs: BreadcrumbItem[] = [
     { title: 'Administration', href: '/administration' },
     { title: 'Cahier de Texte & Progression', href: '/administration/progression-pedagogique' },
 ];
@@ -79,7 +71,7 @@ export default function ProgressionPedagogiqueIndex({
     filters,
     classes,
     matieres,
-    enseignants,
+    enseignants: _enseignants,
     periodes,
     attributions,
 }: ProgressionPageProps) {
@@ -160,12 +152,12 @@ export default function ProgressionPedagogiqueIndex({
                     const seance = row.original;
                     return (
                         <div className="flex flex-col">
-                            <span className="font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
+                            <span className="font-semibold text-slate-800 flex items-center gap-1.5">
                                 <Calendar className="w-3.5 h-3.5 shrink-0 text-teal-600" />
                                 {formatDate(seance.date_seance)}
                             </span>
                             {seance.semaine_numero && (
-                                <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                                <span className="text-[11px] text-slate-500">
                                     Semaine {seance.semaine_numero}
                                 </span>
                             )}
@@ -181,10 +173,10 @@ export default function ProgressionPedagogiqueIndex({
                     const attr = seance.attribution;
                     return (
                         <div className="flex flex-col">
-                            <span className="font-medium text-slate-900 dark:text-slate-100">
+                            <span className="font-medium text-slate-900">
                                 {attr?.classe?.nom ?? 'N/A'}
                             </span>
-                            <span className="text-xs text-teal-600 dark:text-teal-400 font-semibold">
+                            <span className="text-xs text-teal-600 font-semibold">
                                 {attr?.matiere?.nom ?? 'N/A'}
                             </span>
                         </div>
@@ -197,7 +189,7 @@ export default function ProgressionPedagogiqueIndex({
                 cell: ({ row }) => {
                     const prof = row.original.attribution?.personnel;
                     return (
-                        <div className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                        <div className="text-xs font-medium text-slate-700">
                             {prof ? `${prof.nom} ${prof.prenom ?? ''}` : '---'}
                         </div>
                     );
@@ -210,14 +202,14 @@ export default function ProgressionPedagogiqueIndex({
                     const seance = row.original;
                     return (
                         <div className="flex flex-col max-w-md whitespace-normal">
-                            <span className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                            <span className="text-xs font-bold text-slate-900">
                                 {seance.chapitre}
                             </span>
-                            <span className="text-xs text-slate-700 dark:text-slate-300 font-medium">
+                            <span className="text-xs text-slate-700 font-medium">
                                 {seance.titre_lecon}
                             </span>
                             {seance.travail_a_faire && (
-                                <span className="text-[11px] text-blue-600 dark:text-blue-400 mt-0.5 line-clamp-1 italic">
+                                <span className="text-[11px] text-blue-600 mt-0.5 line-clamp-1 italic">
                                     <strong>Devoir :</strong> {seance.travail_a_faire}
                                 </span>
                             )}
@@ -233,7 +225,7 @@ export default function ProgressionPedagogiqueIndex({
                     return (
                         <div className="flex items-center gap-1 text-xs">
                             <Clock className="w-3.5 h-3.5 text-slate-400" />
-                            <span className="font-bold text-teal-600 dark:text-teal-400">
+                            <span className="font-bold text-teal-600">
                                 {seance.heures_effectuees}h
                             </span>
                             <span className="text-slate-400">/ {seance.heures_prevues}h</span>
@@ -248,20 +240,20 @@ export default function ProgressionPedagogiqueIndex({
                     const st = row.original.statut;
                     if (st === 'fait') {
                         return (
-                            <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 hover:bg-emerald-100 border border-emerald-300">
+                            <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border border-emerald-300">
                                 Fait
                             </Badge>
                         );
                     }
                     if (st === 'en_cours') {
                         return (
-                            <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 hover:bg-amber-100 border border-amber-300">
+                            <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100 border border-amber-300">
                                 En cours
                             </Badge>
                         );
                     }
                     return (
-                        <Badge className="bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 hover:bg-rose-100 border border-rose-300">
+                        <Badge className="bg-rose-100 text-rose-800 hover:bg-rose-100 border border-rose-300">
                             Reporté
                         </Badge>
                     );
@@ -275,7 +267,7 @@ export default function ProgressionPedagogiqueIndex({
                     if (seance.visa_censeur) {
                         return (
                             <div className="flex flex-col">
-                                <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                                <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600">
                                     <ShieldCheck className="w-3.5 h-3.5" /> Visé
                                 </span>
                                 {seance.date_visa && (
@@ -287,7 +279,7 @@ export default function ProgressionPedagogiqueIndex({
                         );
                     }
                     return (
-                        <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 dark:text-amber-400">
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-600">
                             <AlertCircle className="w-3.5 h-3.5" /> En attente
                         </span>
                     );
@@ -370,12 +362,12 @@ export default function ProgressionPedagogiqueIndex({
                 {/* En-tête de page & Actions */}
                 <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
                     <div className="min-w-0">
-                        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-start sm:items-center gap-2.5">
-                            <BookOpen className="w-7 h-7 shrink-0 text-teal-600 dark:text-teal-400 mt-0.5 sm:mt-0" />
+                        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground flex items-start sm:items-center gap-2.5">
+                            <BookOpen className="w-7 h-7 shrink-0 text-teal-600 mt-0.5 sm:mt-0" />
                             <span>Cahier de Texte & Progression Pédagogique</span>
                         </h1>
-                        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                            Suivi didactique des séances dispensées, contrôle horaire ministériel et visa hiérarchique du censeur (Aurore §5.1.8).
+                        <p className="text-sm text-muted-foreground mt-1">
+                            Suivi didactique des séances dispensées, contrôle horaire ministériel et visa hiérarchique du censeur.
                         </p>
                     </div>
 
@@ -383,7 +375,7 @@ export default function ProgressionPedagogiqueIndex({
                         {currentAttributionId && (
                             <Button
                                 variant="outline"
-                                className="gap-1.5 text-slate-700 dark:text-slate-200 border-teal-200 hover:bg-teal-50"
+                                className="gap-1.5 text-slate-700 border-teal-200 hover:bg-teal-50"
                                 onClick={() => {
                                     window.open(`/administration/progression-pedagogique/imprimer/${currentAttributionId}`, '_blank');
                                 }}
@@ -394,7 +386,7 @@ export default function ProgressionPedagogiqueIndex({
                         )}
 
                         <Button
-                            className="bg-teal-600 hover:bg-teal-700 text-white gap-1.5 shadow"
+                            className="bg-teal-600 hover:bg-teal-700 text-white gap-1.5 shadow-xs"
                             onClick={() => {
                                 setEditingSeance(null);
                                 setNouvelleSeanceModalOpen(true);
@@ -406,52 +398,61 @@ export default function ProgressionPedagogiqueIndex({
                     </div>
                 </div>
 
-                {/* Cartes KPI & Progression globale */}
+                {/* Indicateurs clés de progression — format sobre et compact harmonisé avec le tableau de bord */}
                 <div className="grid grid-cols-1 min-[420px]:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <Card className="border-l-4 border-l-teal-500 shadow-sm">
-                        <CardHeader className="pb-2">
-                            <CardDescription className="text-xs uppercase font-bold tracking-wider">
+                    <Card className="border-border/80 shadow-2xs py-4 gap-3">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-0 px-4">
+                            <CardTitle className="text-sm font-medium text-muted-foreground">
                                 Séances Consignées
-                            </CardDescription>
-                            <CardTitle className="text-2xl font-black text-slate-900 dark:text-white">
-                                {stats.total_seances}
                             </CardTitle>
+                            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+                                <BookOpen className="size-4" />
+                            </div>
                         </CardHeader>
-                        <CardContent>
-                            <div className="text-xs text-slate-500 flex items-center justify-between">
+                        <CardContent className="px-4">
+                            <div className="text-2xl font-bold tracking-tight tabular-nums text-foreground">
+                                {stats.total_seances}
+                            </div>
+                            <div className="text-xs text-muted-foreground mt-1 flex items-center justify-between gap-2">
                                 <span>{stats.total_visees} visées</span>
                                 <span className="text-amber-600 font-medium">{stats.total_en_attente_visa} en attente</span>
                             </div>
                         </CardContent>
                     </Card>
 
-                    <Card className="border-l-4 border-l-sky-500 shadow-sm">
-                        <CardHeader className="pb-2">
-                            <CardDescription className="text-xs uppercase font-bold tracking-wider">
+                    <Card className="border-border/80 shadow-2xs py-4 gap-3">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-0 px-4">
+                            <CardTitle className="text-sm font-medium text-muted-foreground">
                                 Heures Dispensées
-                            </CardDescription>
-                            <CardTitle className="text-2xl font-black text-slate-900 dark:text-white">
-                                {Number(stats.total_heures_effectuees).toFixed(1)} h
                             </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-xs text-slate-500">
-                                Sur {Number(stats.total_heures_prevues).toFixed(1)} h programmées
+                            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-sky-50 text-sky-600">
+                                <Clock className="size-4" />
                             </div>
+                        </CardHeader>
+                        <CardContent className="px-4">
+                            <div className="text-2xl font-bold tracking-tight tabular-nums text-foreground">
+                                {Number(stats.total_heures_effectuees).toFixed(1)} h
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1">
+                                Sur {Number(stats.total_heures_prevues).toFixed(1)} h programmées
+                            </p>
                         </CardContent>
                     </Card>
 
-                    <Card className="border-l-4 border-l-emerald-500 shadow-sm">
-                        <CardHeader className="pb-2">
-                            <CardDescription className="text-xs uppercase font-bold tracking-wider">
-                                Taux d'Avancement Programme
-                            </CardDescription>
-                            <CardTitle className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
-                                {stats.taux_realisation} %
+                    <Card className="border-border/80 shadow-2xs py-4 gap-3">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-0 px-4">
+                            <CardTitle className="text-sm font-medium text-muted-foreground">
+                                Avancement Programme
                             </CardTitle>
+                            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+                                <CheckCircle2 className="size-4" />
+                            </div>
                         </CardHeader>
-                        <CardContent>
-                            <div className="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden mt-1">
+                        <CardContent className="px-4">
+                            <div className="text-2xl font-bold tracking-tight tabular-nums text-emerald-600">
+                                {stats.taux_realisation} %
+                            </div>
+                            <div className="w-full bg-muted h-1.5 rounded-full overflow-hidden mt-2">
                                 <div
                                     className="bg-emerald-500 h-full rounded-full transition-all duration-500"
                                     style={{ width: `${Math.min(stats.taux_realisation, 100)}%` }}
@@ -460,22 +461,24 @@ export default function ProgressionPedagogiqueIndex({
                         </CardContent>
                     </Card>
 
-                    <Card className="border-l-4 border-l-amber-500 shadow-sm">
-                        <CardHeader className="pb-2">
-                            <CardDescription className="text-xs uppercase font-bold tracking-wider">
+                    <Card className="border-border/80 shadow-2xs py-4 gap-3">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-0 px-4">
+                            <CardTitle className="text-sm font-medium text-muted-foreground">
                                 Contrôle & Visas Censeur
-                            </CardDescription>
-                            <CardTitle className="text-2xl font-black text-slate-900 dark:text-white flex items-center gap-2">
-                                <ShieldCheck className="w-6 h-6 text-emerald-500" />
-                                {stats.total_visees} / {stats.total_seances}
                             </CardTitle>
+                            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
+                                <ShieldCheck className="size-4" />
+                            </div>
                         </CardHeader>
-                        <CardContent>
-                            <div className="text-xs text-slate-500">
+                        <CardContent className="px-4">
+                            <div className="text-2xl font-bold tracking-tight tabular-nums text-foreground">
+                                {stats.total_visees} / {stats.total_seances}
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1">
                                 {stats.total_seances > 0
                                     ? `${Math.round((stats.total_visees / stats.total_seances) * 100)}% des cours visés`
                                     : 'Aucun cours consigné'}
-                            </div>
+                            </p>
                         </CardContent>
                     </Card>
                 </div>
@@ -486,7 +489,7 @@ export default function ProgressionPedagogiqueIndex({
                         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-3">
                             {/* Recherche textuelle */}
                             <div className="space-y-1 sm:col-span-2 xl:col-span-2 min-w-0">
-                                <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                                <label className="text-xs font-semibold text-slate-600">
                                     Recherche (Leçon, Chapitre...)
                                 </label>
                                 <div className="relative">
@@ -502,60 +505,60 @@ export default function ProgressionPedagogiqueIndex({
                             </div>
 
                             {/* Classe */}
-                            <div className="space-y-1">
-                                <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                            <div className="space-y-1 min-w-0">
+                                <label className="text-xs font-semibold text-slate-600">
                                     Classe
                                 </label>
-                                <Select
+                                <SearchableSelect
+                                    options={[
+                                        { value: 'all', label: 'Toutes les classes' },
+                                        ...classes.map((cl) => ({
+                                            value: String(cl.id),
+                                            label: cl.nom,
+                                        })),
+                                    ]}
                                     value={selectedClasse}
                                     onValueChange={(val) => {
-                                        setSelectedClasse(val);
-                                        handleApplyFilters({ classe_id: val });
+                                        const nextVal = val || 'all';
+                                        setSelectedClasse(nextVal);
+                                        handleApplyFilters({ classe_id: nextVal });
                                     }}
-                                >
-                                    <SelectTrigger className="h-9 text-xs">
-                                        <SelectValue placeholder="Toutes classes" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">Toutes les classes</SelectItem>
-                                        {classes.map((cl) => (
-                                            <SelectItem key={cl.id} value={String(cl.id)}>
-                                                {cl.nom}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                    placeholder="Toutes classes"
+                                    searchPlaceholder="Rechercher une classe..."
+                                    emptyMessage="Aucune classe trouvée."
+                                    className="h-9 text-xs font-normal"
+                                />
                             </div>
 
                             {/* Matière */}
-                            <div className="space-y-1">
-                                <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                            <div className="space-y-1 min-w-0">
+                                <label className="text-xs font-semibold text-slate-600">
                                     Discipline / Matière
                                 </label>
-                                <Select
+                                <SearchableSelect
+                                    options={[
+                                        { value: 'all', label: 'Toutes les matières' },
+                                        ...matieres.map((m) => ({
+                                            value: String(m.id),
+                                            label: m.nom,
+                                        })),
+                                    ]}
                                     value={selectedMatiere}
                                     onValueChange={(val) => {
-                                        setSelectedMatiere(val);
-                                        handleApplyFilters({ matiere_id: val });
+                                        const nextVal = val || 'all';
+                                        setSelectedMatiere(nextVal);
+                                        handleApplyFilters({ matiere_id: nextVal });
                                     }}
-                                >
-                                    <SelectTrigger className="h-9 text-xs">
-                                        <SelectValue placeholder="Toutes matières" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">Toutes les matières</SelectItem>
-                                        {matieres.map((m) => (
-                                            <SelectItem key={m.id} value={String(m.id)}>
-                                                {m.nom}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                    placeholder="Toutes matières"
+                                    searchPlaceholder="Rechercher une matière..."
+                                    emptyMessage="Aucune matière trouvée."
+                                    className="h-9 text-xs font-normal"
+                                />
                             </div>
 
                             {/* Statut */}
-                            <div className="space-y-1">
-                                <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                            <div className="space-y-1 min-w-0">
+                                <label className="text-xs font-semibold text-slate-600">
                                     État d'avancement
                                 </label>
                                 <Select
@@ -578,8 +581,8 @@ export default function ProgressionPedagogiqueIndex({
                             </div>
 
                             {/* Visa Censeur */}
-                            <div className="space-y-1">
-                                <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                            <div className="space-y-1 min-w-0">
+                                <label className="text-xs font-semibold text-slate-600">
                                     Contrôle Visa
                                 </label>
                                 <Select
@@ -628,10 +631,10 @@ export default function ProgressionPedagogiqueIndex({
                 {/* Tableau TanStack Table */}
                 <Card className="shadow-sm overflow-hidden min-w-0">
                     <div className="overflow-x-auto">
-                        <Table className="min-w-[820px]">
+                        <Table className="min-w-205">
                             <TableHeader>
                                 {table.getHeaderGroups().map((headerGroup) => (
-                                    <TableRow key={headerGroup.id} className="bg-slate-50 dark:bg-slate-800/50">
+                                    <TableRow key={headerGroup.id} className="bg-slate-50">
                                         {headerGroup.headers.map((header) => (
                                             <TableHead key={header.id} className="text-xs font-bold uppercase">
                                                 {header.isPlaceholder
@@ -651,7 +654,7 @@ export default function ProgressionPedagogiqueIndex({
                                         <TableRow
                                             key={row.id}
                                             data-state={row.getIsSelected() && 'selected'}
-                                            className="hover:bg-slate-50/70 dark:hover:bg-slate-800/30 transition-colors"
+                                            className="hover:bg-slate-50/70 transition-colors"
                                         >
                                             {row.getVisibleCells().map((cell) => (
                                                 <TableCell key={cell.id} className="py-3">
@@ -679,7 +682,7 @@ export default function ProgressionPedagogiqueIndex({
 
                     {/* Pagination Inertia avec retour à la ligne sur petits écrans */}
                     {fiches.last_page > 1 && (
-                        <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-4 py-3 border-t bg-slate-50 dark:bg-slate-800/40 text-xs">
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-4 py-3 border-t bg-slate-50 text-xs">
                             <span className="text-slate-500 text-center sm:text-left">
                                 Affichage de {fiches.data.length} sur {fiches.total} séances consignées
                             </span>

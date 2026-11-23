@@ -7,7 +7,6 @@ import {
     DoorOpen,
     Users,
     Plus,
-    CalendarCheck,
     CalendarX,
     UserCheck,
     RotateCcw,
@@ -15,8 +14,6 @@ import {
     Search,
     AlertCircle,
     CheckCircle2,
-    Layers,
-    FileSpreadsheet,
     MapPin,
     ShieldAlert,
 } from 'lucide-react';
@@ -27,6 +24,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { DataTable } from '@/components/ui/data-table';
 import { Input } from '@/components/ui/input';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
     Select,
     SelectContent,
@@ -39,7 +37,6 @@ import {
     JourSemaine,
     Salle,
     SeanceEmploiTemps,
-    StatutSeance,
     TypeSalle,
 } from '@/types/emploi-du-temps';
 import NouvelleSeanceModal from './modals/nouvelle-seance-modal';
@@ -54,7 +51,7 @@ interface EmploiDuTempsIndexProps {
     salles: Salle[];
     currentSalle: Salle | null;
     enseignants: any[];
-    currentEnseignant: any | null;
+    currentEnseignant: any;
     attributions: any[];
     decomptesRH: Record<number, DecompteRH>;
     etablissements: { id: number; nom: string }[];
@@ -79,9 +76,9 @@ interface EmploiDuTempsIndexProps {
 export default function EmploiDuTempsIndex({
     seances,
     classes,
-    currentClasse,
+    currentClasse: _currentClasse,
     salles,
-    currentSalle,
+    currentSalle: _currentSalle,
     enseignants,
     attributions,
     decomptesRH,
@@ -212,7 +209,7 @@ export default function EmploiDuTempsIndex({
             accessorKey: 'heure_debut',
             header: 'Créneau Horaire',
             cell: ({ row }) => (
-                <div className="flex items-center gap-1.5 font-mono text-xs font-semibold text-slate-800 dark:text-slate-200">
+                <div className="flex items-center gap-1.5 font-mono text-xs font-semibold text-slate-800">
                     <Clock className="w-3.5 h-3.5 text-slate-400" />
                     <span>{row.original.heure_debut.substring(0, 5)} - {row.original.heure_fin.substring(0, 5)}</span>
                     <span className="text-[10px] text-slate-500 font-normal">({row.original.duree_heures ?? 1}h)</span>
@@ -224,7 +221,7 @@ export default function EmploiDuTempsIndex({
             header: 'Matière / Discipline',
             cell: ({ row }) => (
                 <div>
-                    <span className="font-bold text-xs text-slate-900 dark:text-slate-100">
+                    <span className="font-bold text-xs text-slate-900">
                         {row.original.attribution?.matiere?.nom ?? 'Cours'}
                     </span>
                     <div className="text-[10px] text-slate-500">
@@ -242,11 +239,11 @@ export default function EmploiDuTempsIndex({
 
                 return (
                     <div>
-                        <div className="text-xs font-medium text-slate-800 dark:text-slate-200">
+                        <div className="text-xs font-medium text-slate-800">
                             Prof. {titulaire?.nom} {titulaire?.prenom}
                         </div>
                         {remplacant && (
-                            <div className="text-[10px] text-indigo-600 dark:text-indigo-400 font-semibold flex items-center gap-1">
+                            <div className="text-[10px] text-indigo-600 font-semibold flex items-center gap-1">
                                 <UserCheck className="w-3 h-3" />
                                 Remplacé par : Prof. {remplacant.nom} {remplacant.prenom}
                             </div>
@@ -361,7 +358,7 @@ export default function EmploiDuTempsIndex({
             accessorKey: 'code',
             header: 'Code Local',
             cell: ({ row }) => (
-                <span className="font-mono font-bold text-xs text-slate-800 dark:text-slate-200">
+                <span className="font-mono font-bold text-xs text-slate-800">
                     {row.original.code}
                 </span>
             ),
@@ -371,7 +368,7 @@ export default function EmploiDuTempsIndex({
             header: 'Nom de la Salle',
             cell: ({ row }) => (
                 <div>
-                    <span className="font-bold text-xs text-slate-900 dark:text-slate-100">{row.original.nom}</span>
+                    <span className="font-bold text-xs text-slate-900">{row.original.nom}</span>
                     {row.original.description && (
                         <p className="text-[10px] text-slate-500 truncate max-w-50">{row.original.description}</p>
                     )}
@@ -462,7 +459,7 @@ export default function EmploiDuTempsIndex({
             id: 'nom',
             header: 'Enseignant',
             cell: ({ row }) => (
-                <div className="font-bold text-xs text-slate-900 dark:text-slate-100">
+                <div className="font-bold text-xs text-slate-900">
                     Prof. {row.original.nom} {row.original.prenom}
                 </div>
             ),
@@ -582,14 +579,14 @@ export default function EmploiDuTempsIndex({
             {/* Conteneur principal plein écran fluide et responsive sans contrainte artificielle de largeur */}
             <div className="flex flex-1 flex-col gap-4 sm:gap-6 p-4 sm:p-6 lg:p-8 w-full min-w-0">
                 {/* En-tête */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
                     <div className="min-w-0">
                         <div className="flex items-start sm:items-center gap-2.5">
                             <div className="p-2 bg-teal-600 rounded-lg text-white shrink-0">
                                 <CalendarDays className="w-5 h-5" />
                             </div>
                             <div className="min-w-0">
-                                <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-slate-900 dark:text-slate-100">
+                                <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-slate-900">
                                     Emplois du Temps & Gestion des Salles
                                 </h1>
                                 <p className="text-xs text-slate-500">
@@ -621,59 +618,59 @@ export default function EmploiDuTempsIndex({
 
                 {/* Cartes KPI (1 col <420px, 2 cols mobile, 3 cols tablette, 5 cols grand écran) */}
                 <div className="grid grid-cols-1 min-[420px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
-                    <Card className="border-slate-200 dark:border-slate-800">
+                    <Card className="border-slate-200">
                         <CardContent className="p-3">
                             <div className="flex items-center justify-between">
                                 <span className="text-xs font-semibold text-slate-500">Séances Hebdo</span>
                                 <CalendarDays className="w-4 h-4 text-indigo-600" />
                             </div>
-                            <div className="text-lg font-extrabold text-slate-900 dark:text-slate-100 mt-1">
+                            <div className="text-lg font-extrabold text-slate-900 mt-1">
                                 {kpis.totalSeances}
                             </div>
                             <span className="text-[10px] text-slate-400">{kpis.totalActives} actives normales</span>
                         </CardContent>
                     </Card>
 
-                    <Card className="border-slate-200 dark:border-slate-800">
+                    <Card className="border-slate-200">
                         <CardContent className="p-3">
                             <div className="flex items-center justify-between">
                                 <span className="text-xs font-semibold text-slate-500">Locaux & Salles</span>
                                 <DoorOpen className="w-4 h-4 text-slate-500" />
                             </div>
-                            <div className="text-lg font-extrabold text-slate-900 dark:text-slate-100 mt-1">
+                            <div className="text-lg font-extrabold text-slate-900 mt-1">
                                 {kpis.totalSalles}
                             </div>
                             <span className="text-[10px] text-slate-400">Standard, labo & info</span>
                         </CardContent>
                     </Card>
 
-                    <Card className="border-slate-200 dark:border-slate-800 bg-indigo-50/40 dark:bg-indigo-950/20">
+                    <Card className="border-slate-200 bg-indigo-50/40">
                         <CardContent className="p-3">
                             <div className="flex items-center justify-between">
                                 <span className="text-xs font-semibold text-indigo-600">Remplacements</span>
                                 <UserCheck className="w-4 h-4 text-indigo-600" />
                             </div>
-                            <div className="text-lg font-extrabold text-indigo-700 dark:text-indigo-400 mt-1">
+                            <div className="text-lg font-extrabold text-indigo-700 mt-1">
                                 {kpis.totalRemplacements}
                             </div>
                             <span className="text-[10px] text-indigo-500">Collègues mobilisés</span>
                         </CardContent>
                     </Card>
 
-                    <Card className="border-slate-200 dark:border-slate-800 bg-rose-50/30 dark:bg-rose-950/20">
+                    <Card className="border-slate-200 bg-rose-50/30">
                         <CardContent className="p-3">
                             <div className="flex items-center justify-between">
                                 <span className="text-xs font-semibold text-rose-600">Annulations</span>
                                 <CalendarX className="w-4 h-4 text-rose-600" />
                             </div>
-                            <div className="text-lg font-extrabold text-rose-700 dark:text-rose-400 mt-1">
+                            <div className="text-lg font-extrabold text-rose-700 mt-1">
                                 {kpis.totalAnnulations}
                             </div>
                             <span className="text-[10px] text-rose-500">Heures non dispensées</span>
                         </CardContent>
                     </Card>
 
-                    <Card className="border-slate-200 dark:border-slate-800">
+                    <Card className="border-slate-200">
                         <CardContent className="p-3">
                             <div className="flex items-center justify-between">
                                 <span className="text-xs font-semibold text-slate-500">Moteur Anti-Conflit</span>
@@ -689,15 +686,15 @@ export default function EmploiDuTempsIndex({
 
                 {/* Onglets et Filtres */}
                 <div className="space-y-4 min-w-0">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-2">
                         {/* Onglets à défilement horizontal sur mobile/tablette */}
                         <div className="flex items-center gap-2 overflow-x-auto max-w-full pb-1 sm:pb-0 scrollbar-none">
                             <button
                                 onClick={() => setActiveTab('grille_classe')}
                                 className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
                                     activeTab === 'grille_classe'
-                                        ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
-                                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
+                                        ? 'bg-slate-900 text-white'
+                                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                                 }`}
                             >
                                 <CalendarDays className="w-3.5 h-3.5 shrink-0" />
@@ -707,8 +704,8 @@ export default function EmploiDuTempsIndex({
                                 onClick={() => setActiveTab('grille_salle')}
                                 className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
                                     activeTab === 'grille_salle'
-                                        ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
-                                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
+                                        ? 'bg-slate-900 text-white'
+                                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                                 }`}
                             >
                                 <MapPin className="w-3.5 h-3.5 shrink-0" />
@@ -718,8 +715,8 @@ export default function EmploiDuTempsIndex({
                                 onClick={() => setActiveTab('salles')}
                                 className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
                                     activeTab === 'salles'
-                                        ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
-                                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
+                                        ? 'bg-slate-900 text-white'
+                                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                                 }`}
                             >
                                 <DoorOpen className="w-3.5 h-3.5 shrink-0" />
@@ -729,8 +726,8 @@ export default function EmploiDuTempsIndex({
                                 onClick={() => setActiveTab('decomptes_rh')}
                                 className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
                                     activeTab === 'decomptes_rh'
-                                        ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
-                                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
+                                        ? 'bg-slate-900 text-white'
+                                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                                 }`}
                             >
                                 <Users className="w-3.5 h-3.5 shrink-0" />
@@ -752,38 +749,43 @@ export default function EmploiDuTempsIndex({
                         </div>
 
                         {activeTab === 'grille_classe' && (
-                            <div className="w-full sm:w-48">
-                                <Select value={selectedClasseId} onValueChange={setSelectedClasseId}>
-                                    <SelectTrigger className="h-9 text-xs w-full">
-                                        <SelectValue placeholder="Toutes les classes" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">Toutes les classes</SelectItem>
-                                        {classes.map((c) => (
-                                            <SelectItem key={c.id} value={String(c.id)}>
-                                                {c.nom}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                            <div className="w-full sm:w-52 min-w-0">
+                                <SearchableSelect
+                                    options={[
+                                        { value: 'all', label: 'Toutes les classes' },
+                                        ...classes.map((c) => ({
+                                            value: String(c.id),
+                                            label: c.nom,
+                                        })),
+                                    ]}
+                                    value={selectedClasseId}
+                                    onValueChange={(val) => setSelectedClasseId(val || 'all')}
+                                    placeholder="Toutes les classes"
+                                    searchPlaceholder="Rechercher une classe..."
+                                    emptyMessage="Aucune classe trouvée."
+                                    className="h-9 text-xs font-normal w-full"
+                                />
                             </div>
                         )}
 
                         {activeTab === 'grille_salle' && (
-                            <div className="w-full sm:w-48">
-                                <Select value={selectedSalleId} onValueChange={setSelectedSalleId}>
-                                    <SelectTrigger className="h-9 text-xs w-full">
-                                        <SelectValue placeholder="Toutes les salles" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">Toutes les salles</SelectItem>
-                                        {salles.map((s) => (
-                                            <SelectItem key={s.id} value={String(s.id)}>
-                                                {s.nom} ({s.code})
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                            <div className="w-full sm:w-52 min-w-0">
+                                <SearchableSelect
+                                    options={[
+                                        { value: 'all', label: 'Toutes les salles' },
+                                        ...salles.map((s) => ({
+                                            value: String(s.id),
+                                            label: s.nom,
+                                            description: s.code,
+                                        })),
+                                    ]}
+                                    value={selectedSalleId}
+                                    onValueChange={(val) => setSelectedSalleId(val || 'all')}
+                                    placeholder="Toutes les salles"
+                                    searchPlaceholder="Rechercher une salle..."
+                                    emptyMessage="Aucune salle trouvée."
+                                    className="h-9 text-xs font-normal w-full"
+                                />
                             </div>
                         )}
 
@@ -809,7 +811,7 @@ export default function EmploiDuTempsIndex({
 
                     {/* Rendu des Tables TanStack */}
                     {(activeTab === 'grille_classe' || activeTab === 'grille_salle') && (
-                        <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-4">
+                        <div className="bg-white rounded-lg border border-slate-200 p-4">
                             <DataTable
                                 columns={seanceColumns}
                                 data={filteredSeances}
@@ -818,7 +820,7 @@ export default function EmploiDuTempsIndex({
                     )}
 
                     {activeTab === 'salles' && (
-                        <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-4">
+                        <div className="bg-white rounded-lg border border-slate-200 p-4">
                             <DataTable
                                 columns={sallesColumns}
                                 data={salles}
@@ -827,11 +829,11 @@ export default function EmploiDuTempsIndex({
                     )}
 
                     {activeTab === 'decomptes_rh' && (
-                        <div className="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-4">
+                        <div className="bg-white rounded-lg border border-slate-200 p-4">
                             <div className="mb-3 text-xs text-slate-500 flex items-center gap-1.5">
                                 <Users className="w-4 h-4 text-indigo-600" />
                                 <span>
-                                    Interconnexion RH (Gesco 13.5) : calcul automatique hebdomadaire des heures régulières, remplacements effectués (+) et cours annulés (-) pour la paie et la vacation des enseignants.
+                                    Interconnexion RH : calcul automatique hebdomadaire des heures régulières, remplacements effectués (+) et cours annulés (-) pour la paie et la vacation des enseignants.
                                 </span>
                             </div>
                             <DataTable

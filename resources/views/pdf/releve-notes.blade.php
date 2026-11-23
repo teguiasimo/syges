@@ -323,7 +323,7 @@
     </table>
 
     <div class="footer-note">
-        SYGES Cloud Platform • Édité le {{ $dateImpression }} • Conforme au Référentiel Pédagogique MINESEC Gesco V1.1
+        SYGES Cloud Platform • Édité le {{ $dateImpression }} • Référentiel Pédagogique Officiel
     </div>
 
 </body>

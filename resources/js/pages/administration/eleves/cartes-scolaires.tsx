@@ -13,13 +13,11 @@ import {
     CreditCard,
     Printer,
     Search,
-    Filter,
-    School,
     CheckCircle2,
     AlertCircle,
     RotateCw,
     Users,
-    Sparkles,
+    ArrowLeftRight,
     FileDown,
     ArrowLeft,
     Check,
@@ -38,6 +36,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { formatDate } from '@/lib/utils';
+import { SearchableSelect } from '@/components/ui/searchable-select';
+import { EleveAvatar } from '@/components/eleves/eleve-avatar';
 
 import type { Inscription, EtablissementRef, AnneeScolaireRef } from '@/types/eleve';
 
@@ -75,7 +75,7 @@ export default function CartesScolairesIndex({
     etablissements,
     selectedEtabId,
     selectedAnneeId,
-    anneesScolaires,
+    anneesScolaires: _anneesScolaires,
     stats,
     filters,
 }: CartesScolairesPageProps) {
@@ -243,16 +243,13 @@ export default function CartesScolairesIndex({
                 cell: ({ row }) => {
                     const eleve = row.original.eleve;
                     return (
-                        <div className="size-10 rounded-md border border-slate-200 dark:border-slate-800 overflow-hidden bg-slate-100 dark:bg-slate-900 flex items-center justify-center shrink-0">
-                            {eleve.photo_url ? (
-                                <img
-                                    src={`/${eleve.photo_url}`}
-                                    alt={eleve.nom}
-                                    className="w-full h-full object-cover"
-                                />
-                            ) : (
-                                <Camera className="size-4 text-slate-400" />
-                            )}
+                        <div className="size-10 rounded-md border border-slate-200 overflow-hidden bg-slate-100 flex items-center justify-center shrink-0">
+                            <EleveAvatar
+                                photoUrl={eleve.photo_url}
+                                alt={eleve.nom}
+                                imgClassName="w-full h-full object-cover"
+                                fallback={<Camera className="size-4 text-slate-400" />}
+                            />
                         </div>
                     );
                 },
@@ -261,7 +258,7 @@ export default function CartesScolairesIndex({
                 accessorKey: 'eleve.matricule',
                 header: 'Matricule',
                 cell: ({ row }) => (
-                    <span className="font-mono text-xs font-bold text-rose-600 dark:text-rose-400">
+                    <span className="font-mono text-xs font-bold text-rose-600">
                         {row.original.eleve.matricule}
                     </span>
                 ),
@@ -287,7 +284,7 @@ export default function CartesScolairesIndex({
                 accessorKey: 'classe.nom',
                 header: 'Classe',
                 cell: ({ row }) => (
-                    <Badge variant="outline" className="font-semibold bg-blue-50/50 dark:bg-blue-950/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-900">
+                    <Badge variant="outline" className="font-semibold bg-blue-50/50 text-blue-700 border-blue-200">
                         {row.original.classe?.nom || 'N/A'}
                     </Badge>
                 ),
@@ -298,12 +295,12 @@ export default function CartesScolairesIndex({
                 cell: ({ row }) => {
                     const hasPhoto = !emptyCheck(row.original.eleve.photo_url);
                     return hasPhoto ? (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600">
                             <CheckCircle2 className="size-3.5" />
                             Prête
                         </span>
                     ) : (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-600 dark:text-amber-400">
+                        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-600">
                             <AlertCircle className="size-3.5" />
                             Manquante
                         </span>
@@ -330,7 +327,7 @@ export default function CartesScolairesIndex({
                             <Button
                                 size="sm"
                                 variant="ghost"
-                                className="h-7 text-xs text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/40"
+                                className="h-7 text-xs text-sky-600 hover:bg-sky-50"
                                 asChild
                             >
                                 <a
@@ -410,7 +407,7 @@ export default function CartesScolairesIndex({
                         <Button
                             variant="outline"
                             onClick={() => handlePrintPlanche('recto')}
-                            className="gap-2 h-9 text-xs font-semibold border-sky-300 text-sky-700 dark:border-sky-800 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-sky-950/50"
+                            className="gap-2 h-9 text-xs font-semibold border-sky-300 text-sky-700 hover:bg-sky-50"
                         >
                             <Printer className="size-4" />
                             <span>Imprimer Planche Recto (A4)</span>
@@ -419,7 +416,7 @@ export default function CartesScolairesIndex({
                         <Button
                             variant="outline"
                             onClick={() => handlePrintPlanche('verso')}
-                            className="gap-2 h-9 text-xs font-semibold border-teal-300 text-teal-700 dark:border-teal-800 dark:text-teal-300 hover:bg-teal-50 dark:hover:bg-teal-950/50"
+                            className="gap-2 h-9 text-xs font-semibold border-teal-300 text-teal-700 hover:bg-teal-50"
                         >
                             <QrCode className="size-4" />
                             <span>Imprimer Planche Verso (A4)</span>
@@ -429,7 +426,7 @@ export default function CartesScolairesIndex({
                             onClick={() => handlePrintPlanche('recto_verso')}
                             className="gap-2 h-9 text-xs font-semibold bg-linear-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white shadow-sm"
                         >
-                            <Sparkles className="size-4" />
+                            <ArrowLeftRight className="size-4" />
                             <span>Recto & Verso Alternés</span>
                         </Button>
                     </div>
@@ -437,64 +434,64 @@ export default function CartesScolairesIndex({
 
                 {/* 4 Cartes Supérieures KPI de Couverture */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
+                    <Card className="border-slate-200 shadow-sm">
                         <CardContent className="p-4 flex items-center justify-between">
                             <div>
                                 <p className="text-xs font-medium text-muted-foreground">Élèves Inscrits</p>
                                 <p className="text-2xl font-bold text-foreground mt-1">{stats.total_inscrits}</p>
                                 <p className="text-[11px] text-muted-foreground mt-0.5">Année active</p>
                             </div>
-                            <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400">
+                            <div className="p-3 rounded-xl bg-blue-50 text-blue-600">
                                 <Users className="size-5" />
                             </div>
                         </CardContent>
                     </Card>
 
-                    <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
+                    <Card className="border-slate-200 shadow-sm">
                         <CardContent className="p-4 flex items-center justify-between">
                             <div>
                                 <p className="text-xs font-medium text-muted-foreground">Avec Photo Numérique</p>
-                                <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">
+                                <p className="text-2xl font-bold text-emerald-600 mt-1">
                                     {stats.total_avec_photo}
                                 </p>
                                 <p className="text-[11px] text-emerald-600/80 font-medium mt-0.5">Badges prêts</p>
                             </div>
-                            <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400">
+                            <div className="p-3 rounded-xl bg-emerald-50 text-emerald-600">
                                 <CheckCircle2 className="size-5" />
                             </div>
                         </CardContent>
                     </Card>
 
-                    <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
+                    <Card className="border-slate-200 shadow-sm">
                         <CardContent className="p-4 flex items-center justify-between">
                             <div>
                                 <p className="text-xs font-medium text-muted-foreground">Sans Photo</p>
-                                <p className="text-2xl font-bold text-amber-600 dark:text-amber-400 mt-1">
+                                <p className="text-2xl font-bold text-amber-600 mt-1">
                                     {stats.total_sans_photo}
                                 </p>
                                 <p className="text-[11px] text-amber-600/80 font-medium mt-0.5">À compléter</p>
                             </div>
-                            <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400">
+                            <div className="p-3 rounded-xl bg-amber-50 text-amber-600">
                                 <AlertCircle className="size-5" />
                             </div>
                         </CardContent>
                     </Card>
 
-                    <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
+                    <Card className="border-slate-200 shadow-sm">
                         <CardContent className="p-4 flex items-center justify-between">
                             <div className="flex-1 mr-3">
                                 <p className="text-xs font-medium text-muted-foreground">Taux de Couverture</p>
-                                <p className="text-2xl font-bold text-teal-600 dark:text-teal-400 mt-1 tabular-nums">
+                                <p className="text-2xl font-bold text-teal-600 mt-1 tabular-nums">
                                     {stats.taux_couverture_photo}%
                                 </p>
-                                <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full mt-2 overflow-hidden">
+                                <div className="w-full bg-slate-100 h-1.5 rounded-full mt-2 overflow-hidden">
                                     <div
                                         className="bg-teal-600 h-full rounded-full transition-all duration-500"
                                         style={{ width: `${stats.taux_couverture_photo}%` }}
                                     />
                                 </div>
                             </div>
-                            <div className="p-3 rounded-xl bg-teal-50 dark:bg-teal-950/50 text-teal-600 dark:text-teal-400 shrink-0">
+                            <div className="p-3 rounded-xl bg-teal-50 text-teal-600 shrink-0">
                                 <Camera className="size-5" />
                             </div>
                         </CardContent>
@@ -506,22 +503,26 @@ export default function CartesScolairesIndex({
                     {/* Colonne Tableau TanStack (7 / 12) */}
                     <div className="xl:col-span-7 flex flex-col gap-4">
                         {/* Barre des Filtres */}
-                        <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
+                        <Card className="border-slate-200 shadow-sm">
                             <CardContent className="p-4 flex flex-col md:flex-row gap-3 items-center">
-                                {/* Sélecteur de Classe */}
-                                <div className="w-full md:w-52">
-                                    <select
+                                {/* Sélecteur de Classe avec recherche */}
+                                <div className="w-full md:w-64 min-w-0">
+                                    <SearchableSelect
+                                        options={[
+                                            { value: '', label: 'Toutes les classes' },
+                                            ...classesList.map((c) => ({
+                                                value: String(c.id),
+                                                label: c.niveauNom ? `${c.nom} (${c.niveauNom})` : c.nom,
+                                                group: c.niveauNom || 'Classes',
+                                            })),
+                                        ]}
                                         value={filters.classe_id || ''}
-                                        onChange={(e) => handleFilterChange({ classe_id: e.target.value })}
-                                        className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-ring"
-                                    >
-                                        <option value="">Toutes les classes</option>
-                                        {classesList.map((c) => (
-                                            <option key={c.id} value={c.id}>
-                                                {c.nom} {c.niveauNom ? `(${c.niveauNom})` : ''}
-                                            </option>
-                                        ))}
-                                    </select>
+                                        onValueChange={(val) => handleFilterChange({ classe_id: val })}
+                                        placeholder="Toutes les classes"
+                                        searchPlaceholder="Rechercher une classe..."
+                                        emptyMessage="Aucune classe trouvée pour"
+                                        className="h-9 text-xs bg-background"
+                                    />
                                 </div>
 
                                 {/* Filtre Photo */}
@@ -552,7 +553,7 @@ export default function CartesScolairesIndex({
 
                         {/* Bandeau d'Actions groupées lorsque des lignes sont cochées */}
                         {selectedIds.length > 0 && (
-                            <div className="flex items-center justify-between p-3 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900 text-blue-950 dark:text-blue-200">
+                            <div className="flex items-center justify-between p-3 rounded-lg bg-blue-50 border border-blue-200 text-blue-950">
                                 <span className="text-xs font-semibold flex items-center gap-2">
                                     <Check className="size-4 text-blue-600" />
                                     {selectedIds.length} élève(s) sélectionné(s) sur cette page
@@ -572,7 +573,7 @@ export default function CartesScolairesIndex({
                         )}
 
                         {/* Tableau TanStack Table */}
-                        <Card className="border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+                        <Card className="border-slate-200 shadow-sm overflow-hidden">
                             <div className="overflow-x-auto">
                                 <table className="w-full text-left border-collapse text-xs">
                                     <thead>
@@ -594,7 +595,7 @@ export default function CartesScolairesIndex({
                                                 <tr
                                                     key={row.id}
                                                     className={`hover:bg-muted/30 transition-colors cursor-pointer ${
-                                                        previewInscription?.id === row.original.id ? 'bg-blue-50/60 dark:bg-blue-950/30' : ''
+                                                        previewInscription?.id === row.original.id ? 'bg-blue-50/60' : ''
                                                     }`}
                                                     onClick={() => setPreviewInscription(row.original)}
                                                 >
@@ -669,12 +670,12 @@ export default function CartesScolairesIndex({
 
                     {/* Colonne Prévisualisation 3D Interactive (5 / 12) */}
                     <div className="xl:col-span-5 sticky top-6 flex flex-col gap-4">
-                        <Card className="border-slate-200 dark:border-slate-800 shadow-md overflow-hidden bg-slate-50/50 dark:bg-slate-900/30">
+                        <Card className="border-slate-200 shadow-md overflow-hidden bg-slate-50/50">
                             <CardHeader className="p-4 pb-2 border-b border-border/60">
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <CardTitle className="text-base font-bold text-foreground flex items-center gap-2">
-                                            <Sparkles className="size-4 text-blue-600" />
+                                            <Eye className="size-4 text-blue-600" />
                                             Aperçu Dynamique HD
                                         </CardTitle>
                                         <CardDescription className="text-xs">
@@ -699,7 +700,7 @@ export default function CartesScolairesIndex({
                                 {/* Carte Interactive avec Dimensions Ratio Exact 85.6 x 54 mm et conteneur adaptatif */}
                                 <div className="w-full overflow-x-auto flex justify-center py-2 min-w-0">
                                     <div
-                                        className="w-[340px] max-w-full h-53.5 shrink-0 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 shadow-xl overflow-hidden relative cursor-pointer select-none transition-all duration-300 hover:scale-[1.02]"
+                                        className="w-85 max-w-full h-53.5 shrink-0 rounded-xl border border-slate-300 bg-white shadow-xl overflow-hidden relative cursor-pointer select-none transition-all duration-300 hover:scale-[1.02]"
                                         onClick={() => setCardSide(cardSide === 'recto' ? 'verso' : 'recto')}
                                         title="Cliquez sur la carte pour la retourner"
                                     >
@@ -713,7 +714,7 @@ export default function CartesScolairesIndex({
                                                     <div className="font-normal italic text-[4.8px] text-slate-500">Paix – Travail – Patrie</div>
                                                     <div className="truncate">DÉLÉGATION DU CENTRE</div>
                                                 </div>
-                                                <div className="w-[20%] text-center">
+                                                <div className="w-1/5 text-center">
                                                     {(activeEtablissement?.effective_logo || activeEtablissement?.logo) ? (
                                                         <img
                                                             src={
@@ -763,15 +764,12 @@ export default function CartesScolairesIndex({
                                             <div className="flex gap-2 items-start mt-0.5">
                                                 {/* Photo */}
                                                 <div className="w-15.5 h-19.5 rounded border border-slate-300 bg-slate-100 overflow-hidden shrink-0 flex items-center justify-center shadow-inner">
-                                                    {previewInscription?.eleve?.photo_url ? (
-                                                        <img
-                                                            src={`/${previewInscription.eleve.photo_url}`}
-                                                            alt="Élève"
-                                                            className="w-full h-full object-cover"
-                                                        />
-                                                    ) : (
-                                                        <span className="text-[7px] text-slate-400 font-bold">PHOTO</span>
-                                                    )}
+                                                    <EleveAvatar
+                                                        photoUrl={previewInscription?.eleve?.photo_url}
+                                                        alt="Élève"
+                                                        imgClassName="w-full h-full object-cover"
+                                                        fallback={<span className="text-[7px] text-slate-400 font-bold">PHOTO</span>}
+                                                    />
                                                 </div>
 
                                                 {/* Données textuelles */}
@@ -833,7 +831,7 @@ export default function CartesScolairesIndex({
                                         </div>
                                     ) : (
                                         /* VERSO */
-                                        <div className="p-3 h-full flex flex-col justify-between text-center relative bg-slate-50 dark:bg-slate-900/50">
+                                        <div className="p-3 h-full flex flex-col justify-between text-center relative bg-slate-50">
                                             <div>
                                                 <div className="font-extrabold text-[8.5px] text-blue-700 uppercase truncate">
                                                     {activeEtablissement?.nom || 'COLLÈGE BILINGUE CATHOLIQUE SAINT ABRAHAM'}

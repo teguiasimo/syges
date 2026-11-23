@@ -71,7 +71,7 @@ export function AppSidebar() {
             title: t('nav.dashboard'),
             href: dashboard(),
             icon: LayoutGrid,
-            color: 'text-sky-500 dark:text-sky-400',
+            color: 'text-sky-500',
         },
         ...(hasAdminAccess
             ? [
@@ -79,7 +79,7 @@ export function AppSidebar() {
                       title: t('nav.administration'),
                       href: '/administration',
                       icon: ShieldCheck,
-                      color: 'text-indigo-500 dark:text-indigo-400',
+                      color: 'text-indigo-500',
                   },
               ]
             : []),

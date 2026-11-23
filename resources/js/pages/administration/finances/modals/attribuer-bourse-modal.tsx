@@ -11,13 +11,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
     BourseRemise,
     CompteFinancierEleve,
@@ -125,46 +119,51 @@ export default function AttribuerBourseModal({
                 </DialogHeader>
 
                 {/* Résumé du compte financier avec retour à la ligne adaptatif sur mobile */}
-                <div className="bg-slate-50 dark:bg-slate-900/60 p-3 rounded-lg border border-slate-200 dark:border-slate-800 text-sm space-y-1 my-1 min-w-0">
-                    <div className="wrap-break-word">Élève : <strong className="text-slate-900 dark:text-slate-100">{activeCompte.eleve?.nom} {activeCompte.eleve?.prenom}</strong></div>
+                <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 text-sm space-y-1 my-1 min-w-0">
+                    <div className="wrap-break-word">Élève : <strong className="text-slate-900">{activeCompte.eleve?.nom} {activeCompte.eleve?.prenom}</strong></div>
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs sm:text-sm">
                         <span>Matricule : <span className="font-mono">{activeCompte.eleve?.matricule}</span></span>
                         <span className="hidden sm:inline text-slate-400">|</span>
                         <span>Classe : <strong>{activeCompte.inscription?.classe?.nom}</strong></span>
                     </div>
-                    <div>Frais initiaux bruts : <strong className="text-blue-700 dark:text-blue-400 tabular-nums">{new Intl.NumberFormat('fr-FR').format(activeCompte.debit_initial)} FCFA</strong></div>
+                    <div>Frais initiaux bruts : <strong className="text-blue-700 tabular-nums">{new Intl.NumberFormat('fr-FR').format(activeCompte.debit_initial)} FCFA</strong></div>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-4 py-2 min-w-0">
                     <div className="space-y-1 min-w-0">
                         <Label htmlFor="bourseRemise">Sélectionner le modèle *</Label>
-                        <Select value={bourseRemiseId} onValueChange={val => setBourseRemiseId(val)}>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Choisir une bourse ou remise..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {boursesRemises
-                                    .filter(b => b.is_active)
-                                    .map(b => (
-                                        <SelectItem key={b.id} value={b.id.toString()}>
-                                            {b.type === 'bourse' ? '🎓 [Bourse]' : '🏷️ [Remise]'} {b.nom} ({b.mode_calcul === 'pourcentage' ? `${b.valeur}%` : `${new Intl.NumberFormat('fr-FR').format(b.valeur)} FCFA`})
-                                        </SelectItem>
-                                    ))}
-                            </SelectContent>
-                        </Select>
+                        <SearchableSelect
+                            id="bourseRemise"
+                            options={boursesRemises
+                                .filter((b) => b.is_active)
+                                .map((b) => ({
+                                    value: b.id.toString(),
+                                    label: b.nom,
+                                    description: b.mode_calcul === 'pourcentage'
+                                        ? `${b.valeur}%`
+                                        : `${new Intl.NumberFormat('fr-FR').format(b.valeur)} FCFA`,
+                                    group: b.type === 'bourse' ? 'Bourses' : 'Remises',
+                                }))}
+                            value={bourseRemiseId}
+                            onValueChange={(val) => setBourseRemiseId(val)}
+                            placeholder="Choisir une bourse ou remise..."
+                            searchPlaceholder="Rechercher un modèle..."
+                            emptyMessage="Aucun modèle trouvé."
+                            className="h-9 text-xs font-normal"
+                        />
                     </div>
 
                     {selectedModel && (
-                        <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-lg text-sm text-emerald-900 dark:text-emerald-200 space-y-1">
+                        <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-sm text-emerald-900 space-y-1">
                             <div className="font-semibold flex flex-wrap items-center justify-between gap-2">
                                 <span>Déduction estimée :</span>
-                                <span className="text-base text-emerald-700 dark:text-emerald-400 font-bold tabular-nums">
+                                <span className="text-base text-emerald-700 font-bold tabular-nums">
                                     {estPourcentageSurTrancheCiblee
                                         ? `${selectedModel.valeur}% sur tranche ciblée`
                                         : `- ${new Intl.NumberFormat('fr-FR').format(montantEstime)} FCFA`}
                                 </span>
                             </div>
-                            <div className="text-xs text-emerald-800 dark:text-emerald-300 flex flex-wrap gap-x-2 gap-y-0.5">
+                            <div className="text-xs text-emerald-800 flex flex-wrap gap-x-2 gap-y-0.5">
                                 <span>
                                     Imputation : <strong>{formatCibleImputationLabel(selectedModel.cible_imputation)}</strong>
                                 </span>
@@ -175,7 +174,7 @@ export default function AttribuerBourseModal({
                                 )}
                             </div>
                             {!estPourcentageSurTrancheCiblee && (
-                                <div className="text-xs text-emerald-800 dark:text-emerald-300 tabular-nums">
+                                <div className="text-xs text-emerald-800 tabular-nums">
                                     Nouveau net exigible estimé : {new Intl.NumberFormat('fr-FR').format(Math.max(0, (activeCompte.debit_initial || 0) - (activeCompte.total_dispense || 0) + (activeCompte.arrieres_anterieurs || 0) - montantEstime))} FCFA
                                 </div>
                             )}

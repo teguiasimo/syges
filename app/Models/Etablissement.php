@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\Scopes\EtablissementScope;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 
 /**
  * Modèle représentant un Établissement scolaire (campus physique).
@@ -32,10 +35,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string|null $adresse
  * @property string|null $logo
  * @property string|null $logo_filigrane
- * @property \Illuminate\Support\Carbon|null $created_at
- * @property \Illuminate\Support\Carbon|null $updated_at
- * @property-read \App\Models\Institution $institution
- * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Section> $sections
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
+ * @property-read Institution $institution
+ * @property-read Collection<int, Section> $sections
  */
 class Etablissement extends Model
 {
@@ -131,12 +134,12 @@ class Etablissement extends Model
      * - Pour une École primaire ou maternelle : 'Le Directeur'
      * - Par défaut : 'Le Chef d’Établissement'
      *
-     * @param string|null $value Valeur brute stockée en base de données.
+     * @param  string|null  $value  Valeur brute stockée en base de données.
      * @return string Titre officiel en français
      */
     public function getTitreChefAttribute(?string $value = null): string
     {
-        if (!empty($value)) {
+        if (! empty($value)) {
             return $value;
         }
 
@@ -181,12 +184,12 @@ class Etablissement extends Model
     /**
      * Détermine le titre officiel du chef d'établissement en anglais.
      *
-     * @param string|null $value Valeur brute stockée en base de données.
+     * @param  string|null  $value  Valeur brute stockée en base de données.
      * @return string Titre officiel en anglais
      */
     public function getTitreChefEnAttribute(?string $value = null): string
     {
-        if (!empty($value)) {
+        if (! empty($value)) {
             return $value;
         }
 
@@ -246,6 +249,55 @@ class Etablissement extends Model
     }
 
     /**
+     * Cache statique par requête pour l'institution parente (évite les requêtes N+1 lors de la sérialisation JSON).
+     *
+     * @var array<int, Institution|null>
+     */
+    protected static array $institutionFallbackCache = [];
+
+    /**
+     * Cache statique par requête pour le chemin du logo public par défaut (évite les appels disque file_exists répétés).
+     */
+    protected static ?string $defaultPublicLogoCache = null;
+
+    /**
+     * Indique si la vérification disque du logo public par défaut a déjà été effectuée durant la requête.
+     */
+    protected static bool $defaultPublicLogoResolved = false;
+
+    /**
+     * Réinitialise le cache statique de l'institution parente (utile lors des mises à jour ou tests).
+     */
+    public static function clearFallbackCache(): void
+    {
+        self::$institutionFallbackCache = [];
+    }
+
+    /**
+     * Résout l'institution parente sans déclencher de requêtes SQL N+1 lorsque la relation n'est pas préchargée.
+     */
+    protected function resolveInstitutionFallback(): ?Institution
+    {
+        if ($this->relationLoaded('institution')) {
+            return $this->getRelation('institution');
+        }
+
+        $instId = (int) ($this->attributes['institution_id'] ?? 0);
+        if ($instId <= 0) {
+            return null;
+        }
+
+        if (! array_key_exists($instId, self::$institutionFallbackCache)) {
+            self::$institutionFallbackCache[$instId] = Institution::find($instId);
+        }
+
+        $institution = self::$institutionFallbackCache[$instId];
+        $this->setRelation('institution', $institution);
+
+        return $institution;
+    }
+
+    /**
      * Accesseur pour le logo filigrane effectif avec repli automatique sur l'institution parente.
      *
      * @return string|null Chemin relatif ou URL du filigrane effectif, ou null s'il n'y en a aucun.
@@ -256,8 +308,9 @@ class Etablissement extends Model
             return $this->attributes['logo_filigrane'];
         }
 
-        if (! empty($this->institution?->logo_filigrane)) {
-            return $this->institution->logo_filigrane;
+        $institution = $this->resolveInstitutionFallback();
+        if (! empty($institution?->logo_filigrane)) {
+            return $institution->logo_filigrane;
         }
 
         return null;
@@ -288,20 +341,24 @@ class Etablissement extends Model
             return $this->attributes['logo'];
         }
 
-        if (! empty($this->institution?->logo)) {
-            return $this->institution->logo;
+        $institution = $this->resolveInstitutionFallback();
+        if (! empty($institution?->logo)) {
+            return $institution->logo;
         }
 
-        // Repli par défaut sur le logo officiel configuré
-        if (file_exists(public_path('logo.png'))) {
-            return '/logo.png';
+        // Repli par défaut sur le logo officiel configuré (mis en cache en mémoire pour éviter les accès disque répétés)
+        if (! self::$defaultPublicLogoResolved) {
+            self::$defaultPublicLogoResolved = true;
+            if (file_exists(public_path('logo.png'))) {
+                self::$defaultPublicLogoCache = '/logo.png';
+            } elseif (file_exists(public_path('logo.jpg'))) {
+                self::$defaultPublicLogoCache = '/logo.jpg';
+            } else {
+                self::$defaultPublicLogoCache = null;
+            }
         }
 
-        if (file_exists(public_path('logo.jpg'))) {
-            return '/logo.jpg';
-        }
-
-        return null;
+        return self::$defaultPublicLogoCache;
     }
 
     /**
@@ -368,7 +425,7 @@ class Etablissement extends Model
     /**
      * Calcule le seuil minimal de coefficients requis pour qu'un élève soit classé dans la classe.
      *
-     * @param float $totalCoefficientsClasse Total théorique des coefficients de la classe
+     * @param  float  $totalCoefficientsClasse  Total théorique des coefficients de la classe
      * @return float Seuil minimal requis en coefficients
      */
     public function getSeuilCoefficientsMinimal(float $totalCoefficientsClasse): float
@@ -390,88 +447,70 @@ class Etablissement extends Model
 
     /**
      * Accesseur pour la Délégation Régionale de tutelle (avec repli automatique sur l'institution parente).
-     *
-     * @return string|null
      */
     public function getDelegationRegionaleAttribute(): ?string
     {
-        return $this->attributes['delegation_regionale'] ?? $this->institution?->delegation_regionale;
+        return $this->attributes['delegation_regionale'] ?? $this->resolveInstitutionFallback()?->delegation_regionale;
     }
 
     /**
      * Accesseur pour la Délégation Régionale de tutelle en anglais (avec repli sur l'institution parente).
-     *
-     * @return string|null
      */
     public function getDelegationRegionaleEnAttribute(): ?string
     {
-        return $this->attributes['delegation_regionale_en'] ?? $this->institution?->delegation_regionale_en;
+        return $this->attributes['delegation_regionale_en'] ?? $this->resolveInstitutionFallback()?->delegation_regionale_en;
     }
 
     /**
      * Accesseur pour la Délégation Départementale de tutelle (avec repli sur l'institution parente).
-     *
-     * @return string|null
      */
     public function getDelegationDepartementaleAttribute(): ?string
     {
-        return $this->attributes['delegation_departementale'] ?? $this->institution?->delegation_departementale;
+        return $this->attributes['delegation_departementale'] ?? $this->resolveInstitutionFallback()?->delegation_departementale;
     }
 
     /**
      * Accesseur pour la Délégation Départementale de tutelle en anglais (avec repli sur l'institution parente).
-     *
-     * @return string|null
      */
     public function getDelegationDepartementaleEnAttribute(): ?string
     {
-        return $this->attributes['delegation_departementale_en'] ?? $this->institution?->delegation_departementale_en;
+        return $this->attributes['delegation_departementale_en'] ?? $this->resolveInstitutionFallback()?->delegation_departementale_en;
     }
 
     /**
      * Accesseur pour l'Arrondissement de rattachement (avec repli sur l'institution parente).
-     *
-     * @return string|null
      */
     public function getArrondissementAttribute(): ?string
     {
-        return $this->attributes['arrondissement'] ?? $this->institution?->arrondissement;
+        return $this->attributes['arrondissement'] ?? $this->resolveInstitutionFallback()?->arrondissement;
     }
 
     /**
      * Accesseur pour l'Arrondissement de rattachement en anglais (avec repli sur l'institution parente).
-     *
-     * @return string|null
      */
     public function getArrondissementEnAttribute(): ?string
     {
-        return $this->attributes['arrondissement_en'] ?? $this->institution?->arrondissement_en;
+        return $this->attributes['arrondissement_en'] ?? $this->resolveInstitutionFallback()?->arrondissement_en;
     }
 
     /**
      * Accesseur pour la devise de l'établissement (avec repli sur l'institution parente).
-     *
-     * @return string|null
      */
     public function getDeviseAttribute(): ?string
     {
-        return $this->attributes['devise'] ?? $this->institution?->devise;
+        return $this->attributes['devise'] ?? $this->resolveInstitutionFallback()?->devise;
     }
 
     /**
      * Accesseur pour la boîte postale de l'établissement (avec repli sur l'institution parente).
-     *
-     * @return string|null
      */
     public function getBoitePostaleAttribute(): ?string
     {
-        return $this->attributes['boite_postale'] ?? $this->institution?->boite_postale;
+        return $this->attributes['boite_postale'] ?? $this->resolveInstitutionFallback()?->boite_postale;
     }
 
     /**
      * Accesseur pour le Ministère de tutelle en français selon l'ordre d'enseignement.
-     *
-     * @return string
      */
     public function getMinistereTutelleAttribute(): string
     {
@@ -479,13 +518,12 @@ class Etablissement extends Model
         if (in_array($ordre, ['Maternelle', 'Primaire'])) {
             return "MINISTÈRE DE L'ÉDUCATION DE BASE";
         }
+
         return 'MINISTÈRE DES ENSEIGNEMENTS SECONDAIRES';
     }
 
     /**
      * Accesseur pour le Ministère de tutelle en anglais selon l'ordre d'enseignement.
-     *
-     * @return string
      */
     public function getMinistereTutelleEnAttribute(): string
     {
@@ -493,19 +531,20 @@ class Etablissement extends Model
         if (in_array($ordre, ['Maternelle', 'Primaire'])) {
             return 'MINISTRY OF BASIC EDUCATION';
         }
+
         return 'MINISTRY OF SECONDARY EDUCATION';
     }
 
     /**
      * Accesseur pour la ville de signature officielle de l'établissement (avec repli automatique sur l'institution).
-     *
-     * @return string
      */
     public function getVilleAttribute(): string
     {
+        $institution = $this->resolveInstitutionFallback();
+
         return $this->attributes['ville']
-            ?? $this->institution?->ville
-            ?? $this->institution?->arrondissement
+            ?? $institution?->ville
+            ?? $institution?->arrondissement
             ?? '';
     }
 
@@ -513,8 +552,6 @@ class Etablissement extends Model
      * Accesseur pour le sigle usuel de l'établissement.
      * Renvoie en priorité le code court de l'établissement (ex: 'GSB ESPOIR'),
      * ou une abréviation déduite de son nom si le code n'est pas spécifié.
-     *
-     * @return string
      */
     public function getSigleAttribute(): string
     {
@@ -527,9 +564,20 @@ class Etablissement extends Model
     }
 
     /**
+     * Événements du cycle de vie du modèle.
+     * Verrouille également toute suppression programmatique directe d'un établissement contenant des données actives.
+     */
+    protected static function booted(): void
+    {
+        static::deleting(function (Etablissement $etablissement): void {
+            if (! $etablissement->canBeDeleted()) {
+                throw new \DomainException("L'établissement « {$etablissement->nom} » ne peut pas être supprimé car il contient encore des données actives.");
+            }
+        });
+    }
+
+    /**
      * Relation plusieurs-à-un vers l'Institution parente.
-     *
-     * @return BelongsTo
      */
     public function institution(): BelongsTo
     {
@@ -538,8 +586,6 @@ class Etablissement extends Model
 
     /**
      * Relation un-à-plusieurs vers les sections d'enseignement.
-     *
-     * @return HasMany
      */
     public function sections(): HasMany
     {
@@ -547,9 +593,47 @@ class Etablissement extends Model
     }
 
     /**
-     * Relation un-à-plusieurs vers les séries configurées pour cet établissement.
+     * Relation un-à-plusieurs vers les cycles pédagogiques rattachés à cet établissement.
      *
-     * @return HasMany
+     * @return HasMany<Cycle, $this>
+     */
+    public function cycles(): HasMany
+    {
+        return $this->hasMany(Cycle::class, 'etablissement_id');
+    }
+
+    /**
+     * Relation un-à-plusieurs vers les niveaux d'étude rattachés à cet établissement.
+     *
+     * @return HasMany<Niveau, $this>
+     */
+    public function niveaux(): HasMany
+    {
+        return $this->hasMany(Niveau::class, 'etablissement_id');
+    }
+
+    /**
+     * Relation un-à-plusieurs vers les classes rattachées à cet établissement.
+     *
+     * @return HasMany<Classe, $this>
+     */
+    public function classes(): HasMany
+    {
+        return $this->hasMany(Classe::class, 'etablissement_id');
+    }
+
+    /**
+     * Relation un-à-plusieurs vers les inscriptions d'élèves rattachées à cet établissement.
+     *
+     * @return HasMany<Inscription, $this>
+     */
+    public function inscriptions(): HasMany
+    {
+        return $this->hasMany(Inscription::class, 'etablissement_id');
+    }
+
+    /**
+     * Relation un-à-plusieurs vers les séries configurées pour cet établissement.
      */
     public function series(): HasMany
     {
@@ -558,12 +642,20 @@ class Etablissement extends Model
 
     /**
      * Membres du personnel affectés à cet établissement.
-     *
-     * @return HasMany
      */
     public function personnels(): HasMany
     {
         return $this->hasMany(Personnel::class, 'etablissement_id');
+    }
+
+    /**
+     * Comptes utilisateurs directement rattachés à cet établissement.
+     *
+     * @return HasMany<User, $this>
+     */
+    public function users(): HasMany
+    {
+        return $this->hasMany(User::class, 'etablissement_id');
     }
 
     /**
@@ -597,6 +689,16 @@ class Etablissement extends Model
     }
 
     /**
+     * Dépenses et décaissements de caisse rattachés à cet établissement.
+     *
+     * @return HasMany<Depense, $this>
+     */
+    public function depenses(): HasMany
+    {
+        return $this->hasMany(Depense::class, 'etablissement_id');
+    }
+
+    /**
      * Clôtures journalières de caisse de l'établissement.
      *
      * @return HasMany<ClotureCaisse>
@@ -614,5 +716,41 @@ class Etablissement extends Model
     public function periodes(): HasMany
     {
         return $this->hasMany(Periode::class, 'etablissement_id')->orderBy('ordre');
+    }
+
+    /**
+     * Indique si l'établissement est totalement vierge et peut être supprimé sans perte de données.
+     *
+     * @return bool Vrai uniquement lorsqu'aucune dépendance pédagogique, RH ou financière n'existe.
+     */
+    public function canBeDeleted(): bool
+    {
+        return empty($this->getDeletionBlockers());
+    }
+
+    /**
+     * Recense l'ensemble des dépendances actives bloquant la suppression de cet établissement
+     * en contournant uniquement `EtablissementScope` (tout en conservant `SoftDeletingScope`
+     * pour ne pas bloquer sur des enregistrements déjà supprimés logiquement).
+     *
+     * @return array<string, int> Tableau associatif `[type_dependance => nombre_elements]` non nuls.
+     */
+    public function getDeletionBlockers(): array
+    {
+        $counts = [
+            'sections' => $this->sections()->count(),
+            'cycles' => Cycle::where('etablissement_id', $this->id)->count(),
+            'niveaux' => Niveau::where('etablissement_id', $this->id)->count(),
+            'classes' => Classe::withoutGlobalScope(EtablissementScope::class)->where('etablissement_id', $this->id)->count(),
+            'inscriptions' => Inscription::withoutGlobalScope(EtablissementScope::class)->where('etablissement_id', $this->id)->count(),
+            'personnels' => Personnel::withoutGlobalScope(EtablissementScope::class)->where('etablissement_id', $this->id)->count(),
+            'users' => User::where('etablissement_id', $this->id)->count(),
+            'periodes' => Periode::withoutGlobalScope(EtablissementScope::class)->where('etablissement_id', $this->id)->count(),
+            'frais_scolaires' => FraisScolaire::withoutGlobalScope(EtablissementScope::class)->where('etablissement_id', $this->id)->count(),
+            'comptes_financiers' => CompteFinancierEleve::withoutGlobalScope(EtablissementScope::class)->where('etablissement_id', $this->id)->count(),
+            'depenses' => Depense::withoutGlobalScope(EtablissementScope::class)->where('etablissement_id', $this->id)->count(),
+        ];
+
+        return array_filter($counts, static fn (int $count): bool => $count > 0);
     }
 }

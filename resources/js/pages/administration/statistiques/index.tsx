@@ -1,18 +1,9 @@
 import { Head, router } from '@inertiajs/react';
 import type { ColumnDef } from '@tanstack/react-table';
 import {
-    Award,
     BookOpen,
-    Building2,
-    Calendar,
-    DollarSign,
-    Download,
     FileSpreadsheet,
-    GraduationCap,
     Printer,
-    Search,
-    TrendingUp,
-    Users,
 } from 'lucide-react';
 import * as React from 'react';
 import { Badge } from '@/components/ui/badge';
@@ -20,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { DataTable } from '@/components/ui/data-table';
 import { Progress } from '@/components/ui/progress';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
     Select,
     SelectContent,
@@ -102,7 +94,7 @@ const bordereauColumns: ColumnDef<LigneBordereauOfficiel>[] = [
         accessorKey: 'matricule_ministere',
         header: 'Matricule Ministère',
         cell: ({ row }) => (
-            <span className="font-mono text-xs font-bold text-blue-700 dark:text-blue-400">
+            <span className="font-mono text-xs font-bold text-blue-700">
                 {row.original.matricule_ministere}
             </span>
         ),
@@ -166,7 +158,7 @@ export default function StatistiquesIndex({
     classes,
     selectedClasseId,
     demographie,
-    pedagogie,
+    pedagogie: _pedagogie,
     finances,
     listesOfficielles,
     filters,
@@ -214,28 +206,31 @@ export default function StatistiquesIndex({
                     </div>
 
                     {/* Sélecteurs établissement & année avec largeur adaptative */}
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto min-w-0">
                         {etablissements.length > 1 && (
-                            <Select
-                                value={isAllEtablissements ? 'all' : currentEtablissement?.id.toString()}
-                                onValueChange={(val) => handleNavigation({ etablissement_id: val, classe_id: null })}
-                            >
-                                <SelectTrigger className="w-full sm:w-52 h-9 text-xs sm:text-sm">
-                                    <SelectValue placeholder="Établissement" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {supportsAllEtablissements && (
-                                        <SelectItem value="all">
-                                            Tous les établissements
-                                        </SelectItem>
-                                    )}
-                                    {etablissements.map((etab) => (
-                                        <SelectItem key={etab.id} value={etab.id.toString()}>
-                                            {etab.nom}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <div className="w-full sm:w-56 min-w-0">
+                                <SearchableSelect
+                                    options={[
+                                        ...(supportsAllEtablissements
+                                            ? [{ value: 'all', label: 'Tous les établissements' }]
+                                            : []),
+                                        ...etablissements.map((etab) => ({
+                                            value: etab.id.toString(),
+                                            label: etab.nom,
+                                            description: etab.code ? `Code : ${etab.code}` : undefined,
+                                        })),
+                                    ]}
+                                    value={isAllEtablissements ? 'all' : (currentEtablissement?.id.toString() || '')}
+                                    onValueChange={(val) => {
+                                        if (!val && !supportsAllEtablissements) return;
+                                        handleNavigation({ etablissement_id: val || 'all', classe_id: null });
+                                    }}
+                                    placeholder="Établissement"
+                                    searchPlaceholder="Rechercher un établissement..."
+                                    emptyMessage="Aucun établissement trouvé."
+                                    className="h-9 text-xs sm:text-sm font-normal"
+                                />
+                            </div>
                         )}
 
                         <Select
@@ -369,23 +364,24 @@ export default function StatistiquesIndex({
                                         </CardDescription>
                                     </div>
 
-                                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
-                                        <Select
-                                            value={selectedClasseId ? selectedClasseId.toString() : 'all'}
-                                            onValueChange={(val) => handleNavigation({ classe_id: val === 'all' ? null : val })}
-                                        >
-                                            <SelectTrigger className="w-full sm:w-48 h-9 text-xs sm:text-sm">
-                                                <SelectValue placeholder="Filtrer par classe" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="all">Toutes les classes</SelectItem>
-                                                {classes.map((cls) => (
-                                                    <SelectItem key={cls.id} value={cls.id.toString()}>
-                                                        {cls.nom}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto min-w-0">
+                                        <div className="w-full sm:w-52 min-w-0">
+                                            <SearchableSelect
+                                                options={[
+                                                    { value: 'all', label: 'Toutes les classes' },
+                                                    ...classes.map((cls) => ({
+                                                        value: cls.id.toString(),
+                                                        label: cls.nom,
+                                                    })),
+                                                ]}
+                                                value={selectedClasseId ? selectedClasseId.toString() : 'all'}
+                                                onValueChange={(val) => handleNavigation({ classe_id: !val || val === 'all' ? null : val })}
+                                                placeholder="Filtrer par classe"
+                                                searchPlaceholder="Rechercher une classe..."
+                                                emptyMessage="Aucune classe trouvée."
+                                                className="h-9 text-xs sm:text-sm font-normal"
+                                            />
+                                        </div>
 
                                         {(currentEtablissement || isAllEtablissements) && (
                                             <Button size="sm" className="gap-1.5 w-full sm:w-auto" asChild>

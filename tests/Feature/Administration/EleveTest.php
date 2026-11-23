@@ -4,6 +4,7 @@
 
 use App\Models\AnneeScolaire;
 use App\Models\Attribution;
+use App\Models\BourseRemise;
 use App\Models\Caisse;
 use App\Models\Classe;
 use App\Models\CompteFinancierEleve;
@@ -12,6 +13,7 @@ use App\Models\DeliberationConseil;
 use App\Models\Eleve;
 use App\Models\Etablissement;
 use App\Models\Evaluation;
+use App\Models\FraisScolaire;
 use App\Models\Inscription;
 use App\Models\Institution;
 use App\Models\Matiere;
@@ -20,9 +22,14 @@ use App\Models\Note;
 use App\Models\Periode;
 use App\Models\Personnel;
 use App\Models\Section;
+use App\Models\TypeFrais;
 use App\Models\User;
+use App\Models\VentilationVersement;
 use App\Models\VersementCaisse;
+use App\Services\FinanceService;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -1033,7 +1040,7 @@ test('un eleve dont le versement errone a ete annule peut etre supprime propreme
         'date_versement' => now(),
         'statut' => 'valide',
     ]);
-    \App\Models\VentilationVersement::create([
+    VentilationVersement::create([
         'versement_id' => $versement->id,
         'libelle' => 'Inscription',
         'montant' => 15000,
@@ -1054,7 +1061,7 @@ test('un eleve dont le versement errone a ete annule peut etre supprime propreme
         'annule_le' => now(),
     ]);
 
-    \Illuminate\Support\Facades\Log::shouldReceive('warning')
+    Log::shouldReceive('warning')
         ->once()
         ->withArgs(fn (string $msg, array $ctx) => $msg === 'Suppression définitive élève exécutée'
             && $ctx['matricule'] === '26-0001'
@@ -1070,4 +1077,420 @@ test('un eleve dont le versement errone a ete annule peut etre supprime propreme
     $this->assertDatabaseMissing('inscriptions', ['id' => $insc->id]);
     $this->assertDatabaseMissing('comptes_financiers_eleves', ['id' => $compte->id]);
     $this->assertDatabaseMissing('versements_caisse', ['id' => $versement->id]);
+});
+
+test('un administrateur peut televerser une photo lors de la creation et l afficher dans l index et via la route de secours', function () {
+    /** @var TestCase $this */
+    Storage::fake('public');
+
+    $photo = UploadedFile::fake()->image('portrait_eleve.jpg', 1200, 1200);
+
+    actingAs($this->adminUser)
+        ->post(route('administration.eleves.store'), [
+            'nom' => 'MBARGA',
+            'prenom' => 'Paul',
+            'sexe' => 'M',
+            'classe_id' => $this->classe->id,
+            'annee_scolaire_id' => $this->annee->id,
+            'statut' => 'validee',
+            'is_redoublant' => false,
+            'photo' => $photo,
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $eleve = Eleve::where('nom', 'MBARGA')->firstOrFail();
+    expect($eleve->photo_url)->toStartWith('/storage/photos_eleves/');
+
+    $relativePath = ltrim(str_replace('/storage/', '', $eleve->photo_url), '/');
+    Storage::disk('public')->assertExists($relativePath);
+
+    // La route de secours publique doit servir la photo stockée sur le disque public
+    get($eleve->photo_url)->assertOk();
+
+    // L'index des élèves doit bien exposer photo_url dans l'inscription chargée
+    actingAs($this->adminUser)
+        ->get(route('administration.eleves.index'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('administration/eleves/index')
+            ->has('inscriptions', 1, fn ($insc) => $insc
+                ->where('eleve.nom', 'MBARGA')
+                ->where('eleve.photo_url', $eleve->photo_url)
+                ->etc()
+            )
+        );
+});
+
+test('un administrateur peut modifier puis supprimer la photo d un eleve via POST _method PUT', function () {
+    /** @var TestCase $this */
+    Storage::fake('public');
+
+    $initialPhoto = UploadedFile::fake()->image('initiale.png', 900, 900);
+    $initialPath = $initialPhoto->store('photos_eleves', 'public');
+
+    $eleve = Eleve::create([
+        'matricule' => 'GS26-8801',
+        'nom' => 'NDJOCK',
+        'prenom' => 'Clarisse',
+        'sexe' => 'F',
+        'photo_url' => '/storage/'.ltrim($initialPath, '/'),
+    ]);
+
+    $etabId = $this->classe->niveau?->cycle?->section?->etablissement_id ?? Etablissement::value('id');
+
+    Inscription::create([
+        'eleve_id' => $eleve->id,
+        'classe_id' => $this->classe->id,
+        'etablissement_id' => $etabId,
+        'annee_scolaire_id' => $this->annee->id,
+        'type_inscription' => 'nouveau',
+        'is_redoublant' => false,
+        'statut' => 'validee',
+        'date_inscription' => now()->toDateString(),
+    ]);
+
+    // 1. Remplacement de la photo existante par un nouveau portrait via _method=PUT
+    $newPhoto = UploadedFile::fake()->image('nouvelle_photo.jpg', 1000, 1000);
+    actingAs($this->adminUser)
+        ->post(route('administration.eleves.update', $eleve), [
+            '_method' => 'PUT',
+            'nom' => 'NDJOCK',
+            'prenom' => 'Clarisse',
+            'photo' => $newPhoto,
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $eleve->refresh();
+    expect($eleve->photo_url)->toStartWith('/storage/photos_eleves/')
+        ->and($eleve->photo_url)->not->toBe('/storage/'.ltrim($initialPath, '/'));
+
+    $newRelativePath = ltrim(str_replace('/storage/', '', $eleve->photo_url), '/');
+    Storage::disk('public')->assertMissing($initialPath);
+    Storage::disk('public')->assertExists($newRelativePath);
+
+    // 2. Suppression explicite de la photo via remove_photo=1
+    actingAs($this->adminUser)
+        ->post(route('administration.eleves.update', $eleve), [
+            '_method' => 'PUT',
+            'nom' => 'NDJOCK',
+            'prenom' => 'Clarisse',
+            'remove_photo' => '1',
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $eleve->refresh();
+    expect($eleve->photo_url)->toBeNull();
+    Storage::disk('public')->assertMissing($newRelativePath);
+});
+
+test('une photo depassant 5 Mo est rejetee par la validation lors de l enregistrement ou de la mise a jour', function () {
+    /** @var TestCase $this */
+    Storage::fake('public');
+
+    $tooBig = UploadedFile::fake()->create('grosse_photo.jpg', 6000, 'image/jpeg');
+
+    actingAs($this->adminUser)
+        ->post(route('administration.eleves.store'), [
+            'nom' => 'TROP_GROS',
+            'classe_id' => $this->classe->id,
+            'annee_scolaire_id' => $this->annee->id,
+            'statut' => 'validee',
+            'is_redoublant' => false,
+            'photo' => $tooBig,
+        ])
+        ->assertSessionHasErrors('photo');
+});
+
+test('un transfert dans le meme etablissement vers une classe au tarif different recalcule la pension tout en conservant paiements et remise', function () {
+    /** @var TestCase $this */
+    $etabId = $this->classe->niveau?->cycle?->section?->etablissement_id ?? Etablissement::value('id');
+    $cycleId = $this->classe->niveau?->cycle_id;
+
+    $typeFrais = TypeFrais::create([
+        'etablissement_id' => $etabId,
+        'code' => 'SCOL-TR-INTERNE',
+        'libelle' => 'Scolarité Transfert Test',
+        'obligatoire' => true,
+        'periodicite' => 'annuel',
+        'montant_defaut' => 80000,
+    ]);
+
+    // Tarif source : 80 000 FCFA sur le niveau d'origine
+    FraisScolaire::create([
+        'annee_scolaire_id' => $this->annee->id,
+        'etablissement_id' => $etabId,
+        'niveau_id' => $this->classe->niveau_id,
+        'type_frais_id' => $typeFrais->id,
+        'tranche_numero' => 1,
+        'ordre_priorite' => 1,
+        'libelle_tranche' => 'Tranche Unique Source',
+        'montant' => 80000,
+        'obligatoire' => true,
+        'date_limite' => now()->addMonths(3)->toDateString(),
+    ]);
+
+    // Niveau & classe cibles dans le même établissement avec tarif différent : 110 000 FCFA
+    $niveauCible = Niveau::create([
+        'cycle_id' => $cycleId,
+        'code' => 'NIV-CIBLE-TR',
+        'nom' => 'Niveau Cible Transfert',
+        'ordre' => 99,
+    ]);
+
+    $classeCible = Classe::create([
+        'etablissement_id' => $etabId,
+        'niveau_id' => $niveauCible->id,
+        'code' => 'CLS-CIBLE-TR',
+        'nom' => '5ème Moderne Cible',
+        'capacite_max' => 50,
+        'is_active' => true,
+    ]);
+
+    FraisScolaire::create([
+        'annee_scolaire_id' => $this->annee->id,
+        'etablissement_id' => $etabId,
+        'niveau_id' => $niveauCible->id,
+        'type_frais_id' => $typeFrais->id,
+        'tranche_numero' => 1,
+        'ordre_priorite' => 1,
+        'libelle_tranche' => 'Tranche Unique Cible',
+        'montant' => 110000,
+        'obligatoire' => true,
+        'date_limite' => now()->addMonths(3)->toDateString(),
+    ]);
+
+    $eleve = Eleve::create([
+        'matricule' => 'GS26-TR-001',
+        'nom' => 'ATEBA',
+        'prenom' => 'Marc',
+        'sexe' => 'M',
+    ]);
+
+    $inscription = Inscription::create([
+        'eleve_id' => $eleve->id,
+        'classe_id' => $this->classe->id,
+        'etablissement_id' => $etabId,
+        'annee_scolaire_id' => $this->annee->id,
+        'type_inscription' => 'nouveau',
+        'statut' => 'validee',
+        'date_inscription' => now()->toDateString(),
+    ]);
+
+    $financeService = app(FinanceService::class);
+    $compte = $financeService->initialiserCompteEleve($inscription);
+    expect($compte->debit_initial)->toBe(80000.0);
+
+    // Enregistrement d'un versement valide de 30 000 FCFA et d'une remise de 10 %
+    $caisse = Caisse::create([
+        'etablissement_id' => $etabId,
+        'code' => 'CAISSE-TR',
+        'nom' => 'Caisse Test Transfert',
+        'solde_initial' => 0,
+        'is_principale' => true,
+        'is_active' => true,
+    ]);
+
+    VersementCaisse::create([
+        'reference_recu' => 'REC-TR-0001',
+        'compte_financier_id' => $compte->id,
+        'inscription_id' => $inscription->id,
+        'etablissement_id' => $etabId,
+        'caisse_id' => $caisse->id,
+        'date_versement' => now()->toDateString(),
+        'montant_total' => 30000,
+        'mode_paiement' => 'especes',
+        'statut' => 'valide',
+    ]);
+
+    $bourse = BourseRemise::create([
+        'etablissement_id' => $etabId,
+        'annee_scolaire_id' => $this->annee->id,
+        'code' => 'REM-10PCT',
+        'nom' => 'Remise 10%',
+        'type' => 'remise',
+        'mode_calcul' => 'pourcentage',
+        'valeur' => 10,
+        'base_calcul' => 'total_scolarite',
+        'is_active' => true,
+    ]);
+
+    $financeService->attribuerBourseRemise($compte, $bourse, 'Fratrie', $this->adminUser);
+    $compte->refresh();
+    expect($compte->remise_bourse)->toBe(8000.0)
+        ->and($compte->montant_net_exigible)->toBe(72000.0)
+        ->and($compte->total_paye)->toBe(30000.0)
+        ->and($compte->solde_restant)->toBe(42000.0);
+
+    // Exécution du transfert vers la classe cible à 110 000 FCFA
+    actingAs($this->adminUser)
+        ->post(route('administration.inscriptions.transferer'), [
+            'inscription_ids' => [$inscription->id],
+            'target_classe_id' => $classeCible->id,
+            'motif_transfert' => 'Changement de niveau',
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $inscription->refresh();
+    $compte->refresh();
+
+    expect($inscription->classe_id)->toBe($classeCible->id)
+        ->and($compte->debit_initial)->toBe(110000.0)
+        ->and($compte->remise_bourse)->toBe(11000.0)
+        ->and($compte->montant_net_exigible)->toBe(99000.0)
+        ->and($compte->total_paye)->toBe(30000.0)
+        ->and($compte->solde_restant)->toBe(69000.0);
+});
+
+test('un transfert inter-campus archive le compte source et cree une nouvelle inscription avec compte financier separe', function () {
+    /** @var TestCase $this */
+    $etab1Id = $this->classe->niveau?->cycle?->section?->etablissement_id ?? Etablissement::value('id');
+    $institutionId = Etablissement::where('id', $etab1Id)->value('institution_id') ?? Institution::value('id');
+
+    $typeFrais1 = TypeFrais::create([
+        'etablissement_id' => $etab1Id,
+        'code' => 'SCOL-CAMP1',
+        'libelle' => 'Scolarité Campus 1',
+        'obligatoire' => true,
+        'periodicite' => 'annuel',
+        'montant_defaut' => 70000,
+    ]);
+
+    FraisScolaire::create([
+        'annee_scolaire_id' => $this->annee->id,
+        'etablissement_id' => $etab1Id,
+        'niveau_id' => $this->classe->niveau_id,
+        'type_frais_id' => $typeFrais1->id,
+        'tranche_numero' => 1,
+        'ordre_priorite' => 1,
+        'libelle_tranche' => 'Tranche Campus 1',
+        'montant' => 70000,
+        'obligatoire' => true,
+        'date_limite' => now()->addMonths(3)->toDateString(),
+    ]);
+
+    // Création du 2ème campus + classe + tarif distinct (120 000 FCFA)
+    $etab2 = Etablissement::create([
+        'institution_id' => $institutionId,
+        'code' => 'CAMP2-TR',
+        'nom' => 'Campus Secondaire Transfert',
+        'statut' => 'actif',
+    ]);
+    $sec2 = Section::create(['etablissement_id' => $etab2->id, 'code' => 'SEC-C2', 'nom' => 'Section C2']);
+    $cyc2 = Cycle::create(['section_id' => $sec2->id, 'code' => 'CYC-C2', 'nom' => 'Cycle C2']);
+    $niv2 = Niveau::create(['cycle_id' => $cyc2->id, 'code' => 'NIV-C2', 'nom' => 'Niveau C2', 'ordre' => 1]);
+    $classe2 = Classe::create([
+        'etablissement_id' => $etab2->id,
+        'niveau_id' => $niv2->id,
+        'code' => 'CLS-C2',
+        'nom' => '6ème Campus 2',
+        'capacite_max' => 45,
+        'is_active' => true,
+    ]);
+
+    $typeFrais2 = TypeFrais::create([
+        'etablissement_id' => $etab2->id,
+        'code' => 'SCOL-CAMP2',
+        'libelle' => 'Scolarité Campus 2',
+        'obligatoire' => true,
+        'periodicite' => 'annuel',
+        'montant_defaut' => 120000,
+    ]);
+
+    FraisScolaire::create([
+        'annee_scolaire_id' => $this->annee->id,
+        'etablissement_id' => $etab2->id,
+        'niveau_id' => $niv2->id,
+        'type_frais_id' => $typeFrais2->id,
+        'tranche_numero' => 1,
+        'ordre_priorite' => 1,
+        'libelle_tranche' => 'Tranche Campus 2',
+        'montant' => 120000,
+        'obligatoire' => true,
+        'date_limite' => now()->addMonths(3)->toDateString(),
+    ]);
+
+    $eleve = Eleve::create([
+        'matricule' => 'GS26-TR-002',
+        'nom' => 'NGOSSO',
+        'prenom' => 'Hélène',
+        'sexe' => 'F',
+    ]);
+
+    $oldInscription = Inscription::create([
+        'eleve_id' => $eleve->id,
+        'classe_id' => $this->classe->id,
+        'etablissement_id' => $etab1Id,
+        'annee_scolaire_id' => $this->annee->id,
+        'type_inscription' => 'nouveau',
+        'statut' => 'validee',
+        'date_inscription' => now()->toDateString(),
+    ]);
+
+    $financeService = app(FinanceService::class);
+    $oldCompte = $financeService->initialiserCompteEleve($oldInscription);
+
+    $caisse1 = Caisse::create([
+        'etablissement_id' => $etab1Id,
+        'code' => 'CAISSE-C1',
+        'nom' => 'Caisse Campus 1',
+        'solde_initial' => 0,
+        'is_principale' => true,
+        'is_active' => true,
+    ]);
+
+    VersementCaisse::create([
+        'reference_recu' => 'REC-C1-0001',
+        'compte_financier_id' => $oldCompte->id,
+        'inscription_id' => $oldInscription->id,
+        'etablissement_id' => $etab1Id,
+        'caisse_id' => $caisse1->id,
+        'date_versement' => now()->toDateString(),
+        'montant_total' => 25000,
+        'mode_paiement' => 'especes',
+        'statut' => 'valide',
+    ]);
+    $oldCompte->actualiserSolde();
+
+    actingAs($this->adminUser)
+        ->post(route('administration.inscriptions.transferer'), [
+            'inscription_ids' => [$oldInscription->id],
+            'target_classe_id' => $classe2->id,
+            'motif_transfert' => 'Changement de campus',
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $oldInscription->refresh();
+    $oldCompte->refresh();
+
+    // L'ancien dossier est archivé en statut 'transfere' avec ses paiements intacts
+    expect($oldInscription->statut)->toBe('transfere')
+        ->and($oldCompte->debit_initial)->toBe(70000.0)
+        ->and($oldCompte->total_paye)->toBe(25000.0)
+        ->and($oldCompte->solde_restant)->toBe(45000.0);
+
+    // Une nouvelle inscription avec un compte financier séparé est créée immédiatement au Campus 2
+    $newInscription = Inscription::withoutGlobalScopes()
+        ->where('eleve_id', $eleve->id)
+        ->where('etablissement_id', $etab2->id)
+        ->first();
+
+    expect($newInscription)->not->toBeNull()
+        ->and($newInscription->statut)->toBe('validee')
+        ->and($newInscription->classe_id)->toBe($classe2->id);
+
+    $newCompte = CompteFinancierEleve::withoutGlobalScopes()
+        ->where('inscription_id', $newInscription->id)
+        ->first();
+
+    expect($newCompte)->not->toBeNull()
+        ->and($newCompte->id)->not->toBe($oldCompte->id)
+        ->and((int) $newCompte->etablissement_id)->toBe($etab2->id)
+        ->and($newCompte->debit_initial)->toBe(120000.0)
+        ->and($newCompte->total_paye)->toBe(0.0)
+        ->and($newCompte->solde_restant)->toBe(120000.0);
 });

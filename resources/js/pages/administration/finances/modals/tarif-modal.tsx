@@ -12,6 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
     Select,
     SelectContent,
@@ -118,6 +119,15 @@ export default function TarifModal({
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
+        if (!data.niveau_id) {
+            toast.error('Veuillez sélectionner un niveau pédagogique.', { position: 'top-right' });
+            return;
+        }
+        if (!data.type_frais_id) {
+            toast.error('Veuillez sélectionner un type de frais.', { position: 'top-right' });
+            return;
+        }
+
         transform((formValues) => ({
             ...formValues,
             annee_scolaire_id: anneeId,
@@ -171,7 +181,7 @@ export default function TarifModal({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-md">
                 <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2 text-lg font-bold text-slate-800 dark:text-slate-100">
+                    <DialogTitle className="flex items-center gap-2 text-lg font-bold text-slate-800">
                         <Layers className="w-5 h-5 text-emerald-600 shrink-0" />
                         {isEditing ? 'Modifier le Tarif Scolaire' : 'Ajouter un Tarif à la Grille Scolaire'}
                     </DialogTitle>
@@ -184,21 +194,19 @@ export default function TarifModal({
                     {/* Niveau */}
                     <div className="space-y-1 min-w-0">
                         <Label htmlFor="tarif_niveau">Niveau Pédagogique <span className="text-red-500">*</span></Label>
-                        <Select
+                        <SearchableSelect
+                            id="tarif_niveau"
+                            options={niveaux.map((n) => ({
+                                value: String(n.id),
+                                label: n.nom,
+                            }))}
                             value={data.niveau_id}
                             onValueChange={(val) => setData('niveau_id', val)}
-                        >
-                            <SelectTrigger id="tarif_niveau">
-                                <SelectValue placeholder="Choisir un niveau..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {niveaux.map((n) => (
-                                    <SelectItem key={n.id} value={String(n.id)}>
-                                        {n.nom}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                            placeholder="Choisir un niveau..."
+                            searchPlaceholder="Rechercher un niveau..."
+                            emptyMessage="Aucun niveau trouvé."
+                            className="h-9 text-xs font-normal"
+                        />
                         {errors.niveau_id && <p className="text-xs text-red-500">{errors.niveau_id}</p>}
                     </div>
 
@@ -213,7 +221,7 @@ export default function TarifModal({
                                         onOpenChange(false);
                                         onOpenCreateTypeFrais();
                                     }}
-                                    className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline font-semibold cursor-pointer"
+                                    className="text-xs text-emerald-600 hover:underline font-semibold cursor-pointer"
                                 >
                                     + Nouveau Type
                                 </button>
@@ -221,14 +229,14 @@ export default function TarifModal({
                         </div>
 
                         {typesFrais.length === 0 ? (
-                            <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-lg text-xs text-amber-800 dark:text-amber-200 space-y-2">
+                            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 space-y-2">
                                 <p>Aucun type de frais configuré (ex: Scolarité, Inscription, APEE).</p>
                                 {onOpenCreateTypeFrais && (
                                     <Button
                                         type="button"
                                         size="sm"
                                         variant="outline"
-                                        className="h-7 text-xs border-amber-300 text-amber-900 dark:text-amber-100 hover:bg-amber-100"
+                                        className="h-7 text-xs border-amber-300 text-amber-900 hover:bg-amber-100"
                                         onClick={() => {
                                             onOpenChange(false);
                                             onOpenCreateTypeFrais();
@@ -239,7 +247,12 @@ export default function TarifModal({
                                 )}
                             </div>
                         ) : (
-                            <Select
+                            <SearchableSelect
+                                id="tarif_type"
+                                options={typesFrais.map((tf) => ({
+                                    value: String(tf.id),
+                                    label: tf.libelle,
+                                }))}
                                 value={data.type_frais_id}
                                 onValueChange={(val) => {
                                     setData('type_frais_id', val);
@@ -253,18 +266,11 @@ export default function TarifModal({
                                         }));
                                     }
                                 }}
-                            >
-                                <SelectTrigger id="tarif_type">
-                                    <SelectValue placeholder="Choisir le type de frais..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {typesFrais.map((tf) => (
-                                        <SelectItem key={tf.id} value={String(tf.id)}>
-                                            {tf.libelle}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                                placeholder="Choisir le type de frais..."
+                                searchPlaceholder="Rechercher un type de frais..."
+                                emptyMessage="Aucun type de frais trouvé."
+                                className="h-9 text-xs font-normal"
+                            />
                         )}
                         {errors.type_frais_id && <p className="text-xs text-red-500">{errors.type_frais_id}</p>}
                     </div>
@@ -347,7 +353,7 @@ export default function TarifModal({
                     {/* Série & Priorité optionnelles */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                         <div className="space-y-1 min-w-0">
-                            <Label htmlFor="tarif_priorite" className="text-xs text-slate-600 dark:text-slate-400">
+                            <Label htmlFor="tarif_priorite" className="text-xs text-slate-600">
                                 Priorité sur cette ligne (optionnel)
                             </Label>
                             <Input
@@ -369,7 +375,7 @@ export default function TarifModal({
                             />
                         </div>
                         <div className="space-y-1 min-w-0">
-                            <Label htmlFor="tarif_serie" className="text-xs text-slate-600 dark:text-slate-400">
+                            <Label htmlFor="tarif_serie" className="text-xs text-slate-600">
                                 Série spécifique (optionnel)
                             </Label>
                             <Input

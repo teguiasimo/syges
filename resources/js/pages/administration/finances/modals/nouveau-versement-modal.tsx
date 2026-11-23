@@ -12,6 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
     Select,
     SelectContent,
@@ -60,8 +61,8 @@ export default function NouveauVersementModal({
     open,
     onOpenChange,
     comptes,
-    typesFrais,
-    tarifs,
+    typesFrais: _typesFrais,
+    tarifs: _tarifs,
     preselectedCompteId,
 }: NouveauVersementModalProps) {
     const [selectedCompteId, setSelectedCompteId] = useState<string>(preselectedCompteId ? String(preselectedCompteId) : '');
@@ -128,9 +129,28 @@ export default function NouveauVersementModal({
         setData('montant_total', total > 0 ? String(total) : '');
     };
 
+    // Liste d'options formatée pour la recherche instantanée d'élève par nom, matricule ou classe
+    const compteOptions = React.useMemo(
+        () =>
+            comptes.map((c) => ({
+                value: String(c.id),
+                label: `${[c.eleve?.nom, c.eleve?.prenom].filter(Boolean).join(' ')} (${c.eleve?.matricule || 'N/A'})`,
+                group: c.inscription?.classe?.nom || 'Élèves',
+                description: `${c.inscription?.classe?.nom ?? 'Classe N/A'} • Reste dû : ${Number(c.solde_restant).toLocaleString('fr-FR')} FCFA`,
+            })),
+        [comptes]
+    );
+
     // Soumission du versement
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+
+        if (!selectedCompteId) {
+            toast.error('Veuillez sélectionner un élève bénéficiaire.', {
+                position: 'top-right',
+            });
+            return;
+        }
 
         if (activeCompte && soldeRestantCompte <= 0) {
             toast.error('Ce compte élève est déjà totalement soldé (Reste à payer : 0 FCFA).', {
@@ -183,7 +203,7 @@ export default function NouveauVersementModal({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-2xl">
                 <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl font-bold text-slate-800 dark:text-slate-100">
+                    <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl font-bold text-slate-800">
                         <DollarSign className="w-6 h-6 text-emerald-600 shrink-0" />
                         Guichet Caisse : Enregistrer un Versement
                     </DialogTitle>
@@ -193,36 +213,30 @@ export default function NouveauVersementModal({
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit} className="space-y-4 min-w-0">
-                    {/* Sélection de l'élève */}
+                    {/* Sélection de l'élève avec zone de recherche intégrée */}
                     <div className="space-y-1.5 min-w-0">
                         <Label htmlFor="compte_select">Élève bénéficiaire <span className="text-red-500">*</span></Label>
-                        <Select
+                        <SearchableSelect
+                            id="compte_select"
+                            options={compteOptions}
                             value={selectedCompteId}
                             onValueChange={(val) => {
                                 setSelectedCompteId(val);
                                 setData('compte_financier_id', val);
                             }}
-                        >
-                            <SelectTrigger id="compte_select" className="w-full">
-                                <SelectValue placeholder="Rechercher par nom ou matricule..." />
-                            </SelectTrigger>
-                            <SelectContent className="max-h-60">
-                                {comptes.map((c) => (
-                                    <SelectItem key={c.id} value={String(c.id)}>
-                                        {c.eleve?.matricule} - {c.eleve?.nom} {c.eleve?.prenom} ({c.inscription?.classe?.nom ?? 'Classe N/A'}) - Reste: {Number(c.solde_restant).toLocaleString('fr-FR')} FCFA
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                            placeholder="Rechercher par nom ou matricule..."
+                            searchPlaceholder="Tapez un nom, matricule ou une classe..."
+                            emptyMessage="Aucun élève trouvé pour"
+                        />
                         {errors.compte_financier_id && <p className="text-xs text-red-500">{errors.compte_financier_id}</p>}
                     </div>
 
                     {/* Aperçu du compte élève sélectionné : 1 colonne sur mobile, 3 colonnes dès sm */}
                     {activeCompte && (
-                        <div className="p-3 bg-slate-50 dark:bg-slate-900/60 rounded-lg border border-slate-200 dark:border-slate-800 grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+                        <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
                             <div className="flex sm:block justify-between items-center">
                                 <span className="text-slate-500 block">Total Exigible</span>
-                                <span className="font-semibold text-slate-800 dark:text-slate-200 tabular-nums">
+                                <span className="font-semibold text-slate-800 tabular-nums">
                                     {Number(activeCompte.montant_net_exigible).toLocaleString('fr-FR')} FCFA
                                 </span>
                             </div>
@@ -232,7 +246,7 @@ export default function NouveauVersementModal({
                                     {Number(activeCompte.total_paye).toLocaleString('fr-FR')} FCFA
                                 </span>
                             </div>
-                            <div className="flex sm:block justify-between items-center pt-1.5 sm:pt-0 border-t sm:border-t-0 border-slate-200 dark:border-slate-800">
+                            <div className="flex sm:block justify-between items-center pt-1.5 sm:pt-0 border-t sm:border-t-0 border-slate-200">
                                 <span className="text-slate-500 block">Solde Restant Dû</span>
                                 <span className="font-bold text-red-600 text-sm tabular-nums">
                                     {Number(activeCompte.solde_restant).toLocaleString('fr-FR')} FCFA
@@ -258,7 +272,7 @@ export default function NouveauVersementModal({
 
                         <div className="space-y-2">
                             {ventilations.map((vent, idx) => (
-                                <div key={idx} className="flex flex-col sm:flex-row sm:items-center gap-2 p-2 sm:p-0 rounded-md border sm:border-0 border-slate-200 dark:border-slate-800">
+                                <div key={idx} className="flex flex-col sm:flex-row sm:items-center gap-2 p-2 sm:p-0 rounded-md border sm:border-0 border-slate-200">
                                     <Input
                                         placeholder="Rubrique (ex: Scolarité Tranche 1)"
                                         value={vent.libelle}
@@ -394,7 +408,7 @@ export default function NouveauVersementModal({
 
                     <DialogFooter className="pt-2 flex flex-wrap items-center justify-between gap-2">
                         {/* Choix mémorisé du format de sortie caisse : Reçu A4 (2 exemplaires/page) vs Ticket thermique 80mm */}
-                        <div className="inline-flex items-center rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 p-0.5 text-xs">
+                        <div className="inline-flex items-center rounded-md border border-slate-200 bg-slate-50 p-0.5 text-xs">
                             <button
                                 type="button"
                                 onClick={() => {
@@ -404,7 +418,7 @@ export default function NouveauVersementModal({
                                 className={`px-2.5 py-1 rounded-sm font-semibold transition-colors cursor-pointer ${
                                     receiptFormat === 'a4'
                                         ? 'bg-emerald-600 text-white'
-                                        : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-slate-800'
+                                        : 'text-slate-600 hover:bg-slate-200/70'
                                 }`}
                             >
                                 Reçu A4
@@ -418,7 +432,7 @@ export default function NouveauVersementModal({
                                 className={`px-2.5 py-1 rounded-sm font-semibold transition-colors cursor-pointer ${
                                     receiptFormat === 'ticket'
                                         ? 'bg-emerald-600 text-white'
-                                        : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-slate-800'
+                                        : 'text-slate-600 hover:bg-slate-200/70'
                                 }`}
                             >
                                 Ticket 80mm

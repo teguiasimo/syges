@@ -2,9 +2,11 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 
 /**
  * Modèle représentant l'Institution scolaire (entité faîtière / siège).
@@ -37,9 +39,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string|null $delegation_regionale_en
  * @property string|null $delegation_departementale
  * @property string|null $delegation_departementale_en
- * @property \Illuminate\Support\Carbon|null $created_at
- * @property \Illuminate\Support\Carbon|null $updated_at
- * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Etablissement> $etablissements
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
+ * @property-read Collection<int, Etablissement> $etablissements
  */
 class Institution extends Model
 {
@@ -78,9 +80,16 @@ class Institution extends Model
     ];
 
     /**
+     * Invalide automatiquement le cache mémoire de repli des établissements lors de toute modification de l'institution.
+     */
+    protected static function booted(): void
+    {
+        static::saved(fn () => Etablissement::clearFallbackCache());
+        static::deleted(fn () => Etablissement::clearFallbackCache());
+    }
+
+    /**
      * Relation un-à-plusieurs vers les établissements (campus) rattachés.
-     *
-     * @return HasMany
      */
     public function etablissements(): HasMany
     {

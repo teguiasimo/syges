@@ -15,6 +15,7 @@ use App\Services\FinanceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Carbon;
@@ -159,15 +160,25 @@ class EleveController extends Controller implements HasMiddleware
         // Récupération de toutes les années scolaires
         $anneesScolaires = AnneeScolaire::orderByDesc('date_debut')->get();
 
-        // Construction de la requête pour les inscriptions de l'année sélectionnée
-        $inscriptionsQuery = Inscription::with([
-            'eleve',
-            'etablissement',
-            'classe.niveau.cycle.section.etablissement',
-        ]);
+        // Construction optimisée de la requête pour les inscriptions de l'année sélectionnée :
+        // - Jointure directe sur `eleves` pour le tri indexé et le filtrage rapide sans sous-requête corrélée.
+        // - Sélection ciblée des colonnes sur la hiérarchie `classe -> niveau -> cycle -> section -> etablissement`
+        //   afin d'alléger drastiquement le payload JSON envoyé à Inertia sur les bases de +500 élèves.
+        $inscriptionsQuery = Inscription::query()
+            ->select('inscriptions.*')
+            ->join('eleves', 'eleves.id', '=', 'inscriptions.eleve_id')
+            ->with([
+                'eleve',
+                'etablissement:id,institution_id,code,nom',
+                'classe:id,etablissement_id,niveau_id,code,nom,serie,capacite_max,is_active',
+                'classe.niveau:id,cycle_id,code,nom',
+                'classe.niveau.cycle:id,section_id,code,nom',
+                'classe.niveau.cycle.section:id,etablissement_id,code,nom',
+                'classe.niveau.cycle.section.etablissement:id,institution_id,code,nom',
+            ]);
 
         if ($selectedAnneeId) {
-            $inscriptionsQuery->where('annee_scolaire_id', $selectedAnneeId);
+            $inscriptionsQuery->where('inscriptions.annee_scolaire_id', $selectedAnneeId);
         }
 
         // Cloisonnement d'établissement synchronisé avec le sélecteur global d'en-tête :
@@ -175,10 +186,10 @@ class EleveController extends Controller implements HasMiddleware
         // - Profil transversal : filtré sur le campus actif en session (ou URL), ou tous les campus en mode consolidé.
         if (! $canAccessAll) {
             if ($scopedEtablissementId) {
-                $inscriptionsQuery->where('etablissement_id', $scopedEtablissementId);
+                $inscriptionsQuery->where('inscriptions.etablissement_id', $scopedEtablissementId);
             }
         } elseif ($effectiveEtablissementId) {
-            $inscriptionsQuery->where('etablissement_id', $effectiveEtablissementId);
+            $inscriptionsQuery->where('inscriptions.etablissement_id', $effectiveEtablissementId);
         }
 
         // Filtre par Cycle
@@ -197,28 +208,28 @@ class EleveController extends Controller implements HasMiddleware
 
         // Filtre par Classe
         if ($classeId = $request->integer('classe_id')) {
-            $inscriptionsQuery->where('classe_id', $classeId);
+            $inscriptionsQuery->where('inscriptions.classe_id', $classeId);
         }
 
         // Filtre par Statut d'inscription (validee, en_attente, suspendue, exclu, transfere)
         if ($statut = $request->input('statut')) {
-            $inscriptionsQuery->where('statut', $statut);
+            $inscriptionsQuery->where('inscriptions.statut', $statut);
         }
 
         // Filtre par Régime scolaire (nouveau vs redoublant)
         if ($request->has('is_redoublant') && $request->input('is_redoublant') !== null && $request->input('is_redoublant') !== '') {
-            $inscriptionsQuery->where('is_redoublant', $request->boolean('is_redoublant'));
+            $inscriptionsQuery->where('inscriptions.is_redoublant', $request->boolean('is_redoublant'));
         }
 
-        // Filtre par Sexe de l'élève (supporte 'M', 'F' et 'ND' pour Non défini / À compléter)
+        // Filtre par Sexe de l'élève via la jointure directe (supporte 'M', 'F' et 'ND' pour Non défini / À compléter)
         if ($sexe = $request->input('sexe')) {
-            $inscriptionsQuery->whereHas('eleve', function ($q) use ($sexe) {
-                if ($sexe === 'ND') {
-                    $q->whereNull('sexe')->orWhere('sexe', '');
-                } else {
-                    $q->where('sexe', $sexe);
-                }
-            });
+            if ($sexe === 'ND') {
+                $inscriptionsQuery->where(function ($q) {
+                    $q->whereNull('eleves.sexe')->orWhere('eleves.sexe', '');
+                });
+            } else {
+                $inscriptionsQuery->where('eleves.sexe', $sexe);
+            }
         }
 
         // Recherche textuelle par Nom, Prénom, Matricule, Téléphone
@@ -228,30 +239,53 @@ class EleveController extends Controller implements HasMiddleware
             });
         }
 
-        // Liste finale ordonnée
-        $inscriptions = $inscriptionsQuery->orderBy('classe_id')
-            ->orderBy(
-                Eleve::select('nom')
-                    ->whereColumn('eleves.id', 'inscriptions.eleve_id')
-            )
+        // Liste finale ordonnée par classe puis par ordre alphabétique direct sur la table jointe `eleves`
+        $inscriptions = $inscriptionsQuery
+            ->orderBy('inscriptions.classe_id')
+            ->orderBy('eleves.nom')
+            ->orderBy('eleves.prenom')
             ->get();
 
-        // Calcul des statistiques globales pour l'année scolaire sélectionnée
-        $statsBase = Inscription::where('annee_scolaire_id', $selectedAnneeId);
-        if (! $canAccessAll) {
-            if ($scopedEtablissementId) {
-                $statsBase->where('etablissement_id', $scopedEtablissementId);
+        // Allègement de la sérialisation JSON sur chaque inscription : on conserve uniquement l'accesseur `sigle`
+        // sur les objets Etablissement imbriqués pour éviter de sérialiser 20 attributs `$appends` 1 000+ fois.
+        foreach ($inscriptions as $inscription) {
+            if ($inscription->relationLoaded('etablissement') && $inscription->etablissement) {
+                $inscription->etablissement->setAppends(['sigle']);
             }
-        } elseif ($effectiveEtablissementId) {
-            $statsBase->where('etablissement_id', $effectiveEtablissementId);
+            $nestedEtab = $inscription->classe?->niveau?->cycle?->section?->etablissement;
+            if ($nestedEtab) {
+                $nestedEtab->setAppends(['sigle']);
+            }
         }
 
-        $totalInscrits = (clone $statsBase)->where('statut', 'validee')->count();
-        $totalFilles = (clone $statsBase)->where('statut', 'validee')->whereHas('eleve', fn ($q) => $q->where('sexe', 'F'))->count();
-        $totalGarcons = (clone $statsBase)->where('statut', 'validee')->whereHas('eleve', fn ($q) => $q->where('sexe', 'M'))->count();
-        $totalNonDefinis = (clone $statsBase)->where('statut', 'validee')->whereHas('eleve', fn ($q) => $q->whereNull('sexe')->orWhere('sexe', ''))->count();
-        $totalRedoublants = (clone $statsBase)->where('statut', 'validee')->where('is_redoublant', true)->count();
-        $totalEnAttente = (clone $statsBase)->where('statut', 'en_attente')->count();
+        // Calcul agrégé en une seule requête SQL des 6 indicateurs KPI d'inscriptions pour l'année sélectionnée
+        $statsBase = Inscription::query()
+            ->join('eleves', 'eleves.id', '=', 'inscriptions.eleve_id')
+            ->where('inscriptions.annee_scolaire_id', $selectedAnneeId);
+
+        if (! $canAccessAll) {
+            if ($scopedEtablissementId) {
+                $statsBase->where('inscriptions.etablissement_id', $scopedEtablissementId);
+            }
+        } elseif ($effectiveEtablissementId) {
+            $statsBase->where('inscriptions.etablissement_id', $effectiveEtablissementId);
+        }
+
+        $statsAggregate = $statsBase->selectRaw("
+            COALESCE(SUM(CASE WHEN inscriptions.statut = 'validee' THEN 1 ELSE 0 END), 0) as total_inscrits,
+            COALESCE(SUM(CASE WHEN inscriptions.statut = 'validee' AND eleves.sexe = 'F' THEN 1 ELSE 0 END), 0) as total_filles,
+            COALESCE(SUM(CASE WHEN inscriptions.statut = 'validee' AND eleves.sexe = 'M' THEN 1 ELSE 0 END), 0) as total_garcons,
+            COALESCE(SUM(CASE WHEN inscriptions.statut = 'validee' AND (eleves.sexe IS NULL OR eleves.sexe = '') THEN 1 ELSE 0 END), 0) as total_non_definis,
+            COALESCE(SUM(CASE WHEN inscriptions.statut = 'validee' AND inscriptions.is_redoublant = 1 THEN 1 ELSE 0 END), 0) as total_redoublants,
+            COALESCE(SUM(CASE WHEN inscriptions.statut = 'en_attente' THEN 1 ELSE 0 END), 0) as total_en_attente
+        ")->first();
+
+        $totalInscrits = (int) ($statsAggregate->total_inscrits ?? 0);
+        $totalFilles = (int) ($statsAggregate->total_filles ?? 0);
+        $totalGarcons = (int) ($statsAggregate->total_garcons ?? 0);
+        $totalNonDefinis = (int) ($statsAggregate->total_non_definis ?? 0);
+        $totalRedoublants = (int) ($statsAggregate->total_redoublants ?? 0);
+        $totalEnAttente = (int) ($statsAggregate->total_en_attente ?? 0);
 
         // Anciens élèves non inscrits pour l'année scolaire en cours (pour réinscription directe)
         $nonInscritsCount = Eleve::whereDoesntHave('inscriptions', function ($q) use ($selectedAnneeId) {
@@ -265,6 +299,7 @@ class EleveController extends Controller implements HasMiddleware
             'eleves_edit' => $isSuperAdmin || $user?->can('eleves.edit') || $user?->can('eleves.manage'),
             'eleves_delete' => $isSuperAdmin || $user?->can('eleves.delete'),
             'eleves_import' => $isSuperAdmin || $user?->can('eleves.import') || $user?->can('eleves.create') || $user?->can('eleves.manage'),
+            'eleves_merge' => $isSuperAdmin || $user?->can('eleves.merge'),
             'inscriptions_manage' => $isSuperAdmin || $user?->can('inscriptions.manage'),
             'inscriptions_reinscrire' => $isSuperAdmin || $user?->can('inscriptions.reinscrire') || $user?->can('inscriptions.manage'),
             'inscriptions_transfer' => $isSuperAdmin || $user?->can('inscriptions.transfer') || $user?->can('inscriptions.manage'),
@@ -315,7 +350,7 @@ class EleveController extends Controller implements HasMiddleware
             'date_naissance' => ['nullable', 'date'],
             'lieu_naissance' => ['nullable', 'string', 'max:150'],
             'nationalite' => ['nullable', 'string', 'max:80'],
-            'photo' => ['nullable', 'image', 'max:1024'], // 1 Mo max
+            'photo' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp,gif', 'max:5120'], // 5 Mo max
 
             // Filiation & Tuteurs
             'nom_pere' => ['nullable', 'string', 'max:150'],
@@ -351,12 +386,10 @@ class EleveController extends Controller implements HasMiddleware
                 $etablissementId ?: null
             );
 
-            // Gestion de l'upload de photo
-            $photoUrl = null;
-            if ($request->hasFile('photo')) {
-                $path = $request->file('photo')->store('photos_eleves', 'public');
-                $photoUrl = Storage::url($path);
-            }
+            // Gestion et optimisation de l'upload de photo sur le disque public
+            $photoUrl = $request->hasFile('photo')
+                ? $this->storeElevePhoto($request->file('photo'))
+                : null;
 
             // Création de l'Élève dans la Base Globale (champs alignés avec la vue create.tsx)
             $eleve = Eleve::create([
@@ -419,7 +452,8 @@ class EleveController extends Controller implements HasMiddleware
             'date_naissance' => ['nullable', 'date'],
             'lieu_naissance' => ['nullable', 'string', 'max:150'],
             'nationalite' => ['nullable', 'string', 'max:80'],
-            'photo' => ['nullable', 'image', 'max:1024'],
+            'photo' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp,gif', 'max:5120'],
+            'remove_photo' => ['nullable', 'boolean'],
             'nom_pere' => ['nullable', 'string', 'max:150'],
             'nom_mere' => ['nullable', 'string', 'max:150'],
             'nom_tuteur' => ['nullable', 'string', 'max:150'],
@@ -430,9 +464,16 @@ class EleveController extends Controller implements HasMiddleware
             'inscription_id' => ['nullable', 'integer', 'exists:inscriptions,id'],
         ]);
 
+        // Gestion du remplacement ou de la suppression de la photo d'identité
+        $removePhoto = filter_var($request->input('remove_photo', false), FILTER_VALIDATE_BOOLEAN);
+        $oldPhotoUrl = $eleve->photo_url;
+
         if ($request->hasFile('photo')) {
-            $path = $request->file('photo')->store('photos_eleves', 'public');
-            $validated['photo_url'] = Storage::url($path);
+            $validated['photo_url'] = $this->storeElevePhoto($request->file('photo'));
+            $this->deleteElevePhoto($oldPhotoUrl);
+        } elseif ($removePhoto) {
+            $validated['photo_url'] = null;
+            $this->deleteElevePhoto($oldPhotoUrl);
         }
 
         $validated['nom'] = strtoupper(trim($validated['nom']));
@@ -460,8 +501,8 @@ class EleveController extends Controller implements HasMiddleware
             }
         }
 
-        // Nettoyer les champs spécifiques à l'inscription avant la sauvegarde sur le modèle Eleve
-        unset($validated['is_redoublant'], $validated['inscription_id']);
+        // Nettoyer les champs non persistés directement sur le modèle Eleve avant la mise à jour
+        unset($validated['photo'], $validated['remove_photo'], $validated['is_redoublant'], $validated['inscription_id']);
 
         $eleve->update($validated);
 
@@ -557,6 +598,9 @@ class EleveController extends Controller implements HasMiddleware
             $eleve->delete();
         });
 
+        // Supprimer la photo stockée sur le disque public uniquement après la validation effective de la transaction
+        $this->deleteElevePhoto($eleve->photo_url);
+
         Log::warning('Suppression définitive élève exécutée', [
             'eleve_id' => $eleve->id,
             'matricule' => $matricule,
@@ -567,6 +611,109 @@ class EleveController extends Controller implements HasMiddleware
         ]);
 
         return back()->with('success', "L'élève {$nom} ({$matricule}) a été supprimé avec succès.");
+    }
+
+    /**
+     * Optimise et enregistre la photo d'identité d'un élève sur le disque public.
+     * Redimensionne les portraits volumineux (max 800 px) en JPEG standard afin d'assurer
+     * un affichage rapide dans l'index, les fiches et les impressions PDF (cartes/bulletins).
+     *
+     * @param  UploadedFile  $file  Fichier image envoyé depuis le formulaire.
+     * @return string Chemin web relatif normalisé (ex: `/storage/photos_eleves/fichier.jpg`).
+     */
+    private function storeElevePhoto(UploadedFile $file): string
+    {
+        $extension = strtolower($file->getClientOriginalExtension() ?: $file->extension() ?: '');
+
+        if ($extension !== 'gif' && function_exists('imagecreatefromstring')) {
+            $rawContent = @file_get_contents($file->getRealPath());
+            $image = $rawContent !== false ? @imagecreatefromstring($rawContent) : false;
+
+            if ($image !== false) {
+                // Redresser les photos prises au smartphone selon leur métadonnée EXIF d'orientation
+                if (in_array($extension, ['jpg', 'jpeg'], true) && function_exists('exif_read_data')) {
+                    $exif = @exif_read_data($file->getRealPath());
+                    $orientation = (int) ($exif['Orientation'] ?? 1);
+                    $image = match ($orientation) {
+                        3 => imagerotate($image, 180, 0) ?: $image,
+                        6 => imagerotate($image, -90, 0) ?: $image,
+                        8 => imagerotate($image, 90, 0) ?: $image,
+                        default => $image,
+                    };
+                }
+
+                $width = imagesx($image);
+                $height = imagesy($image);
+                $maxDimension = 800;
+
+                if ($width > $maxDimension || $height > $maxDimension || $extension === 'webp' || $file->getSize() > 512000) {
+                    $scale = min(1.0, $maxDimension / max(1, $width, $height));
+                    $targetWidth = max(1, (int) round($width * $scale));
+                    $targetHeight = max(1, (int) round($height * $scale));
+
+                    $canvas = imagecreatetruecolor($targetWidth, $targetHeight);
+                    if ($canvas !== false) {
+                        $white = imagecolorallocate($canvas, 255, 255, 255);
+                        imagefill($canvas, 0, 0, $white);
+                        imagecopyresampled($canvas, $image, 0, 0, 0, 0, $targetWidth, $targetHeight, $width, $height);
+
+                        ob_start();
+                        imagejpeg($canvas, null, 85);
+                        $encoded = ob_get_clean();
+
+                        unset($canvas, $image);
+
+                        if (is_string($encoded) && $encoded !== '') {
+                            $relativePath = 'photos_eleves/'.pathinfo($file->hashName(), PATHINFO_FILENAME).'.jpg';
+                            Storage::disk('public')->put($relativePath, $encoded);
+
+                            return '/storage/'.ltrim($relativePath, '/');
+                        }
+                    }
+                }
+
+                unset($image);
+            }
+        }
+
+        $path = $file->store('photos_eleves', 'public');
+
+        return '/storage/'.ltrim($path, '/');
+    }
+
+    /**
+     * Supprime physiquement l'ancienne photo d'un élève sur le disque public si elle est gérée dans `photos_eleves`.
+     *
+     * @param  string|null  $photoUrl  Chemin ou URL stockée sur le modèle Eleve.
+     */
+    private function deleteElevePhoto(?string $photoUrl): void
+    {
+        $relativePath = $this->resolveElevePhotoRelativePath($photoUrl);
+        if ($relativePath !== null && Storage::disk('public')->exists($relativePath)) {
+            Storage::disk('public')->delete($relativePath);
+        }
+    }
+
+    /**
+     * Extrait le chemin relatif sur le disque `public` à partir d'une URL ou d'un chemin de photo élève.
+     *
+     * @param  string|null  $photoUrl  Valeur brute issue de `eleves.photo_url`.
+     * @return string|null Chemin relatif commençant par `photos_eleves/`, ou null si hors périmètre.
+     */
+    private function resolveElevePhotoRelativePath(?string $photoUrl): ?string
+    {
+        if (empty($photoUrl)) {
+            return null;
+        }
+
+        $path = parse_url($photoUrl, PHP_URL_PATH) ?: $photoUrl;
+        $normalized = ltrim($path, '/');
+
+        if (str_starts_with($normalized, 'storage/')) {
+            $normalized = substr($normalized, strlen('storage/'));
+        }
+
+        return str_starts_with($normalized, 'photos_eleves/') ? $normalized : null;
     }
 
     /**
@@ -654,7 +801,11 @@ class EleveController extends Controller implements HasMiddleware
     }
 
     /**
-     * Transfère un groupe d'élèves d'une classe source vers une classe cible (inter-classes ou intra-groupe).
+     * Transfère un groupe d'élèves d'une classe source vers une classe cible (changement de classe
+     * au sein du même établissement ou transfert inter-campus avec comptes financiers séparés).
+     *
+     * @param  Request  $request  Requête HTTP contenant `inscription_ids`, `target_classe_id` et `motif_transfert`.
+     * @return RedirectResponse Redirection avec notification de succès.
      */
     public function transferer(Request $request): RedirectResponse
     {
@@ -666,7 +817,7 @@ class EleveController extends Controller implements HasMiddleware
         ]);
 
         $targetClasse = Classe::with('niveau.cycle.section.etablissement')->findOrFail($validated['target_classe_id']);
-        $targetEtablissementId = $targetClasse->etablissement_id ?? $targetClasse->niveau?->cycle?->section?->etablissement_id;
+        $targetEtablissementId = (int) ($targetClasse->etablissement_id ?? $targetClasse->niveau?->cycle?->section?->etablissement_id);
         $context = $this->resolveEtablissementContext($request);
 
         // Si accès restreint à un campus, vérifier que toutes les inscriptions sources appartiennent bien au campus assigné
@@ -683,35 +834,48 @@ class EleveController extends Controller implements HasMiddleware
         $transferredCount = 0;
 
         DB::transaction(function () use ($validated, $targetClasse, $targetEtablissementId, $motif, &$transferredCount) {
+            $financeService = app(FinanceService::class);
             $inscriptions = Inscription::with('classe.niveau.cycle.section.etablissement')
                 ->whereIn('id', $validated['inscription_ids'])
                 ->get();
 
             foreach ($inscriptions as $oldInscription) {
                 // Même classe : aucune action requise
-                if ($oldInscription->classe_id == $targetClasse->id) {
+                if ((int) $oldInscription->classe_id === (int) $targetClasse->id) {
                     continue;
                 }
 
-                $sameEtablissement = ($oldInscription->etablissement_id === $targetEtablissementId);
+                $sourceEtablissementId = (int) (
+                    $oldInscription->etablissement_id
+                    ?? $oldInscription->classe?->etablissement_id
+                    ?? $oldInscription->classe?->niveau?->cycle?->section?->etablissement_id
+                );
+                $sameEtablissement = ($sourceEtablissementId === $targetEtablissementId);
 
                 if ($sameEtablissement) {
-                    // Transfert interne au même établissement : changement direct de classe avec conservation de la scolarité
+                    // Changement de classe dans le même établissement : conservation de l'inscription et de l'historique,
+                    // puis recalcul automatique du compte financier selon le tarif de la classe cible (paiements et remises conservés).
+                    $sourceClasseNom = $oldInscription->classe?->nom;
                     $oldInscription->update([
                         'classe_id' => $targetClasse->id,
                         'etablissement_id' => $targetEtablissementId,
-                        'observations' => trim(($oldInscription->observations ?? '')."\nTransféré depuis {$oldInscription->classe?->nom} le ".now()->format('d/m/Y')),
+                        'observations' => trim(($oldInscription->observations ?? '')."\nTransféré depuis {$sourceClasseNom} le ".now()->format('d/m/Y')),
                     ]);
+                    $oldInscription->unsetRelations();
+                    $financeService->initialiserCompteEleve($oldInscription);
                 } else {
-                    // Cadrage V1.1 : Transfert intra-groupe vers un autre établissement
-                    // 1. Clôture de l'inscription active d'origine
+                    // Transfert inter-campus : archivage du dossier source (scolarité & paiements)
+                    // et création d'une nouvelle inscription avec compte financier séparé sur le campus cible.
+                    $sourceEtabNom = $oldInscription->etablissement?->nom
+                        ?? $oldInscription->classe?->niveau?->cycle?->section?->etablissement?->nom
+                        ?? null;
+
                     $oldInscription->update([
                         'statut' => 'transfere',
                         'motif_sortie' => "Transféré vers {$targetClasse->nom} : {$motif}",
                     ]);
 
-                    // 2. Création de la nouvelle inscription dans l'établissement cible
-                    Inscription::create([
+                    $newInscription = Inscription::create([
                         'eleve_id' => $oldInscription->eleve_id,
                         'classe_id' => $targetClasse->id,
                         'etablissement_id' => $targetEtablissementId,
@@ -720,9 +884,11 @@ class EleveController extends Controller implements HasMiddleware
                         'is_redoublant' => $oldInscription->is_redoublant,
                         'statut' => 'validee',
                         'date_inscription' => now()->toDateString(),
-                        'etablissement_provenance' => $oldInscription->etablissement?->nom ?? $oldInscription->classe?->niveau?->cycle?->section?->etablissement?->nom ?? null,
-                        'observations' => "Transfert intra-groupe : {$motif}",
+                        'etablissement_provenance' => $sourceEtabNom,
+                        'observations' => "Transfert inter-campus : {$motif}",
                     ]);
+
+                    $financeService->initialiserCompteEleve($newInscription);
                 }
 
                 $transferredCount++;

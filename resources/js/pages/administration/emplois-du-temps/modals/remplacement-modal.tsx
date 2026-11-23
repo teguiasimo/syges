@@ -11,13 +11,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Textarea } from '@/components/ui/textarea';
 import { SeanceEmploiTemps } from '@/types/emploi-du-temps';
 import { UserCheck } from 'lucide-react';
@@ -49,6 +43,12 @@ export default function RemplacementModal({
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!seance) return;
+        if (!data.remplace_par_personnel_id) {
+            toast.error('Veuillez sélectionner un enseignant remplaçant.', {
+                position: 'top-right',
+            });
+            return;
+        }
 
         post(`/administration/emplois-du-temps/seances/${seance.id}/remplacer`, {
             onSuccess: () => {
@@ -71,7 +71,7 @@ export default function RemplacementModal({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2 text-base sm:text-lg font-bold text-slate-800 dark:text-slate-100">
+                    <DialogTitle className="flex items-center gap-2 text-base sm:text-lg font-bold text-slate-800">
                         <UserCheck className="w-5 h-5 text-teal-600 shrink-0" />
                         <span>Affecter un Enseignant Remplaçant</span>
                     </DialogTitle>
@@ -86,27 +86,26 @@ export default function RemplacementModal({
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit} className="space-y-4 py-2">
-                    <div className="space-y-1">
+                    <div className="space-y-1 min-w-0">
                         <Label htmlFor="remplace_par_personnel_id" className="text-xs font-semibold">
                             Enseignant remplaçant disponible <span className="text-rose-500">*</span>
                         </Label>
-                        <Select
+                        <SearchableSelect
+                            id="remplace_par_personnel_id"
+                            options={enseignants
+                                .filter((ens) => ens.id !== seance?.attribution?.personnel_id)
+                                .map((ens) => ({
+                                    value: String(ens.id),
+                                    label: `Prof. ${[ens.nom, ens.prenom].filter(Boolean).join(' ')}`,
+                                    description: ens.matricule,
+                                }))}
                             value={data.remplace_par_personnel_id}
                             onValueChange={(val) => setData('remplace_par_personnel_id', val)}
-                        >
-                            <SelectTrigger id="remplace_par_personnel_id" className="text-xs h-9">
-                                <SelectValue placeholder="Sélectionner un collègue..." />
-                            </SelectTrigger>
-                            <SelectContent className="max-h-56">
-                                {enseignants
-                                    .filter((ens) => ens.id !== seance?.attribution?.personnel_id)
-                                    .map((ens) => (
-                                        <SelectItem key={ens.id} value={String(ens.id)} className="text-xs">
-                                            Prof. {ens.nom} {ens.prenom} ({ens.matricule})
-                                        </SelectItem>
-                                    ))}
-                            </SelectContent>
-                        </Select>
+                            placeholder="Sélectionner un collègue..."
+                            searchPlaceholder="Rechercher un enseignant..."
+                            emptyMessage="Aucun enseignant trouvé."
+                            className="text-xs h-9 font-normal"
+                        />
                         {errors.remplace_par_personnel_id && (
                             <p className="text-xs text-rose-500">{errors.remplace_par_personnel_id}</p>
                         )}

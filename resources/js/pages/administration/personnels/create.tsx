@@ -3,16 +3,11 @@ import {
     ArrowLeft,
     Briefcase,
     Building2,
-    Calendar,
     Check,
     GraduationCap,
     KeyRound,
-    Mail,
-    Phone,
     PlusCircle,
-    Save,
     Shield,
-    Sparkles,
     User,
     UserCheck,
     UserPlus,
@@ -24,6 +19,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
     Select,
     SelectContent,
@@ -258,7 +254,7 @@ export default function CreatePersonnel({
                             </Link>
                         </div>
                         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground flex items-center gap-2.5">
-                            <div className="p-2 rounded-xl bg-teal-50 dark:bg-teal-950/50 text-teal-600 dark:text-teal-400 border border-teal-200 dark:border-teal-900/50 shrink-0">
+                            <div className="p-2 rounded-xl bg-teal-50 text-teal-600 border border-teal-200 shrink-0">
                                 <Briefcase className="size-6" />
                             </div>
                             <span>Nouveau Membre du Personnel</span>
@@ -287,9 +283,9 @@ export default function CreatePersonnel({
                             variant="outline"
                             disabled={processing}
                             onClick={() => submitForm(true)}
-                            className="cursor-pointer text-xs h-9 border-teal-500/50 text-teal-700 dark:text-teal-300 hover:bg-teal-50 dark:hover:bg-teal-950/50 font-medium w-full sm:w-auto"
+                            className="cursor-pointer text-xs h-9 border-teal-500/50 text-teal-700 hover:bg-teal-50 font-medium w-full sm:w-auto"
                         >
-                            <PlusCircle className="size-4 mr-1.5 text-teal-600 dark:text-teal-400" />
+                            <PlusCircle className="size-4 mr-1.5 text-teal-600" />
                             Enregistrer & Nouveau
                         </Button>
 
@@ -314,17 +310,17 @@ export default function CreatePersonnel({
                     className="space-y-8"
                 >
                     {/* SECTION 1 : ÉTAT CIVIL & COORDONNÉES */}
-                    <div className="rounded-2xl border-2 border-slate-300/90 dark:border-slate-700 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400 dark:hover:border-slate-600">
+                    <div className="rounded-2xl border-2 border-slate-300/90 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400">
                         {/* En-tête de bloc avec bannière dégradée et badge thématique */}
-                        <div className="bg-linear-to-r from-slate-200/95 via-sky-100/70 to-slate-200/80 dark:from-slate-800 dark:via-sky-950/40 dark:to-slate-800/90 px-6 py-4 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center gap-3">
+                        <div className="bg-linear-to-r from-slate-200/95 via-sky-100/70 to-slate-200/80 px-6 py-4 border-b-2 border-slate-300 flex flex-wrap items-center gap-3">
                             <div className="flex size-9 items-center justify-center rounded-xl bg-linear-to-br from-sky-600 to-blue-700 text-white font-bold shadow-xs shrink-0">
                                 <User className="size-4" />
                             </div>
                             <div>
-                                <h2 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
+                                <h2 className="text-base font-bold text-slate-900 tracking-tight">
                                     1. État Civil & Coordonnées de Contact
                                 </h2>
-                                <p className="text-xs text-slate-600 dark:text-slate-400">
+                                <p className="text-xs text-slate-600">
                                     Informations d'identité civile, date et lieu de naissance, et coordonnées officielles de l'employé.
                                 </p>
                             </div>
@@ -483,17 +479,17 @@ export default function CreatePersonnel({
                     </div>
 
                     {/* SECTION 2 : AFFECTATION & STATUT PROFESSIONNEL (2 lignes max) */}
-                    <div className="rounded-2xl border-2 border-slate-300/90 dark:border-slate-700 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400 dark:hover:border-slate-600">
+                    <div className="rounded-2xl border-2 border-slate-300/90 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400">
                         {/* En-tête de bloc avec bannière dégradée et badge thématique */}
-                        <div className="bg-linear-to-r from-slate-200/95 via-indigo-100/70 to-slate-200/80 dark:from-slate-800 dark:via-indigo-950/40 dark:to-slate-800/90 px-6 py-4 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center gap-3">
+                        <div className="bg-linear-to-r from-slate-200/95 via-indigo-100/70 to-slate-200/80 px-6 py-4 border-b-2 border-slate-300 flex flex-wrap items-center gap-3">
                             <div className="flex size-9 items-center justify-center rounded-xl bg-linear-to-br from-indigo-600 to-violet-700 text-white font-bold shadow-xs shrink-0">
                                 <Building2 className="size-4" />
                             </div>
                             <div>
-                                <h2 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
+                                <h2 className="text-base font-bold text-slate-900 tracking-tight">
                                     2. Affectation Institutionnelle & Contrat de Travail
                                 </h2>
-                                <p className="text-xs text-slate-600 dark:text-slate-400">
+                                <p className="text-xs text-slate-600">
                                     Campus de rattachement, département académique, type de contrat, fonction administrative et statut.
                                 </p>
                             </div>
@@ -507,21 +503,24 @@ export default function CreatePersonnel({
                                     <Label htmlFor="etablissement_id" className="text-xs font-semibold">
                                         Établissement / Campus d'affectation <span className="text-rose-500">*</span>
                                     </Label>
-                                    <Select
-                                        value={String(data.etablissement_id)}
-                                        onValueChange={(val) => setData('etablissement_id', Number(val))}
-                                    >
-                                        <SelectTrigger id="etablissement_id" className="mt-1 h-9 text-sm w-full min-w-0">
-                                            <SelectValue placeholder="Sélectionner le campus" />
-                                        </SelectTrigger>
-                                        <SelectContent className="max-w-[calc(100vw-2rem)]">
-                                            {etablissements.map((etab) => (
-                                                <SelectItem key={etab.id} value={String(etab.id)} title={`${etab.nom} (${etab.code})`}>
-                                                    <span className="truncate block max-w-xs sm:max-w-sm">{etab.nom} ({etab.code})</span>
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                    <div className="mt-1">
+                                        <SearchableSelect
+                                            id="etablissement_id"
+                                            options={etablissements.map((etab) => ({
+                                                value: String(etab.id),
+                                                label: etab.nom,
+                                                description: etab.code ? `Code : ${etab.code}` : undefined,
+                                            }))}
+                                            value={String(data.etablissement_id)}
+                                            onValueChange={(val) => {
+                                                if (val) setData('etablissement_id', Number(val));
+                                            }}
+                                            placeholder="Sélectionner le campus"
+                                            searchPlaceholder="Rechercher un établissement..."
+                                            emptyMessage="Aucun établissement trouvé."
+                                            className="h-9 text-sm font-normal"
+                                        />
+                                    </div>
                                     {errors.etablissement_id && <p className="text-rose-500 text-xs mt-1">{errors.etablissement_id}</p>}
                                 </div>
 
@@ -529,22 +528,25 @@ export default function CreatePersonnel({
                                     <Label htmlFor="departement_id" className="text-xs font-semibold">
                                         Département pédagogique (discipline)
                                     </Label>
-                                    <Select
-                                        value={data.departement_id ? String(data.departement_id) : 'none'}
-                                        onValueChange={(val) => setData('departement_id', val === 'none' ? '' : Number(val))}
-                                    >
-                                        <SelectTrigger id="departement_id" className="mt-1 h-9 text-sm w-full min-w-0">
-                                            <SelectValue placeholder="Aucun département" />
-                                        </SelectTrigger>
-                                        <SelectContent className="max-w-[calc(100vw-2rem)]">
-                                            <SelectItem value="none">Aucun département</SelectItem>
-                                            {departements.map((dep) => (
-                                                <SelectItem key={dep.id} value={String(dep.id)} title={`${dep.nom} ${dep.code ? `(${dep.code})` : ''}`}>
-                                                    <span className="truncate block max-w-xs sm:max-w-sm">{dep.nom} {dep.code ? `(${dep.code})` : ''}</span>
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                    <div className="mt-1">
+                                        <SearchableSelect
+                                            id="departement_id"
+                                            options={[
+                                                { value: 'none', label: 'Aucun département' },
+                                                ...departements.map((dep) => ({
+                                                    value: String(dep.id),
+                                                    label: dep.nom,
+                                                    description: dep.code ? `Code : ${dep.code}` : undefined,
+                                                })),
+                                            ]}
+                                            value={data.departement_id ? String(data.departement_id) : 'none'}
+                                            onValueChange={(val) => setData('departement_id', !val || val === 'none' ? '' : Number(val))}
+                                            placeholder="Aucun département"
+                                            searchPlaceholder="Rechercher un département..."
+                                            emptyMessage="Aucun département trouvé."
+                                            className="h-9 text-sm font-normal"
+                                        />
+                                    </div>
                                     {errors.departement_id && <p className="text-rose-500 text-xs mt-1">{errors.departement_id}</p>}
                                 </div>
 
@@ -646,17 +648,17 @@ export default function CreatePersonnel({
                     </div>
 
                     {/* SECTION 3 : QUALIFICATION & PÉDAGOGIE */}
-                    <div className="rounded-2xl border-2 border-slate-300/90 dark:border-slate-700 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400 dark:hover:border-slate-600">
+                    <div className="rounded-2xl border-2 border-slate-300/90 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400">
                         {/* En-tête de bloc avec bannière dégradée et badge thématique */}
-                        <div className="bg-linear-to-r from-slate-200/95 via-amber-100/70 to-slate-200/80 dark:from-slate-800 dark:via-amber-950/40 dark:to-slate-800/90 px-6 py-4 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center gap-3">
+                        <div className="bg-linear-to-r from-slate-200/95 via-amber-100/70 to-slate-200/80 px-6 py-4 border-b-2 border-slate-300 flex flex-wrap items-center gap-3">
                             <div className="flex size-9 items-center justify-center rounded-xl bg-linear-to-br from-amber-500 to-orange-600 text-white font-bold shadow-xs shrink-0">
                                 <GraduationCap className="size-4" />
                             </div>
                             <div>
-                                <h2 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
+                                <h2 className="text-base font-bold text-slate-900 tracking-tight">
                                     3. Qualification & Paramètres Pédagogiques
                                 </h2>
-                                <p className="text-xs text-slate-600 dark:text-slate-400">
+                                <p className="text-xs text-slate-600">
                                     Niveau académique certifié, immatriculation sociale, profil enseignant, volume horaire et taux de vacation.
                                 </p>
                             </div>
@@ -696,7 +698,7 @@ export default function CreatePersonnel({
                         </div>
 
                         {/* Option Enseignant */}
-                        <div className="p-4 rounded-xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-200/60 dark:border-indigo-900/40 space-y-4">
+                        <div className="p-4 rounded-xl bg-indigo-50/50 border border-indigo-200/60 space-y-4">
                             <div className="flex items-center gap-2.5">
                                 <Checkbox
                                     id="is_enseignant"
@@ -709,7 +711,7 @@ export default function CreatePersonnel({
                             </div>
 
                             {data.is_enseignant && (
-                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t border-indigo-200/50 dark:border-indigo-900/30">
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t border-indigo-200/50">
                                     <div>
                                         <Label htmlFor="specialite" className="text-xs font-semibold">
                                             Discipline / Spécialité principale
@@ -779,17 +781,17 @@ export default function CreatePersonnel({
                 </div>
 
                     {/* SECTION 4 : COMPTE D'ACCÈS LOGICIEL SYGES */}
-                    <div className="rounded-2xl border-2 border-slate-300/90 dark:border-slate-700 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400 dark:hover:border-slate-600">
+                    <div className="rounded-2xl border-2 border-slate-300/90 bg-card shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md hover:border-slate-400">
                         {/* En-tête de bloc avec bannière dégradée et badge thématique */}
-                        <div className="bg-linear-to-r from-slate-200/95 via-purple-100/70 to-slate-200/80 dark:from-slate-800 dark:via-purple-950/40 dark:to-slate-800/90 px-6 py-4 border-b-2 border-slate-300 dark:border-slate-700 flex flex-wrap items-center gap-3">
+                        <div className="bg-linear-to-r from-slate-200/95 via-purple-100/70 to-slate-200/80 px-6 py-4 border-b-2 border-slate-300 flex flex-wrap items-center gap-3">
                             <div className="flex size-9 items-center justify-center rounded-xl bg-linear-to-br from-purple-600 to-indigo-700 text-white font-bold shadow-xs shrink-0">
                                 <KeyRound className="size-4" />
                             </div>
                             <div>
-                                <h2 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
+                                <h2 className="text-base font-bold text-slate-900 tracking-tight">
                                     4. Compte d'Accès Logiciel SYGES
                                 </h2>
-                                <p className="text-xs text-slate-600 dark:text-slate-400">
+                                <p className="text-xs text-slate-600">
                                     Génération automatique des identifiants de connexion, attribution des rôles applicatifs et sécurité du compte.
                                 </p>
                             </div>
@@ -809,12 +811,12 @@ export default function CreatePersonnel({
                                 }}
                                 className={`p-4 rounded-xl border text-left cursor-pointer transition-all ${
                                     accountMode === 'create'
-                                        ? 'border-purple-600 bg-purple-50/50 dark:bg-purple-950/30 ring-1 ring-purple-600'
+                                        ? 'border-purple-600 bg-purple-50/50 ring-1 ring-purple-600'
                                         : 'border-border hover:bg-muted/40'
                                 }`}
                             >
                                 <div className="flex items-center gap-2 font-semibold text-xs text-foreground">
-                                    <Sparkles className="size-4 text-purple-600 dark:text-purple-400" />
+                                    <UserPlus className="size-4 text-purple-600" />
                                     Créer un nouveau compte
                                 </div>
                                 <p className="text-[11px] text-muted-foreground mt-1">
@@ -830,12 +832,12 @@ export default function CreatePersonnel({
                                 }}
                                 className={`p-4 rounded-xl border text-left cursor-pointer transition-all ${
                                     accountMode === 'link'
-                                        ? 'border-purple-600 bg-purple-50/50 dark:bg-purple-950/30 ring-1 ring-purple-600'
+                                        ? 'border-purple-600 bg-purple-50/50 ring-1 ring-purple-600'
                                         : 'border-border hover:bg-muted/40'
                                 }`}
                             >
                                 <div className="flex items-center gap-2 font-semibold text-xs text-foreground">
-                                    <UserCheck className="size-4 text-purple-600 dark:text-purple-400" />
+                                    <UserCheck className="size-4 text-purple-600" />
                                     Lier un compte existant
                                 </div>
                                 <p className="text-[11px] text-muted-foreground mt-1">
@@ -852,7 +854,7 @@ export default function CreatePersonnel({
                                 }}
                                 className={`p-4 rounded-xl border text-left cursor-pointer transition-all ${
                                     accountMode === 'none'
-                                        ? 'border-slate-500 bg-slate-50/50 dark:bg-slate-900/50 ring-1 ring-slate-500'
+                                        ? 'border-slate-500 bg-slate-50/50 ring-1 ring-slate-500'
                                         : 'border-border hover:bg-muted/40'
                                 }`}
                             >
@@ -925,7 +927,7 @@ export default function CreatePersonnel({
                                         {errors.user_password && <p className="text-rose-500 text-xs mt-1">{errors.user_password}</p>}
                                     </div>
 
-                                    <div>
+                                    <div className="min-w-0">
                                         <Label htmlFor="user_role" className="text-xs font-semibold">
                                             Rôle d'habilitation SYGES
                                         </Label>
@@ -952,31 +954,24 @@ export default function CreatePersonnel({
 
                         {/* Liaison avec un compte utilisateur existant */}
                         {accountMode === 'link' && (
-                            <div className="p-4 rounded-xl bg-muted/40 border border-border space-y-3 animate-in fade-in-50">
+                            <div className="p-4 rounded-xl bg-muted/40 border border-border space-y-3 animate-in fade-in-50 min-w-0">
                                 <Label htmlFor="user_id" className="text-xs font-semibold">
                                     Sélectionnez le compte utilisateur SYGES à associer
                                 </Label>
-                                <Select
+                                <SearchableSelect
+                                    id="user_id"
+                                    options={availableUsers.map((u) => ({
+                                        value: String(u.id),
+                                        label: u.name,
+                                        description: `${u.login}${u.email ? ` · ${u.email}` : ''}`,
+                                    }))}
                                     value={data.user_id ? String(data.user_id) : ''}
-                                    onValueChange={(val) => setData('user_id', Number(val))}
-                                >
-                                    <SelectTrigger id="user_id" className="h-9 text-sm">
-                                        <SelectValue placeholder="Choisir un compte utilisateur disponible" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {availableUsers.length === 0 ? (
-                                            <SelectItem value="none" disabled>
-                                                Aucun compte utilisateur disponible non associé
-                                            </SelectItem>
-                                        ) : (
-                                            availableUsers.map((u) => (
-                                                <SelectItem key={u.id} value={String(u.id)}>
-                                                    {u.name} (login: {u.login}, email: {u.email})
-                                                </SelectItem>
-                                            ))
-                                        )}
-                                    </SelectContent>
-                                </Select>
+                                    onValueChange={(val) => setData('user_id', val ? Number(val) : '')}
+                                    placeholder="Choisir un compte utilisateur disponible"
+                                    searchPlaceholder="Rechercher par nom, login ou email..."
+                                    emptyMessage="Aucun compte utilisateur disponible non associé."
+                                    className="h-9 text-sm font-normal"
+                                />
                                 {errors.user_id && <p className="text-rose-500 text-xs mt-1">{errors.user_id}</p>}
                             </div>
                         )}
@@ -1003,9 +998,9 @@ export default function CreatePersonnel({
                                 variant="outline"
                                 disabled={processing}
                                 onClick={() => submitForm(true)}
-                                className="cursor-pointer text-xs h-9 w-full sm:w-auto border-teal-500/50 text-teal-700 dark:text-teal-300 hover:bg-teal-50 dark:hover:bg-teal-950/50 font-medium"
+                                className="cursor-pointer text-xs h-9 w-full sm:w-auto border-teal-500/50 text-teal-700 hover:bg-teal-50 font-medium"
                             >
-                                <PlusCircle className="size-4 mr-1.5 text-teal-600 dark:text-teal-400" />
+                                <PlusCircle className="size-4 mr-1.5 text-teal-600" />
                                 Enregistrer & Nouveau
                             </Button>
 

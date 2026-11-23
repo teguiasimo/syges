@@ -10,10 +10,8 @@ import {
     Lock,
     Save,
     Scale,
-    Shield,
     ShieldAlert,
     Sliders,
-    Sparkles,
     Trash2,
     UploadCloud,
 } from 'lucide-react';
@@ -56,9 +54,6 @@ interface EtablissementData {
     seuil_classement_valeur?: number;
     seuil_absences_decheance_mentions: number;
     verrou_solvabilite_actif: boolean;
-    bonus_paiement_anticipe_actif: boolean;
-    montant_bonus_anticipe?: number | null;
-    date_limite_bonus?: string | null;
     effective_logo?: string | null;
     effective_filigrane?: string | null;
     institution?: {
@@ -151,9 +146,6 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
         seuil_classement_valeur: number;
         seuil_absences_decheance_mentions: number;
         verrou_solvabilite_actif: boolean;
-        bonus_paiement_anticipe_actif: boolean;
-        montant_bonus_anticipe: number;
-        date_limite_bonus: string;
     }>({
         // Identité & Coordonnées
         code: etablissement.code || '',
@@ -189,9 +181,6 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
 
         // Finances & Solvabilité (Module 11)
         verrou_solvabilite_actif: Boolean(etablissement.verrou_solvabilite_actif),
-        bonus_paiement_anticipe_actif: Boolean(etablissement.bonus_paiement_anticipe_actif),
-        montant_bonus_anticipe: etablissement.montant_bonus_anticipe ?? 3000,
-        date_limite_bonus: etablissement.date_limite_bonus ? String(etablissement.date_limite_bonus).substring(0, 10) : '',
     });
 
     // Prévisualisation des logos (principal + filigrane) et références des inputs fichier
@@ -280,7 +269,7 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
 
                         <div className="flex items-start sm:items-center gap-3.5 min-w-0">
                             <div
-                                className="size-12 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 p-1 flex items-center justify-center shadow-xs shrink-0 overflow-hidden relative"
+                                className="size-12 rounded-xl bg-slate-50 border border-slate-300 p-1 flex items-center justify-center shadow-xs shrink-0 overflow-hidden relative"
                                 title={logoPreview ? "Logo propre à cet établissement" : "Logo hérité de l'institution (repli automatique)"}
                             >
                                 {(logoPreview || etablissement.effective_logo || etablissement.institution?.logo) ? (
@@ -290,7 +279,7 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
                                         className="max-h-full max-w-full object-contain"
                                     />
                                 ) : (
-                                    <Building2 className="size-6 text-indigo-600 dark:text-indigo-400" />
+                                    <Building2 className="size-6 text-indigo-600" />
                                 )}
                                 {logoPreview && (
                                     <span
@@ -303,14 +292,14 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
                             <div className="space-y-0.5">
                                 <div className="flex flex-wrap items-center gap-2.5">
                                     <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground flex items-center gap-2.5">
-                                        <Sliders className="size-6 text-indigo-600 dark:text-indigo-400" />
+                                        <Sliders className="size-6 text-indigo-600" />
                                         Configuration & Règles de Gestion
                                     </h1>
-                                    <Badge variant="outline" className="font-mono text-xs px-2.5 py-0.5 border-indigo-200 text-indigo-700 bg-indigo-50 dark:bg-indigo-950/50 dark:text-indigo-300">
+                                    <Badge variant="outline" className="font-mono text-xs px-2.5 py-0.5 border-indigo-200 text-indigo-700 bg-indigo-50">
                                         {etablissement.code}
                                     </Badge>
                                     {logoPreview ? (
-                                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-medium text-emerald-700 bg-emerald-50 border-emerald-200 dark:text-emerald-300 dark:bg-emerald-950/40">
+                                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-medium text-emerald-700 bg-emerald-50 border-emerald-200">
                                             Logo propre
                                         </Badge>
                                     ) : etablissement.institution?.logo ? (
@@ -379,7 +368,7 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
                             <Card className="border-border/80 shadow-xs">
                                 <CardHeader className="pb-4">
                                     <div className="flex items-center gap-2">
-                                        <div className="p-2 rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400">
+                                        <div className="p-2 rounded-lg bg-emerald-50 text-emerald-600">
                                             <GraduationCap className="size-5" />
                                         </div>
                                         <div>
@@ -397,7 +386,7 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
                                             onClick={() => setData('mode_bulletin_defaut', 'avec_competences')}
                                             className={`relative p-4 rounded-xl border-2 cursor-pointer transition-all ${
                                                 data.mode_bulletin_defaut === 'avec_competences'
-                                                    ? 'border-emerald-600 bg-emerald-50/40 dark:bg-emerald-950/20 dark:border-emerald-500 shadow-xs'
+                                                    ? 'border-emerald-600 bg-emerald-50/40 shadow-xs'
                                                     : 'border-border/70 hover:border-border bg-card'
                                             }`}
                                         >
@@ -428,7 +417,7 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
                                             onClick={() => setData('mode_bulletin_defaut', 'sans_competences')}
                                             className={`relative p-4 rounded-xl border-2 cursor-pointer transition-all ${
                                                 data.mode_bulletin_defaut === 'sans_competences'
-                                                    ? 'border-slate-600 bg-slate-50/40 dark:bg-slate-950/20 dark:border-slate-500 shadow-xs'
+                                                    ? 'border-slate-600 bg-slate-50/40 shadow-xs'
                                                     : 'border-border/70 hover:border-border bg-card'
                                             }`}
                                         >
@@ -460,7 +449,7 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
                             <Card className="border-border/80 shadow-xs">
                                 <CardHeader className="pb-4">
                                     <div className="flex items-center gap-2">
-                                        <div className="p-2 rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-950/50 dark:text-blue-400">
+                                        <div className="p-2 rounded-lg bg-blue-50 text-blue-600">
                                             <Sliders className="size-5" />
                                         </div>
                                         <div>
@@ -477,7 +466,7 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
                                             onClick={() => setData('type_calcul_trimestre', 'arithmetique')}
                                             className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
                                                 data.type_calcul_trimestre === 'arithmetique'
-                                                    ? 'border-blue-600 bg-blue-50/40 dark:bg-blue-950/20 dark:border-blue-500 shadow-xs'
+                                                    ? 'border-blue-600 bg-blue-50/40 shadow-xs'
                                                     : 'border-border/70 hover:border-border bg-card'
                                             }`}
                                         >
@@ -502,7 +491,7 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
                                             onClick={() => setData('type_calcul_trimestre', 'pondere')}
                                             className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
                                                 data.type_calcul_trimestre === 'pondere'
-                                                    ? 'border-blue-600 bg-blue-50/40 dark:bg-blue-950/20 dark:border-blue-500 shadow-xs'
+                                                    ? 'border-blue-600 bg-blue-50/40 shadow-xs'
                                                     : 'border-border/70 hover:border-border bg-card'
                                             }`}
                                         >
@@ -533,7 +522,7 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
                             <Card className="border-border/80 shadow-xs">
                                 <CardHeader className="pb-4">
                                     <div className="flex items-center gap-2">
-                                        <div className="p-2 rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-400">
+                                        <div className="p-2 rounded-lg bg-indigo-50 text-indigo-600">
                                             <Scale className="size-5" />
                                         </div>
                                         <div>
@@ -549,7 +538,7 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
                                         onClick={() => setData('seuil_classement_actif', !data.seuil_classement_actif)}
                                         className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex items-center justify-between gap-4 ${
                                             data.seuil_classement_actif
-                                                ? 'border-indigo-600 bg-indigo-50/40 dark:bg-indigo-950/20 dark:border-indigo-500'
+                                                ? 'border-indigo-600 bg-indigo-50/40'
                                                 : 'border-border/70 hover:border-border bg-card'
                                         }`}
                                     >
@@ -586,7 +575,7 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
                                                         onClick={() => setData('mode_seuil_classement', 'pourcentage')}
                                                         className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${
                                                             data.mode_seuil_classement === 'pourcentage'
-                                                                ? 'border-indigo-600 bg-indigo-50/30 dark:bg-indigo-950/20 dark:border-indigo-500'
+                                                                ? 'border-indigo-600 bg-indigo-50/30'
                                                                 : 'border-border/60 hover:border-border bg-card'
                                                         }`}
                                                     >
@@ -603,7 +592,7 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
                                                         onClick={() => setData('mode_seuil_classement', 'valeur_fixe')}
                                                         className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${
                                                             data.mode_seuil_classement === 'valeur_fixe'
-                                                                ? 'border-indigo-600 bg-indigo-50/30 dark:bg-indigo-950/20 dark:border-indigo-500'
+                                                                ? 'border-indigo-600 bg-indigo-50/30'
                                                                 : 'border-border/60 hover:border-border bg-card'
                                                         }`}
                                                     >
@@ -630,7 +619,7 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
                                                         type="number"
                                                         min={1}
                                                         max={data.mode_seuil_classement === 'pourcentage' ? 100 : 50}
-                                                        step={data.mode_seuil_classement === 'pourcentage' ? 5 : 1}
+                                                        step={1}
                                                         value={data.seuil_classement_valeur}
                                                         onChange={(e) => setData('seuil_classement_valeur', parseFloat(e.target.value) || 0)}
                                                         className="w-28 font-mono text-center text-base font-bold"
@@ -644,7 +633,7 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
                                                 )}
                                             </div>
 
-                                            <div className="p-3.5 rounded-lg bg-indigo-50/70 border border-indigo-200 text-indigo-900 dark:bg-indigo-950/30 dark:border-indigo-800/60 dark:text-indigo-200 text-xs space-y-1.5">
+                                            <div className="p-3.5 rounded-lg bg-indigo-50/70 border border-indigo-200 text-indigo-900 text-xs space-y-1.5">
                                                 <div className="font-bold flex items-center gap-1.5 text-xs">
                                                     <Scale className="size-3.5 text-indigo-600" />
                                                     Règle appliquée lors du tirage des bulletins :
@@ -666,7 +655,7 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
                             <Card className="border-border/80 shadow-xs">
                                 <CardHeader className="pb-4">
                                     <div className="flex items-center gap-2">
-                                        <div className="p-2 rounded-lg bg-amber-50 text-amber-600 dark:bg-amber-950/50 dark:text-amber-400">
+                                        <div className="p-2 rounded-lg bg-amber-50 text-amber-600">
                                             <ShieldAlert className="size-5" />
                                         </div>
                                         <div>
@@ -699,7 +688,7 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
                                         )}
                                     </div>
 
-                                    <div className="p-4 rounded-xl bg-amber-50/70 border border-amber-200 text-amber-900 dark:bg-amber-950/30 dark:border-amber-800/60 dark:text-amber-200 text-xs space-y-2">
+                                    <div className="p-4 rounded-xl bg-amber-50/70 border border-amber-200 text-amber-900 text-xs space-y-2">
                                         <div className="font-bold flex items-center gap-1.5 text-sm">
                                             <Clock className="size-4 text-amber-600" />
                                             Impact sur le procès-verbal et les bulletins de notes :
@@ -724,7 +713,7 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
                             <Card className="border-border/80 shadow-xs">
                                 <CardHeader className="pb-4">
                                     <div className="flex items-center gap-2">
-                                        <div className="p-2 rounded-lg bg-rose-50 text-rose-600 dark:bg-rose-950/50 dark:text-rose-400">
+                                        <div className="p-2 rounded-lg bg-rose-50 text-rose-600">
                                             <Lock className="size-5" />
                                         </div>
                                         <div>
@@ -740,7 +729,7 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
                                         onClick={() => setData('verrou_solvabilite_actif', !data.verrou_solvabilite_actif)}
                                         className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex items-center justify-between gap-4 ${
                                             data.verrou_solvabilite_actif
-                                                ? 'border-rose-600 bg-rose-50/40 dark:bg-rose-950/20 dark:border-rose-500'
+                                                ? 'border-rose-600 bg-rose-50/40'
                                                 : 'border-border/70 hover:border-border bg-card'
                                         }`}
                                     >
@@ -767,106 +756,6 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
                                     </div>
                                 </CardContent>
                             </Card>
-
-                            {/* Bonus Paiement Anticipé */}
-                            <Card className="border-border/80 shadow-xs">
-                                <CardHeader className="pb-4">
-                                    <div className="flex items-center gap-2">
-                                        <div className="p-2 rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400">
-                                            <Sparkles className="size-5" />
-                                        </div>
-                                        <div>
-                                            <CardTitle className="text-base sm:text-lg">Bonus / Remise pour Paiement Anticipé</CardTitle>
-                                            <CardDescription className="text-xs sm:text-sm">
-                                                Encouragez les familles à régler la totalité des frais scolaires dès le début d'année.
-                                            </CardDescription>
-                                        </div>
-                                    </div>
-                                </CardHeader>
-                                <CardContent className="space-y-5">
-                                    <div
-                                        onClick={() => setData('bonus_paiement_anticipe_actif', !data.bonus_paiement_anticipe_actif)}
-                                        className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex items-center justify-between gap-4 ${
-                                            data.bonus_paiement_anticipe_actif
-                                                ? 'border-emerald-600 bg-emerald-50/40 dark:bg-emerald-950/20 dark:border-emerald-500'
-                                                : 'border-border/70 hover:border-border bg-card'
-                                        }`}
-                                    >
-                                        <div className="space-y-1">
-                                            <div className="flex items-center gap-2">
-                                                <span className="font-bold text-sm text-foreground">Activer le programme de bonus anticipé</span>
-                                                {data.bonus_paiement_anticipe_actif ? (
-                                                    <Badge className="bg-emerald-600 text-white text-[10px]">Actif</Badge>
-                                                ) : (
-                                                    <Badge variant="outline" className="text-[10px]">Désactivé</Badge>
-                                                )}
-                                            </div>
-                                            <p className="text-xs text-muted-foreground leading-relaxed">
-                                                Applique automatiquement une déduction financière si l'intégralité de la pension scolaire est acquittée avant la date limite.
-                                            </p>
-                                        </div>
-                                        <div className={`w-11 h-6 rounded-full transition-colors relative shrink-0 ${
-                                            data.bonus_paiement_anticipe_actif ? 'bg-emerald-600' : 'bg-muted-foreground/30'
-                                        }`}>
-                                            <div className={`w-5 h-5 rounded-full bg-white transition-transform absolute top-0.5 ${
-                                                data.bonus_paiement_anticipe_actif ? 'left-5.5' : 'left-0.5'
-                                            }`} />
-                                        </div>
-                                    </div>
-
-                                    {data.bonus_paiement_anticipe_actif && (
-                                        <div className="space-y-4 pt-2">
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="montant_bonus" className="text-xs font-semibold text-foreground">
-                                                        Montant de la remise (FCFA)
-                                                    </Label>
-                                                    <Input
-                                                        id="montant_bonus"
-                                                        type="number"
-                                                        min={0}
-                                                        step={500}
-                                                        value={data.montant_bonus_anticipe}
-                                                        onChange={(e) => setData('montant_bonus_anticipe', parseFloat(e.target.value) || 0)}
-                                                        placeholder="Ex: 3000"
-                                                        className="font-mono text-sm"
-                                                    />
-                                                    {errors.montant_bonus_anticipe && (
-                                                        <p className="text-xs text-rose-500 font-medium">{errors.montant_bonus_anticipe}</p>
-                                                    )}
-                                                </div>
-
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="date_limite_bonus" className="text-xs font-semibold text-foreground">
-                                                        Date limite de règlement
-                                                    </Label>
-                                                    <Input
-                                                        id="date_limite_bonus"
-                                                        type="date"
-                                                        value={data.date_limite_bonus}
-                                                        onChange={(e) => setData('date_limite_bonus', e.target.value)}
-                                                        className="text-sm"
-                                                    />
-                                                    {errors.date_limite_bonus && (
-                                                        <p className="text-xs text-rose-500 font-medium">{errors.date_limite_bonus}</p>
-                                                    )}
-                                                </div>
-                                            </div>
-
-                                            {/* Règle de déduction ciblée : Dernière tranche pour motiver le paiement intégral */}
-                                            <div className="p-3.5 rounded-lg bg-emerald-50/70 border border-emerald-200 text-emerald-900 dark:bg-emerald-950/30 dark:border-emerald-800/60 dark:text-emerald-200 text-xs space-y-1.5">
-                                                <div className="font-semibold flex items-center gap-1.5">
-                                                    <CheckCircle2 className="size-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                                                    <span>Cible d'imputation recommandée : <strong>Dernière tranche de pension</strong></span>
-                                                </div>
-                                                <p className="text-[11px] leading-relaxed text-muted-foreground dark:text-emerald-300/80">
-                                                    Le bonus accordé (montant suggéré : <strong>3 000 FCFA</strong>) est appliqué en déduction sur la <strong>dernière tranche de pension</strong> pour les parents ayant soldé leur engagement avant la date limite. Cela motive fortement les familles à finaliser la totalité des règlements.
-                                                </p>
-                                            </div>
-                                        </div>
-                                    )}
-                                </CardContent>
-                            </Card>
                         </TabsContent>
 
                         {/* =========================================================================
@@ -876,7 +765,7 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
                             <Card className="border-border/80 shadow-xs">
                                 <CardHeader className="pb-4">
                                     <div className="flex items-center gap-2">
-                                        <div className="p-2 rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-400">
+                                        <div className="p-2 rounded-lg bg-indigo-50 text-indigo-600">
                                             <Building2 className="size-5" />
                                         </div>
                                         <div>
@@ -1037,7 +926,7 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
                                     </div>
 
                                     {/* Titre officiel du responsable de classe (Professeur Principal / Maître / Maîtresse) */}
-                                    <div className="p-3.5 rounded-xl bg-amber-50/40 dark:bg-amber-950/15 border border-amber-200/70 dark:border-amber-900/40 space-y-3">
+                                    <div className="p-3.5 rounded-xl bg-amber-50/40 border border-amber-200/70 space-y-3">
                                         <div className="flex flex-wrap items-center justify-between gap-2">
                                             <div>
                                                 <p className="text-xs font-bold text-foreground">
@@ -1054,7 +943,7 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
                                                         setData('titre_responsable_classe', 'Le Maître / La Maîtresse');
                                                         setData('titre_responsable_classe_en', 'Class Teacher');
                                                     }}
-                                                    className="text-[10px] px-2 py-0.5 rounded-md border border-amber-300 bg-white dark:bg-slate-900 hover:bg-amber-100 dark:hover:bg-amber-950/50 text-amber-800 dark:text-amber-300 font-medium cursor-pointer"
+                                                    className="text-[10px] px-2 py-0.5 rounded-md border border-amber-300 bg-white hover:bg-amber-100 text-amber-800 font-medium cursor-pointer"
                                                 >
                                                     Base (Maître / Maîtresse)
                                                 </button>
@@ -1064,7 +953,7 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
                                                         setData('titre_responsable_classe', 'Le Professeur Principal');
                                                         setData('titre_responsable_classe_en', 'Head Teacher');
                                                     }}
-                                                    className="text-[10px] px-2 py-0.5 rounded-md border border-border bg-white dark:bg-slate-900 hover:bg-muted font-medium cursor-pointer"
+                                                    className="text-[10px] px-2 py-0.5 rounded-md border border-border bg-white hover:bg-muted font-medium cursor-pointer"
                                                 >
                                                     Secondaire (Professeur Principal)
                                                 </button>
@@ -1187,7 +1076,7 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
 
                                     {/* Section Logo / Blason Officiel du Campus */}
                                     <div className="pt-4 border-t border-border/60">
-                                        <div className="p-4 rounded-xl bg-slate-50/70 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 space-y-3">
+                                        <div className="p-4 rounded-xl bg-slate-50/70 border border-slate-200 space-y-3">
                                             <div className="flex flex-wrap items-center justify-between gap-2">
                                                 <div>
                                                     <Label className="text-xs font-bold text-foreground">
@@ -1198,7 +1087,7 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
                                                     </p>
                                                 </div>
                                                 {logoPreview ? (
-                                                    <Badge variant="outline" className="text-[10px] text-emerald-700 bg-emerald-50 border-emerald-200 dark:text-emerald-300 dark:bg-emerald-950/40">
+                                                    <Badge variant="outline" className="text-[10px] text-emerald-700 bg-emerald-50 border-emerald-200">
                                                         Logo propre actif
                                                     </Badge>
                                                 ) : etablissement.institution?.logo ? (
@@ -1218,7 +1107,7 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
 
                                             <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 pt-1">
                                                 {logoPreview ? (
-                                                    <div className="relative group size-16 shrink-0 rounded-2xl border border-border bg-white dark:bg-slate-900 p-1 flex items-center justify-center overflow-hidden shadow-xs">
+                                                    <div className="relative group size-16 shrink-0 rounded-2xl border border-border bg-white p-1 flex items-center justify-center overflow-hidden shadow-xs">
                                                         <img
                                                             src={logoPreview}
                                                             alt="Logo campus"
@@ -1276,7 +1165,7 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
                                                                 variant="ghost"
                                                                 size="sm"
                                                                 onClick={() => handleRemoveImage('logo', 'logo_file', setLogoPreview, fileInputRef)}
-                                                                className="cursor-pointer text-xs h-8 gap-1 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                                                                className="cursor-pointer text-xs h-8 gap-1 text-rose-600 hover:text-rose-700 hover:bg-rose-50"
                                                             >
                                                                 <Trash2 className="size-3.5 shrink-0" />
                                                                 <span>Supprimer</span>
@@ -1298,7 +1187,7 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
                                         </div>
 
                                         {/* Section Filigrane Officiel du Campus */}
-                                        <div className="mt-4 p-4 rounded-xl bg-slate-50/70 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 space-y-3">
+                                        <div className="mt-4 p-4 rounded-xl bg-slate-50/70 border border-slate-200 space-y-3">
                                             <div className="flex flex-wrap items-center justify-between gap-2">
                                                 <div>
                                                     <Label className="text-xs font-bold text-foreground">
@@ -1309,7 +1198,7 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
                                                     </p>
                                                 </div>
                                                 {filigranePreview ? (
-                                                    <Badge variant="outline" className="text-[10px] text-emerald-700 bg-emerald-50 border-emerald-200 dark:text-emerald-300 dark:bg-emerald-950/40">
+                                                    <Badge variant="outline" className="text-[10px] text-emerald-700 bg-emerald-50 border-emerald-200">
                                                         Filigrane propre actif
                                                     </Badge>
                                                 ) : etablissement.institution?.logo_filigrane ? (
@@ -1329,7 +1218,7 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
 
                                             <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 pt-1">
                                                 {filigranePreview ? (
-                                                    <div className="relative group size-16 shrink-0 rounded-2xl border border-border bg-white dark:bg-slate-900 p-1 flex items-center justify-center overflow-hidden shadow-xs">
+                                                    <div className="relative group size-16 shrink-0 rounded-2xl border border-border bg-white p-1 flex items-center justify-center overflow-hidden shadow-xs">
                                                         <img
                                                             src={filigranePreview}
                                                             alt="Filigrane campus"
@@ -1387,7 +1276,7 @@ export default function EtablissementSettings({ etablissement, flash }: Etabliss
                                                                 variant="ghost"
                                                                 size="sm"
                                                                 onClick={() => handleRemoveImage('logo_filigrane', 'logo_filigrane_file', setFiligranePreview, filigraneInputRef)}
-                                                                className="cursor-pointer text-xs h-8 gap-1 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                                                                className="cursor-pointer text-xs h-8 gap-1 text-rose-600 hover:text-rose-700 hover:bg-rose-50"
                                                             >
                                                                 <Trash2 className="size-3.5 shrink-0" />
                                                                 <span>Supprimer</span>

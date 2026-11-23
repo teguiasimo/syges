@@ -15,13 +15,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import type { CategorieFrais, TypeFrais } from '@/types/finance';
 
 /**
@@ -294,7 +288,7 @@ export default function TypeFraisModal({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-lg max-h-[92vh] overflow-y-auto">
                 <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2 text-lg font-bold text-slate-800 dark:text-slate-100">
+                    <DialogTitle className="flex items-center gap-2 text-lg font-bold text-slate-800">
                         <Tag className="w-5 h-5 text-emerald-600 shrink-0" />
                         {isEditing ? 'Modifier le Frais du Catalogue' : 'Configurer un Nouveau Frais'}
                     </DialogTitle>
@@ -304,7 +298,7 @@ export default function TypeFraisModal({
                 </DialogHeader>
 
                 {isEditing && nbNiveauxRattaches > 0 && (
-                    <div className="p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-200 flex items-center gap-2">
+                    <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-center gap-2">
                         <Layers className="w-4 h-4 text-emerald-600 shrink-0" />
                         <span>
                             Ce frais est actuellement rattaché à{' '}
@@ -338,8 +332,8 @@ export default function TypeFraisModal({
                         </div>
 
                         {showNewCategorieForm ? (
-                            <div className="p-3 rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/20 space-y-2.5">
-                                <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-800 dark:text-emerald-300">
+                            <div className="p-3 rounded-lg border border-emerald-200 bg-emerald-50/50 space-y-2.5 min-w-0">
+                                <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-800">
                                     <FolderPlus className="w-3.5 h-3.5" />
                                     <span>Nouvelle Catégorie de Frais</span>
                                 </div>
@@ -352,7 +346,7 @@ export default function TypeFraisModal({
                                         placeholder="Ex: Scolarité, Frais d'Examen, Fête de fin d'année..."
                                         value={newCatNom}
                                         onChange={(e) => setNewCatNom(e.target.value)}
-                                        className="h-8 text-xs bg-white dark:bg-slate-900"
+                                        className="h-8 text-xs bg-white"
                                     />
                                 </div>
                                 <div className="space-y-1">
@@ -364,7 +358,7 @@ export default function TypeFraisModal({
                                         placeholder="Ex: Regroupe CEPE, BEPC et examens blancs"
                                         value={newCatDescription}
                                         onChange={(e) => setNewCatDescription(e.target.value)}
-                                        className="h-8 text-xs bg-white dark:bg-slate-900"
+                                        className="h-8 text-xs bg-white"
                                     />
                                 </div>
                                 <div className="flex justify-end gap-2">
@@ -389,21 +383,21 @@ export default function TypeFraisModal({
                                 </div>
                             </div>
                         ) : (
-                            <Select
-                                value={data.categorie_frais_id}
-                                onValueChange={(val) => setData('categorie_frais_id', val)}
-                            >
-                                <SelectTrigger id="frais_categorie" className="h-9 text-xs">
-                                    <SelectValue placeholder="Sélectionner une catégorie (Scolarité, Examen, Fête...)" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {categoriesFrais.map((cat) => (
-                                        <SelectItem key={cat.id} value={String(cat.id)}>
-                                            {cat.nom}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <div className="min-w-0">
+                                <SearchableSelect
+                                    id="frais_categorie"
+                                    options={categoriesFrais.map((cat) => ({
+                                        value: String(cat.id),
+                                        label: cat.nom,
+                                    }))}
+                                    value={data.categorie_frais_id}
+                                    onValueChange={(val) => setData('categorie_frais_id', val)}
+                                    placeholder="Sélectionner une catégorie (Scolarité, Examen, Fête...)"
+                                    searchPlaceholder="Rechercher une catégorie..."
+                                    emptyMessage="Aucune catégorie trouvée."
+                                    className="h-9 text-xs font-normal"
+                                />
+                            </div>
                         )}
                         {errors.categorie_frais_id && (
                             <p className="text-xs text-red-500">{errors.categorie_frais_id}</p>
@@ -505,7 +499,7 @@ export default function TypeFraisModal({
                                 variant="outline"
                                 disabled={processing || savingAndNew || !data.libelle.trim() || data.montant_defaut === ''}
                                 onClick={handleSaveAndNew}
-                                className="text-xs h-9 font-semibold border-emerald-300 text-emerald-800 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-200 dark:border-emerald-800 flex items-center gap-1.5"
+                                className="text-xs h-9 font-semibold border-emerald-300 text-emerald-800 bg-emerald-50 hover:bg-emerald-100 flex items-center gap-1.5"
                             >
                                 <Plus className="w-3.5 h-3.5" />
                                 {savingAndNew ? 'Enregistrement...' : 'Enregistrer & Nouveau'}

@@ -1,5 +1,5 @@
 import { useForm } from '@inertiajs/react';
-import { BookOpen, Calendar, Clock, FileText, Loader2, Save } from 'lucide-react';
+import { BookOpen, Loader2, Save } from 'lucide-react';
 import React, { useEffect } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
     Select,
     SelectContent,
@@ -94,6 +95,13 @@ export function NouvelleSeanceModal({
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
+        if (!data.attribution_id) {
+            toast.error('Veuillez sélectionner un cours et une classe.', {
+                position: 'top-right',
+            });
+            return;
+        }
+
         if (isEdit) {
             put(`/administration/progression-pedagogique/${editingSeance.id}`, {
                 preserveScroll: true,
@@ -134,7 +142,7 @@ export function NouvelleSeanceModal({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-2xl">
                 <DialogHeader>
-                    <div className="flex items-center gap-2 text-teal-600 dark:text-teal-400">
+                    <div className="flex items-center gap-2 text-teal-600">
                         <BookOpen className="w-5 h-5 shrink-0" />
                         <DialogTitle>
                             {isEdit ? 'Modifier la séance du cours' : 'Consigner une séance dans le cahier de texte'}
@@ -152,22 +160,22 @@ export function NouvelleSeanceModal({
                             <Label htmlFor="attribution_id" className="text-xs font-semibold">
                                 Cours & Classe <span className="text-rose-500">*</span>
                             </Label>
-                            <Select
+                            <SearchableSelect
+                                id="attribution_id"
+                                options={attributions.map((attr) => ({
+                                    value: String(attr.id),
+                                    label: `${attr.classe?.nom ?? ''} - ${attr.matiere?.nom ?? ''}`,
+                                    description: attr.personnel?.nom ? `Prof. ${[attr.personnel.nom, attr.personnel.prenom].filter(Boolean).join(' ')}` : undefined,
+                                    group: attr.classe?.nom || 'Cours',
+                                }))}
                                 value={data.attribution_id}
                                 onValueChange={(val) => setData('attribution_id', val)}
                                 disabled={isEdit}
-                            >
-                                <SelectTrigger id="attribution_id" className="w-full min-w-0">
-                                    <SelectValue placeholder="Sélectionner un cours..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {attributions.map((attr) => (
-                                        <SelectItem key={attr.id} value={String(attr.id)}>
-                                            {attr.classe?.nom} - {attr.matiere?.nom} ({attr.personnel?.nom})
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                                placeholder="Sélectionner un cours..."
+                                searchPlaceholder="Rechercher une classe ou matière..."
+                                emptyMessage="Aucun cours trouvé."
+                                className="h-9 text-xs font-normal"
+                            />
                             {errors.attribution_id && (
                                 <p className="text-xs text-rose-500">{errors.attribution_id}</p>
                             )}

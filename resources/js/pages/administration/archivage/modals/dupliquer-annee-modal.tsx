@@ -1,5 +1,5 @@
 import { useForm } from '@inertiajs/react';
-import { AlertCircle, ArrowRight, Check, Copy, Loader2, Sparkles } from 'lucide-react';
+import { AlertCircle, Copy, Loader2 } from 'lucide-react';
 import React from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -91,8 +91,8 @@ export function DupliquerAnneeModal({ open, onOpenChange, annees }: DupliquerAnn
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="w-[95vw] sm:max-w-xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
                 <DialogHeader>
-                    <div className="flex items-center gap-2 text-teal-600 dark:text-teal-400">
-                        <Sparkles className="w-5 h-5 shrink-0" />
+                    <div className="flex items-center gap-2 text-teal-600">
+                        <Copy className="w-5 h-5 shrink-0" />
                         <DialogTitle className="text-base sm:text-lg">Assistant de Reconduction Annuelle (1-Clic)</DialogTitle>
                     </div>
                     <DialogDescription className="text-xs sm:text-sm">
@@ -102,7 +102,7 @@ export function DupliquerAnneeModal({ open, onOpenChange, annees }: DupliquerAnn
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     {/* Année source -> Année cible */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center bg-slate-50 dark:bg-slate-900/50 p-3 rounded-lg border">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center bg-slate-50 p-3 rounded-lg border">
                         <div className="space-y-1.5">
                             <Label htmlFor="source" className="text-xs font-semibold">
                                 Année d'origine (Source)
@@ -128,7 +128,7 @@ export function DupliquerAnneeModal({ open, onOpenChange, annees }: DupliquerAnn
                         </div>
 
                         <div className="space-y-1.5">
-                            <Label htmlFor="cible" className="text-xs font-semibold text-teal-600 dark:text-teal-400">
+                            <Label htmlFor="cible" className="text-xs font-semibold text-teal-600">
                                 Nouvelle Année (Cible)
                             </Label>
                             <Select
@@ -160,7 +160,7 @@ export function DupliquerAnneeModal({ open, onOpenChange, annees }: DupliquerAnn
                             Sélectionnez les éléments à dupliquer
                         </Label>
 
-                        <div className="space-y-2.5 rounded-md border p-3 bg-white dark:bg-slate-950">
+                        <div className="space-y-2.5 rounded-md border p-3 bg-white">
                             <label className="flex items-start gap-3 cursor-pointer">
                                 <Checkbox
                                     checked={data.options.periodes}
@@ -168,7 +168,7 @@ export function DupliquerAnneeModal({ open, onOpenChange, annees }: DupliquerAnn
                                     className="mt-0.5"
                                 />
                                 <div>
-                                    <div className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                                    <div className="text-xs font-semibold text-slate-800">
                                         Périodes scolaires & Séquences
                                     </div>
                                     <p className="text-[11px] text-slate-500">
@@ -184,7 +184,7 @@ export function DupliquerAnneeModal({ open, onOpenChange, annees }: DupliquerAnn
                                     className="mt-0.5"
                                 />
                                 <div>
-                                    <div className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                                    <div className="text-xs font-semibold text-slate-800">
                                         Grille tarifaire des frais de scolarité
                                     </div>
                                     <p className="text-[11px] text-slate-500">
@@ -200,7 +200,7 @@ export function DupliquerAnneeModal({ open, onOpenChange, annees }: DupliquerAnn
                                     className="mt-0.5"
                                 />
                                 <div>
-                                    <div className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                                    <div className="text-xs font-semibold text-slate-800">
                                         Modèles d'échéances et tranches de règlement
                                     </div>
                                     <p className="text-[11px] text-slate-500">
@@ -216,7 +216,7 @@ export function DupliquerAnneeModal({ open, onOpenChange, annees }: DupliquerAnn
                                     className="mt-0.5"
                                 />
                                 <div>
-                                    <div className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                                    <div className="text-xs font-semibold text-slate-800">
                                         Modèles de bourses et remises
                                     </div>
                                     <p className="text-[11px] text-slate-500">
@@ -232,7 +232,7 @@ export function DupliquerAnneeModal({ open, onOpenChange, annees }: DupliquerAnn
                                     className="mt-0.5"
                                 />
                                 <div>
-                                    <div className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                                    <div className="text-xs font-semibold text-slate-800">
                                         Attributions pédagogiques des enseignants
                                     </div>
                                     <p className="text-[11px] text-slate-500">
@@ -243,7 +243,7 @@ export function DupliquerAnneeModal({ open, onOpenChange, annees }: DupliquerAnn
                         </div>
                     </div>
 
-                    <div className="rounded-md bg-blue-50 dark:bg-blue-950/40 p-2.5 border border-blue-200 dark:border-blue-900 flex items-center gap-2 text-xs text-blue-700 dark:text-blue-300">
+                    <div className="rounded-md bg-blue-50 p-2.5 border border-blue-200 flex items-center gap-2 text-xs text-blue-700">
                         <AlertCircle className="w-4 h-4 shrink-0" />
                         <span>Les inscriptions et les notes ne sont pas dupliquées. Seules les structures administratives sont clonées.</span>
                     </div>

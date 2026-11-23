@@ -14,7 +14,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { FileSpreadsheet, Upload, Download, AlertCircle } from 'lucide-react';
 import { SearchableSelect, type SearchableOption } from '@/components/ui/searchable-select';
-import type { EtablissementRef, AnneeScolaireRef, ClasseRef } from '@/types/eleve';
+import { buildClasseSearchOptions, flattenClassesFromEtablissements } from '@/lib/utils';
+import type { EtablissementRef, AnneeScolaireRef } from '@/types/eleve';
 
 /**
  * Propriétés du composant ImportCsvModal.
@@ -46,57 +47,11 @@ export function ImportCsvModal({
     const [anneeId, setAnneeId] = useState(String(selectedAnneeId || ''));
     const [ignorerDoublons, setIgnorerDoublons] = useState(true);
 
-    // Liste des classes
-    const availableClasses: ClasseRef[] = React.useMemo(() => {
-        const list: ClasseRef[] = [];
-        etablissements.forEach((etab) => {
-            etab.sections?.forEach((sec) => {
-                sec.cycles?.forEach((cyc) => {
-                    cyc.niveaux?.forEach((niv) => {
-                        niv.classes?.forEach((cls) => {
-                            list.push({
-                                ...cls,
-                                niveau: {
-                                    id: niv.id,
-                                    nom: niv.nom,
-                                    code: niv.code,
-                                    cycle: {
-                                        id: cyc.id,
-                                        nom: cyc.nom,
-                                        section: {
-                                            id: sec.id,
-                                            nom: sec.nom,
-                                            etablissement: {
-                                                id: etab.id,
-                                                nom: etab.nom,
-                                            },
-                                        },
-                                    },
-                                },
-                            });
-                        });
-                    });
-                });
-            });
-        });
-        return list;
-    }, [etablissements]);
-
-    /**
-     * Options formatées pour le sélecteur avec recherche de la classe de destination.
-     * Tronque élégamment le nom des campus volumineux pour préserver l'ergonomie visuelle.
-     */
-    const classeOptions: SearchableOption[] = React.useMemo(() => {
-        return availableClasses.map((cls) => {
-            const etabNom = cls.niveau?.cycle?.section?.etablissement?.nom || '';
-            const etabAbrege = etabNom.length > 25 ? `${etabNom.substring(0, 25)}…` : etabNom;
-            return {
-                value: String(cls.id),
-                label: `${cls.nom} (${cls.niveau?.nom || 'Niveau'}${etabAbrege ? ` — ${etabAbrege}` : ''})`,
-                group: cls.niveau?.nom || 'Classes',
-            };
-        });
-    }, [availableClasses]);
+    // Liste des classes et options formatées pour SearchableSelect (sans coupure du nom d'établissement)
+    const classeOptions: SearchableOption[] = React.useMemo(
+        () => buildClasseSearchOptions(flattenClassesFromEtablissements(etablissements)),
+        [etablissements]
+    );
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files?.[0]) {
@@ -169,13 +124,13 @@ export function ImportCsvModal({
                         <span>Importer une Liste d'Élèves (CSV / Excel)</span>
                     </DialogTitle>
                     <DialogDescription className="text-xs sm:text-sm">
-                        Importez rapidement les élèves d'une classe au format standard SAGEES (compatible avec le fichier modèle <code>ELEVE.csv</code>).
+                        Importez rapidement les élèves d'une classe au format CSV standard (compatible avec le fichier modèle <code>ELEVE.csv</code>).
                     </DialogDescription>
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit} className="space-y-4 pt-2">
                     {/* Notice format responsive */}
-                    <div className="p-3 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/60 dark:bg-emerald-950/30 text-xs text-emerald-800 dark:text-emerald-300 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <div className="p-3 rounded-xl border border-emerald-200 bg-emerald-50/60 text-xs text-emerald-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                         <div className="flex items-start gap-2">
                             <AlertCircle className="size-4 shrink-0 mt-0.5" />
                             <div>
@@ -190,7 +145,7 @@ export function ImportCsvModal({
                             variant="outline"
                             size="sm"
                             onClick={downloadTemplate}
-                            className="w-full sm:w-auto shrink-0 gap-1.5 text-xs h-8 border-emerald-300 dark:border-emerald-700 hover:bg-emerald-100 dark:hover:bg-emerald-900/50"
+                            className="w-full sm:w-auto shrink-0 gap-1.5 text-xs h-8 border-emerald-300 hover:bg-emerald-100"
                         >
                             <Download className="size-3.5" />
                             Modèle CSV

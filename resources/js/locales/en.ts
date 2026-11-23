@@ -110,7 +110,7 @@ export const en: Translations = {
         bulletins_desc: 'Term average calculations, class rankings, honors and official PDF generation.',
 
         progression_title: 'Curriculum Progress & Logbook',
-        progression_desc: 'Lesson tracking, hourly quota monitoring, homework assignment and censor official stamp (Aurore §5.1.8).',
+        progression_desc: 'Lesson tracking, hourly quota monitoring, homework assignment and censor official stamp.',
 
 
         finances_title: 'Finance & Fee Structure',
@@ -123,7 +123,7 @@ export const en: Translations = {
         discipline_desc: 'Attendance tracking, justifications, disciplinary sanctions and honor roll forfeiture checks.',
 
         archivage_title: 'Administrative Archives & School Re-entry',
-        archivage_desc: 'Outgoing student & staff folders, numbering masks and 1-click annual replication assistant (Aurore §3.15, §3.16).',
+        archivage_desc: 'Outgoing student & staff folders, numbering masks and 1-click annual replication assistant.',
 
 
         emplois_du_temps_title: 'Timetables & Classrooms',

@@ -168,7 +168,7 @@ export default function AnnulerVersementModal({
                             <>
                                 Vous allez annuler en une seule fois{' '}
                                 <strong>{cibles.length} reçus</strong> pour un montant cumulé de{' '}
-                                <strong className="tabular-nums text-slate-900 dark:text-slate-100">
+                                <strong className="tabular-nums text-slate-900">
                                     {montantCumule.toLocaleString('fr-FR')} FCFA
                                 </strong>
                                 .
@@ -176,7 +176,7 @@ export default function AnnulerVersementModal({
                         ) : (
                             <>
                                 Reçu N° <strong>{cibles[0]?.reference_recu}</strong> pour un montant de{' '}
-                                <strong className="tabular-nums text-slate-900 dark:text-slate-100">
+                                <strong className="tabular-nums text-slate-900">
                                     {montantCumule.toLocaleString('fr-FR')} FCFA
                                 </strong>
                                 .
@@ -187,17 +187,17 @@ export default function AnnulerVersementModal({
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     {estModeLot && (
-                        <div className="max-h-32 overflow-y-auto rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 p-2.5 space-y-1">
+                        <div className="max-h-32 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-2.5 space-y-1">
                             {cibles.map((v) => (
                                 <div
                                     key={v.id}
                                     className="flex items-center justify-between gap-2 text-[11px]"
                                 >
-                                    <span className="font-mono font-semibold text-slate-700 dark:text-slate-300 truncate">
+                                    <span className="font-mono font-semibold text-slate-700 truncate">
                                         {v.reference_recu} — {v.compte_financier?.eleve?.nom}{' '}
                                         {v.compte_financier?.eleve?.prenom}
                                     </span>
-                                    <span className="font-bold text-slate-900 dark:text-slate-100 tabular-nums shrink-0">
+                                    <span className="font-bold text-slate-900 tabular-nums shrink-0">
                                         {Number(v.montant_total).toLocaleString('fr-FR')} FCFA
                                     </span>
                                 </div>
@@ -205,7 +205,7 @@ export default function AnnulerVersementModal({
                         </div>
                     )}
 
-                    <div className="p-3 bg-red-50 dark:bg-red-950/40 rounded-lg border border-red-200 dark:border-red-900 text-xs text-red-700 dark:text-red-300">
+                    <div className="p-3 bg-red-50 rounded-lg border border-red-200 text-xs text-red-700">
                         Attention : cette opération déduira immédiatement{' '}
                         {estModeLot ? 'les montants versés' : 'le montant versé'} du dossier concerné et
                         conservera la trace d'audit dans le journal comptable.

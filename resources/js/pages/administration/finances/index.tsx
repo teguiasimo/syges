@@ -5,16 +5,11 @@ import {
     AlertCircle,
     ArrowLeft,
     Award,
-    Building2,
     Calendar,
     CheckCircle2,
-    CheckSquare,
-    ChevronDown,
     CreditCard,
     DollarSign,
     Edit,
-    FileSpreadsheet,
-    FileText,
     FolderOpen,
     FolderPlus,
     Layers,
@@ -24,7 +19,6 @@ import {
     Receipt,
     ShieldCheck,
     Smartphone,
-    Square,
     Tag,
     Trash2,
     Unlock,
@@ -40,16 +34,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DataTable } from '@/components/ui/data-table';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
     Select,
     SelectContent,
@@ -298,7 +285,7 @@ export default function FinancesIndex({
      * Bascule directement vers l'espace pleine largeur à 2 colonnes de l'Onglet 02
      * pour rattacher un ou plusieurs frais du Catalogue aux Niveaux (sans modale étriquée).
      */
-    const ouvrirAffectationPleineLargeur = (fraisPreselectionne: TypeFrais | null = null) => {
+    const _ouvrirAffectationPleineLargeur = (fraisPreselectionne: TypeFrais | null = null) => {
         setPreselectedTypeFraisForNiveaux(fraisPreselectionne);
         setGrilleMode('affectation');
         setActiveTab('tarifs');
@@ -451,7 +438,7 @@ export default function FinancesIndex({
             accessorKey: 'ordre_priorite',
             header: 'Priorité',
             cell: ({ row }) => (
-                <Badge className="bg-slate-800 dark:bg-slate-700 text-white text-[10px] font-bold tabular-nums">
+                <Badge className="bg-slate-800 text-white text-[10px] font-bold tabular-nums">
                     #{row.original.ordre_priorite ?? 10}
                 </Badge>
             ),
@@ -461,7 +448,7 @@ export default function FinancesIndex({
             header: 'Frais & Infos complémentaires',
             cell: ({ row }) => (
                 <div>
-                    <div className="font-bold text-xs text-slate-900 dark:text-slate-100">
+                    <div className="font-bold text-xs text-slate-900">
                         {row.original.libelle}
                     </div>
                     {row.original.description && (
@@ -480,7 +467,7 @@ export default function FinancesIndex({
                 return nomCat ? (
                     <Badge
                         variant="outline"
-                        className="text-[10px] font-semibold bg-slate-50 dark:bg-slate-900 border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300"
+                        className="text-[10px] font-semibold bg-slate-50 border-slate-300 text-slate-700"
                     >
                         {nomCat}
                     </Badge>
@@ -493,7 +480,7 @@ export default function FinancesIndex({
             accessorKey: 'date_limite_defaut',
             header: 'Date Butoir',
             cell: ({ row }) => (
-                <span className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-1">
+                <span className="text-xs text-slate-600 flex items-center gap-1">
                     <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                     {row.original.date_limite_defaut
                         ? formatDate(row.original.date_limite_defaut)
@@ -505,7 +492,7 @@ export default function FinancesIndex({
             accessorKey: 'montant_defaut',
             header: () => <div className="text-right">Montant</div>,
             cell: ({ row }) => (
-                <div className="text-right text-xs font-extrabold text-slate-900 dark:text-slate-100 tabular-nums">
+                <div className="text-right text-xs font-extrabold text-slate-900 tabular-nums">
                     {Number(row.original.montant_defaut || 0).toLocaleString('fr-FR')} FCFA
                 </div>
             ),
@@ -655,7 +642,7 @@ export default function FinancesIndex({
             header: 'Niveau',
             cell: ({ row }) => (
                 <div className="flex items-center gap-1.5">
-                    <span className="font-bold text-xs text-slate-900 dark:text-slate-100">
+                    <span className="font-bold text-xs text-slate-900">
                         {row.original.niveau?.nom ?? 'Tous niveaux'}
                     </span>
                     {row.original.serie && (
@@ -674,7 +661,7 @@ export default function FinancesIndex({
                 return (
                     <Badge
                         variant="outline"
-                        className="text-[10px] font-semibold bg-slate-50 dark:bg-slate-900"
+                        className="text-[10px] font-semibold bg-slate-50"
                     >
                         {nomCat ?? 'Scolarité'}
                     </Badge>
@@ -691,15 +678,15 @@ export default function FinancesIndex({
                     `Tranche ${row.original.tranche_numero}`;
                 return (
                     <div className="flex items-center gap-1.5">
-                        <span className="font-semibold text-xs text-slate-800 dark:text-slate-200">
+                        <span className="font-semibold text-xs text-slate-800">
                             {libelle}
                         </span>
                         {row.original.obligatoire === false ? (
-                            <Badge className="bg-sky-100 text-sky-800 dark:bg-sky-950/60 dark:text-sky-300 border-sky-300 text-[10px] font-semibold">
+                            <Badge className="bg-sky-100 text-sky-800 border-sky-300 text-[10px] font-semibold">
                                 Optionnel
                             </Badge>
                         ) : (
-                            <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-300 text-[10px] font-semibold">
+                            <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px] font-semibold">
                                 Obligatoire
                             </Badge>
                         )}
@@ -716,7 +703,7 @@ export default function FinancesIndex({
                 return (
                     <Badge
                         variant="outline"
-                        className="text-[10px] font-bold text-slate-700 dark:text-slate-300 tabular-nums"
+                        className="text-[10px] font-bold text-slate-700 tabular-nums"
                     >
                         #{prio}
                     </Badge>
@@ -727,7 +714,7 @@ export default function FinancesIndex({
             accessorKey: 'date_limite',
             header: 'Date Butoir',
             cell: ({ row }) => (
-                <span className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-1">
+                <span className="text-xs text-slate-600 flex items-center gap-1">
                     <Calendar className="w-3.5 h-3.5 text-slate-400" />
                     {row.original.date_limite
                         ? formatDate(row.original.date_limite)
@@ -739,7 +726,7 @@ export default function FinancesIndex({
             accessorKey: 'montant',
             header: () => <div className="text-right">Montant Exigible</div>,
             cell: ({ row }) => (
-                <div className="text-right text-xs font-extrabold text-slate-900 dark:text-slate-100 tabular-nums">
+                <div className="text-right text-xs font-extrabold text-slate-900 tabular-nums">
                     {Number(row.original.montant).toLocaleString('fr-FR')} FCFA
                 </div>
             ),
@@ -844,10 +831,10 @@ export default function FinancesIndex({
                 const b = row.original;
                 return (
                     <div className="space-y-0.5">
-                        <div className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                        <div className="text-xs font-bold text-slate-800">
                             {b.nom}
                         </div>
-                        <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                        <div className="text-[11px] text-slate-500">
                             Imputation : {formatCibleImputationLabel(b.cible_imputation)}
                             {b.mode_calcul === 'pourcentage' &&
                                 ` • Base : ${formatBaseCalculRemiseLabel(b.base_calcul)}`}
@@ -862,7 +849,7 @@ export default function FinancesIndex({
             cell: ({ row }) => {
                 const b = row.original;
                 return (
-                    <div className="text-right text-xs font-extrabold text-emerald-700 dark:text-emerald-400 tabular-nums">
+                    <div className="text-right text-xs font-extrabold text-emerald-700 tabular-nums">
                         {b.mode_calcul === 'pourcentage'
                             ? `-${b.valeur} %`
                             : `-${Number(b.valeur).toLocaleString('fr-FR')} FCFA`}
@@ -1032,7 +1019,7 @@ export default function FinancesIndex({
             },
             header: 'N° Reçu',
             cell: ({ row }) => (
-                <span className="font-mono font-bold text-xs text-slate-800 dark:text-slate-200">
+                <span className="font-mono font-bold text-xs text-slate-800">
                     {row.original.reference_recu}
                 </span>
             ),
@@ -1062,7 +1049,7 @@ export default function FinancesIndex({
                 const classe = row.original.inscription?.classe?.nom ?? 'N/A';
                 return (
                     <div>
-                        <div className="font-semibold text-xs text-slate-800 dark:text-slate-200">
+                        <div className="font-semibold text-xs text-slate-800">
                             {eleve?.nom} {eleve?.prenom}
                         </div>
                         <div className="text-[10px] text-slate-500">
@@ -1138,7 +1125,7 @@ export default function FinancesIndex({
                             <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-7 text-xs px-2 flex items-center gap-1 text-amber-700 hover:text-amber-900 hover:bg-amber-50 dark:text-amber-300"
+                                className="h-7 text-xs px-2 flex items-center gap-1 text-amber-700 hover:text-amber-900 hover:bg-amber-50"
                                 title="Modifier ce versement"
                                 onClick={() => openEditVersementForm(v)}
                             >
@@ -1169,7 +1156,7 @@ export default function FinancesIndex({
             accessorKey: 'reference_recu',
             header: 'N° Reçu',
             cell: ({ row }) => (
-                <span className="font-mono font-bold text-xs text-slate-800 dark:text-slate-200">
+                <span className="font-mono font-bold text-xs text-slate-800">
                     {row.original.reference_recu}
                 </span>
             ),
@@ -1186,7 +1173,7 @@ export default function FinancesIndex({
             header: 'Payeur / Client',
             cell: ({ row }) => (
                 <div>
-                    <div className="font-semibold text-xs text-slate-800 dark:text-slate-200">
+                    <div className="font-semibold text-xs text-slate-800">
                         {row.original.payeur_nom}
                     </div>
                     {row.original.payeur_telephone && (
@@ -1401,20 +1388,20 @@ export default function FinancesIndex({
 
             <div className="flex flex-1 flex-col gap-6 p-4 sm:p-6 lg:p-8 min-w-0 w-full">
                 {/* En-tête de la page */}
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-200 pb-4">
                     <div className="min-w-0">
                         <div className="flex items-start sm:items-center gap-2.5 min-w-0">
                             <div className="p-2 bg-emerald-600 rounded-lg text-white shrink-0">
                                 <Wallet className="w-5 h-5" />
                             </div>
                             <div className="min-w-0">
-                                <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-slate-100">
+                                <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900">
                                     Finances & Paramétrage Scolaire
                                 </h1>
                                 <p className="text-xs text-slate-500 flex flex-wrap items-center gap-x-2 gap-y-0.5">
                                     <span>
                                         Établissement :{' '}
-                                        <strong className="text-slate-800 dark:text-slate-200">
+                                        <strong className="text-slate-800">
                                             {currentEtablissement?.nom}
                                         </strong>
                                     </span>
@@ -1434,27 +1421,26 @@ export default function FinancesIndex({
                         </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                    <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto min-w-0">
                         {/* Sélecteur d'établissement rapide pour le Super-Admin multi-campus */}
                         {isSuperAdmin && etablissements.length > 1 && (
-                            <Select
-                                value={currentEtablissement ? String(currentEtablissement.id) : ''}
-                                onValueChange={handleChangeEtablissement}
-                            >
-                                <SelectTrigger className="h-9 w-full sm:w-56 text-xs font-semibold bg-white dark:bg-slate-900">
-                                    <div className="flex items-center gap-1.5 truncate">
-                                        <Building2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                                        <SelectValue placeholder="Choisir un établissement..." />
-                                    </div>
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {etablissements.map((et) => (
-                                        <SelectItem key={et.id} value={String(et.id)}>
-                                            {et.nom}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <div className="w-full sm:w-64 min-w-0">
+                                <SearchableSelect
+                                    options={etablissements.map((et) => ({
+                                        value: String(et.id),
+                                        label: et.nom,
+                                        description: et.code ? `Code : ${et.code}` : undefined,
+                                    }))}
+                                    value={currentEtablissement ? String(currentEtablissement.id) : ''}
+                                    onValueChange={(val) => {
+                                        if (val) handleChangeEtablissement(val);
+                                    }}
+                                    placeholder="Choisir un établissement..."
+                                    searchPlaceholder="Rechercher un établissement..."
+                                    emptyMessage="Aucun établissement trouvé."
+                                    className="h-9 text-xs font-semibold bg-white"
+                                />
+                            </div>
                         )}
 
                         {/* Bouton d'accès au Centre dédié des États & Rapports PDF */}
@@ -1462,7 +1448,7 @@ export default function FinancesIndex({
                             <Button
                                 asChild
                                 variant="outline"
-                                className="text-xs h-9 font-semibold flex items-center gap-1.5 border-sky-300 text-sky-800 hover:bg-sky-50 dark:border-sky-800 dark:text-sky-300 shadow-2xs"
+                                className="text-xs h-9 font-semibold flex items-center gap-1.5 border-sky-300 text-sky-800 hover:bg-sky-50 shadow-2xs"
                             >
                                 <Link href="/administration/finances/etats">
                                     <Printer className="w-4 h-4 shrink-0 text-sky-600" />
@@ -1488,7 +1474,7 @@ export default function FinancesIndex({
 
                 {/* Cartes KPIs des recettes du jour */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5 gap-3">
-                    <Card className="border-slate-200 dark:border-slate-800 bg-emerald-50/40 dark:bg-emerald-950/20">
+                    <Card className="border-slate-200 bg-emerald-50/40">
                         <CardContent className="p-3">
                             <div className="flex items-center justify-between gap-2">
                                 <span className="text-xs font-semibold text-slate-500">
@@ -1496,7 +1482,7 @@ export default function FinancesIndex({
                                 </span>
                                 <DollarSign className="w-4 h-4 text-emerald-600 shrink-0" />
                             </div>
-                            <div className="text-base sm:text-lg font-extrabold text-emerald-700 dark:text-emerald-400 mt-1 tabular-nums">
+                            <div className="text-base sm:text-lg font-extrabold text-emerald-700 mt-1 tabular-nums">
                                 {Number(journalDuJour.total_general).toLocaleString('fr-FR')} FCFA
                             </div>
                             <span className="text-[10px] text-slate-500">
@@ -1505,31 +1491,31 @@ export default function FinancesIndex({
                         </CardContent>
                     </Card>
 
-                    <Card className="border-slate-200 dark:border-slate-800">
+                    <Card className="border-slate-200">
                         <CardContent className="p-3">
                             <div className="flex items-center justify-between gap-2">
                                 <span className="text-xs font-semibold text-slate-500">Espèces</span>
                                 <Receipt className="w-4 h-4 text-slate-500 shrink-0" />
                             </div>
-                            <div className="text-sm sm:text-base font-bold text-slate-800 dark:text-slate-200 mt-1 tabular-nums">
+                            <div className="text-sm sm:text-base font-bold text-slate-800 mt-1 tabular-nums">
                                 {Number(journalDuJour.total_especes).toLocaleString('fr-FR')} FCFA
                             </div>
                         </CardContent>
                     </Card>
 
-                    <Card className="border-slate-200 dark:border-slate-800">
+                    <Card className="border-slate-200">
                         <CardContent className="p-3">
                             <div className="flex items-center justify-between gap-2">
                                 <span className="text-xs font-semibold text-slate-500">Mobile Money</span>
                                 <Smartphone className="w-4 h-4 text-amber-600 shrink-0" />
                             </div>
-                            <div className="text-sm sm:text-base font-bold text-slate-800 dark:text-slate-200 mt-1 tabular-nums">
+                            <div className="text-sm sm:text-base font-bold text-slate-800 mt-1 tabular-nums">
                                 {Number(journalDuJour.total_mobile_money).toLocaleString('fr-FR')} FCFA
                             </div>
                         </CardContent>
                     </Card>
 
-                    <Card className="border-slate-200 dark:border-slate-800">
+                    <Card className="border-slate-200">
                         <CardContent className="p-3">
                             <div className="flex items-center justify-between gap-2">
                                 <span className="text-xs font-semibold text-slate-500">
@@ -1537,7 +1523,7 @@ export default function FinancesIndex({
                                 </span>
                                 <CreditCard className="w-4 h-4 text-sky-600 shrink-0" />
                             </div>
-                            <div className="text-sm sm:text-base font-bold text-slate-800 dark:text-slate-200 mt-1 tabular-nums">
+                            <div className="text-sm sm:text-base font-bold text-slate-800 mt-1 tabular-nums">
                                 {(
                                     Number(journalDuJour.total_virements) +
                                     Number(journalDuJour.total_cheques)
@@ -1548,10 +1534,10 @@ export default function FinancesIndex({
                     </Card>
 
                     <Card
-                        className={`sm:col-span-2 lg:col-span-1 border-slate-200 dark:border-slate-800 ${
+                        className={`sm:col-span-2 lg:col-span-1 border-slate-200 ${
                             journalDuJour.est_cloture
-                                ? 'bg-slate-100 dark:bg-slate-900'
-                                : 'bg-amber-50/50 dark:bg-amber-950/20'
+                                ? 'bg-slate-100'
+                                : 'bg-amber-50/50'
                         }`}
                     >
                         <CardContent className="p-3 flex flex-col justify-between h-full">
@@ -1585,7 +1571,7 @@ export default function FinancesIndex({
                 </div>
 
                 {/* 6 Onglets essentiels alignés par ordre logique */}
-                <div className="flex items-center overflow-x-auto overscroll-x-contain border-b border-slate-200 dark:border-slate-800 gap-1 sm:gap-2 text-xs sm:text-sm font-medium max-w-full scrollbar-none">
+                <div className="flex items-center overflow-x-auto overscroll-x-contain border-b border-slate-200 gap-1 sm:gap-2 text-xs sm:text-sm font-medium max-w-full scrollbar-none">
                     <button
                         onClick={() => setActiveTab('types_frais')}
                         className={`pb-2.5 px-3 whitespace-nowrap shrink-0 flex items-center gap-1.5 border-b-2 transition-colors cursor-pointer ${
@@ -1657,8 +1643,8 @@ export default function FinancesIndex({
                 {/* ONGLET 01 : CATALOGUE DES FRAIS + SOUS-MODULE CATÉGORIES DE FRAIS */}
                 {activeTab === 'types_frais' && (
                     <div className="space-y-4">
-                        <div className="relative overflow-hidden rounded-xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/80 dark:border-emerald-800/40 p-4 sm:p-5 shadow-xs">
-                            <div className="absolute right-4 -top-3 text-7xl sm:text-8xl font-black text-emerald-900/10 dark:text-emerald-300/5 select-none pointer-events-none font-mono">
+                        <div className="relative overflow-hidden rounded-xl bg-emerald-50/50 border border-emerald-200/80 p-4 sm:p-5 shadow-xs">
+                            <div className="absolute right-4 -top-3 text-7xl sm:text-8xl font-black text-emerald-900/10 select-none pointer-events-none font-mono">
                                 01
                             </div>
                             <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -1666,7 +1652,7 @@ export default function FinancesIndex({
                                     <Badge className="bg-emerald-600 text-white text-[10px] font-bold uppercase tracking-wider">
                                         Configuration des Frais
                                     </Badge>
-                                    <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100 mt-1 flex items-center gap-2">
+                                    <h3 className="text-base sm:text-lg font-bold text-slate-900 mt-1 flex items-center gap-2">
                                         <Tag className="w-5 h-5 text-emerald-600 shrink-0" />
                                         Catalogue des Frais ({typesFrais.length})
                                     </h3>
@@ -1688,13 +1674,13 @@ export default function FinancesIndex({
                         </div>
 
                         {/* SOUS-MODULE LÉGER : CATÉGORIES DE FRAIS (Libellé + Description uniquement) */}
-                        <Card className="border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs">
+                        <Card className="border-slate-200 bg-white shadow-xs">
                             <CardContent className="p-3.5 sm:p-4 space-y-3">
                                 <div className="flex flex-wrap items-center justify-between gap-2">
                                     <div className="flex items-center gap-2">
                                         <FolderPlus className="w-4 h-4 text-emerald-600 shrink-0" />
                                         <div>
-                                            <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                                            <h4 className="text-xs font-bold text-slate-900">
                                                 Sous-module : Catégories de Frais ({categoriesFrais.length})
                                             </h4>
                                         </div>
@@ -1731,7 +1717,7 @@ export default function FinancesIndex({
                                 {isCategorieFormOpen && (
                                     <form
                                         onSubmit={handleSaveCategorieFrais}
-                                        className="p-3 rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50/40 dark:bg-emerald-950/20 grid grid-cols-1 md:grid-cols-12 gap-2.5 items-end"
+                                        className="p-3 rounded-lg border border-emerald-200 bg-emerald-50/40 grid grid-cols-1 md:grid-cols-12 gap-2.5 items-end"
                                     >
                                         <div className="md:col-span-4 space-y-1">
                                             <Label htmlFor="sub_cat_nom" className="text-[11px] font-semibold">
@@ -1742,7 +1728,7 @@ export default function FinancesIndex({
                                                 placeholder="Ex: Scolarité, Frais d'Examen, Fête..."
                                                 value={catNom}
                                                 onChange={(e) => setCatNom(e.target.value)}
-                                                className="h-8 text-xs bg-white dark:bg-slate-900"
+                                                className="h-8 text-xs bg-white"
                                                 required
                                             />
                                         </div>
@@ -1755,7 +1741,7 @@ export default function FinancesIndex({
                                                 placeholder="Ex: Regroupe inscription et tranches, ou CEPE / BEPC..."
                                                 value={catDescription}
                                                 onChange={(e) => setCatDescription(e.target.value)}
-                                                className="h-8 text-xs bg-white dark:bg-slate-900"
+                                                className="h-8 text-xs bg-white"
                                             />
                                         </div>
                                         <div className="md:col-span-3 flex items-center justify-end gap-1.5">
@@ -1794,8 +1780,8 @@ export default function FinancesIndex({
                                         onClick={() => setCatalogueCategorieFilter('all')}
                                         className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors cursor-pointer ${
                                             catalogueCategorieFilter === 'all'
-                                                ? 'bg-slate-900 text-white border-slate-900 dark:bg-slate-100 dark:text-slate-900'
-                                                : 'bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100'
+                                                ? 'bg-slate-900 text-white border-slate-900'
+                                                : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
                                         }`}
                                     >
                                         Tous les frais ({typesFrais.length})
@@ -1814,7 +1800,7 @@ export default function FinancesIndex({
                                                 className={`inline-flex items-center rounded-lg border text-xs transition-all ${
                                                     isSelected
                                                         ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
-                                                        : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:border-emerald-400'
+                                                        : 'bg-white text-slate-700 border-slate-200 hover:border-emerald-400'
                                                 }`}
                                             >
                                                 <button
@@ -1827,7 +1813,7 @@ export default function FinancesIndex({
                                                         className={`text-[10px] px-1.5 py-0 rounded-full font-bold tabular-nums ${
                                                             isSelected
                                                                 ? 'bg-white/20 text-white'
-                                                                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                                                                : 'bg-slate-100 text-slate-600'
                                                         }`}
                                                     >
                                                         {nbFrais}
@@ -1943,8 +1929,8 @@ export default function FinancesIndex({
                 {/* ONGLET 02 : GRILLE PAR NIVEAU & ESPACE PLEINE LARGEUR D'AFFECTATION */}
                 {activeTab === 'tarifs' && (
                     <div className="space-y-4">
-                        <div className="relative overflow-hidden rounded-xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/80 dark:border-emerald-800/40 p-4 sm:p-5 shadow-xs">
-                            <div className="absolute right-4 -top-3 text-7xl sm:text-8xl font-black text-emerald-900/10 dark:text-emerald-300/5 select-none pointer-events-none font-mono">
+                        <div className="relative overflow-hidden rounded-xl bg-emerald-50/50 border border-emerald-200/80 p-4 sm:p-5 shadow-xs">
+                            <div className="absolute right-4 -top-3 text-7xl sm:text-8xl font-black text-emerald-900/10 select-none pointer-events-none font-mono">
                                 02
                             </div>
                             <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
@@ -1952,7 +1938,7 @@ export default function FinancesIndex({
                                     <Badge className="bg-emerald-600 text-white text-[10px] font-bold uppercase tracking-wider">
                                         Grille par Niveau
                                     </Badge>
-                                    <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100 mt-1 flex items-center gap-2">
+                                    <h3 className="text-base sm:text-lg font-bold text-slate-900 mt-1 flex items-center gap-2">
                                         <Layers className="w-5 h-5 text-emerald-600 shrink-0" />
                                         {grilleMode === 'affectation'
                                             ? 'Rattacher des Frais du Catalogue aux Niveaux'
@@ -1978,7 +1964,7 @@ export default function FinancesIndex({
                                                     setGrilleMode('liste');
                                                     setPreselectedTypeFraisForNiveaux(null);
                                                 }}
-                                                className="text-xs h-9 font-semibold border-slate-300 dark:border-slate-700 flex items-center gap-1.5 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 hover:bg-slate-100"
+                                                className="text-xs h-9 font-semibold border-slate-300 flex items-center gap-1.5 bg-white text-slate-700 hover:bg-slate-100"
                                             >
                                                 <ArrowLeft className="w-4 h-4 shrink-0" />
                                                 Revenir à la Grille
@@ -2009,65 +1995,59 @@ export default function FinancesIndex({
                         ) : (
                             <>
                                 {/* Barre de filtrage par Niveau + par Catégorie & Synthèse par Catégorie */}
-                                <Card className="border-slate-200 dark:border-slate-800">
+                                <Card className="border-slate-200">
                                     <CardContent className="p-4 space-y-4">
                                         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1 max-w-xl">
-                                                <div className="space-y-1">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1 max-w-xl min-w-0">
+                                                <div className="space-y-1 min-w-0">
                                                     <Label className="text-[11px] font-semibold text-slate-600">
                                                         Filtrer par Niveau Pédagogique
                                                     </Label>
-                                                    <Select
+                                                    <SearchableSelect
+                                                        options={[
+                                                            { value: 'all', label: `Tous les niveaux (${niveaux.length})` },
+                                                            ...niveaux.map((n) => ({
+                                                                value: String(n.id),
+                                                                label: n.nom,
+                                                            })),
+                                                        ]}
                                                         value={grilleNiveauFilter}
-                                                        onValueChange={setGrilleNiveauFilter}
-                                                    >
-                                                        <SelectTrigger className="h-9 text-xs">
-                                                            <SelectValue placeholder="Tous les niveaux" />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            <SelectItem value="all">
-                                                                Tous les niveaux ({niveaux.length})
-                                                            </SelectItem>
-                                                            {niveaux.map((n) => (
-                                                                <SelectItem key={n.id} value={String(n.id)}>
-                                                                    {n.nom}
-                                                                </SelectItem>
-                                                            ))}
-                                                        </SelectContent>
-                                                    </Select>
+                                                        onValueChange={(val) => setGrilleNiveauFilter(val || 'all')}
+                                                        placeholder="Tous les niveaux"
+                                                        searchPlaceholder="Rechercher un niveau..."
+                                                        emptyMessage="Aucun niveau trouvé."
+                                                        className="h-9 text-xs font-normal"
+                                                    />
                                                 </div>
 
-                                                <div className="space-y-1">
+                                                <div className="space-y-1 min-w-0">
                                                     <Label className="text-[11px] font-semibold text-slate-600">
                                                         Filtrer par Catégorie de Frais
                                                     </Label>
-                                                    <Select
+                                                    <SearchableSelect
+                                                        options={[
+                                                            { value: 'all', label: 'Toutes les catégories' },
+                                                            ...categoriesFrais.map((c) => ({
+                                                                value: String(c.id),
+                                                                label: c.nom,
+                                                            })),
+                                                        ]}
                                                         value={grilleCategorieFilter}
-                                                        onValueChange={setGrilleCategorieFilter}
-                                                    >
-                                                        <SelectTrigger className="h-9 text-xs">
-                                                            <SelectValue placeholder="Toutes les catégories" />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            <SelectItem value="all">
-                                                                Toutes les catégories
-                                                            </SelectItem>
-                                                            {categoriesFrais.map((c) => (
-                                                                <SelectItem key={c.id} value={String(c.id)}>
-                                                                    {c.nom}
-                                                                </SelectItem>
-                                                            ))}
-                                                        </SelectContent>
-                                                    </Select>
+                                                        onValueChange={(val) => setGrilleCategorieFilter(val || 'all')}
+                                                        placeholder="Toutes les catégories"
+                                                        searchPlaceholder="Rechercher une catégorie..."
+                                                        emptyMessage="Aucune catégorie trouvée."
+                                                        className="h-9 text-xs font-normal"
+                                                    />
                                                 </div>
                                             </div>
 
                                             {totalObligatoireNiveauSelectionne !== null && nomNiveauFiltre && (
-                                                <div className="px-3.5 py-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-right">
-                                                    <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
+                                                <div className="px-3.5 py-2 rounded-lg bg-emerald-50 border border-emerald-200 text-right">
+                                                    <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">
                                                         Total Obligatoire • {nomNiveauFiltre}
                                                     </div>
-                                                    <div className="text-base font-black text-emerald-700 dark:text-emerald-400 tabular-nums">
+                                                    <div className="text-base font-black text-emerald-700 tabular-nums">
                                                         {totalObligatoireNiveauSelectionne.toLocaleString('fr-FR')}{' '}
                                                         FCFA / élève
                                                     </div>
@@ -2094,12 +2074,12 @@ export default function FinancesIndex({
                                                             }}
                                                             className={`text-left p-3 rounded-lg border transition-all cursor-pointer ${
                                                                 isCatSelected
-                                                                    ? 'border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/30'
-                                                                    : 'border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/50 hover:border-emerald-300'
+                                                                    ? 'border-emerald-500 bg-emerald-50/70'
+                                                                    : 'border-slate-200 bg-slate-50/60 hover:border-emerald-300'
                                                             }`}
                                                         >
                                                             <div className="flex items-center justify-between gap-1">
-                                                                <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
+                                                                <span className="text-xs font-bold text-slate-800 truncate">
                                                                     {cat.nom}
                                                                 </span>
                                                                 <Badge variant="outline" className="text-[10px] px-1.5 py-0">
@@ -2112,13 +2092,13 @@ export default function FinancesIndex({
                                                             {grilleNiveauFilter !== 'all' ? (
                                                                 <div className="mt-1.5">
                                                                     {cat.montantObligatoire > 0 && (
-                                                                        <div className="text-sm font-black text-emerald-700 dark:text-emerald-400 tabular-nums">
+                                                                        <div className="text-sm font-black text-emerald-700 tabular-nums">
                                                                             {cat.montantObligatoire.toLocaleString('fr-FR')}{' '}
                                                                             FCFA
                                                                         </div>
                                                                     )}
                                                                     {cat.montantOptionnel > 0 && (
-                                                                        <div className="text-[11px] font-semibold text-sky-700 dark:text-sky-400 tabular-nums">
+                                                                        <div className="text-[11px] font-semibold text-sky-700 tabular-nums">
                                                                             Optionnel :{' '}
                                                                             {cat.montantOptionnel.toLocaleString('fr-FR')}{' '}
                                                                             FCFA
@@ -2140,12 +2120,12 @@ export default function FinancesIndex({
                                 </Card>
 
                                 {/* Verrou de solvabilité */}
-                                <Card className="border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
+                                <Card className="border-slate-200 bg-slate-50">
                                     <CardContent className="p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                                         <div className="space-y-1 min-w-0">
                                             <div className="flex items-center gap-2">
                                                 <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
-                                                <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                                                <h4 className="text-sm font-bold text-slate-900">
                                                     Verrou de Solvabilité des Bulletins Scolaires
                                                 </h4>
                                             </div>
@@ -2197,8 +2177,8 @@ export default function FinancesIndex({
                 {/* ONGLET 03 : BOURSES & REMISES */}
                 {activeTab === 'bourses_remises' && (
                     <div className="space-y-4">
-                        <div className="relative overflow-hidden rounded-xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-800/40 p-4 sm:p-5 shadow-xs">
-                            <div className="absolute right-4 -top-3 text-7xl sm:text-8xl font-black text-amber-900/10 dark:text-amber-300/5 select-none pointer-events-none font-mono">
+                        <div className="relative overflow-hidden rounded-xl bg-amber-50/50 border border-amber-200/80 p-4 sm:p-5 shadow-xs">
+                            <div className="absolute right-4 -top-3 text-7xl sm:text-8xl font-black text-amber-900/10 select-none pointer-events-none font-mono">
                                 03
                             </div>
                             <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -2206,7 +2186,7 @@ export default function FinancesIndex({
                                     <Badge className="bg-amber-600 text-white text-[10px] font-bold uppercase tracking-wider">
                                         Bourses & Remises
                                     </Badge>
-                                    <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100 mt-1 flex items-center gap-2">
+                                    <h3 className="text-base sm:text-lg font-bold text-slate-900 mt-1 flex items-center gap-2">
                                         <Award className="w-5 h-5 text-amber-600 shrink-0" />
                                         Modèles de Bourses, Bonus & Remises ({boursesRemises.length})
                                     </h3>
@@ -2236,8 +2216,8 @@ export default function FinancesIndex({
                 {/* ONGLET 04 : HISTORIQUE DES VERSEMENTS SCOLARITÉ */}
                 {activeTab === 'versements' && (
                     <div className="space-y-4">
-                        <div className="relative overflow-hidden rounded-xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/80 dark:border-emerald-800/40 p-4 sm:p-5 shadow-xs">
-                            <div className="absolute right-4 -top-3 text-7xl sm:text-8xl font-black text-emerald-900/10 dark:text-emerald-300/5 select-none pointer-events-none font-mono">
+                        <div className="relative overflow-hidden rounded-xl bg-emerald-50/50 border border-emerald-200/80 p-4 sm:p-5 shadow-xs">
+                            <div className="absolute right-4 -top-3 text-7xl sm:text-8xl font-black text-emerald-900/10 select-none pointer-events-none font-mono">
                                 04
                             </div>
                             <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -2245,7 +2225,7 @@ export default function FinancesIndex({
                                     <Badge className="bg-emerald-600 text-white text-[10px] font-bold uppercase tracking-wider">
                                         Versements Scolarité
                                     </Badge>
-                                    <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100 mt-1 flex items-center gap-2">
+                                    <h3 className="text-base sm:text-lg font-bold text-slate-900 mt-1 flex items-center gap-2">
                                         <Receipt className="w-5 h-5 text-emerald-600 shrink-0" />
                                         Historique des Versements Scolarité ({versements.length})
                                     </h3>
@@ -2266,8 +2246,8 @@ export default function FinancesIndex({
 
                         {/* Barre d'annulation groupée (ex: annuler les 8 opérations d'un élève en une seule fois) */}
                         {canCancelVersements && selectedValidVersements.length > 0 && (
-                            <div className="p-3.5 rounded-xl border border-red-300 dark:border-red-900 bg-red-50/80 dark:bg-red-950/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
-                                <div className="flex items-center gap-2.5 text-xs text-red-950 dark:text-red-200">
+                            <div className="p-3.5 rounded-xl border border-red-300 bg-red-50/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+                                <div className="flex items-center gap-2.5 text-xs text-red-950">
                                     <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
                                     <div>
                                         <span className="font-bold">
@@ -2289,7 +2269,7 @@ export default function FinancesIndex({
                                         variant="outline"
                                         size="sm"
                                         onClick={() => setSelectedVersementIds([])}
-                                        className="h-8 text-xs bg-white dark:bg-slate-900"
+                                        className="h-8 text-xs bg-white"
                                     >
                                         Tout désélectionner
                                     </Button>
@@ -2310,17 +2290,17 @@ export default function FinancesIndex({
                         {versementToEdit && canEditVersements && (
                             <form
                                 onSubmit={handleSaveEditVersement}
-                                className="p-4 rounded-xl bg-amber-50/80 dark:bg-amber-950/30 border-2 border-amber-300 dark:border-amber-800 space-y-3 text-xs shadow-xs"
+                                className="p-4 rounded-xl bg-amber-50/80 border-2 border-amber-300 space-y-3 text-xs shadow-xs"
                             >
                                 <div className="flex flex-wrap items-center justify-between gap-2">
                                     <div>
-                                        <h4 className="font-bold text-amber-950 dark:text-amber-100 flex items-center gap-1.5">
+                                        <h4 className="font-bold text-amber-950 flex items-center gap-1.5">
                                             <Edit className="w-4 h-4 text-amber-700" />
                                             Modifier le Reçu N° {versementToEdit.reference_recu} —{' '}
                                             {versementToEdit.compte_financier?.eleve?.nom}{' '}
                                             {versementToEdit.compte_financier?.eleve?.prenom}
                                         </h4>
-                                        <p className="text-[11px] text-amber-800 dark:text-amber-300">
+                                        <p className="text-[11px] text-amber-800">
                                             Montant initial :{' '}
                                             <strong>
                                                 {Number(versementToEdit.montant_total).toLocaleString('fr-FR')} FCFA
@@ -2347,7 +2327,7 @@ export default function FinancesIndex({
                                             min="1"
                                             value={editVersMontant}
                                             onChange={(e) => setEditVersMontant(e.target.value)}
-                                            className="h-9 bg-white dark:bg-slate-900 font-bold tabular-nums"
+                                            className="h-9 bg-white font-bold tabular-nums"
                                             required
                                         />
                                     </div>
@@ -2360,7 +2340,7 @@ export default function FinancesIndex({
                                             max={formatDateForInput(new Date())}
                                             value={formatDateForInput(editVersDate)}
                                             onChange={(e) => setEditVersDate(e.target.value)}
-                                            className="h-9 bg-white dark:bg-slate-900 text-xs"
+                                            className="h-9 bg-white text-xs"
                                             required
                                         />
                                     </div>
@@ -2370,7 +2350,7 @@ export default function FinancesIndex({
                                             value={editVersMode}
                                             onValueChange={(v: ModePaiement) => setEditVersMode(v)}
                                         >
-                                            <SelectTrigger className="h-9 bg-white dark:bg-slate-900 text-xs">
+                                            <SelectTrigger className="h-9 bg-white text-xs">
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -2387,7 +2367,7 @@ export default function FinancesIndex({
                                             value={editVersPayeur}
                                             onChange={(e) => setEditVersPayeur(e.target.value)}
                                             placeholder="Nom du déposant"
-                                            className="h-9 bg-white dark:bg-slate-900 text-xs"
+                                            className="h-9 bg-white text-xs"
                                         />
                                     </div>
                                 </div>
@@ -2426,8 +2406,8 @@ export default function FinancesIndex({
                 {/* ONGLET 05 : RECETTES DIVERSES */}
                 {activeTab === 'reglements_divers' && (
                     <div className="space-y-4">
-                        <div className="relative overflow-hidden rounded-xl bg-sky-50/50 dark:bg-sky-950/20 border border-sky-200/80 dark:border-sky-800/40 p-4 sm:p-5 shadow-xs">
-                            <div className="absolute right-4 -top-3 text-7xl sm:text-8xl font-black text-sky-900/10 dark:text-sky-300/5 select-none pointer-events-none font-mono">
+                        <div className="relative overflow-hidden rounded-xl bg-sky-50/50 border border-sky-200/80 p-4 sm:p-5 shadow-xs">
+                            <div className="absolute right-4 -top-3 text-7xl sm:text-8xl font-black text-sky-900/10 select-none pointer-events-none font-mono">
                                 05
                             </div>
                             <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -2435,7 +2415,7 @@ export default function FinancesIndex({
                                     <Badge className="bg-sky-600 text-white text-[10px] font-bold uppercase tracking-wider">
                                         Recettes Diverses
                                     </Badge>
-                                    <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100 mt-1 flex items-center gap-2">
+                                    <h3 className="text-base sm:text-lg font-bold text-slate-900 mt-1 flex items-center gap-2">
                                         <Wallet className="w-5 h-5 text-sky-600 shrink-0" />
                                         Recettes Diverses & Encaissements Libres ({reglementsDivers.length})
                                     </h3>
@@ -2445,11 +2425,11 @@ export default function FinancesIndex({
                                         variant="outline"
                                         size="sm"
                                         asChild
-                                        className="h-9 text-xs border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 gap-1.5 cursor-pointer shadow-xs bg-white dark:bg-slate-900"
+                                        className="h-9 text-xs border-slate-300 hover:bg-slate-100 gap-1.5 cursor-pointer shadow-xs bg-white"
                                         title="Consulter et imprimer l'état filtrable des recettes diverses dans le Centre des États"
                                     >
                                         <Link href={`/administration/finances/etats?type=recettes_diverses&etablissement_id=${currentEtablissement?.id ?? ''}&annee_scolaire_id=${currentAnnee?.id ?? ''}`}>
-                                            <Printer className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
+                                            <Printer className="w-3.5 h-3.5 text-slate-600" />
                                             <span>État des Recettes Diverses</span>
                                         </Link>
                                     </Button>
@@ -2479,8 +2459,8 @@ export default function FinancesIndex({
                 {/* ONGLET 06 : JOURNAL & CLÔTURES */}
                 {activeTab === 'journal' && (
                     <div className="space-y-4">
-                        <div className="relative overflow-hidden rounded-xl bg-slate-100/80 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 sm:p-5 shadow-xs">
-                            <div className="absolute right-4 -top-3 text-7xl sm:text-8xl font-black text-slate-900/10 dark:text-slate-300/5 select-none pointer-events-none font-mono">
+                        <div className="relative overflow-hidden rounded-xl bg-slate-100/80 border border-slate-200 p-4 sm:p-5 shadow-xs">
+                            <div className="absolute right-4 -top-3 text-7xl sm:text-8xl font-black text-slate-900/10 select-none pointer-events-none font-mono">
                                 06
                             </div>
                             <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -2488,8 +2468,8 @@ export default function FinancesIndex({
                                     <Badge className="bg-slate-800 text-white text-[10px] font-bold uppercase tracking-wider">
                                         Journal & Clôtures
                                     </Badge>
-                                    <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100 mt-1 flex items-center gap-2">
-                                        <Calendar className="w-5 h-5 text-slate-700 dark:text-slate-300 shrink-0" />
+                                    <h3 className="text-base sm:text-lg font-bold text-slate-900 mt-1 flex items-center gap-2">
+                                        <Calendar className="w-5 h-5 text-slate-700 shrink-0" />
                                         Historique des Clôtures Journalières ({historiqueClotures.length})
                                     </h3>
                                 </div>

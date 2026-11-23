@@ -206,7 +206,7 @@ export default function ModeleBourseModal({
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
             <DialogContent className="sm:max-w-lg max-h-[92vh] overflow-y-auto">
                 <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2 text-slate-900 dark:text-slate-100">
+                    <DialogTitle className="flex items-center gap-2 text-slate-900">
                         <Award className="w-5 h-5 text-emerald-600 shrink-0" />
                         {isEditing ? 'Modifier le Modèle' : 'Nouveau Modèle de Bourse ou Remise'}
                     </DialogTitle>
@@ -255,7 +255,7 @@ export default function ModeleBourseModal({
                                 className="h-9"
                             />
                             {!nom.trim() && libelleSuggestion && (
-                                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                                <p className="text-[11px] text-slate-500">
                                     Sera enregistré sous « {libelleSuggestion} » si laissé vide.
                                 </p>
                             )}
@@ -302,15 +302,15 @@ export default function ModeleBourseModal({
 
                     {/* Base de calcul (pour les pourcentages) */}
                     {modeCalcul === 'pourcentage' && (
-                        <div className="space-y-1.5 min-w-0 rounded-lg border border-emerald-200 dark:border-emerald-900 bg-emerald-50/50 dark:bg-emerald-950/20 p-3">
-                            <Label htmlFor="baseCalcul" className="text-xs font-semibold text-emerald-900 dark:text-emerald-200">
+                        <div className="space-y-1.5 min-w-0 rounded-lg border border-emerald-200 bg-emerald-50/50 p-3">
+                            <Label htmlFor="baseCalcul" className="text-xs font-semibold text-emerald-900">
                                 Base de calcul du pourcentage <span className="text-red-500">*</span>
                             </Label>
                             <Select
                                 value={baseCalcul}
                                 onValueChange={(val: BaseCalculRemise) => setBaseCalcul(val)}
                             >
-                                <SelectTrigger id="baseCalcul" className="h-9 bg-white dark:bg-slate-900">
+                                <SelectTrigger id="baseCalcul" className="h-9 bg-white">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -322,7 +322,7 @@ export default function ModeleBourseModal({
                                     </SelectItem>
                                 </SelectContent>
                             </Select>
-                            <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-snug">
+                            <p className="text-[11px] text-slate-600 leading-snug">
                                 {baseCalcul === 'total_scolarite'
                                     ? 'Le pourcentage est calculé sur la scolarité totale de l’élève (ex : 4 % de 75 000 = 3 000 FCFA), puis déduit de la tranche choisie.'
                                     : 'Le pourcentage est calculé uniquement sur le montant de la tranche où la remise est imputée.'}
@@ -349,7 +349,7 @@ export default function ModeleBourseModal({
                                 <SelectItem value="proportionnelle">Répartition proportionnelle</SelectItem>
                             </SelectContent>
                         </Select>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                        <p className="text-[11px] text-slate-500">
                             Tranche sur laquelle la réduction est déduite par défaut (ajustable au cas par cas dans le dossier de l'élève).
                         </p>
                     </div>
@@ -362,7 +362,7 @@ export default function ModeleBourseModal({
                                 onChange={(e) => setIsActive(e.target.checked)}
                                 className="mt-0.5 shrink-0 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
                             />
-                            <span className="leading-snug text-slate-700 dark:text-slate-300">
+                            <span className="leading-snug text-slate-700">
                                 Modèle actif et disponible dans les dossiers élèves
                             </span>
                         </label>

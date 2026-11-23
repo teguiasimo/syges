@@ -224,7 +224,7 @@ export function LoginSlideModal({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[560px] max-h-[92vh] overflow-y-auto">
+            <DialogContent className="sm:max-w-140 max-h-[92vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>
                         {isEditing ? 'Modifier le slide du carrousel' : 'Ajouter un slide personnalisé'}
@@ -260,7 +260,7 @@ export function LoginSlideModal({
                                         alt={titre || 'Aperçu du slide'}
                                         className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
                                     />
-                                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent flex items-end justify-between p-3">
+                                    <div className="absolute inset-0 bg-linear-to-t from-slate-950/80 via-slate-950/20 to-transparent flex items-end justify-between p-3">
                                         <div className="text-left text-white pr-3 min-w-0">
                                             <p className="text-xs font-semibold truncate">
                                                 {titre.trim() || 'Titre du slide'}

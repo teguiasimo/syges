@@ -3,23 +3,14 @@ import { type ColumnDef } from '@tanstack/react-table';
 import {
     AlertTriangle,
     Award,
-    BookOpen,
-    Check,
     CheckCircle2,
     Clock,
-    Edit2,
-    Eye,
     FileSpreadsheet,
-    Filter,
     Layers,
     Plus,
-    RefreshCw,
     School,
-    SlidersHorizontal,
-    Trash2,
     TrendingDown,
     TrendingUp,
-    UserCheck,
     Users,
     X,
 } from 'lucide-react';
@@ -43,6 +34,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { useTranslation } from '@/contexts/language-context';
 import { formatAnneeLabel } from '@/lib/utils';
 import {
@@ -75,7 +67,7 @@ export default function AttributionsIndex({
     can,
     filters,
 }: AttributionsPageProps) {
-    const { t } = useTranslation();
+    const { t: _t } = useTranslation();
 
     // Onglet d'affichage : 'classes' | 'enseignants'
     const [activeTab, setActiveTab] = useState<'classes' | 'enseignants'>('classes');
@@ -210,7 +202,7 @@ export default function AttributionsIndex({
                                 {c.serie && (
                                     <>
                                         <span>•</span>
-                                        <span className="font-medium text-teal-600 dark:text-teal-400">
+                                        <span className="font-medium text-teal-600">
                                             Série {c.serie}
                                         </span>
                                     </>
@@ -237,13 +229,13 @@ export default function AttributionsIndex({
                                     }
                                 }}
                                 className={`flex items-center gap-2 text-left group p-1.5 rounded-lg transition-colors ${
-                                    can.manage ? 'hover:bg-amber-50 dark:hover:bg-amber-950/40 cursor-pointer' : ''
+                                    can.manage ? 'hover:bg-amber-50 cursor-pointer' : ''
                                 }`}
                                 title={can.manage ? `Cliquer pour modifier le ${titulaireLabel.toLowerCase()} de cette classe` : undefined}
                             >
                                 <Award className="size-4 text-amber-600 shrink-0 group-hover:scale-110 transition-transform" />
                                 <div className="text-xs">
-                                    <span className="font-semibold text-foreground block group-hover:text-amber-700 dark:group-hover:text-amber-400">
+                                    <span className="font-semibold text-foreground block group-hover:text-amber-700">
                                         {c.professeur_principal.nom} {c.professeur_principal.prenom}
                                     </span>
                                     <span className="text-[11px] text-muted-foreground font-mono">
@@ -337,7 +329,7 @@ export default function AttributionsIndex({
                             {/* Bouton vers la page dédiée de la grille de classe */}
                             <Link
                                 href={`/administration/attributions/grille?classe_id=${c.id}&annee_scolaire_id=${selectedAnneeId}`}
-                                className="inline-flex items-center justify-center h-8 px-2.5 rounded-md border border-teal-200 dark:border-teal-800 text-teal-700 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-950/50 text-xs font-semibold cursor-pointer transition-colors shadow-2xs"
+                                className="inline-flex items-center justify-center h-8 px-2.5 rounded-md border border-teal-200 text-teal-700 hover:bg-teal-50 text-xs font-semibold cursor-pointer transition-colors shadow-2xs"
                             >
                                 <Layers className="size-3.5 mr-1 text-teal-600" />
                                 Grille Classe
@@ -378,7 +370,7 @@ export default function AttributionsIndex({
                     const e = row.original;
                     return (
                         <div className="flex items-center gap-2.5">
-                            <div className="size-8 rounded-full bg-teal-100 dark:bg-teal-900/50 text-teal-700 dark:text-teal-300 font-bold text-xs flex items-center justify-center border border-teal-200 dark:border-teal-800">
+                            <div className="size-8 rounded-full bg-teal-100 text-teal-700 font-bold text-xs flex items-center justify-center border border-teal-200">
                                 {e.nom.slice(0, 1)}
                                 {e.prenom ? e.prenom.slice(0, 1) : ''}
                             </div>
@@ -438,7 +430,7 @@ export default function AttributionsIndex({
                             {/* Badge d'écart */}
                             {e.ecart !== 0 ? (
                                 <span className={`text-[11px] font-semibold inline-flex items-center gap-0.5 ${
-                                    e.ecart > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'
+                                    e.ecart > 0 ? 'text-amber-600' : 'text-rose-600'
                                 }`}>
                                     {e.ecart > 0 ? (
                                         <>
@@ -466,20 +458,20 @@ export default function AttributionsIndex({
                     const status = row.original.statut_charge;
                     if (status === 'surcharge') {
                         return (
-                            <Badge className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/50 dark:text-amber-400 dark:border-amber-800 text-[11px] font-medium">
+                            <Badge className="bg-amber-50 text-amber-700 border-amber-200 text-[11px] font-medium">
                                 Surcharge (Vacations)
                             </Badge>
                         );
                     }
                     if (status === 'sous_charge') {
                         return (
-                            <Badge className="bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/50 dark:text-rose-400 dark:border-rose-800 text-[11px] font-medium">
+                            <Badge className="bg-rose-50 text-rose-700 border-rose-200 text-[11px] font-medium">
                                 Sous-charge
                             </Badge>
                         );
                     }
                     return (
-                        <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-400 dark:border-emerald-800 text-[11px] font-medium">
+                        <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[11px] font-medium">
                             Équilibré
                         </Badge>
                     );
@@ -500,7 +492,7 @@ export default function AttributionsIndex({
                                     key={a.id}
                                     className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-muted text-[11px] font-medium text-foreground border"
                                 >
-                                    <span className="font-bold text-teal-600 dark:text-teal-400">{a.classe?.code || 'CL'}</span>
+                                    <span className="font-bold text-teal-600">{a.classe?.code || 'CL'}</span>
                                     <span>:</span>
                                     <span className="truncate max-w-17.5">{a.matiere?.code || 'DISC'}</span>
                                     <span className="text-muted-foreground">({Number(a.volume_horaire_reel)}h)</span>
@@ -533,7 +525,7 @@ export default function AttributionsIndex({
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                     <div>
                         <div className="flex items-center gap-3">
-                            <div className="p-2.5 rounded-xl bg-teal-50 dark:bg-teal-950/50 text-teal-600 dark:text-teal-400 border border-teal-200 dark:border-teal-900/50 shrink-0">
+                            <div className="p-2.5 rounded-xl bg-teal-50 text-teal-600 border border-teal-200 shrink-0">
                                 <Layers className="size-7" />
                             </div>
                             <div className="min-w-0">
@@ -576,7 +568,7 @@ export default function AttributionsIndex({
                                             )}
                                             <span>{formatAnneeLabel(a.nom, a.code, a.session)}</span>
                                             {a.is_current && (
-                                                <Badge variant="outline" className="text-[10px] px-1 py-0 border-emerald-300 text-emerald-700 bg-emerald-50 dark:bg-emerald-950/50 dark:text-emerald-300">
+                                                <Badge variant="outline" className="text-[10px] px-1 py-0 border-emerald-300 text-emerald-700 bg-emerald-50">
                                                     Active
                                                 </Badge>
                                             )}
@@ -589,7 +581,7 @@ export default function AttributionsIndex({
                         {/* Bouton vers la page dédiée de la grille de classe */}
                         <Link
                             href={`/administration/attributions/grille?annee_scolaire_id=${selectedAnneeId}`}
-                            className="inline-flex items-center justify-center h-9 px-3 rounded-md border border-teal-200 dark:border-teal-800 text-teal-700 dark:text-teal-400 bg-teal-50/50 dark:bg-teal-950/40 hover:bg-teal-100/60 font-semibold text-xs transition-colors shadow-2xs"
+                            className="inline-flex items-center justify-center h-9 px-3 rounded-md border border-teal-200 text-teal-700 bg-teal-50/50 hover:bg-teal-100/60 font-semibold text-xs transition-colors shadow-2xs"
                         >
                             <FileSpreadsheet className="size-4 mr-1.5 text-teal-600" />
                             Grille par classe
@@ -643,10 +635,10 @@ export default function AttributionsIndex({
                             Mobilisés
                         </span>
                         <div className="flex items-baseline justify-between">
-                            <span className="text-2xl font-bold text-teal-600 dark:text-teal-400">
+                            <span className="text-2xl font-bold text-teal-600">
                                 {stats.enseignantsMobilises} <span className="text-xs text-muted-foreground">/ {stats.totalEnseignants}</span>
                             </span>
-                            <Users className="size-4 text-teal-600 dark:text-teal-400" />
+                            <Users className="size-4 text-teal-600" />
                         </div>
                     </div>
 
@@ -691,7 +683,7 @@ export default function AttributionsIndex({
                         onClick={() => setActiveTab('classes')}
                         className={`pb-3 px-3 sm:px-4 font-semibold text-xs sm:text-sm transition-colors border-b-2 cursor-pointer flex items-center gap-2 shrink-0 whitespace-nowrap ${
                             activeTab === 'classes'
-                                ? 'border-teal-600 text-teal-600 dark:text-teal-400'
+                                ? 'border-teal-600 text-teal-600'
                                 : 'border-transparent text-muted-foreground hover:text-foreground'
                         }`}
                     >
@@ -704,7 +696,7 @@ export default function AttributionsIndex({
                         onClick={() => setActiveTab('enseignants')}
                         className={`pb-3 px-3 sm:px-4 font-semibold text-xs sm:text-sm transition-colors border-b-2 cursor-pointer flex items-center gap-2 shrink-0 whitespace-nowrap ${
                             activeTab === 'enseignants'
-                                ? 'border-teal-600 text-teal-600 dark:text-teal-400'
+                                ? 'border-teal-600 text-teal-600'
                                 : 'border-transparent text-muted-foreground hover:text-foreground'
                         }`}
                     >
@@ -722,23 +714,25 @@ export default function AttributionsIndex({
                             searchPlaceholder="Rechercher une classe, un niveau..."
                             initialPageSize={20}
                             filterSlot={
-                                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-                                    <Select
-                                        value={filterEtablissement}
-                                        onValueChange={handleEtablissementChange}
-                                    >
-                                        <SelectTrigger className="h-9 w-full sm:w-48 text-xs bg-card">
-                                            <SelectValue placeholder="Établissement" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="all">Tous les campus</SelectItem>
-                                            {etablissements.map((e) => (
-                                                <SelectItem key={e.id} value={String(e.id)}>
-                                                    {e.nom} ({e.code})
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto min-w-0">
+                                    <div className="w-full sm:w-56 min-w-0">
+                                        <SearchableSelect
+                                            options={[
+                                                { value: 'all', label: 'Tous les campus' },
+                                                ...etablissements.map((e) => ({
+                                                    value: String(e.id),
+                                                    label: e.nom,
+                                                    description: e.code,
+                                                })),
+                                            ]}
+                                            value={filterEtablissement}
+                                            onValueChange={(val) => handleEtablissementChange(val || 'all')}
+                                            placeholder="Établissement"
+                                            searchPlaceholder="Rechercher un établissement..."
+                                            emptyMessage="Aucun établissement trouvé."
+                                            className="h-9 text-xs font-normal bg-card"
+                                        />
+                                    </div>
                                 </div>
                             }
                         />
@@ -754,23 +748,25 @@ export default function AttributionsIndex({
                             searchPlaceholder="Rechercher un enseignant, matricule..."
                             initialPageSize={20}
                             filterSlot={
-                                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-                                    <Select
-                                        value={filterEtablissement}
-                                        onValueChange={handleEtablissementChange}
-                                    >
-                                        <SelectTrigger className="h-9 w-full sm:w-48 text-xs bg-card">
-                                            <SelectValue placeholder="Établissement" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="all">Tous les campus</SelectItem>
-                                            {etablissements.map((e) => (
-                                                <SelectItem key={e.id} value={String(e.id)}>
-                                                    {e.nom} ({e.code})
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto min-w-0">
+                                    <div className="w-full sm:w-56 min-w-0">
+                                        <SearchableSelect
+                                            options={[
+                                                { value: 'all', label: 'Tous les campus' },
+                                                ...etablissements.map((e) => ({
+                                                    value: String(e.id),
+                                                    label: e.nom,
+                                                    description: e.code,
+                                                })),
+                                            ]}
+                                            value={filterEtablissement}
+                                            onValueChange={(val) => handleEtablissementChange(val || 'all')}
+                                            placeholder="Établissement"
+                                            searchPlaceholder="Rechercher un établissement..."
+                                            emptyMessage="Aucun établissement trouvé."
+                                            className="h-9 text-xs font-normal bg-card"
+                                        />
+                                    </div>
 
                                     <Select
                                         value={filterCharge}
@@ -837,7 +833,7 @@ export default function AttributionsIndex({
             >
                 <DialogContent className="w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6">
                     <DialogHeader>
-                        <div className="size-10 rounded-full bg-rose-100 dark:bg-rose-950/50 text-rose-600 flex items-center justify-center mb-2">
+                        <div className="size-10 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mb-2">
                             <AlertTriangle className="size-5" />
                         </div>
                         <DialogTitle className="text-base sm:text-lg font-bold text-foreground">

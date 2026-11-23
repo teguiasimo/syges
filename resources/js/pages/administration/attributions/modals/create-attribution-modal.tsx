@@ -1,5 +1,5 @@
 import { useForm } from '@inertiajs/react';
-import { BookOpen, Check, Clock, Layers, Plus, School, UserCheck, Users } from 'lucide-react';
+import { Check, Clock, Layers, Plus } from 'lucide-react';
 import React, { useMemo } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -15,7 +15,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SearchableSelect, type SearchableOption } from '@/components/ui/searchable-select';
-import { truncateText } from '@/lib/utils';
 import type {
     ClasseWithAttributions,
     EnseignantWithWorkload,
@@ -205,7 +204,7 @@ export function CreateAttributionModal({
             <DialogContent className="sm:max-w-lg">
                 <DialogHeader className="border-b pb-4">
                     <DialogTitle className="text-base sm:text-lg font-bold flex items-center gap-2 text-foreground">
-                        <div className="p-2 rounded-lg bg-teal-50 dark:bg-teal-950/50 text-teal-600 border border-teal-200 dark:border-teal-900/50 shrink-0">
+                        <div className="p-2 rounded-lg bg-teal-50 text-teal-600 border border-teal-200 shrink-0">
                             <Layers className="size-5" />
                         </div>
                         <span>Affecter un Enseignant à un Cours</span>
@@ -332,7 +331,7 @@ export function CreateAttributionModal({
                                 variant="outline"
                                 disabled={processing}
                                 onClick={(e) => handleSubmit(e, true)}
-                                className="cursor-pointer text-xs border-teal-600/40 text-teal-700 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-950/50 font-medium flex-1 sm:flex-initial"
+                                className="cursor-pointer text-xs border-teal-600/40 text-teal-700 hover:bg-teal-50 font-medium flex-1 sm:flex-initial"
                             >
                                 <Plus className="size-3.5 mr-1 text-teal-600" />
                                 Affecter & Continuer

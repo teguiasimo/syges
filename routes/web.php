@@ -13,6 +13,7 @@ use App\Http\Controllers\Administration\DisciplineController;
 use App\Http\Controllers\Administration\DispenseEleveController;
 use App\Http\Controllers\Administration\DocumentOfficielController;
 use App\Http\Controllers\Administration\EleveController;
+use App\Http\Controllers\Administration\EleveDoublonController;
 use App\Http\Controllers\Administration\EmploiDuTempsController;
 use App\Http\Controllers\Administration\FinanceController;
 use App\Http\Controllers\Administration\InstitutionController;
@@ -31,6 +32,7 @@ use App\Http\Controllers\Portail\PortailParentController;
 use App\Models\Etablissement;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Storage;
 
 // Redirection par défaut de la racine vers la page de connexion dès le lancement
 Route::redirect('/', '/login')->name('home');
@@ -59,6 +61,25 @@ Route::get('favicon.svg', function () {
 Route::get('cartes-scolaires/verifier/{matricule}', [CarteScolaireController::class, 'verifier'])
     ->name('cartes-scolaires.verifier')
     ->middleware('throttle:60,1');
+
+/**
+ * Route de secours servant les photos d'identité des élèves depuis le disque `public`.
+ * Permet d'assurer l'affichage des portraits si le lien symbolique `public/storage`
+ * n'est pas résolu par le serveur web (ex: configuration Windows/Apache ou hébergement sans symlink).
+ */
+Route::get('storage/photos_eleves/{filename}', function (string $filename) {
+    $safeFilename = basename($filename);
+    $relativePath = 'photos_eleves/'.$safeFilename;
+    $disk = Storage::disk('public');
+
+    if (! $disk->exists($relativePath)) {
+        abort(404);
+    }
+
+    return response()->file($disk->path($relativePath), [
+        'Cache-Control' => 'public, max-age=604800',
+    ]);
+})->where('filename', '[A-Za-z0-9._-]+')->name('storage.photos-eleves');
 
 /**
  * Route permettant de basculer la langue de l'interface utilisateur.
@@ -141,10 +162,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 unset($queryParams['classe_id'], $queryParams['niveau_id'], $queryParams['cycle_id']);
             }
             $schemeHost = (isset($parts['scheme']) && isset($parts['host']))
-                ? $parts['scheme'] . '://' . $parts['host'] . (isset($parts['port']) ? ':' . $parts['port'] : '')
+                ? $parts['scheme'].'://'.$parts['host'].(isset($parts['port']) ? ':'.$parts['port'] : '')
                 : '';
             $newQuery = http_build_query($queryParams);
-            $targetUrl = $schemeHost . $path . ($newQuery !== '' ? '?' . $newQuery : '');
+            $targetUrl = $schemeHost.$path.($newQuery !== '' ? '?'.$newQuery : '');
 
             return redirect()->to($targetUrl)->with('success', $flashMessage);
         }
@@ -253,6 +274,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('eleves', [EleveController::class, 'index'])->name('eleves.index');
         Route::get('eleves/create', [EleveController::class, 'create'])->name('eleves.create');
         Route::get('eleves/reinscription', [EleveController::class, 'reinscriptionPage'])->name('eleves.reinscription');
+        // Gestion des doublons : détection temps réel, scan, prévisualisation des conflits et fusion atomique
+        Route::post('eleves/check-doublons', [EleveDoublonController::class, 'checkCreation'])->name('eleves.check-doublons');
+        Route::get('eleves/doublons', [EleveDoublonController::class, 'index'])->name('eleves.doublons.index');
+        Route::get('eleves/doublons/preview', [EleveDoublonController::class, 'preview'])->name('eleves.doublons.preview');
+        Route::post('eleves/doublons/merge', [EleveDoublonController::class, 'merge'])->name('eleves.doublons.merge');
+        Route::post('eleves/doublons/ignore', [EleveDoublonController::class, 'ignore'])->name('eleves.doublons.ignore');
+        Route::delete('eleves/doublons/ignore/{ignore}', [EleveDoublonController::class, 'unignore'])->name('eleves.doublons.unignore');
         Route::post('eleves', [EleveController::class, 'store'])->name('eleves.store');
         Route::put('eleves/{eleve}', [EleveController::class, 'update'])->name('eleves.update');
         Route::delete('eleves/{eleve}', [EleveController::class, 'destroy'])->name('eleves.destroy');

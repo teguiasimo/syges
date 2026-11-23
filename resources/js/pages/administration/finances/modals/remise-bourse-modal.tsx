@@ -75,7 +75,7 @@ export default function RemiseBourseModal({ open, onOpenChange, compte }: Remise
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-md">
                 <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2 text-lg font-bold text-slate-800 dark:text-slate-100">
+                    <DialogTitle className="flex items-center gap-2 text-lg font-bold text-slate-800">
                         <Award className="w-5 h-5 text-teal-600 shrink-0" />
                         Ajustement Financier de l'Élève
                     </DialogTitle>
@@ -86,7 +86,7 @@ export default function RemiseBourseModal({ open, onOpenChange, compte }: Remise
 
                 <form onSubmit={handleSubmit} className="space-y-4 min-w-0">
                     {/* Synthèse chiffrée adaptable aux petits écrans */}
-                    <div className="p-3 bg-slate-50 dark:bg-slate-900 rounded-lg border text-xs space-y-1.5">
+                    <div className="p-3 bg-slate-50 rounded-lg border text-xs space-y-1.5">
                         <div className="flex flex-wrap justify-between gap-2">
                             <span className="text-slate-500">Frais Annuels Bruts :</span>
                             <span className="font-semibold tabular-nums">{debitInitial.toLocaleString('fr-FR')} FCFA</span>
@@ -95,9 +95,9 @@ export default function RemiseBourseModal({ open, onOpenChange, compte }: Remise
                             <span className="text-slate-500">Total Déjà Versé :</span>
                             <span className="font-semibold text-emerald-600 tabular-nums">{Number(compte?.total_paye || 0).toLocaleString('fr-FR')} FCFA</span>
                         </div>
-                        <div className="flex flex-wrap justify-between gap-2 pt-1 border-t border-slate-200 dark:border-slate-800 font-bold">
-                            <span className="text-slate-700 dark:text-slate-300">Net Exigible Calculé :</span>
-                            <span className="text-teal-600 dark:text-teal-400 tabular-nums">{netPrevu.toLocaleString('fr-FR')} FCFA</span>
+                        <div className="flex flex-wrap justify-between gap-2 pt-1 border-t border-slate-200 font-bold">
+                            <span className="text-slate-700">Net Exigible Calculé :</span>
+                            <span className="text-teal-600 tabular-nums">{netPrevu.toLocaleString('fr-FR')} FCFA</span>
                         </div>
                     </div>
 

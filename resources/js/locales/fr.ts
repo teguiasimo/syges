@@ -108,7 +108,7 @@ export const fr = {
         bulletins_desc: 'Calcul des moyennes trimestrielles, rangs, mentions et génération des PDF officiels.',
 
         progression_title: 'Cahier de Texte & Progression Pédagogique',
-        progression_desc: 'Consignation des séances de cours, contrôle horaire ministériel et visa hiérarchique du censeur (Aurore §5.1.8).',
+        progression_desc: 'Consignation des séances de cours, contrôle horaire ministériel et visa hiérarchique du censeur.',
 
 
         finances_title: 'Finances & Tarifs',
@@ -121,7 +121,7 @@ export const fr = {
         discipline_desc: 'Pointage d\'assiduité, justifications, sanctions disciplinaires et contrôle de déchéance des mentions honorifiques.',
 
         archivage_title: 'Centre d\'Archivage & Rentrée Scolaire',
-        archivage_desc: 'Dossiers des élèves et personnels sortants, masques de numérotation et assistant de reconduction 1-clic (Aurore §3.15, §3.16).',
+        archivage_desc: 'Dossiers des élèves et personnels sortants, masques de numérotation et assistant de reconduction 1-clic.',
 
 
         emplois_du_temps_title: 'Emplois du Temps & Salles',

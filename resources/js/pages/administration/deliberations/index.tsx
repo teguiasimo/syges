@@ -2,23 +2,15 @@ import { Head, router } from '@inertiajs/react';
 import type { ColumnDef } from '@tanstack/react-table';
 import {
     AlertCircle,
-    AlertTriangle,
     Award,
     BookOpen,
-    Building2,
-    Calendar,
     Check,
-    CheckCircle2,
     Clock,
-    FileText,
     HelpCircle,
     Printer,
     Save,
-    Search,
     ShieldCheck,
-    SlidersHorizontal,
     UserCheck,
-    Users,
 } from 'lucide-react';
 import * as React from 'react';
 import { useState } from 'react';
@@ -36,6 +28,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
     Select,
     SelectContent,
@@ -113,7 +106,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 export default function DeliberationsIndex({
     etablissements,
     currentEtablissement,
-    annees,
+    annees: _annees,
     currentAnneeId,
     classes,
     selectedClasseId,
@@ -299,12 +292,12 @@ export default function DeliberationsIndex({
                     const moy = Number(row.original.moyenne_obtenue) || 0;
                     const color =
                         moy >= 12
-                            ? 'text-emerald-700 bg-emerald-50 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300'
+                            ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
                             : moy >= 10
-                            ? 'text-blue-700 bg-blue-50 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300'
+                            ? 'text-blue-700 bg-blue-50 border-blue-200'
                             : moy >= 8.5
-                            ? 'text-amber-700 bg-amber-50 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300'
-                            : 'text-rose-700 bg-rose-50 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300';
+                            ? 'text-amber-700 bg-amber-50 border-amber-200'
+                            : 'text-rose-700 bg-rose-50 border-rose-200';
                     return (
                         <span className={`inline-block px-2 py-0.5 rounded font-mono font-bold text-xs border ${color}`}>
                             {moy.toFixed(2)}/20
@@ -464,7 +457,7 @@ export default function DeliberationsIndex({
                             <span>Délibérations & Conseil de Classe</span>
                         </h1>
                         <p className="text-sm text-muted-foreground mt-0.5">
-                            Attribution des mentions, procès-verbal officiel et validation humaine des passages de classe (Gesco 15.2 & 2.6)
+                            Attribution des mentions, procès-verbal officiel et validation humaine des passages de classe.
                         </p>
                     </div>
 
@@ -521,44 +514,43 @@ export default function DeliberationsIndex({
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 items-end">
                             {/* Établissement */}
                             {etablissements.length > 1 && (
-                                <div className="space-y-1.5">
+                                <div className="space-y-1.5 min-w-0">
                                     <label className="text-xs font-semibold text-muted-foreground">Établissement</label>
-                                    <Select
-                                        value={currentEtablissement?.id ? currentEtablissement.id.toString() : undefined}
-                                        onValueChange={(val) => handleNavigation({ etablissement_id: val })}
-                                    >
-                                        <SelectTrigger className="h-9">
-                                            <SelectValue placeholder="Établissement" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {etablissements.map((etab) => (
-                                                <SelectItem key={etab.id} value={etab.id.toString()}>
-                                                    {etab.nom}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                    <SearchableSelect
+                                        options={etablissements.map((etab) => ({
+                                            value: etab.id.toString(),
+                                            label: etab.nom,
+                                            description: etab.code ? `Code : ${etab.code}` : undefined,
+                                        }))}
+                                        value={currentEtablissement?.id ? currentEtablissement.id.toString() : ''}
+                                        onValueChange={(val) => {
+                                            if (val) handleNavigation({ etablissement_id: val });
+                                        }}
+                                        placeholder="Établissement"
+                                        searchPlaceholder="Rechercher un établissement..."
+                                        emptyMessage="Aucun établissement trouvé."
+                                        className="h-9 text-xs font-normal"
+                                    />
                                 </div>
                             )}
 
                             {/* Classe */}
-                            <div className="space-y-1.5">
+                            <div className="space-y-1.5 min-w-0">
                                 <label className="text-xs font-semibold text-muted-foreground">Classe à délibérer</label>
-                                <Select
-                                    value={selectedClasseId ? selectedClasseId.toString() : undefined}
-                                    onValueChange={(val) => handleNavigation({ classe_id: val })}
-                                >
-                                    <SelectTrigger className="h-9">
-                                        <SelectValue placeholder="Choisir une classe" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {classes.map((cls) => (
-                                            <SelectItem key={cls.id} value={cls.id.toString()}>
-                                                {cls.nom}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <SearchableSelect
+                                    options={classes.map((cls) => ({
+                                        value: cls.id.toString(),
+                                        label: cls.nom,
+                                    }))}
+                                    value={selectedClasseId ? selectedClasseId.toString() : ''}
+                                    onValueChange={(val) => {
+                                        if (val) handleNavigation({ classe_id: val });
+                                    }}
+                                    placeholder="Choisir une classe"
+                                    searchPlaceholder="Rechercher une classe..."
+                                    emptyMessage="Aucune classe trouvée."
+                                    className="h-9 text-xs font-normal"
+                                />
                             </div>
 
                             {/* Type de session (Trimestre vs Annuel) */}
@@ -708,12 +700,12 @@ export default function DeliberationsIndex({
                             Validation Officielle de la Promotion de Fin d'Année
                         </DialogTitle>
                         <DialogDescription>
-                            Conformément au <strong>Cahier des Charges Gesco V1.1 (Module 2.6 & 15.2)</strong>, la validation de la promotion est un acte officiel sous la responsabilité du Chef d'Établissement.
+                            La validation de la promotion est un acte officiel sous la responsabilité du Chef d'Établissement.
                         </DialogDescription>
                     </DialogHeader>
 
                     <div className="space-y-3 py-3 text-sm">
-                        <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-900/50 dark:bg-amber-950/40 p-3 text-amber-900 dark:text-amber-200 text-xs">
+                        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900 text-xs">
                             <p className="font-semibold mb-1">Attention : Action définitive</p>
                             <p>
                                 Cette validation va sceller les statuts de fin d'année (Promu, Redouble, Exclu) pour les <strong>{totalEleves} élèves</strong> de la classe <strong>{deliberationData?.classe?.nom ?? ''}</strong>. Les décisions retenues écraseront toute proposition automatique antérieure.
@@ -721,15 +713,15 @@ export default function DeliberationsIndex({
                         </div>
 
                         <div className="grid grid-cols-1 min-[380px]:grid-cols-3 gap-2 text-center text-xs">
-                            <div className="p-2 rounded bg-emerald-50 border border-emerald-200 text-emerald-800 dark:bg-emerald-950/50 dark:border-emerald-800 dark:text-emerald-200">
+                            <div className="p-2 rounded bg-emerald-50 border border-emerald-200 text-emerald-800">
                                 <span className="block font-bold text-base">{lignesLocales.filter((l) => l.statut_retenu === 'promu').length}</span>
                                 <span>Promus</span>
                             </div>
-                            <div className="p-2 rounded bg-amber-50 border border-amber-200 text-amber-800 dark:bg-amber-950/50 dark:border-amber-800 dark:text-amber-200">
+                            <div className="p-2 rounded bg-amber-50 border border-amber-200 text-amber-800">
                                 <span className="block font-bold text-base">{lignesLocales.filter((l) => l.statut_retenu === 'redouble').length}</span>
                                 <span>Redoublants</span>
                             </div>
-                            <div className="p-2 rounded bg-rose-50 border border-rose-200 text-rose-800 dark:bg-rose-950/50 dark:border-rose-800 dark:text-rose-200">
+                            <div className="p-2 rounded bg-rose-50 border border-rose-200 text-rose-800">
                                 <span className="block font-bold text-base">{lignesLocales.filter((l) => l.statut_retenu === 'exclu').length}</span>
                                 <span>Exclus</span>
                             </div>

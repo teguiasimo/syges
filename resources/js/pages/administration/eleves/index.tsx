@@ -37,6 +37,8 @@ import {
     CreditCard,
     Download,
     Printer,
+    RotateCcw,
+    GitMerge,
 } from 'lucide-react';
 import { SearchableSelect, type SearchableOption } from '@/components/ui/searchable-select';
 import { Button } from '@/components/ui/button';
@@ -63,6 +65,7 @@ import { toast } from 'sonner';
 import { formatDate } from '@/lib/utils';
 
 import { EditEleveModal } from './modals/edit-eleve-modal';
+import { EleveAvatar } from '@/components/eleves/eleve-avatar';
 import { ReinscriptionModal } from './modals/reinscription-modal';
 import { TransfertModal } from './modals/transfert-modal';
 import { EleveDetailDrawer } from './modals/eleve-detail-drawer';
@@ -100,6 +103,7 @@ interface ElevesPageProps {
         eleves_create: boolean;
         eleves_edit: boolean;
         eleves_delete: boolean;
+        eleves_merge?: boolean;
         inscriptions_manage: boolean;
         inscriptions_transfer: boolean;
     };
@@ -129,9 +133,13 @@ export default function ElevesIndex({
     const [importModalOpen, setImportModalOpen] = useState(false);
     const [imprimerModalOpen, setImprimerModalOpen] = useState(false);
 
-    // État du tiroir de détails
+    // État du tiroir de détails (resynchronisé en temps réel avec les props Inertia après édition)
     const [detailDrawerOpen, setDetailDrawerOpen] = useState(false);
     const [selectedInscriptionForDetail, setSelectedInscriptionForDetail] = useState<Inscription | null>(null);
+    const activeDetailInscription = useMemo(() => {
+        if (!selectedInscriptionForDetail) return null;
+        return inscriptions.find((i) => i.id === selectedInscriptionForDetail.id) ?? selectedInscriptionForDetail;
+    }, [inscriptions, selectedInscriptionForDetail]);
 
     // Dialogue de confirmation de suppression
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -152,11 +160,25 @@ export default function ElevesIndex({
     const [selectedStatut, setSelectedStatut] = useState(filters.statut || '');
     const [selectedSexe, setSelectedSexe] = useState(filters.sexe || '');
 
-    // Synchronise les filtres locaux lorsque le sélecteur global d'en-tête change le campus actif
+    // Synchronise les filtres locaux lorsque le sélecteur global d'en-tête change ou après réinitialisation
     useEffect(() => {
         setSelectedEtab(filters.etablissement_id || '');
         setSelectedClasse(filters.classe_id || '');
-    }, [filters.etablissement_id, filters.classe_id]);
+        setSelectedStatut(filters.statut || '');
+        setSelectedSexe(filters.sexe || '');
+        setSearchTerm(filters.search || '');
+    }, [filters.etablissement_id, filters.classe_id, filters.statut, filters.sexe, filters.search]);
+
+    // Indique si au moins un critère de filtrage local ou URL est actif
+    const hasActiveFilters = Boolean(
+        searchTerm.trim() ||
+            selectedClasse ||
+            selectedStatut ||
+            selectedSexe ||
+            filters.cycle_id ||
+            filters.niveau_id ||
+            filters.is_redoublant,
+    );
 
     // Application des filtres côté client ou navigation Inertia
     const handleFilterChange = (params: Record<string, string>) => {
@@ -167,6 +189,24 @@ export default function ElevesIndex({
             sexe: selectedSexe,
             search: searchTerm,
             ...params,
+        }, {
+            preserveState: true,
+            replace: true,
+        });
+    };
+
+    /**
+     * Réinitialise tous les filtres locaux (recherche, classe, statut, sexe, cycle/niveau éventuels)
+     * tout en conservant l'année scolaire et le campus actifs.
+     */
+    const handleResetFilters = () => {
+        setSearchTerm('');
+        setSelectedClasse('');
+        setSelectedStatut('');
+        setSelectedSexe('');
+
+        router.get('/administration/eleves', {
+            annee_scolaire_id: selectedAnneeId,
         }, {
             preserveState: true,
             replace: true,
@@ -255,11 +295,7 @@ export default function ElevesIndex({
                 return (
                     <div className="flex items-center gap-3">
                         <div className="size-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 overflow-hidden shadow-xs">
-                            {el.photo_url ? (
-                                <img src={el.photo_url} alt={el.nom_complet} className="size-full object-cover" />
-                            ) : (
-                                <User className="size-5 text-primary/70" />
-                            )}
+                            <EleveAvatar photoUrl={el.photo_url} alt={el.nom_complet} />
                         </div>
                         <div className="min-w-0">
                             <button
@@ -302,10 +338,10 @@ export default function ElevesIndex({
                                 variant="secondary"
                                 className={`text-[10px] px-1.5 py-0 font-semibold ${
                                     el.sexe === 'F'
-                                        ? 'bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300'
+                                        ? 'bg-rose-50 text-rose-700 border border-rose-200'
                                         : el.sexe === 'M'
-                                        ? 'bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-300'
-                                        : 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300'
+                                        ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                                        : 'bg-amber-50 text-amber-700 border border-amber-200'
                                 }`}
                             >
                                 {el.sexe === 'F' ? 'Fille' : el.sexe === 'M' ? 'Garçon' : 'À compléter'}
@@ -376,8 +412,8 @@ export default function ElevesIndex({
                         variant="outline"
                         className={`text-[10px] font-semibold ${
                             isRedoublant
-                                ? 'bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300'
-                                : 'bg-zinc-50 text-zinc-700 border-zinc-200 dark:bg-zinc-900 dark:text-zinc-300'
+                                ? 'bg-amber-50 text-amber-800 border-amber-300'
+                                : 'bg-zinc-50 text-zinc-700 border-zinc-200'
                         }`}
                     >
                         {isRedoublant ? 'Redoublant' : 'Nouveau'}
@@ -391,11 +427,11 @@ export default function ElevesIndex({
             cell: ({ row }) => {
                 const statut = row.original.statut;
                 const statusMap: Record<string, { label: string; className: string }> = {
-                    validee: { label: 'Validée', className: 'bg-emerald-500/15 text-emerald-700 border-emerald-300 dark:text-emerald-400 dark:border-emerald-800' },
-                    en_attente: { label: 'En attente', className: 'bg-amber-500/15 text-amber-700 border-amber-300 dark:text-amber-400 dark:border-amber-800' },
-                    suspendue: { label: 'Suspendue', className: 'bg-rose-500/15 text-rose-700 border-rose-300 dark:text-rose-400 dark:border-rose-800' },
-                    exclu: { label: 'Exclu', className: 'bg-red-700/15 text-red-800 border-red-400 dark:text-red-300 dark:border-red-800' },
-                    transfere: { label: 'Transféré', className: 'bg-blue-500/15 text-blue-700 border-blue-300 dark:text-blue-400 dark:border-blue-800' },
+                    validee: { label: 'Validée', className: 'bg-emerald-500/15 text-emerald-700 border-emerald-300' },
+                    en_attente: { label: 'En attente', className: 'bg-amber-500/15 text-amber-700 border-amber-300' },
+                    suspendue: { label: 'Suspendue', className: 'bg-rose-500/15 text-rose-700 border-rose-300' },
+                    exclu: { label: 'Exclu', className: 'bg-red-700/15 text-red-800 border-red-400' },
+                    transfere: { label: 'Transféré', className: 'bg-blue-500/15 text-blue-700 border-blue-300' },
                 };
                 const config = statusMap[statut] || { label: statut, className: 'bg-muted text-muted-foreground' };
 
@@ -557,9 +593,9 @@ export default function ElevesIndex({
         return table.getSelectedRowModel().rows.map((r) => r.original);
     }, [rowSelection, inscriptions]);
 
-    // Liste des classes pour le filtre et l'impression
+    // Liste des classes pour le filtre et l'impression (avec nom d'établissement si vue consolidée)
     const filterClasses = useMemo(() => {
-        const list: { id: number; nom: string; niveauId?: number; niveauNom?: string }[] = [];
+        const list: { id: number; nom: string; niveauId?: number; niveauNom?: string; etabNom?: string }[] = [];
         etablissements.forEach((etab) => {
             if (!selectedEtab || String(etab.id) === selectedEtab) {
                 etab.sections?.forEach((s) => {
@@ -571,6 +607,7 @@ export default function ElevesIndex({
                                     nom: cls.nom,
                                     niveauId: n.id,
                                     niveauNom: n.nom,
+                                    etabNom: etab.nom,
                                 });
                             });
                         });
@@ -613,8 +650,9 @@ export default function ElevesIndex({
             value: String(cls.id),
             label: `${cls.nom} (${cls.niveauNom})`,
             group: cls.niveauNom,
+            description: !selectedEtab && etablissements.length > 1 ? cls.etabNom : undefined,
         })),
-    ], [filterClasses]);
+    ], [filterClasses, selectedEtab, etablissements.length]);
 
     return (
         <>
@@ -626,7 +664,7 @@ export default function ElevesIndex({
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                     <div>
                         <div className="flex items-center gap-2.5">
-                            <div className="p-2 rounded-xl bg-teal-50 dark:bg-teal-950/50 text-teal-600 dark:text-teal-400 border border-teal-100 dark:border-teal-900/40 shrink-0">
+                            <div className="p-2 rounded-xl bg-teal-50 text-teal-600 border border-teal-100 shrink-0">
                                 <GraduationCap className="size-6" />
                             </div>
                             <div>
@@ -696,7 +734,7 @@ export default function ElevesIndex({
                             variant="outline"
                             size="sm"
                             asChild
-                            className="gap-1.5 h-9 border-sky-300 text-sky-700 dark:border-sky-800 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-sky-950/40"
+                            className="gap-1.5 h-9 border-sky-300 text-sky-700 hover:bg-sky-50"
                         >
                             <Link href="/administration/eleves/cartes-scolaires">
                                 <CreditCard className="size-4 text-sky-600" />
@@ -709,12 +747,27 @@ export default function ElevesIndex({
                             variant="outline"
                             size="sm"
                             onClick={() => setImprimerModalOpen(true)}
-                            className="gap-1.5 h-9 border-teal-200 text-teal-700 dark:border-teal-800 dark:text-teal-300 hover:bg-teal-50 dark:hover:bg-teal-950/40 cursor-pointer font-medium"
+                            className="gap-1.5 h-9 border-teal-200 text-teal-700 hover:bg-teal-50 cursor-pointer font-medium"
                             title="Imprimer les listes d'élèves (par classe ou par niveau) et fiches d'appel (PDF)"
                         >
-                            <Printer className="size-4 text-teal-600 dark:text-teal-400 shrink-0" />
+                            <Printer className="size-4 text-teal-600 shrink-0" />
                             <span>Listes & Fiches (PDF)</span>
                         </Button>
+
+                        {can.eleves_merge && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                asChild
+                                className="gap-1.5 h-9 border-amber-300 text-amber-800 hover:bg-amber-50"
+                                title="Détecter les élèves en doublon et fusionner deux dossiers en toute sécurité"
+                            >
+                                <Link href="/administration/eleves/doublons">
+                                    <GitMerge className="size-4 text-amber-600" />
+                                    <span className="hidden sm:inline">Doublons & Fusion</span>
+                                </Link>
+                            </Button>
+                        )}
 
                         {can.inscriptions_transfer && (
                             <Button
@@ -780,7 +833,7 @@ export default function ElevesIndex({
                             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                                 Total Inscrits
                             </span>
-                            <div className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40">
+                            <div className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600">
                                 <Users className="size-4" />
                             </div>
                         </div>
@@ -798,7 +851,7 @@ export default function ElevesIndex({
                             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                                 Parité Filles / Garçons
                             </span>
-                            <div className="p-1.5 rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-950/40">
+                            <div className="p-1.5 rounded-lg bg-blue-50 text-blue-600">
                                 <User className="size-4" />
                             </div>
                         </div>
@@ -831,7 +884,7 @@ export default function ElevesIndex({
                             />
                         </div>
                         {Boolean(stats.totalNonDefinis) && (
-                            <p className="text-[10px] font-medium text-amber-600 dark:text-amber-400 mt-1.5">
+                            <p className="text-[10px] font-medium text-amber-600 mt-1.5">
                                 {stats.totalNonDefinis} dossier(s) à compléter (sexe non défini)
                             </p>
                         )}
@@ -842,7 +895,7 @@ export default function ElevesIndex({
                             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                                 Régime Scolaire
                             </span>
-                            <div className="p-1.5 rounded-lg bg-teal-50 text-teal-600 dark:bg-teal-950/40">
+                            <div className="p-1.5 rounded-lg bg-teal-50 text-teal-600">
                                 <School className="size-4" />
                             </div>
                         </div>
@@ -865,7 +918,7 @@ export default function ElevesIndex({
                             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                                 En Attente & Non Inscrits
                             </span>
-                            <div className="p-1.5 rounded-lg bg-amber-50 text-amber-600 dark:bg-amber-950/40">
+                            <div className="p-1.5 rounded-lg bg-amber-50 text-amber-600">
                                 <Clock className="size-4" />
                             </div>
                         </div>
@@ -942,27 +995,44 @@ export default function ElevesIndex({
                             <option value="ND">Non défini (À compléter)</option>
                         </select>
 
-                        <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => handleFilterChange({})}
-                            className="h-9 px-4 shrink-0 w-full sm:w-auto cursor-pointer"
-                        >
-                            Filtrer
-                        </Button>
+                        <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => handleFilterChange({})}
+                                className="h-9 px-4 flex-1 sm:flex-initial cursor-pointer"
+                            >
+                                Filtrer
+                            </Button>
+
+                            {/* Réinitialisation complète des critères de filtre tout en conservant année et campus */}
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={handleResetFilters}
+                                disabled={!hasActiveFilters}
+                                className="h-9 px-3 flex-1 sm:flex-initial gap-1.5 cursor-pointer disabled:cursor-not-allowed"
+                                title="Réinitialiser tous les filtres (recherche, classe, statut, sexe)"
+                            >
+                                <RotateCcw className="size-3.5" />
+                                <span>Réinitialiser</span>
+                            </Button>
+                        </div>
                     </div>
                 </div>
 
                 {/* Bandeau d'actions rapides pour la classe activement filtrée */}
                 {selectedClasse && (
-                    <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-2xl bg-teal-50/70 border border-teal-200 dark:bg-teal-950/30 dark:border-teal-800 shadow-xs">
-                        <div className="flex items-center gap-2.5 text-xs font-semibold text-teal-950 dark:text-teal-200">
+                    <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-2xl bg-teal-50/70 border border-teal-200 shadow-xs">
+                        <div className="flex items-center gap-2.5 text-xs font-semibold text-teal-950">
                             <div className="p-1.5 rounded-lg bg-teal-600 text-white shrink-0 shadow-xs">
                                 <Printer className="size-3.5" />
                             </div>
                             <div>
                                 <span>Documents officiels de la division : </span>
-                                <strong className="font-bold underline text-teal-800 dark:text-teal-300">
+                                <strong className="font-bold underline text-teal-800">
                                     {filterClasses.find((c) => String(c.id) === selectedClasse)?.nom ?? 'Classe sélectionnée'}
                                 </strong>
                             </div>
@@ -972,7 +1042,7 @@ export default function ElevesIndex({
                                 type="button"
                                 size="sm"
                                 variant="outline"
-                                className="h-8 text-xs font-semibold gap-1.5 bg-white dark:bg-slate-900 border-teal-200 dark:border-teal-800 hover:bg-teal-100 dark:hover:bg-teal-950 text-emerald-700 dark:text-emerald-400 cursor-pointer shadow-xs"
+                                className="h-8 text-xs font-semibold gap-1.5 bg-white border-teal-200 hover:bg-teal-100 text-emerald-700 cursor-pointer shadow-xs"
                                 onClick={() => window.open(`/administration/documents/liste-eleves/${selectedClasse}?type=definitive&annee_id=${selectedAnneeId}`, '_blank')}
                                 title="Télécharger la liste définitive officielle de cette classe"
                             >
@@ -983,7 +1053,7 @@ export default function ElevesIndex({
                                 type="button"
                                 size="sm"
                                 variant="outline"
-                                className="h-8 text-xs font-semibold gap-1.5 bg-white dark:bg-slate-900 border-teal-200 dark:border-teal-800 hover:bg-teal-100 dark:hover:bg-teal-950 text-amber-700 dark:text-amber-400 cursor-pointer shadow-xs"
+                                className="h-8 text-xs font-semibold gap-1.5 bg-white border-teal-200 hover:bg-teal-100 text-amber-700 cursor-pointer shadow-xs"
                                 onClick={() => window.open(`/administration/documents/liste-eleves/${selectedClasse}?type=provisoire&annee_id=${selectedAnneeId}`, '_blank')}
                                 title="Télécharger la liste provisoire de cette classe"
                             >
@@ -994,7 +1064,7 @@ export default function ElevesIndex({
                                 type="button"
                                 size="sm"
                                 variant="outline"
-                                className="h-8 text-xs font-semibold gap-1.5 bg-white dark:bg-slate-900 border-teal-200 dark:border-teal-800 hover:bg-teal-100 dark:hover:bg-teal-950 text-sky-700 dark:text-sky-400 cursor-pointer shadow-xs"
+                                className="h-8 text-xs font-semibold gap-1.5 bg-white border-teal-200 hover:bg-teal-100 text-sky-700 cursor-pointer shadow-xs"
                                 onClick={() => window.open(`/administration/documents/fiche-appel/${selectedClasse}?annee_id=${selectedAnneeId}`, '_blank')}
                                 title="Télécharger la fiche d'appel mensuelle d'émargement"
                             >
@@ -1184,12 +1254,12 @@ export default function ElevesIndex({
             <EleveDetailDrawer
                 open={detailDrawerOpen}
                 onOpenChange={setDetailDrawerOpen}
-                inscription={selectedInscriptionForDetail}
+                inscription={activeDetailInscription}
                 onEdit={(el) => {
                     setSelectedEleveForEdit({
                         ...el,
-                        is_redoublant: Boolean(selectedInscriptionForDetail?.is_redoublant),
-                        inscription_id: selectedInscriptionForDetail?.id,
+                        is_redoublant: Boolean(activeDetailInscription?.is_redoublant),
+                        inscription_id: activeDetailInscription?.id,
                     });
                     setEditModalOpen(true);
                 }}

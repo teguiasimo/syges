@@ -2,31 +2,19 @@ import { Head, Link, router } from '@inertiajs/react';
 import { type ColumnDef } from '@tanstack/react-table';
 import {
     AlertTriangle,
-    ArrowUpDown,
     BookOpen,
     Briefcase,
-    Building2,
-    Check,
-    CheckCircle2,
-    Clock,
     Edit2,
     Eye,
-    Filter,
     GraduationCap,
     KeyRound,
-    MoreHorizontal,
     Phone,
-    Plus,
     Printer,
     RefreshCw,
-    Search,
-    Shield,
     Trash2,
     UserCheck,
     UserPlus,
     Users,
-    UserX,
-    X,
 } from 'lucide-react';
 import React, { useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -41,15 +29,6 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
     Select,
@@ -64,7 +43,6 @@ import { getAvatarStyle } from '@/lib/utils';
 import type {
     Departement,
     Personnel,
-    PersonnelFilters,
     PersonnelPageProps,
 } from '@/types/personnel';
 import { DepartementModal } from './modals/departement-modal';
@@ -92,7 +70,7 @@ const FONCTIONS_LISTE = [
 /**
  * Types de contrats pour le filtre.
  */
-const CONTRATS_LISTE = [
+const _CONTRATS_LISTE = [
     'Permanent',
     'CDI (Contrat à Durée Indéterminée)',
     'CDD (Contrat à Durée Déterminée)',
@@ -127,12 +105,12 @@ export default function PersonnelsIndex({
     departements,
     etablissements,
     availableUsers,
-    roles,
+    roles: _roles,
     stats,
     can,
     filters: initialFilters,
 }: PersonnelPageProps) {
-    const { t } = useTranslation();
+    const { t: _t } = useTranslation();
 
     // Onglet actif : 'personnel' | 'departements'
     const [activeTab, setActiveTab] = useState<'personnel' | 'departements'>('personnel');
@@ -352,7 +330,7 @@ export default function PersonnelsIndex({
                                         setSelectedPersonnelForDetail(p);
                                         setIsDetailOpen(true);
                                     }}
-                                    className="font-medium text-foreground hover:text-primary dark:hover:text-indigo-400 hover:underline text-left cursor-pointer text-xs sm:text-sm block truncate w-full transition-colors"
+                                    className="font-medium text-foreground hover:text-primary hover:underline text-left cursor-pointer text-xs sm:text-sm block truncate w-full transition-colors"
                                     title={fullName}
                                 >
                                     {fullName}
@@ -409,8 +387,8 @@ export default function PersonnelsIndex({
                     }
                     return (
                         <div className="space-y-0.5">
-                            <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800 text-[11px] font-medium">
-                                <GraduationCap className="size-3 mr-1 text-indigo-600 dark:text-indigo-400" />
+                            <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200 text-[11px] font-medium">
+                                <GraduationCap className="size-3 mr-1 text-indigo-600" />
                                 {p.volume_horaire_hebdo}h / sem.
                             </Badge>
                             {p.specialite && (
@@ -449,8 +427,8 @@ export default function PersonnelsIndex({
                     const p = row.original;
                     if (p.user) {
                         return (
-                            <Badge className="bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/50 dark:text-teal-300 dark:border-teal-800 text-[11px] font-medium inline-flex items-center gap-1">
-                                <KeyRound className="size-3 text-teal-600 dark:text-teal-400" />
+                            <Badge className="bg-sky-50 text-sky-700 border-sky-200 text-[11px] font-medium inline-flex items-center gap-1">
+                                <KeyRound className="size-3 text-sky-600" />
                                 {p.user.login}
                             </Badge>
                         );
@@ -467,13 +445,13 @@ export default function PersonnelsIndex({
                 header: () => <span className="font-semibold text-xs">Statut</span>,
                 cell: ({ row }) => {
                     const statut = row.original.statut;
-                    let colorClass = 'bg-zinc-100 text-zinc-700 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-300';
+                    let colorClass = 'bg-zinc-100 text-zinc-700 border-zinc-200';
                     if (statut === 'Actif') {
-                        colorClass = 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-400 dark:border-emerald-800';
+                        colorClass = 'bg-emerald-50 text-emerald-700 border-emerald-200';
                     } else if (statut === 'En congé') {
-                        colorClass = 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/50 dark:text-blue-400 dark:border-blue-800';
+                        colorClass = 'bg-blue-50 text-blue-700 border-blue-200';
                     } else if (statut === 'Suspendu') {
-                        colorClass = 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/50 dark:text-amber-400 dark:border-amber-800';
+                        colorClass = 'bg-amber-50 text-amber-700 border-amber-200';
                     }
 
                     return (
@@ -522,7 +500,7 @@ export default function PersonnelsIndex({
                                         setIsEditPersonnelOpen(true);
                                     }}
                                     title="Modifier la fiche"
-                                    className="size-8 rounded-lg text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/50 cursor-pointer"
+                                    className="size-8 rounded-lg text-blue-600 hover:text-blue-700 hover:bg-blue-50 cursor-pointer"
                                 >
                                     <Edit2 className="size-4" />
                                 </Button>
@@ -535,7 +513,7 @@ export default function PersonnelsIndex({
                                     size="icon"
                                     onClick={() => setPersonnelToDelete(p)}
                                     title="Archiver ce personnel"
-                                    className="size-8 rounded-lg text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/50 cursor-pointer"
+                                    className="size-8 rounded-lg text-rose-600 hover:text-rose-700 hover:bg-rose-50 cursor-pointer"
                                 >
                                     <Trash2 className="size-4" />
                                 </Button>
@@ -599,8 +577,8 @@ export default function PersonnelsIndex({
                 accessorKey: 'personnels_count',
                 header: () => <span className="font-semibold text-xs">Effectif Rattaché</span>,
                 cell: ({ row }) => (
-                    <Badge variant="outline" className="text-xs font-semibold bg-sky-50/50 dark:bg-sky-950/30 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-800">
-                        <Users className="size-3 mr-1 text-sky-600 dark:text-sky-400" />
+                    <Badge variant="outline" className="text-xs font-semibold bg-sky-50/50 text-sky-700 border-sky-200">
+                        <Users className="size-3 mr-1 text-sky-600" />
                         {row.original.personnels_count ?? 0} enseignant(s)
                     </Badge>
                 ),
@@ -612,8 +590,8 @@ export default function PersonnelsIndex({
                     <Badge
                         className={`text-xs font-medium ${
                             row.original.is_active
-                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-400 dark:border-emerald-800'
-                                : 'bg-zinc-100 text-zinc-700 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-400'
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                : 'bg-zinc-100 text-zinc-700 border-zinc-200'
                         }`}
                     >
                         {row.original.is_active ? 'Actif' : 'Inactif'}
@@ -637,7 +615,7 @@ export default function PersonnelsIndex({
                                         setIsDepartementModalOpen(true);
                                     }}
                                     title="Modifier le département"
-                                    className="size-8 rounded-lg text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/50 cursor-pointer"
+                                    className="size-8 rounded-lg text-blue-600 hover:text-blue-700 hover:bg-blue-50 cursor-pointer"
                                 >
                                     <Edit2 className="size-4" />
                                 </Button>
@@ -650,7 +628,7 @@ export default function PersonnelsIndex({
                                     size="icon"
                                     onClick={() => setDepartementToDelete(dep)}
                                     title="Supprimer le département"
-                                    className="size-8 rounded-lg text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/50 cursor-pointer"
+                                    className="size-8 rounded-lg text-rose-600 hover:text-rose-700 hover:bg-rose-50 cursor-pointer"
                                 >
                                     <Trash2 className="size-4" />
                                 </Button>
@@ -672,7 +650,7 @@ export default function PersonnelsIndex({
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div>
                         <div className="flex items-center gap-3">
-                            <div className="p-2.5 rounded-xl bg-teal-50 dark:bg-teal-950/50 text-teal-600 dark:text-teal-400 border border-teal-200 dark:border-teal-900/50 shrink-0">
+                            <div className="p-2.5 rounded-xl bg-blue-50 text-blue-600 border border-blue-200 shrink-0">
                                 <Briefcase className="size-7" />
                             </div>
                             <div>
@@ -697,10 +675,10 @@ export default function PersonnelsIndex({
                                     : '/administration/documents/liste-personnel';
                                 window.open(url, '_blank');
                             }}
-                            className="cursor-pointer font-medium text-xs sm:text-sm border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 w-full sm:w-auto"
+                            className="cursor-pointer font-medium text-xs sm:text-sm border-slate-300 bg-white hover:bg-slate-50 w-full sm:w-auto"
                             title="Imprimer la liste officielle du personnel et corps enseignant (PDF)"
                         >
-                            <Printer className="size-4 mr-1.5 text-slate-600 dark:text-slate-400" />
+                            <Printer className="size-4 mr-1.5 text-slate-600" />
                             <span>Liste du personnel (PDF)</span>
                         </Button>
 
@@ -712,9 +690,9 @@ export default function PersonnelsIndex({
                                     setSelectedDepartementForEdit(null);
                                     setIsDepartementModalOpen(true);
                                 }}
-                                className="cursor-pointer font-medium text-xs sm:text-sm border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 w-full sm:w-auto"
+                                className="cursor-pointer font-medium text-xs sm:text-sm border-amber-300 bg-amber-50/60 text-amber-800 hover:bg-amber-100/70 w-full sm:w-auto"
                             >
-                                <BookOpen className="size-4 mr-1.5 text-sky-600 dark:text-sky-400" />
+                                <BookOpen className="size-4 mr-1.5 text-amber-600" />
                                 Nouveau département
                             </Button>
                         )}
@@ -722,7 +700,7 @@ export default function PersonnelsIndex({
                         {can.manage && (
                             <Button
                                 asChild
-                                className="bg-teal-600 hover:bg-teal-700 text-white cursor-pointer font-semibold shadow-sm text-xs sm:text-sm w-full sm:w-auto"
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer font-semibold shadow-sm text-xs sm:text-sm w-full sm:w-auto"
                             >
                                 <Link href="/administration/personnels/create">
                                     <UserPlus className="size-4 mr-1.5" />
@@ -733,56 +711,56 @@ export default function PersonnelsIndex({
                     </div>
                 </div>
 
-                {/* KPI SYNTHÈSE STATISTIQUE - Grille responsive fluide */}
+                {/* KPI SYNTHÈSE STATISTIQUE - Palette diversifiée (Ardoise, Émeraude, Bleu, Ambre, Bleu Ciel) */}
                 <div className="grid grid-cols-1 min-[420px]:grid-cols-2 lg:grid-cols-5 gap-3">
-                    <div className="p-4 rounded-xl bg-card border shadow-xs space-y-1">
-                        <span className="text-[11px] text-muted-foreground uppercase font-semibold tracking-wider">
-                            Effectif Total
-                        </span>
-                        <div className="flex items-baseline justify-between">
-                            <span className="text-2xl font-bold text-slate-800 dark:text-slate-100">{stats.total}</span>
-                            <Users className="size-4 text-slate-500" />
+                    <div className="p-4 rounded-xl bg-card border border-border/80 shadow-2xs space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs font-medium text-muted-foreground">Effectif Total</span>
+                            <div className="flex size-8 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
+                                <Users className="size-4" />
+                            </div>
                         </div>
+                        <div className="text-2xl font-bold tabular-nums text-foreground">{stats.total}</div>
                     </div>
 
-                    <div className="p-4 rounded-xl bg-card border shadow-xs space-y-1">
-                        <span className="text-[11px] text-muted-foreground uppercase font-semibold tracking-wider">
-                            Personnel Actif
-                        </span>
-                        <div className="flex items-baseline justify-between">
-                            <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{stats.actifs}</span>
-                            <UserCheck className="size-4 text-emerald-600 dark:text-emerald-400" />
+                    <div className="p-4 rounded-xl bg-card border border-border/80 shadow-2xs space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs font-medium text-muted-foreground">Personnel Actif</span>
+                            <div className="flex size-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
+                                <UserCheck className="size-4" />
+                            </div>
                         </div>
+                        <div className="text-2xl font-bold tabular-nums text-emerald-600">{stats.actifs}</div>
                     </div>
 
-                    <div className="p-4 rounded-xl bg-card border shadow-xs space-y-1">
-                        <span className="text-[11px] text-muted-foreground uppercase font-semibold tracking-wider">
-                            Enseignants
-                        </span>
-                        <div className="flex items-baseline justify-between">
-                            <span className="text-2xl font-bold text-teal-600 dark:text-teal-400">{stats.enseignants}</span>
-                            <GraduationCap className="size-4 text-teal-600 dark:text-teal-400" />
+                    <div className="p-4 rounded-xl bg-card border border-border/80 shadow-2xs space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs font-medium text-muted-foreground">Enseignants</span>
+                            <div className="flex size-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+                                <GraduationCap className="size-4" />
+                            </div>
                         </div>
+                        <div className="text-2xl font-bold tabular-nums text-blue-600">{stats.enseignants}</div>
                     </div>
 
-                    <div className="p-4 rounded-xl bg-card border shadow-xs space-y-1">
-                        <span className="text-[11px] text-muted-foreground uppercase font-semibold tracking-wider">
-                            Départements
-                        </span>
-                        <div className="flex items-baseline justify-between">
-                            <span className="text-2xl font-bold text-sky-600 dark:text-sky-400">{stats.departementsCount}</span>
-                            <BookOpen className="size-4 text-sky-600 dark:text-sky-400" />
+                    <div className="p-4 rounded-xl bg-card border border-border/80 shadow-2xs space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs font-medium text-muted-foreground">Départements</span>
+                            <div className="flex size-8 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
+                                <BookOpen className="size-4" />
+                            </div>
                         </div>
+                        <div className="text-2xl font-bold tabular-nums text-amber-600">{stats.departementsCount}</div>
                     </div>
 
-                    <div className="p-4 rounded-xl bg-card border shadow-xs space-y-1 min-[420px]:col-span-2 lg:col-span-1">
-                        <span className="text-[11px] text-muted-foreground uppercase font-semibold tracking-wider">
-                            Comptes SYGES
-                        </span>
-                        <div className="flex items-baseline justify-between">
-                            <span className="text-2xl font-bold text-cyan-600 dark:text-cyan-400">{stats.avecCompte}</span>
-                            <KeyRound className="size-4 text-cyan-600 dark:text-cyan-400" />
+                    <div className="p-4 rounded-xl bg-card border border-border/80 shadow-2xs space-y-2 min-[420px]:col-span-2 lg:col-span-1">
+                        <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs font-medium text-muted-foreground">Comptes SYGES</span>
+                            <div className="flex size-8 items-center justify-center rounded-lg bg-sky-50 text-sky-600">
+                                <KeyRound className="size-4" />
+                            </div>
                         </div>
+                        <div className="text-2xl font-bold tabular-nums text-sky-600">{stats.avecCompte}</div>
                     </div>
                 </div>
 
@@ -793,7 +771,7 @@ export default function PersonnelsIndex({
                         onClick={() => setActiveTab('personnel')}
                         className={`pb-3 px-4 font-semibold text-sm transition-colors border-b-2 cursor-pointer flex items-center gap-2 whitespace-nowrap shrink-0 ${
                             activeTab === 'personnel'
-                                ? 'border-teal-600 text-teal-600 dark:border-teal-400 dark:text-teal-400'
+                                ? 'border-blue-600 text-blue-700'
                                 : 'border-transparent text-muted-foreground hover:text-foreground'
                         }`}
                     >
@@ -806,7 +784,7 @@ export default function PersonnelsIndex({
                         onClick={() => setActiveTab('departements')}
                         className={`pb-3 px-4 font-semibold text-sm transition-colors border-b-2 cursor-pointer flex items-center gap-2 whitespace-nowrap shrink-0 ${
                             activeTab === 'departements'
-                                ? 'border-teal-600 text-teal-600 dark:border-teal-400 dark:text-teal-400'
+                                ? 'border-amber-600 text-amber-700'
                                 : 'border-transparent text-muted-foreground hover:text-foreground'
                         }`}
                     >
@@ -841,24 +819,26 @@ export default function PersonnelsIndex({
                             }}
                             searchPlaceholder="Rechercher par nom, matricule, téléphone..."
                             filterSlot={
-                                <div className="flex flex-wrap items-center gap-2">
+                                <div className="flex flex-wrap items-center gap-2 min-w-0">
                                     {/* Filtre Établissement */}
-                                    <Select
-                                        value={filterEtablissement}
-                                        onValueChange={setFilterEtablissement}
-                                    >
-                                        <SelectTrigger className="h-9 w-37.5 text-xs bg-card">
-                                            <SelectValue placeholder="Établissement" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="all">Tous les campus</SelectItem>
-                                            {etablissements.map((e) => (
-                                                <SelectItem key={e.id} value={String(e.id)}>
-                                                    {e.code}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                    <div className="w-full sm:w-52 min-w-0">
+                                        <SearchableSelect
+                                            options={[
+                                                { value: 'all', label: 'Tous les campus' },
+                                                ...etablissements.map((e) => ({
+                                                    value: String(e.id),
+                                                    label: e.nom,
+                                                    description: e.code ? `Code : ${e.code}` : undefined,
+                                                })),
+                                            ]}
+                                            value={filterEtablissement}
+                                            onValueChange={(val) => setFilterEtablissement(val || 'all')}
+                                            placeholder="Établissement"
+                                            searchPlaceholder="Rechercher un établissement..."
+                                            emptyMessage="Aucun établissement trouvé."
+                                            className="h-9 text-xs font-normal bg-card"
+                                        />
+                                    </div>
 
                                     {/* Filtre Département avec zone de recherche intégrée */}
                                     <div className="w-52">
@@ -1039,7 +1019,7 @@ export default function PersonnelsIndex({
                         <Button
                             type="button"
                             onClick={handleConfirmStatusChange}
-                            className="bg-teal-600 hover:bg-teal-700 text-white cursor-pointer font-semibold w-full sm:w-auto"
+                            className="bg-blue-600 hover:bg-blue-700 text-white cursor-pointer font-semibold w-full sm:w-auto"
                         >
                             Confirmer la modification
                         </Button>
@@ -1054,7 +1034,7 @@ export default function PersonnelsIndex({
             >
                 <DialogContent className="w-[95vw] sm:max-w-md p-4 sm:p-6">
                     <DialogHeader>
-                        <div className="size-10 rounded-full bg-rose-100 dark:bg-rose-950/50 text-rose-600 flex items-center justify-center mb-2">
+                        <div className="size-10 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mb-2">
                             <AlertTriangle className="size-5" />
                         </div>
                         <DialogTitle className="text-lg font-bold text-foreground">
@@ -1099,7 +1079,7 @@ export default function PersonnelsIndex({
             >
                 <DialogContent className="w-[95vw] sm:max-w-md p-4 sm:p-6">
                     <DialogHeader>
-                        <div className="size-10 rounded-full bg-rose-100 dark:bg-rose-950/50 text-rose-600 flex items-center justify-center mb-2">
+                        <div className="size-10 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mb-2">
                             <AlertTriangle className="size-5" />
                         </div>
                         <DialogTitle className="text-lg font-bold text-foreground">

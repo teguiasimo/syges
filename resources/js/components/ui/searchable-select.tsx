@@ -177,7 +177,7 @@ export function SearchableSelect({
     };
 
     return (
-        <div ref={containerRef} className={cn('relative w-full', isOpen ? 'z-50' : 'z-10')}>
+        <div ref={containerRef} className={cn('relative w-full min-w-0', isOpen ? 'z-50' : 'z-10')}>
             {/* Déclencheur du sélecteur */}
             <button
                 id={id}
@@ -203,7 +203,7 @@ export function SearchableSelect({
                 </span>
 
                 <div className="flex items-center gap-1 shrink-0 text-muted-foreground ml-auto">
-                    {selectedOption && !disabled && (
+                    {selectedOption && String(selectedOption.value) !== '' && !disabled && (
                         <span
                             role="button"
                             tabIndex={0}
@@ -304,16 +304,16 @@ export function SearchableSelect({
                                                 className={cn(
                                                     'w-full flex items-center justify-between gap-2 px-2.5 py-2 text-xs rounded-md text-left transition-colors cursor-pointer min-w-0',
                                                     isSelected
-                                                        ? 'bg-emerald-50 text-emerald-900 font-semibold dark:bg-emerald-950/60 dark:text-emerald-300'
+                                                        ? 'bg-emerald-50 text-emerald-900 font-semibold'
                                                         : 'hover:bg-accent hover:text-accent-foreground text-foreground'
                                                 )}
                                                 title={item.label}
                                             >
                                                 <div className="flex flex-col min-w-0 flex-1 overflow-hidden">
-                                                    <span className="truncate block font-medium">{item.label}</span>
+                                                    <span className="leading-snug break-words line-clamp-2 font-medium">{item.label}</span>
                                                     {item.description && (
                                                         <span
-                                                            className="text-[10px] text-muted-foreground truncate block"
+                                                            className="text-[10px] text-muted-foreground leading-snug break-words line-clamp-2 mt-0.5"
                                                             title={item.description}
                                                         >
                                                             {item.description}
@@ -322,7 +322,7 @@ export function SearchableSelect({
                                                 </div>
 
                                                 {isSelected && (
-                                                    <Check className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400 ml-1" />
+                                                    <Check className="size-4 shrink-0 text-emerald-600 ml-1" />
                                                 )}
                                             </button>
                                         );

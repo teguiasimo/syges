@@ -6,26 +6,13 @@ import {
     Atom,
     Award,
     BookOpen,
-    Check,
     CheckCircle2,
-    Clock,
     FileSpreadsheet,
-    HelpCircle,
     Layers,
     Palette,
     Plus,
-    RefreshCw,
     RotateCcw,
     Save,
-    School,
-    Search,
-    Shield,
-    SlidersHorizontal,
-    Sparkles,
-    TrendingDown,
-    TrendingUp,
-    UserCheck,
-    Users,
     X,
 } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -38,13 +25,6 @@ import {
     SearchableSelect,
     type SearchableOption,
 } from '@/components/ui/searchable-select';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import {
     getClasseTitulaireLabel,
@@ -155,8 +135,8 @@ function getPoleBadgeConfig(
             icon: Atom,
             label: nom || 'Scientifiques',
             className:
-                'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/60 dark:text-sky-300 dark:border-sky-800',
-            iconColor: 'text-sky-600 dark:text-sky-400',
+                'bg-sky-50 text-sky-700 border-sky-200',
+            iconColor: 'text-sky-600',
         };
     }
 
@@ -172,8 +152,8 @@ function getPoleBadgeConfig(
             icon: BookOpen,
             label: nom || 'Littéraires',
             className:
-                'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/60 dark:text-indigo-300 dark:border-indigo-800',
-            iconColor: 'text-indigo-600 dark:text-indigo-400',
+                'bg-indigo-50 text-indigo-700 border-indigo-200',
+            iconColor: 'text-indigo-600',
         };
     }
 
@@ -186,11 +166,11 @@ function getPoleBadgeConfig(
         lowerColor === 'orange'
     ) {
         return {
-            icon: Sparkles,
+            icon: Palette,
             label: nom || 'Complémentaires',
             className:
-                'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800',
-            iconColor: 'text-amber-600 dark:text-amber-400',
+                'bg-amber-50 text-amber-700 border-amber-200',
+            iconColor: 'text-amber-600',
         };
     }
 
@@ -204,8 +184,8 @@ function getPoleBadgeConfig(
             icon: Layers,
             label: nom,
             className:
-                'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/60 dark:text-teal-300 dark:border-teal-800',
-            iconColor: 'text-teal-600 dark:text-teal-400',
+                'bg-teal-50 text-teal-700 border-teal-200',
+            iconColor: 'text-teal-600',
         };
     }
 
@@ -219,8 +199,8 @@ function getPoleBadgeConfig(
             icon: Palette,
             label: nom,
             className:
-                'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800',
-            iconColor: 'text-rose-600 dark:text-rose-400',
+                'bg-rose-50 text-rose-700 border-rose-200',
+            iconColor: 'text-rose-600',
         };
     }
 
@@ -229,8 +209,8 @@ function getPoleBadgeConfig(
         icon: Layers,
         label: nom || 'Tronc Commun',
         className:
-            'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700',
-        iconColor: 'text-slate-500 dark:text-slate-400',
+            'bg-slate-100 text-slate-700 border-slate-200',
+        iconColor: 'text-slate-500',
     };
 }
 
@@ -245,7 +225,7 @@ function getPoleBadgeConfig(
  * @returns {JSX.Element}
  */
 export default function AttributionsGrillePage({
-    anneesScolaires,
+    anneesScolaires: _anneesScolaires,
     selectedAnneeId,
     classes,
     selectedClasse,
@@ -365,12 +345,15 @@ export default function AttributionsGrillePage({
      * Options des classes pour le sélecteur de changement de classe rapide.
      */
     const classeOptions: SearchableOption[] = useMemo(() => {
-        return classes.map((c) => ({
-            value: String(c.id),
-            label: `${c.nom}${c.serie ? ` (${c.serie})` : ''}`,
-            group: c.niveau?.nom || 'Classes',
-            description: `${c.attributions.length} cours affectés`,
-        }));
+        return classes.map((c) => {
+            const etabNom = c.niveau?.cycle?.section?.etablissement?.nom;
+            return {
+                value: String(c.id),
+                label: `${c.nom}${c.serie ? ` (${c.serie})` : ''}`,
+                group: c.niveau?.nom || 'Classes',
+                description: etabNom ? `${etabNom} · ${c.attributions.length} cours` : `${c.attributions.length} cours affectés`,
+            };
+        });
     }, [classes]);
 
     /**
@@ -494,7 +477,7 @@ export default function AttributionsGrillePage({
                                 <span className="font-bold text-sm text-foreground leading-snug">
                                     {r.nom}
                                 </span>
-                                <span className="font-mono text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 px-1.5 py-0.2 rounded shrink-0">
+                                <span className="font-mono text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 px-1.5 py-0.2 rounded shrink-0">
                                     {r.code}
                                 </span>
                             </div>
@@ -509,8 +492,8 @@ export default function AttributionsGrillePage({
                 },
                 size: 280,
                 meta: {
-                    headerClassName: 'w-[280px] max-w-[300px]',
-                    className: 'w-[280px] max-w-[300px]',
+                    headerClassName: 'w-70 max-w-75',
+                    className: 'w-70 max-w-75',
                 },
             },
             {
@@ -541,8 +524,8 @@ export default function AttributionsGrillePage({
                 },
                 size: 170,
                 meta: {
-                    headerClassName: 'w-[170px]',
-                    className: 'w-[170px]',
+                    headerClassName: 'w-42.5',
+                    className: 'w-42.5',
                 },
             },
             {
@@ -559,10 +542,10 @@ export default function AttributionsGrillePage({
                             <span
                                 className={`inline-flex items-center justify-center size-7 rounded-lg font-bold text-xs ${
                                     coef >= 4
-                                        ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-200 dark:border-rose-900'
+                                        ? 'bg-rose-100 text-rose-800 border border-rose-200'
                                         : coef >= 3
-                                          ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-200 dark:border-amber-900'
-                                          : 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
+                                          ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                                          : 'bg-slate-100 text-slate-800 border border-slate-200'
                                 }`}
                             >
                                 {coef}
@@ -608,8 +591,8 @@ export default function AttributionsGrillePage({
                     );
                 },
                 meta: {
-                    headerClassName: 'min-w-[280px]',
-                    className: 'min-w-[280px]',
+                    headerClassName: 'min-w-70',
+                    className: 'min-w-70',
                 },
             },
             {
@@ -660,11 +643,11 @@ export default function AttributionsGrillePage({
                     return (
                         <div className="text-center">
                             {isAssigned ? (
-                                <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                                <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                                     <CheckCircle2 className="size-3 text-emerald-600" /> Pourvu
                                 </span>
                             ) : (
-                                <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                                <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
                                     <AlertCircle className="size-3 text-amber-600" /> Vacant
                                 </span>
                             )}
@@ -757,7 +740,7 @@ export default function AttributionsGrillePage({
 
                     {/* SÉLECTEUR RAPIDE DE CLASSE ET BOUTONS D'ACTION */}
                     <div className="flex items-center gap-3 flex-wrap w-full lg:w-auto">
-                        <div className="w-full sm:w-56">
+                        <div className="w-full sm:w-56 min-w-0">
                             <SearchableSelect
                                 options={classeOptions}
                                 value={selectedClasse ? String(selectedClasse.id) : ''}
@@ -888,7 +871,7 @@ export default function AttributionsGrillePage({
                                 Disciplines au Programme ({rows.length})
                             </h2>
                             {hasUnsavedChanges && (
-                                <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-amber-300 text-[11px] animate-pulse">
+                                <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[11px] animate-pulse">
                                     Modifications non enregistrées
                                 </Badge>
                             )}
@@ -915,7 +898,7 @@ export default function AttributionsGrillePage({
                             data={rows}
                             searchPlaceholder="Filtrer une discipline dans la grille..."
                             defaultPageSize={50}
-                            tableClassName="min-w-[820px] w-full"
+                            tableClassName="min-w-205 w-full"
                         />
                     </div>
                 </div>

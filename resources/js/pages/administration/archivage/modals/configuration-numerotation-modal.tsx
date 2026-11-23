@@ -1,5 +1,5 @@
 import { useForm } from '@inertiajs/react';
-import { Binary, Loader2, Save, Sliders } from 'lucide-react';
+import { Binary, Loader2, Save } from 'lucide-react';
 import React, { useEffect } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -106,7 +106,7 @@ export function ConfigurationNumerotationModal({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto p-4 sm:p-6">
                 <DialogHeader>
-                    <div className="flex items-center gap-2 text-teal-600 dark:text-teal-400">
+                    <div className="flex items-center gap-2 text-teal-600">
                         <Binary className="w-5 h-5 shrink-0" />
                         <DialogTitle className="text-base sm:text-lg">Configurer la numérotation : {getTypeLabel(configuration.type_document)}</DialogTitle>
                     </div>
@@ -117,11 +117,11 @@ export function ConfigurationNumerotationModal({
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     {/* Prévisualisation dynamique */}
-                    <div className="rounded-lg border bg-teal-50/60 dark:bg-teal-950/40 p-3 text-center border-teal-200 dark:border-teal-900">
-                        <span className="text-[11px] font-bold text-teal-700 dark:text-teal-300 uppercase tracking-wider block">
+                    <div className="rounded-lg border bg-teal-50/60 p-3 text-center border-teal-200">
+                        <span className="text-[11px] font-bold text-teal-700 uppercase tracking-wider block">
                             Aperçu du prochain numéro généré
                         </span>
-                        <div className="text-lg sm:text-xl font-black font-mono tracking-wider text-teal-900 dark:text-teal-100 mt-1">
+                        <div className="text-lg sm:text-xl font-black font-mono tracking-wider text-teal-900 mt-1">
                             {previewNumber()}
                         </div>
                     </div>

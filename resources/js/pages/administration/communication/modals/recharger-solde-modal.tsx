@@ -18,7 +18,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { Coins, Zap } from 'lucide-react';
+import { Coins } from 'lucide-react';
 
 interface RechargerSoldeModalProps {
     open: boolean;
@@ -67,7 +67,7 @@ export default function RechargerSoldeModal({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-sm">
                 <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2 text-base sm:text-lg font-bold text-slate-800 dark:text-slate-100">
+                    <DialogTitle className="flex items-center gap-2 text-base sm:text-lg font-bold text-slate-800">
                         <Coins className="w-5 h-5 text-amber-500 shrink-0" />
                         <span>Recharger le Solde SMS</span>
                     </DialogTitle>

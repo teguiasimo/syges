@@ -569,8 +569,8 @@ class PersonnelController extends Controller implements HasMiddleware
     }
 
     /**
-     * Garantit qu'une fiche administrative de personnel existe pour le Chef d'Établissement (Directeur / Proviseur / Principal).
-     * Synchronise automatiquement les informations civiles et contractuelles du chef selon la configuration de l'établissement.
+     * Garantit qu'une fiche administrative de personnel existe pour le Chef d'Établissement (Directeur / Directrice / Proviseur / Principal).
+     * Synchronise de façon unidirectionnelle l'établissement vers la fiche Personnel du directeur (sans modifier les comptes Utilisateurs).
      *
      * @param  int  $etablissementId  Identifiant de l'établissement scolaire cible.
      */
@@ -589,22 +589,28 @@ class PersonnelController extends Controller implements HasMiddleware
             'La Directrice',
             'Proviseur',
             'Le Proviseur',
+            'Proviseure',
+            'La Proviseure',
             'Principal',
             'Le Principal',
+            'Principale',
+            'La Principale',
             'Chef d\'établissement',
         ];
 
         $existingPersonnel = Personnel::where('etablissement_id', $etablissementId)
             ->where(function ($q) use ($directeurFonctions) {
                 $q->whereIn('fonction_principale', $directeurFonctions)
-                    ->orWhere('matricule', 'like', 'DIR-%');
+                    ->orWhere('matricule', 'like', 'DIR-%')
+                    ->orWhere('matricule', 'like', '%-DIR-%');
             })
             ->first();
 
         $fullName = trim($etab->nom_chef_etablissement);
-        $parts = explode(' ', $fullName, 2);
-        $nom = strtoupper($parts[0]);
+        $parts = preg_split('/\s+/', $fullName, 2) ?: [$fullName];
+        $nom = mb_strtoupper($parts[0], 'UTF-8');
         $prenom = $parts[1] ?? '';
+        $isFeminin = (bool) preg_match('/directrice|proviseure|principale|\bmme\b|\bmadame\b/i', $titreChef.' '.$fullName);
 
         if (! $existingPersonnel) {
             Personnel::create([
@@ -612,7 +618,7 @@ class PersonnelController extends Controller implements HasMiddleware
                 'matricule' => 'DIR-'.str_pad((string) $etablissementId, 3, '0', STR_PAD_LEFT),
                 'nom' => $nom,
                 'prenom' => $prenom,
-                'sexe' => 'M',
+                'sexe' => $isFeminin ? 'F' : 'M',
                 'telephone' => $etab->telephone_1 ?: '600000000',
                 'email' => $etab->email ?: null,
                 'adresse' => $etab->adresse ?: null,
@@ -624,9 +630,9 @@ class PersonnelController extends Controller implements HasMiddleware
                 'volume_horaire_hebdo' => 0,
             ]);
         } else {
-            // Maintien automatique de la cohérence si le nom du chef a été mis à jour dans l'institution
+            // Synchronisation unidirectionnelle Établissement -> Personnel directeur (sans toucher à la table users)
             $currentFullName = trim($existingPersonnel->nom.' '.($existingPersonnel->prenom ?? ''));
-            if (str_starts_with($existingPersonnel->matricule, 'DIR-') && strcasecmp($fullName, $currentFullName) !== 0) {
+            if (strcasecmp($fullName, $currentFullName) !== 0 || $existingPersonnel->fonction_principale !== $titreChef) {
                 $existingPersonnel->update([
                     'nom' => $nom,
                     'prenom' => $prenom,

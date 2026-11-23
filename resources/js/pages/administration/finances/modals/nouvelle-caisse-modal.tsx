@@ -11,13 +11,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Caisse } from '@/types/finance';
 
 interface NouvelleCaisseModalProps {
@@ -177,21 +171,22 @@ export default function NouvelleCaisseModal({
 
                     <div className="space-y-1 min-w-0">
                         <Label htmlFor="responsable">Caissier / Responsable</Label>
-                        <Select
+                        <SearchableSelect
+                            id="responsable"
+                            options={[
+                                { value: '', label: 'Non assigné' },
+                                ...caissiers.map((c) => ({
+                                    value: c.id.toString(),
+                                    label: [c.nom, c.prenom].filter(Boolean).join(' '),
+                                })),
+                            ]}
                             value={responsableId}
-                            onValueChange={val => setResponsableId(val)}
-                        >
-                            <SelectTrigger>
-                                <SelectValue placeholder="Non assigné" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {caissiers.map(c => (
-                                    <SelectItem key={c.id} value={c.id.toString()}>
-                                        {c.nom} {c.prenom}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                            onValueChange={(val) => setResponsableId(val)}
+                            placeholder="Non assigné"
+                            searchPlaceholder="Rechercher un responsable..."
+                            emptyMessage="Aucun caissier trouvé."
+                            className="h-9 text-xs font-normal"
+                        />
                     </div>
 
                     <div className="space-y-1">

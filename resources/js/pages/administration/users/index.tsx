@@ -10,16 +10,11 @@ import {
     Mail,
     Lock,
     Edit2,
-    Check,
-    X,
     Crown,
     Globe,
     ArrowUpDown,
-    CheckCircle2,
-    XCircle,
     KeyRound,
     RefreshCw,
-    AlertTriangle,
     Eye,
     EyeOff,
     Building2,
@@ -39,6 +34,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
     Select,
     SelectContent,
@@ -387,9 +383,9 @@ export default function UsersIndex({
                             <div
                                 className={`flex size-9 shrink-0 items-center justify-center rounded-full font-semibold text-xs border ${
                                     user.isSuperAdmin
-                                        ? 'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800'
+                                        ? 'bg-amber-100 text-amber-700 border-amber-300'
                                         : user.isActive
-                                        ? 'bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800'
+                                        ? 'bg-emerald-100 text-emerald-700 border-emerald-300'
                                         : 'bg-muted text-muted-foreground border-border'
                                 }`}
                             >
@@ -468,7 +464,7 @@ export default function UsersIndex({
                         return (
                             <Badge
                                 variant="outline"
-                                className="text-[11px] font-medium py-0.5 px-2 bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/40 dark:text-teal-300 dark:border-teal-800 flex items-center gap-1 w-fit"
+                                className="text-[11px] font-medium py-0.5 px-2 bg-teal-50 text-teal-700 border-teal-200 flex items-center gap-1 w-fit"
                                 title={
                                     user.isSuperAdmin
                                         ? "Accès transversal à l'ensemble des campus (Super-Admin)"
@@ -485,7 +481,7 @@ export default function UsersIndex({
                         return (
                             <Badge
                                 variant="outline"
-                                className="text-[11px] font-medium py-0.5 px-2 bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800 flex items-center gap-1 w-fit"
+                                className="text-[11px] font-medium py-0.5 px-2 bg-amber-50 text-amber-700 border-amber-200 flex items-center gap-1 w-fit"
                                 title="Aucun campus assigné (compte bloqué par le cloisonnement multi-tenant jusqu'à affectation)"
                             >
                                 <span>Non rattaché</span>
@@ -500,7 +496,7 @@ export default function UsersIndex({
                         <div className="flex items-center" title={user.etablissementNom || undefined}>
                             <Badge
                                 variant="outline"
-                                className="text-[11px] font-semibold py-0.5 px-2 bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-800 flex items-center gap-1.5 w-fit max-w-[180px] hover:bg-sky-100 transition-colors cursor-help"
+                                className="text-[11px] font-semibold py-0.5 px-2 bg-sky-50 text-sky-700 border-sky-200 flex items-center gap-1.5 w-fit max-w-45 hover:bg-sky-100 transition-colors cursor-help"
                             >
                                 <Building2 className="size-3 text-sky-500 shrink-0" />
                                 <span className="truncate">{codeDisplay}</span>
@@ -535,10 +531,10 @@ export default function UsersIndex({
                                         variant="outline"
                                         className={`text-[11px] font-medium py-0 px-2 flex items-center gap-1 rounded-md ${
                                             isSuper
-                                                ? 'bg-amber-500/10 text-amber-700 border-amber-300 dark:text-amber-300 dark:border-amber-700/60'
+                                                ? 'bg-amber-500/10 text-amber-700 border-amber-300'
                                                 : isAdmin
-                                                ? 'bg-blue-500/10 text-blue-700 border-blue-300 dark:text-blue-300 dark:border-blue-700/60'
-                                                : 'bg-emerald-500/10 text-emerald-700 border-emerald-300 dark:text-emerald-300 dark:border-emerald-700/60'
+                                                ? 'bg-blue-500/10 text-blue-700 border-blue-300'
+                                                : 'bg-emerald-500/10 text-emerald-700 border-emerald-300'
                                         }`}
                                     >
                                         {isSuper && <Crown className="size-3 text-amber-500" />}
@@ -574,12 +570,12 @@ export default function UsersIndex({
                         return (
                             <div className="flex items-center gap-2">
                                 {user.isActive ? (
-                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/70">
+                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border bg-emerald-50 text-emerald-700 border-emerald-200">
                                         <span className="size-1.5 rounded-full bg-emerald-500" />
                                         Actif
                                     </span>
                                 ) : (
-                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800/70">
+                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border bg-rose-50 text-rose-700 border-rose-200">
                                         <Lock className="size-3" />
                                         Bloqué
                                     </span>
@@ -595,7 +591,7 @@ export default function UsersIndex({
                                     type="button"
                                     onClick={() => setUserToToggle(user)}
                                     title="Cliquer pour bloquer ce compte"
-                                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-all cursor-pointer hover:bg-emerald-100 dark:hover:bg-emerald-950/60 bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800/70"
+                                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-all cursor-pointer hover:bg-emerald-100 bg-emerald-50 text-emerald-700 border-emerald-200"
                                 >
                                     <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
                                     Actif
@@ -605,7 +601,7 @@ export default function UsersIndex({
                                     type="button"
                                     onClick={() => setUserToToggle(user)}
                                     title="Cliquer pour réactiver ce compte"
-                                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-all cursor-pointer hover:bg-rose-100 dark:hover:bg-rose-950/60 bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800/70"
+                                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-all cursor-pointer hover:bg-rose-100 bg-rose-50 text-rose-700 border-rose-200"
                                 >
                                     <Lock className="size-3" />
                                     Bloqué
@@ -646,9 +642,9 @@ export default function UsersIndex({
                                     size="icon"
                                     onClick={() => handleOpenEdit(user)}
                                     title="Modifier les informations"
-                                    className="size-8 rounded-lg bg-blue-50/90 text-blue-600 border border-blue-200/70 hover:bg-blue-100 hover:text-blue-700 dark:bg-blue-950/50 dark:text-blue-400 dark:border-blue-800/60 dark:hover:bg-blue-900/60 transition-all shadow-xs cursor-pointer"
+                                    className="size-8 rounded-lg bg-blue-50/90 text-blue-600 border border-blue-200/70 hover:bg-blue-100 hover:text-blue-700 transition-all shadow-xs cursor-pointer"
                                 >
-                                    <Edit2 className="size-4 text-blue-600 dark:text-blue-400" />
+                                    <Edit2 className="size-4 text-blue-600" />
                                     <span className="sr-only">Modifier</span>
                                 </Button>
                             )}
@@ -663,14 +659,14 @@ export default function UsersIndex({
                                     title={user.isActive ? 'Bloquer ce compte' : 'Réactiver ce compte'}
                                     className={`size-8 rounded-lg transition-all shadow-xs cursor-pointer ${
                                         user.isActive
-                                            ? 'bg-amber-50/90 text-amber-600 border border-amber-200/70 hover:bg-amber-100 hover:text-amber-700 dark:bg-amber-950/50 dark:text-amber-400 dark:border-amber-800/60 dark:hover:bg-amber-900/60'
-                                            : 'bg-emerald-50/90 text-emerald-600 border border-emerald-200/70 hover:bg-emerald-100 hover:text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400 dark:border-emerald-800/60 dark:hover:bg-emerald-900/60'
+                                            ? 'bg-amber-50/90 text-amber-600 border border-amber-200/70 hover:bg-amber-100 hover:text-amber-700'
+                                            : 'bg-emerald-50/90 text-emerald-600 border border-emerald-200/70 hover:bg-emerald-100 hover:text-emerald-700'
                                     }`}
                                 >
                                     {user.isActive ? (
-                                        <Lock className="size-4 text-amber-600 dark:text-amber-400" />
+                                        <Lock className="size-4 text-amber-600" />
                                     ) : (
-                                        <UserCheck className="size-4 text-emerald-600 dark:text-emerald-400" />
+                                        <UserCheck className="size-4 text-emerald-600" />
                                     )}
                                     <span className="sr-only">
                                         {user.isActive ? 'Bloquer' : 'Débloquer'}
@@ -696,7 +692,7 @@ export default function UsersIndex({
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div>
                         <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight text-foreground flex items-center gap-2.5 sm:gap-3">
-                            <Users className="size-6 sm:size-8 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                            <Users className="size-6 sm:size-8 text-emerald-600 shrink-0" />
                             <span>Gestion des Utilisateurs</span>
                         </h1>
                         <p className="text-muted-foreground text-xs sm:text-sm mt-1">
@@ -724,7 +720,7 @@ export default function UsersIndex({
                 {/* Synthèse statistique KPI compacte et optimisée avec grille responsive */}
                 <div className="grid grid-cols-1 min-[400px]:grid-cols-2 lg:grid-cols-4 gap-2.5">
                     <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg border border-border/80 bg-card">
-                        <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                        <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-blue-500/10 text-blue-600">
                             <Users className="size-3.5" />
                         </div>
                         <div className="min-w-0 flex-1">
@@ -738,7 +734,7 @@ export default function UsersIndex({
                     </div>
 
                     <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg border border-border/80 bg-card">
-                        <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                        <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-emerald-500/10 text-emerald-600">
                             <UserCheck className="size-3.5" />
                         </div>
                         <div className="min-w-0 flex-1">
@@ -752,7 +748,7 @@ export default function UsersIndex({
                     </div>
 
                     <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg border border-border/80 bg-card">
-                        <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-rose-500/10 text-rose-600 dark:text-rose-400">
+                        <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-rose-500/10 text-rose-600">
                             <UserX className="size-3.5" />
                         </div>
                         <div className="min-w-0 flex-1">
@@ -766,7 +762,7 @@ export default function UsersIndex({
                     </div>
 
                     <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg border border-border/80 bg-card">
-                        <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                        <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-amber-500/10 text-amber-600">
                             <ShieldCheck className="size-3.5" />
                         </div>
                         <div className="min-w-0 flex-1">
@@ -959,43 +955,40 @@ export default function UsersIndex({
 
                         {/* Établissement / Campus de rattachement */}
                         {etablissements.length > 0 && (
-                            <div className="space-y-1.5 pt-1">
+                            <div className="space-y-1.5 pt-1 min-w-0">
                                 <Label htmlFor="create-etablissement" className="text-xs font-semibold flex items-center gap-1">
                                     <Building2 className="size-3 text-muted-foreground" />
                                     Campus / Établissement <span className="text-destructive">*</span>
                                 </Label>
                                 {isSuperAdmin ? (
-                                    <Select
+                                    <SearchableSelect
+                                        id="create-etablissement"
+                                        options={[
+                                            {
+                                                value: 'none',
+                                                label: 'Accès Global (Tous les campus du complexe)',
+                                                description: 'Administration transversale sur tous les établissements',
+                                            },
+                                            ...etablissements.map((etab) => ({
+                                                value: String(etab.id),
+                                                label: etab.nom,
+                                                description: etab.code ? `Code : ${etab.code}` : undefined,
+                                            })),
+                                        ]}
                                         value={createForm.data.has_global_access ? 'none' : createForm.data.etablissement_id}
-                                        onValueChange={(val) =>
+                                        onValueChange={(val) => {
+                                            const nextVal = val || 'none';
                                             createForm.setData((prev) => ({
                                                 ...prev,
-                                                etablissement_id: val === 'none' ? '' : val,
-                                                has_global_access: val === 'none',
-                                            }))
-                                        }
-                                    >
-                                        <SelectTrigger id="create-etablissement" className="h-9 text-sm">
-                                            <SelectValue placeholder="Sélectionner le campus de rattachement..." />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="none">
-                                                <span className="font-semibold text-teal-600 dark:text-teal-400">
-                                                    Accès Global (Tous les campus du complexe)
-                                                </span>
-                                            </SelectItem>
-                                            {etablissements.map((etab) => (
-                                                <SelectItem key={etab.id} value={String(etab.id)}>
-                                                    <span className="font-semibold text-foreground">{etab.code || truncateText(etab.nom, 24)}</span>
-                                                    {etab.code && etab.nom && (
-                                                        <span className="text-muted-foreground text-xs ml-1.5 font-normal">
-                                                            ({truncateText(etab.nom, 28)})
-                                                        </span>
-                                                    )}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                                etablissement_id: nextVal === 'none' ? '' : nextVal,
+                                                has_global_access: nextVal === 'none',
+                                            }));
+                                        }}
+                                        placeholder="Sélectionner le campus de rattachement..."
+                                        searchPlaceholder="Rechercher un campus..."
+                                        emptyMessage="Aucun établissement trouvé."
+                                        className="h-9 text-sm font-normal"
+                                    />
                                 ) : (
                                     <div className="flex items-center gap-2 p-2.5 rounded-md border bg-muted/40 text-xs font-medium text-foreground">
                                         <Building2 className="size-4 text-sky-600 shrink-0" />
@@ -1214,42 +1207,39 @@ export default function UsersIndex({
 
                         {/* Établissement / Campus de rattachement pour modification */}
                         {etablissements.length > 0 && isSuperAdmin && !userToEdit?.isSuperAdmin && (
-                            <div className="space-y-1.5 pt-1">
+                            <div className="space-y-1.5 pt-1 min-w-0">
                                 <Label htmlFor="edit-etablissement" className="text-xs font-semibold flex items-center gap-1">
                                     <Building2 className="size-3 text-muted-foreground" />
                                     Campus / Établissement
                                 </Label>
-                                <Select
+                                <SearchableSelect
+                                    id="edit-etablissement"
+                                    options={[
+                                        {
+                                            value: 'none',
+                                            label: 'Accès Global (Tous les campus du complexe)',
+                                            description: 'Administration transversale sur tous les établissements',
+                                        },
+                                        ...etablissements.map((etab) => ({
+                                            value: String(etab.id),
+                                            label: etab.nom,
+                                            description: etab.code ? `Code : ${etab.code}` : undefined,
+                                        })),
+                                    ]}
                                     value={editForm.data.has_global_access ? 'none' : editForm.data.etablissement_id}
-                                    onValueChange={(val) =>
+                                    onValueChange={(val) => {
+                                        const nextVal = val || 'none';
                                         editForm.setData((prev) => ({
                                             ...prev,
-                                            etablissement_id: val === 'none' ? '' : val,
-                                            has_global_access: val === 'none',
-                                        }))
-                                    }
-                                >
-                                    <SelectTrigger id="edit-etablissement" className="h-9 text-sm">
-                                        <SelectValue placeholder="Sélectionner le campus..." />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="none">
-                                            <span className="font-semibold text-teal-600 dark:text-teal-400">
-                                                Accès Global (Tous les campus du complexe)
-                                            </span>
-                                        </SelectItem>
-                                        {etablissements.map((etab) => (
-                                            <SelectItem key={etab.id} value={String(etab.id)}>
-                                                <span className="font-semibold text-foreground">{etab.code || truncateText(etab.nom, 24)}</span>
-                                                {etab.code && etab.nom && (
-                                                    <span className="text-muted-foreground text-xs ml-1.5 font-normal">
-                                                        ({truncateText(etab.nom, 28)})
-                                                    </span>
-                                                )}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                            etablissement_id: nextVal === 'none' ? '' : nextVal,
+                                            has_global_access: nextVal === 'none',
+                                        }));
+                                    }}
+                                    placeholder="Sélectionner le campus..."
+                                    searchPlaceholder="Rechercher un campus..."
+                                    emptyMessage="Aucun établissement trouvé."
+                                    className="h-9 text-sm font-normal"
+                                />
                                 {editForm.errors.etablissement_id && (
                                     <p className="text-xs text-destructive">{editForm.errors.etablissement_id}</p>
                                 )}

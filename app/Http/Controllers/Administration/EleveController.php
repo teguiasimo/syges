@@ -52,7 +52,7 @@ class EleveController extends Controller implements HasMiddleware
             new Middleware('can:eleves.import|eleves.create|eleves.manage', only: ['importCsv']),
             new Middleware('can:eleves.edit|eleves.manage', only: ['update']),
             new Middleware('can:eleves.delete', only: ['destroy']),
-            new Middleware('can:inscriptions.reinscrire|inscriptions.manage', only: ['reinscrire', 'reinscrireLot', 'reinscriptionPage']),
+            new Middleware('can:inscriptions.reinscrire|inscriptions.manage', only: ['reinscrire', 'reinscrireLot', 'reinscriptionPage', 'getClasseElevesForReinscription']),
             new Middleware('can:inscriptions.manage', only: ['updateStatut']),
             new Middleware('can:inscriptions.transfer|inscriptions.manage', only: ['transferer']),
         ];
@@ -160,21 +160,69 @@ class EleveController extends Controller implements HasMiddleware
         // Récupération de toutes les années scolaires
         $anneesScolaires = AnneeScolaire::orderByDesc('date_debut')->get();
 
-        // Construction optimisée de la requête pour les inscriptions de l'année sélectionnée :
-        // - Jointure directe sur `eleves` pour le tri indexé et le filtrage rapide sans sous-requête corrélée.
-        // - Sélection ciblée des colonnes sur la hiérarchie `classe -> niveau -> cycle -> section -> etablissement`
-        //   afin d'alléger drastiquement le payload JSON envoyé à Inertia sur les bases de +500 élèves.
-        $inscriptionsQuery = Inscription::query()
-            ->select('inscriptions.*')
+        // Projection SQL directe ultra-légère : évite l'hydratation et la sérialisation récursive
+        // de ~3 500 modèles Eloquent imbriqués sur les bases de +500 élèves tout en préservant
+        // 100 % du contrat JSON attendu par TanStack Table, les tiroirs et modales d'édition.
+        $inscriptionsQuery = DB::table('inscriptions')
             ->join('eleves', 'eleves.id', '=', 'inscriptions.eleve_id')
-            ->with([
-                'eleve',
-                'etablissement:id,institution_id,code,nom',
-                'classe:id,etablissement_id,niveau_id,code,nom,serie,capacite_max,is_active',
-                'classe.niveau:id,cycle_id,code,nom',
-                'classe.niveau.cycle:id,section_id,code,nom',
-                'classe.niveau.cycle.section:id,etablissement_id,code,nom',
-                'classe.niveau.cycle.section.etablissement:id,institution_id,code,nom',
+            ->leftJoin('etablissements as insc_etab', 'insc_etab.id', '=', 'inscriptions.etablissement_id')
+            ->leftJoin('classes', 'classes.id', '=', 'inscriptions.classe_id')
+            ->leftJoin('niveaux', 'niveaux.id', '=', 'classes.niveau_id')
+            ->leftJoin('cycles', 'cycles.id', '=', 'niveaux.cycle_id')
+            ->leftJoin('sections', 'sections.id', '=', 'cycles.section_id')
+            ->leftJoin('etablissements as sec_etab', 'sec_etab.id', '=', 'sections.etablissement_id')
+            ->select([
+                'inscriptions.id',
+                'inscriptions.eleve_id',
+                'inscriptions.classe_id',
+                'inscriptions.etablissement_id',
+                'inscriptions.annee_scolaire_id',
+                'inscriptions.type_inscription',
+                'inscriptions.is_redoublant',
+                'inscriptions.statut',
+                'inscriptions.date_inscription',
+                'inscriptions.motif_sortie',
+                'inscriptions.etablissement_provenance',
+                'inscriptions.observations',
+                'eleves.matricule',
+                'eleves.matricule_national',
+                'eleves.nom as eleve_nom',
+                'eleves.prenom as eleve_prenom',
+                'eleves.sexe as eleve_sexe',
+                'eleves.date_naissance as eleve_date_naissance',
+                'eleves.lieu_naissance as eleve_lieu_naissance',
+                'eleves.nationalite as eleve_nationalite',
+                'eleves.photo_url as eleve_photo_url',
+                'eleves.nom_pere as eleve_nom_pere',
+                'eleves.nom_mere as eleve_nom_mere',
+                'eleves.nom_tuteur as eleve_nom_tuteur',
+                'eleves.telephone_parent as eleve_telephone_parent',
+                'eleves.email_parent as eleve_email_parent',
+                'eleves.adresse as eleve_adresse',
+                'eleves.is_active as eleve_is_active',
+                'insc_etab.institution_id as insc_etab_institution_id',
+                'insc_etab.code as insc_etab_code',
+                'insc_etab.nom as insc_etab_nom',
+                'classes.etablissement_id as classe_etablissement_id',
+                'classes.niveau_id as classe_niveau_id',
+                'classes.code as classe_code',
+                'classes.nom as classe_nom',
+                'classes.serie as classe_serie',
+                'classes.capacite_max as classe_capacite_max',
+                'classes.is_active as classe_is_active',
+                'niveaux.cycle_id as niveau_cycle_id',
+                'niveaux.code as niveau_code',
+                'niveaux.nom as niveau_nom',
+                'cycles.section_id as cycle_section_id',
+                'cycles.code as cycle_code',
+                'cycles.nom as cycle_nom',
+                'sections.etablissement_id as section_etablissement_id',
+                'sections.code as section_code',
+                'sections.nom as section_nom',
+                'sec_etab.id as sec_etab_id',
+                'sec_etab.institution_id as sec_etab_institution_id',
+                'sec_etab.code as sec_etab_code',
+                'sec_etab.nom as sec_etab_nom',
             ]);
 
         if ($selectedAnneeId) {
@@ -194,16 +242,12 @@ class EleveController extends Controller implements HasMiddleware
 
         // Filtre par Cycle
         if ($cycleId = $request->integer('cycle_id')) {
-            $inscriptionsQuery->whereHas('classe.niveau', function ($q) use ($cycleId) {
-                $q->where('cycle_id', $cycleId);
-            });
+            $inscriptionsQuery->where('niveaux.cycle_id', $cycleId);
         }
 
         // Filtre par Niveau
         if ($niveauId = $request->integer('niveau_id')) {
-            $inscriptionsQuery->whereHas('classe', function ($q) use ($niveauId) {
-                $q->where('niveau_id', $niveauId);
-            });
+            $inscriptionsQuery->where('classes.niveau_id', $niveauId);
         }
 
         // Filtre par Classe
@@ -232,30 +276,117 @@ class EleveController extends Controller implements HasMiddleware
             }
         }
 
-        // Recherche textuelle par Nom, Prénom, Matricule, Téléphone
+        // Recherche textuelle par Nom, Prénom, Matricule, Téléphone ou ancien matricule fusionné
         if ($search = $request->input('search')) {
-            $inscriptionsQuery->whereHas('eleve', function ($q) use ($search) {
-                $q->search($search);
+            $term = '%'.trim((string) $search).'%';
+            $inscriptionsQuery->where(function ($q) use ($term) {
+                $q->where('eleves.nom', 'like', $term)
+                    ->orWhere('eleves.prenom', 'like', $term)
+                    ->orWhere('eleves.matricule', 'like', $term)
+                    ->orWhere('eleves.matricule_national', 'like', $term)
+                    ->orWhere('eleves.telephone_parent', 'like', $term)
+                    ->orWhereExists(function ($fq) use ($term) {
+                        $fq->selectRaw('1')
+                            ->from('eleves_fusions_audit')
+                            ->whereColumn('eleves_fusions_audit.master_eleve_id', 'eleves.id')
+                            ->where(function ($sub) use ($term) {
+                                $sub->where('eleves_fusions_audit.absorbed_matricule', 'like', $term)
+                                    ->orWhere('eleves_fusions_audit.absorbed_nom_complet', 'like', $term);
+                            });
+                    });
             });
         }
 
         // Liste finale ordonnée par classe puis par ordre alphabétique direct sur la table jointe `eleves`
-        $inscriptions = $inscriptionsQuery
+        $rawInscriptions = $inscriptionsQuery
             ->orderBy('inscriptions.classe_id')
             ->orderBy('eleves.nom')
             ->orderBy('eleves.prenom')
             ->get();
 
-        // Allègement de la sérialisation JSON sur chaque inscription : on conserve uniquement l'accesseur `sigle`
-        // sur les objets Etablissement imbriqués pour éviter de sérialiser 20 attributs `$appends` 1 000+ fois.
-        foreach ($inscriptions as $inscription) {
-            if ($inscription->relationLoaded('etablissement') && $inscription->etablissement) {
-                $inscription->etablissement->setAppends(['sigle']);
-            }
-            $nestedEtab = $inscription->classe?->niveau?->cycle?->section?->etablissement;
-            if ($nestedEtab) {
-                $nestedEtab->setAppends(['sigle']);
-            }
+        // Formatage en tableaux PHP plats (supprime la surcouche Eloquent lors de la sérialisation JSON Inertia)
+        $inscriptions = [];
+        foreach ($rawInscriptions as $row) {
+            $etabDirect = $row->etablissement_id ? [
+                'id' => (int) $row->etablissement_id,
+                'institution_id' => $row->insc_etab_institution_id ? (int) $row->insc_etab_institution_id : null,
+                'code' => $row->insc_etab_code,
+                'nom' => $row->insc_etab_nom,
+                'sigle' => $row->insc_etab_code,
+            ] : null;
+
+            $secEtab = $row->sec_etab_id ? [
+                'id' => (int) $row->sec_etab_id,
+                'institution_id' => $row->sec_etab_institution_id ? (int) $row->sec_etab_institution_id : null,
+                'code' => $row->sec_etab_code,
+                'nom' => $row->sec_etab_nom,
+                'sigle' => $row->sec_etab_code,
+            ] : null;
+
+            $inscriptions[] = [
+                'id' => (int) $row->id,
+                'eleve_id' => (int) $row->eleve_id,
+                'classe_id' => (int) $row->classe_id,
+                'etablissement_id' => $row->etablissement_id ? (int) $row->etablissement_id : null,
+                'annee_scolaire_id' => (int) $row->annee_scolaire_id,
+                'type_inscription' => $row->type_inscription,
+                'is_redoublant' => (bool) $row->is_redoublant,
+                'statut' => (string) $row->statut,
+                'date_inscription' => $row->date_inscription,
+                'motif_sortie' => $row->motif_sortie,
+                'etablissement_provenance' => $row->etablissement_provenance,
+                'observations' => $row->observations,
+                'eleve' => [
+                    'id' => (int) $row->eleve_id,
+                    'matricule' => (string) $row->matricule,
+                    'matricule_national' => $row->matricule_national,
+                    'nom' => (string) $row->eleve_nom,
+                    'prenom' => $row->eleve_prenom,
+                    'nom_complet' => trim(((string) $row->eleve_nom).' '.((string) ($row->eleve_prenom ?? ''))),
+                    'sexe' => $row->eleve_sexe,
+                    'date_naissance' => $row->eleve_date_naissance,
+                    'lieu_naissance' => $row->eleve_lieu_naissance,
+                    'nationalite' => $row->eleve_nationalite,
+                    'photo_url' => $row->eleve_photo_url,
+                    'nom_pere' => $row->eleve_nom_pere,
+                    'nom_mere' => $row->eleve_nom_mere,
+                    'nom_tuteur' => $row->eleve_nom_tuteur,
+                    'telephone_parent' => $row->eleve_telephone_parent,
+                    'email_parent' => $row->eleve_email_parent,
+                    'adresse' => $row->eleve_adresse,
+                    'is_active' => (bool) $row->eleve_is_active,
+                ],
+                'etablissement' => $etabDirect,
+                'classe' => $row->classe_id ? [
+                    'id' => (int) $row->classe_id,
+                    'etablissement_id' => $row->classe_etablissement_id ? (int) $row->classe_etablissement_id : null,
+                    'niveau_id' => $row->classe_niveau_id ? (int) $row->classe_niveau_id : null,
+                    'code' => $row->classe_code,
+                    'nom' => $row->classe_nom,
+                    'serie' => $row->classe_serie,
+                    'capacite_max' => $row->classe_capacite_max !== null ? (int) $row->classe_capacite_max : null,
+                    'is_active' => (bool) $row->classe_is_active,
+                    'niveau' => $row->classe_niveau_id ? [
+                        'id' => (int) $row->classe_niveau_id,
+                        'cycle_id' => $row->niveau_cycle_id ? (int) $row->niveau_cycle_id : null,
+                        'code' => $row->niveau_code,
+                        'nom' => $row->niveau_nom,
+                        'cycle' => $row->niveau_cycle_id ? [
+                            'id' => (int) $row->niveau_cycle_id,
+                            'section_id' => $row->cycle_section_id ? (int) $row->cycle_section_id : null,
+                            'code' => $row->cycle_code,
+                            'nom' => $row->cycle_nom,
+                            'section' => $row->cycle_section_id ? [
+                                'id' => (int) $row->cycle_section_id,
+                                'etablissement_id' => $row->section_etablissement_id ? (int) $row->section_etablissement_id : null,
+                                'code' => $row->section_code,
+                                'nom' => $row->section_nom,
+                                'etablissement' => $secEtab,
+                            ] : null,
+                        ] : null,
+                    ] : null,
+                ] : null,
+            ];
         }
 
         // Calcul agrégé en une seule requête SQL des 6 indicateurs KPI d'inscriptions pour l'année sélectionnée
@@ -444,6 +575,16 @@ class EleveController extends Controller implements HasMiddleware
      */
     public function update(Request $request, Eleve $eleve): RedirectResponse
     {
+        // Cloisonnement multi-campus : un utilisateur local ne peut modifier qu'un élève inscrit dans son établissement
+        $context = $this->resolveEtablissementContext($request);
+        if (! ($context['canAccessAll'] ?? $context['isSuperAdmin']) && $context['etablissementId']) {
+            $belongsToCampus = Inscription::withoutGlobalScopes()
+                ->where('eleve_id', $eleve->id)
+                ->where('etablissement_id', (int) $context['etablissementId'])
+                ->exists();
+            abort_unless($belongsToCampus, 403, 'Action non autorisée sur un élève appartenant à un autre établissement.');
+        }
+
         $validated = $request->validate([
             'matricule_national' => ['nullable', 'string', 'max:50'],
             'nom' => ['required', 'string', 'max:150'],
@@ -737,8 +878,9 @@ class EleveController extends Controller implements HasMiddleware
             'observations' => ['nullable', 'string'],
         ]);
 
-        // Vérifie si l'élève n'a pas déjà une inscription pour cette année
-        $existing = Inscription::where('eleve_id', $validated['eleve_id'])
+        // Vérifie tous campus confondus si l'élève n'a pas déjà une inscription active pour cette année scolaire
+        $existing = Inscription::withoutGlobalScopes()
+            ->where('eleve_id', $validated['eleve_id'])
             ->where('annee_scolaire_id', $validated['annee_scolaire_id'])
             ->whereIn('statut', ['validee', 'en_attente'])
             ->first();
@@ -751,8 +893,15 @@ class EleveController extends Controller implements HasMiddleware
         $etablissementId = $classe->etablissement_id;
 
         $context = $this->resolveEtablissementContext($request);
-        if (! ($context['canAccessAll'] ?? $context['isSuperAdmin']) && (int) $etablissementId !== (int) $context['etablissementId']) {
-            abort(403, 'Action non autorisée sur une classe d\'un autre établissement.');
+        if (! ($context['canAccessAll'] ?? $context['isSuperAdmin'])) {
+            if ((int) $etablissementId !== (int) $context['etablissementId']) {
+                abort(403, 'Action non autorisée sur une classe d\'un autre établissement.');
+            }
+            $belongsToCampus = Inscription::withoutGlobalScopes()
+                ->where('eleve_id', $validated['eleve_id'])
+                ->where('etablissement_id', (int) $context['etablissementId'])
+                ->exists();
+            abort_unless($belongsToCampus, 403, 'Action non autorisée : cet élève appartient à un autre établissement.');
         }
 
         $inscription = Inscription::create([
@@ -1071,13 +1220,27 @@ class EleveController extends Controller implements HasMiddleware
             return response()->json([]);
         }
 
-        $eleves = Eleve::search($q)
+        $context = $this->resolveEtablissementContext($request);
+        $canAccessAll = (bool) ($context['canAccessAll'] ?? $context['isSuperAdmin']);
+        $scopedEtabId = $context['etablissementId'] ? (int) $context['etablissementId'] : null;
+
+        $elevesQuery = Eleve::search($q)
             ->whereDoesntHave('inscriptions', function ($sub) use ($anneeId) {
+                $sub->withoutGlobalScopes();
                 if ($anneeId) {
                     $sub->where('annee_scolaire_id', $anneeId)
                         ->whereIn('statut', ['validee', 'en_attente']);
                 }
-            })
+            });
+
+        // Cloisonnement multi-campus : un utilisateur local ne recherche que parmi les anciens élèves de son campus
+        if (! $canAccessAll && $scopedEtabId) {
+            $elevesQuery->whereHas('inscriptions', function ($iq) use ($scopedEtabId) {
+                $iq->withoutGlobalScopes()->where('etablissement_id', $scopedEtabId);
+            });
+        }
+
+        $eleves = $elevesQuery
             ->with([
                 'inscriptions' => function ($iq) use ($anneeId) {
                     if ($anneeId) {
@@ -1220,9 +1383,19 @@ class EleveController extends Controller implements HasMiddleware
                 'Nationalite',
             ], ';');
 
+            // Neutralise les préfixes de formules tableur (=, @, +, -) contre l'injection CSV (CSV Formula Injection)
+            $sanitizeCsvCell = static function (mixed $value): string {
+                $str = (string) ($value ?? '');
+                if ($str !== '' && preg_match('/^[=@]|^[+\-](?![0-9\s])/', $str) === 1) {
+                    return "'".$str;
+                }
+
+                return $str;
+            };
+
             foreach ($inscriptions as $insc) {
                 $el = $insc->eleve;
-                fputcsv($handle, [
+                fputcsv($handle, array_map($sanitizeCsvCell, [
                     $el->matricule ?? '',
                     $el->matricule_national ?? '',
                     $el->nom,
@@ -1237,7 +1410,7 @@ class EleveController extends Controller implements HasMiddleware
                     $el->adresse ?? '',
                     $el->nom_tuteur ?? $el->nom_pere ?? $el->nom_mere ?? '',
                     $el->nationalite ?? 'CAMEROUNAISE',
-                ], ';');
+                ]), ';');
             }
 
             fclose($handle);
@@ -1359,8 +1532,9 @@ class EleveController extends Controller implements HasMiddleware
                 $isRedoublant = (bool) ($item['is_redoublant'] ?? false);
                 $arrieres = (float) ($item['arrieres_anterieurs'] ?? 0);
 
-                // Ne pas réinscrire un élève déjà actif sur la nouvelle année
-                $existing = Inscription::where('eleve_id', $eleveId)
+                // Ne pas réinscrire un élève déjà actif sur la nouvelle année (tous campus confondus)
+                $existing = Inscription::withoutGlobalScopes()
+                    ->where('eleve_id', $eleveId)
                     ->where('annee_scolaire_id', $validated['annee_scolaire_id'])
                     ->whereIn('statut', ['validee', 'en_attente'])
                     ->exists();

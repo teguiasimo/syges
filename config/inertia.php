@@ -7,19 +7,33 @@ return [
     | Server Side Rendering
     |--------------------------------------------------------------------------
     |
-    | These options configures if and how Inertia uses Server Side Rendering
-    | to pre-render each initial request made to your application's pages
-    | so that server rendered HTML is delivered for the user's browser.
-    |
-    | See: https://inertiajs.com/server-side-rendering
+    | Désactivé par défaut tant qu'aucun daemon Node SSR n'écoute sur le port 13714 :
+    | évite un délai TCP mort (~415 ms) à chaque chargement complet de page.
+    | Activable à la demande via `INERTIA_SSR_ENABLED=true` dans `.env`.
     |
     */
 
     'ssr' => [
-        'enabled' => true,
-        'url' => 'http://127.0.0.1:13714',
+        'enabled' => (bool) env('INERTIA_SSR_ENABLED', false),
+        'url' => (string) env('INERTIA_SSR_URL', 'http://127.0.0.1:13714'),
         // 'bundle' => base_path('bootstrap/ssr/ssr.mjs'),
 
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Inertia DevTools (v3)
+    |--------------------------------------------------------------------------
+    |
+    | Par défaut, Inertia v3 active l'enregistreur DevTools en environnement `local`,
+    | ce qui parcourt récursivement toutes les clés de props et ajoute plusieurs secondes
+    | sur les pages volumineuses. Désactivé par défaut pour des performances représentatives ;
+    | activable ponctuellement via `INERTIA_DEVTOOLS_ENABLED=true`.
+    |
+    */
+
+    'devtools' => [
+        'enabled' => (bool) env('INERTIA_DEVTOOLS_ENABLED', false),
     ],
 
     /*

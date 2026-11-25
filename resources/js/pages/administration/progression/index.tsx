@@ -695,8 +695,9 @@ export default function ProgressionPedagogiqueIndex({
                                         disabled={!link.url}
                                         className={`h-7 px-2.5 text-xs ${link.active ? 'bg-teal-600 text-white' : ''}`}
                                         onClick={() => link.url && router.get(link.url, {}, { preserveScroll: true, preserveState: true })}
-                                        dangerouslySetInnerHTML={{ __html: link.label }}
-                                    />
+                                    >
+                                        {link.label.replace(/&laquo;/g, '«').replace(/&raquo;/g, '»')}
+                                    </Button>
                                 ))}
                             </div>
                         </div>

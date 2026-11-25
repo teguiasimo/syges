@@ -155,16 +155,22 @@ class PersonnelController extends Controller implements HasMiddleware
         // 4. Établissements autorisés pour l'utilisateur
         $etablissements = $context['etablissements'];
 
-        // 5. Utilisateurs existants sans fiche de personnel (pour liaison optionnelle)
-        $assignedUserIds = Personnel::whereNotNull('user_id')->pluck('user_id')->toArray();
-        $availableUsers = User::whereNotIn('id', $assignedUserIds)
+        // 5. Utilisateurs existants sans fiche de personnel (cloisonnés par campus et hors Super-Admin / Accès global)
+        $assignedUserIds = Personnel::withoutGlobalScopes()->whereNotNull('user_id')->pluck('user_id')->toArray();
+        $availableUsersQuery = User::whereNotIn('id', $assignedUserIds)
             ->where('is_active', true)
+            ->where('has_global_access', false)
+            ->whereDoesntHave('roles', fn ($rq) => $rq->where('name', 'super-admin'));
+        if (! ($context['canAccessAll'] ?? $isSuperAdmin) && $context['etablissementId']) {
+            $availableUsersQuery->where('etablissement_id', $context['etablissementId']);
+        }
+        $availableUsers = $availableUsersQuery
             ->select('id', 'name', 'email', 'login')
             ->orderBy('name')
             ->get();
 
-        // 6. Rôles Spatie disponibles pour attribution
-        $roles = Role::pluck('name')->toArray();
+        // 6. Rôles Spatie disponibles pour attribution (hors super-admin réservé)
+        $roles = Role::whereNotIn('name', ['super-admin'])->pluck('name')->toArray();
 
         // 7. Statistiques récapitulatives
         $stats = [
@@ -222,10 +228,16 @@ class PersonnelController extends Controller implements HasMiddleware
             ->orderBy('nom')
             ->get();
 
-        // Utilisateurs existants sans fiche personnel
-        $assignedUserIds = Personnel::whereNotNull('user_id')->pluck('user_id')->toArray();
-        $availableUsers = User::whereNotIn('id', $assignedUserIds)
+        // Utilisateurs existants sans fiche personnel (cloisonnés par campus et hors Super-Admin / Accès global)
+        $assignedUserIds = Personnel::withoutGlobalScopes()->whereNotNull('user_id')->pluck('user_id')->toArray();
+        $availableUsersQuery = User::whereNotIn('id', $assignedUserIds)
             ->where('is_active', true)
+            ->where('has_global_access', false)
+            ->whereDoesntHave('roles', fn ($rq) => $rq->where('name', 'super-admin'));
+        if (! ($context['canAccessAll'] ?? $context['isSuperAdmin']) && $context['etablissementId']) {
+            $availableUsersQuery->where('etablissement_id', $context['etablissementId']);
+        }
+        $availableUsers = $availableUsersQuery
             ->select('id', 'name', 'email', 'login')
             ->orderBy('name')
             ->get();
@@ -291,9 +303,25 @@ class PersonnelController extends Controller implements HasMiddleware
             'user_login' => ['nullable', 'string', 'max:80', 'unique:users,login'],
             'user_email' => ['nullable', 'email', 'max:150', 'unique:users,email'],
             'user_password' => ['nullable', 'string', 'min:6'],
-            'user_role' => ['nullable', 'string'],
+            'user_role' => ['nullable', 'string', Rule::notIn(['super-admin'])],
             'create_another' => ['nullable', 'boolean'],
         ]);
+
+        // Cloisonnement multi-campus : un gestionnaire local ne peut créer un personnel que sur son établissement
+        $validated['etablissement_id'] = (int) $this->authorizeEtablissementWrite($request, $validated['etablissement_id']);
+        $context = $this->resolveEtablissementContext($request);
+        $canAccessAll = (bool) ($context['canAccessAll'] ?? $context['isSuperAdmin']);
+
+        // Protection anti-Account Takeover : interdire le rattachement d'un compte Super-Admin, Global ou d'un autre campus
+        if (! empty($validated['user_id'])) {
+            $candidateUser = User::findOrFail($validated['user_id']);
+            if ($candidateUser->isSuperAdmin() || (! $context['isSuperAdmin'] && $candidateUser->has_global_access)) {
+                abort(403, 'Accès non autorisé : impossible de rattacher un compte Super-Administrateur ou à accès global.');
+            }
+            if (! $canAccessAll && $candidateUser->etablissement_id && (int) $candidateUser->etablissement_id !== (int) $validated['etablissement_id']) {
+                abort(403, 'Accès non autorisé : ce compte utilisateur appartient à un autre établissement.');
+            }
+        }
 
         DB::transaction(function () use ($validated) {
             $userId = $validated['user_id'] ?? null;
@@ -330,8 +358,10 @@ class PersonnelController extends Controller implements HasMiddleware
                     'email_verified_at' => now(),
                 ]);
 
-                // Attribution du rôle Spatie
-                $roleName = $validated['user_role'] ?? 'enseignant';
+                // Attribution du rôle Spatie (interdiction stricte d'octroyer super-admin)
+                $roleName = ($validated['user_role'] ?? 'enseignant') !== 'super-admin'
+                    ? ($validated['user_role'] ?? 'enseignant')
+                    : 'enseignant';
                 if (Role::where('name', $roleName)->exists()) {
                     $newUser->assignRole($roleName);
                 }
@@ -432,6 +462,24 @@ class PersonnelController extends Controller implements HasMiddleware
                 Rule::unique('personnels', 'user_id')->ignore($personnel->id),
             ],
         ]);
+
+        // Cloisonnement multi-campus : un gestionnaire local ne peut pas transférer ou rattacher hors de son établissement
+        $validated['etablissement_id'] = (int) $this->authorizeEtablissementWrite($request, $validated['etablissement_id']);
+        $context = $this->resolveEtablissementContext($request);
+        $canAccessAll = (bool) ($context['canAccessAll'] ?? $context['isSuperAdmin']);
+        if (! $canAccessAll && $context['etablissementId'] && (int) $personnel->etablissement_id !== (int) $context['etablissementId']) {
+            abort(403, 'Accès non autorisé : ce membre du personnel appartient à un autre établissement.');
+        }
+
+        if (! empty($validated['user_id'])) {
+            $candidateUser = User::findOrFail($validated['user_id']);
+            if ($candidateUser->isSuperAdmin() || (! $context['isSuperAdmin'] && $candidateUser->has_global_access)) {
+                abort(403, 'Accès non autorisé : impossible de rattacher un compte Super-Administrateur ou à accès global.');
+            }
+            if (! $canAccessAll && $candidateUser->etablissement_id && (int) $candidateUser->etablissement_id !== (int) $validated['etablissement_id']) {
+                abort(403, 'Accès non autorisé : ce compte utilisateur appartient à un autre établissement.');
+            }
+        }
 
         $personnel->update($validated);
 

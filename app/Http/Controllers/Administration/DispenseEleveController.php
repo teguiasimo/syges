@@ -17,6 +17,7 @@ use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -46,11 +47,9 @@ class DispenseEleveController extends Controller implements HasMiddleware
             new Middleware('can:dispenses.print_pv|dispenses.view|evaluations.view', only: ['exporterPv']),
         ];
     }
+
     /**
      * Affiche l'écran de gestion et le registre des dispenses officielles.
-     *
-     * @param Request $request
-     * @return Response
      */
     public function index(Request $request): Response
     {
@@ -89,8 +88,8 @@ class DispenseEleveController extends Controller implements HasMiddleware
             'periode',
             'auteur',
         ])
-        ->where('etablissement_id', $selectedEtabId)
-        ->where('annee_scolaire_id', $selectedAnneeId);
+            ->where('etablissement_id', $selectedEtabId)
+            ->where('annee_scolaire_id', $selectedAnneeId);
 
         if ($classeId) {
             $dispensesQuery->whereHas('inscription', function ($q) use ($classeId) {
@@ -113,13 +112,13 @@ class DispenseEleveController extends Controller implements HasMiddleware
         if ($search) {
             $dispensesQuery->where(function ($q) use ($search) {
                 $q->where('motif', 'like', "%{$search}%")
-                  ->orWhere('reference_certificat', 'like', "%{$search}%")
-                  ->orWhere('medecin_ou_autorite', 'like', "%{$search}%")
-                  ->orWhereHas('eleve', function ($sq) use ($search) {
-                      $sq->where('nom', 'like', "%{$search}%")
-                         ->orWhere('prenom', 'like', "%{$search}%")
-                         ->orWhere('matricule', 'like', "%{$search}%");
-                  });
+                    ->orWhere('reference_certificat', 'like', "%{$search}%")
+                    ->orWhere('medecin_ou_autorite', 'like', "%{$search}%")
+                    ->orWhereHas('eleve', function ($sq) use ($search) {
+                        $sq->where('nom', 'like', "%{$search}%")
+                            ->orWhere('prenom', 'like', "%{$search}%")
+                            ->orWhere('matricule', 'like', "%{$search}%");
+                    });
             });
         }
 
@@ -135,26 +134,61 @@ class DispenseEleveController extends Controller implements HasMiddleware
             'total_en_attente' => DispenseEleve::where('etablissement_id', $selectedEtabId)->where('annee_scolaire_id', $selectedAnneeId)->where('statut', 'en_attente')->count(),
         ];
 
-        // Référentiels pour filtres et formulaires
-        $matieres = Matiere::where(function ($q) use ($selectedEtabId) {
-            $q->whereNull('etablissement_id')->orWhere('etablissement_id', $selectedEtabId);
-        })->where('is_active', true)->orderBy('nom')->get();
+        // Référentiels allégés pour filtres et formulaires (colonnes strictement nécessaires)
+        $matieres = Matiere::query()
+            ->select('id', 'code', 'nom', 'etablissement_id')
+            ->where(function ($q) use ($selectedEtabId) {
+                $q->whereNull('etablissement_id')->orWhere('etablissement_id', $selectedEtabId);
+            })
+            ->where('is_active', true)
+            ->orderBy('nom')
+            ->get();
 
-        $periodes = Periode::where('annee_scolaire_id', $selectedAnneeId)
+        $periodes = Periode::query()
+            ->select('id', 'nom', 'code', 'ordre', 'etablissement_id', 'annee_scolaire_id')
+            ->where('annee_scolaire_id', $selectedAnneeId)
             ->where(function ($q) use ($selectedEtabId) {
                 $q->whereNull('etablissement_id')->orWhere('etablissement_id', $selectedEtabId);
             })
             ->orderBy('ordre')
             ->get();
 
-        // Récupération des inscriptions actives pour la sélection des élèves
-        $inscriptions = Inscription::with(['eleve', 'classe.niveau'])
-            ->where('etablissement_id', $selectedEtabId)
-            ->where('annee_scolaire_id', $selectedAnneeId)
-            ->where('statut', 'validee')
+        // Projection SQL directe ultra-légère des inscriptions actives pour la sélection des élèves (évite 280+ Ko)
+        $inscriptions = DB::table('inscriptions')
+            ->join('eleves', 'eleves.id', '=', 'inscriptions.eleve_id')
+            ->join('classes', 'classes.id', '=', 'inscriptions.classe_id')
+            ->where('inscriptions.etablissement_id', $selectedEtabId)
+            ->where('inscriptions.annee_scolaire_id', $selectedAnneeId)
+            ->where('inscriptions.statut', 'validee')
+            ->orderBy('eleves.nom')
+            ->orderBy('eleves.prenom')
+            ->select([
+                'inscriptions.id',
+                'inscriptions.eleve_id',
+                'inscriptions.classe_id',
+                'eleves.matricule',
+                'eleves.nom as eleve_nom',
+                'eleves.prenom as eleve_prenom',
+                'classes.nom as classe_nom',
+            ])
             ->get()
-            ->sortBy(fn ($i) => $i->eleve->nom . ' ' . $i->eleve->prenom)
-            ->values();
+            ->map(static fn (object $row): array => [
+                'id' => (int) $row->id,
+                'eleve_id' => (int) $row->eleve_id,
+                'classe_id' => (int) $row->classe_id,
+                'eleve' => [
+                    'id' => (int) $row->eleve_id,
+                    'matricule' => (string) $row->matricule,
+                    'nom' => (string) $row->eleve_nom,
+                    'prenom' => $row->eleve_prenom,
+                    'nom_complet' => trim(((string) $row->eleve_nom).' '.((string) ($row->eleve_prenom ?? ''))),
+                ],
+                'classe' => [
+                    'id' => (int) $row->classe_id,
+                    'nom' => (string) $row->classe_nom,
+                ],
+            ])
+            ->all();
 
         return Inertia::render('administration/pedagogie/dispenses/index', [
             'dispenses' => $dispenses,
@@ -188,9 +222,6 @@ class DispenseEleveController extends Controller implements HasMiddleware
 
     /**
      * Enregistre une nouvelle dérogation ou dispense officielle.
-     *
-     * @param Request $request
-     * @return RedirectResponse
      */
     public function store(Request $request): RedirectResponse
     {
@@ -223,10 +254,6 @@ class DispenseEleveController extends Controller implements HasMiddleware
 
     /**
      * Met à jour une dispense existante.
-     *
-     * @param Request $request
-     * @param DispenseEleve $dispense
-     * @return RedirectResponse
      */
     public function update(Request $request, DispenseEleve $dispense): RedirectResponse
     {
@@ -252,9 +279,6 @@ class DispenseEleveController extends Controller implements HasMiddleware
 
     /**
      * Supprime une dispense.
-     *
-     * @param DispenseEleve $dispense
-     * @return RedirectResponse
      */
     public function destroy(DispenseEleve $dispense): RedirectResponse
     {
@@ -265,10 +289,6 @@ class DispenseEleveController extends Controller implements HasMiddleware
 
     /**
      * Modifie rapidement le statut d'une dispense (validation, rejet, expiration).
-     *
-     * @param Request $request
-     * @param DispenseEleve $dispense
-     * @return RedirectResponse
      */
     public function changerStatut(Request $request, DispenseEleve $dispense): RedirectResponse
     {
@@ -283,9 +303,6 @@ class DispenseEleveController extends Controller implements HasMiddleware
 
     /**
      * Génère le Procès-Verbal officiel et le Registre d'Inaptitude / Dispenses au format PDF.
-     *
-     * @param Request $request
-     * @return HttpResponse
      */
     public function exporterPv(Request $request): HttpResponse
     {
@@ -303,9 +320,9 @@ class DispenseEleveController extends Controller implements HasMiddleware
             'matiere',
             'periode',
         ])
-        ->where('etablissement_id', $etablissementId)
-        ->where('annee_scolaire_id', $anneeId)
-        ->where('statut', 'validee');
+            ->where('etablissement_id', $etablissementId)
+            ->where('annee_scolaire_id', $anneeId)
+            ->where('statut', 'validee');
 
         if ($classeId) {
             $query->whereHas('inscription', fn ($q) => $q->where('classe_id', $classeId));
@@ -326,7 +343,7 @@ class DispenseEleveController extends Controller implements HasMiddleware
             'date_generation' => now()->format('d/m/Y'),
         ])->setPaper('a4', 'landscape');
 
-        $filename = "PV_DISPENSES_" . preg_replace('/[^A-Za-z0-9]/', '_', $etablissement->code) . "_{$annee->code}.pdf";
+        $filename = 'PV_DISPENSES_'.preg_replace('/[^A-Za-z0-9]/', '_', $etablissement->code)."_{$annee->code}.pdf";
 
         return response($pdf->output(), 200, [
             'Content-Type' => 'application/pdf',

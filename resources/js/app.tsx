@@ -127,7 +127,10 @@ void createInertiaApp({
         );
     },
     progress: {
-        color: '#4B5563',
+        delay: 120,
+        color: '#059669',
+        includeCSS: true,
+        showSpinner: false,
     },
 });
 

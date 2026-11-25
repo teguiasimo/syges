@@ -201,6 +201,24 @@ class DepenseController extends Controller implements HasMiddleware
             'statut' => ['nullable', 'string', 'in:validee,en_attente,annulee'],
         ]);
 
+        $user = Auth::user();
+        if ($user && ! $user->canAccessAllEtablissements() && ($effectiveEtabId = $user->getEffectiveEtablissementId())) {
+            if ((int) $validated['etablissement_id'] !== (int) $effectiveEtabId) {
+                abort(403, 'Accès non autorisé : vous ne pouvez pas créer une dépense sur un autre établissement.');
+            }
+        }
+
+        // Vérification d'intégrité multi-campus : la caisse et la catégorie doivent appartenir au même établissement
+        $caisse = Caisse::withoutGlobalScopes()->findOrFail($validated['caisse_id']);
+        if ((int) $caisse->etablissement_id !== (int) $validated['etablissement_id']) {
+            abort(403, 'Accès non autorisé : la caisse sélectionnée n\'appartient pas à cet établissement.');
+        }
+
+        $categorie = CategorieDepense::withoutGlobalScopes()->findOrFail($validated['categorie_depense_id']);
+        if ($categorie->etablissement_id !== null && (int) $categorie->etablissement_id !== (int) $validated['etablissement_id']) {
+            abort(403, 'Accès non autorisé : la catégorie budgétaire n\'appartient pas à cet établissement.');
+        }
+
         $validated['numero_piece'] = Depense::genererNumeroPiece($validated['etablissement_id']);
         $validated['statut'] = $validated['statut'] ?? 'validee';
         $validated['created_by'] = Auth::id();
@@ -227,6 +245,17 @@ class DepenseController extends Controller implements HasMiddleware
             'reference_paiement' => ['nullable', 'string', 'max:100'],
             'statut' => ['required', 'string', 'in:validee,en_attente,annulee'],
         ]);
+
+        // Vérification que la caisse et la catégorie rattachées appartiennent bien à l'établissement de la dépense
+        $caisse = Caisse::withoutGlobalScopes()->findOrFail($validated['caisse_id']);
+        if ((int) $caisse->etablissement_id !== (int) $depense->etablissement_id) {
+            abort(403, 'Accès non autorisé : la caisse sélectionnée n\'appartient pas à l\'établissement de cette dépense.');
+        }
+
+        $categorie = CategorieDepense::withoutGlobalScopes()->findOrFail($validated['categorie_depense_id']);
+        if ($categorie->etablissement_id !== null && (int) $categorie->etablissement_id !== (int) $depense->etablissement_id) {
+            abort(403, 'Accès non autorisé : la catégorie budgétaire n\'appartient pas à l\'établissement de cette dépense.');
+        }
 
         $depense->update($validated);
 
@@ -255,6 +284,14 @@ class DepenseController extends Controller implements HasMiddleware
             'description' => ['nullable', 'string', 'max:500'],
             'couleur' => ['required', 'string', 'max:25'],
         ]);
+
+        $user = Auth::user();
+        if ($user && ! $user->canAccessAllEtablissements() && ($effectiveEtabId = $user->getEffectiveEtablissementId())) {
+            if (! empty($validated['etablissement_id']) && (int) $validated['etablissement_id'] !== (int) $effectiveEtabId) {
+                abort(403, 'Accès non autorisé : vous ne pouvez pas créer une catégorie sur un autre établissement.');
+            }
+            $validated['etablissement_id'] = (int) $effectiveEtabId;
+        }
 
         CategorieDepense::create($validated);
 

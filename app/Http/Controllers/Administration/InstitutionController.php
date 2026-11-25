@@ -324,9 +324,9 @@ class InstitutionController extends Controller implements HasMiddleware
             'devise' => ['nullable', 'string', 'max:150'],
             'devise_en' => ['nullable', 'string', 'max:150'],
             'logo' => ['nullable', 'string', 'max:255'],
-            'logo_file' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,svg,webp', 'max:2048'],
+            'logo_file' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,webp', 'max:2048'],
             'logo_filigrane' => ['nullable', 'string', 'max:255'],
-            'logo_filigrane_file' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,svg,webp', 'max:2048'],
+            'logo_filigrane_file' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,webp', 'max:2048'],
             'email' => ['nullable', 'email', 'max:100'],
             'telephone_1' => ['nullable', 'string', 'max:30'],
             'telephone_2' => ['nullable', 'string', 'max:30'],
@@ -401,9 +401,9 @@ class InstitutionController extends Controller implements HasMiddleware
             'telephone_2' => ['nullable', 'string', 'max:30'],
             'adresse' => ['nullable', 'string', 'max:150'],
             'logo' => ['nullable', 'string', 'max:255'],
-            'logo_file' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,svg,webp', 'max:2048'],
+            'logo_file' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,webp', 'max:2048'],
             'logo_filigrane' => ['nullable', 'string', 'max:255'],
-            'logo_filigrane_file' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,svg,webp', 'max:2048'],
+            'logo_filigrane_file' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,webp', 'max:2048'],
         ]);
 
         // Traitement du téléversement du logo et du filigrane propres au campus
@@ -454,9 +454,9 @@ class InstitutionController extends Controller implements HasMiddleware
             'telephone_2' => ['nullable', 'string', 'max:30'],
             'adresse' => ['nullable', 'string', 'max:150'],
             'logo' => ['nullable', 'string', 'max:255'],
-            'logo_file' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,svg,webp', 'max:2048'],
+            'logo_file' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,webp', 'max:2048'],
             'logo_filigrane' => ['nullable', 'string', 'max:255'],
-            'logo_filigrane_file' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,svg,webp', 'max:2048'],
+            'logo_filigrane_file' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,webp', 'max:2048'],
         ]);
 
         // Traitement du téléversement ou de la suppression du logo et du filigrane propres au campus
@@ -531,9 +531,9 @@ class InstitutionController extends Controller implements HasMiddleware
             'telephone_2' => ['nullable', 'string', 'max:30'],
             'adresse' => ['nullable', 'string', 'max:150'],
             'logo' => ['nullable', 'string', 'max:255'],
-            'logo_file' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,svg,webp', 'max:2048'],
+            'logo_file' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,webp', 'max:2048'],
             'logo_filigrane' => ['nullable', 'string', 'max:255'],
-            'logo_filigrane_file' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,svg,webp', 'max:2048'],
+            'logo_filigrane_file' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,webp', 'max:2048'],
 
             // Paramètres Pédagogiques & Bulletins (Module 10)
             'mode_bulletin_defaut' => ['required', 'string', 'in:sans_competences,avec_competences'],
@@ -1391,6 +1391,16 @@ class InstitutionController extends Controller implements HasMiddleware
             $validated[$field] = Storage::url($path);
         } elseif ($request->exists($field) && empty($validated[$field])) {
             $validated[$field] = null;
+        } elseif (! empty($validated[$field])) {
+            // Protection anti-LFI / Path Traversal : interdire tout chemin contenant '..' ou hors de /storage/ et /logo*
+            $candidatePath = trim((string) $validated[$field]);
+            $isSafeStoredPath = ! str_contains($candidatePath, '..')
+                && ! str_contains($candidatePath, '://')
+                && (str_starts_with($candidatePath, '/storage/') || str_starts_with($candidatePath, 'storage/') || preg_match('#^/?logo\.(png|jpg|jpeg|webp)$#i', $candidatePath));
+
+            if (! $isSafeStoredPath) {
+                unset($validated[$field]);
+            }
         }
 
         unset($validated[$fileField]);

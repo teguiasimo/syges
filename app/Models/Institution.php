@@ -116,8 +116,18 @@ class Institution extends Model
             return $path;
         }
 
+        if (str_contains($path, '..')) {
+            return null;
+        }
+
         $trimmed = ltrim($path, '/\\');
         $storageRelative = preg_replace('#^/?storage/#i', '', $trimmed);
+
+        $allowedExtensions = ['png', 'jpg', 'jpeg', 'gif', 'webp'];
+        $allowedRoots = array_filter([
+            realpath(public_path()),
+            realpath(storage_path('app/public')),
+        ]);
 
         $candidates = array_unique(array_filter([
             public_path($trimmed),
@@ -126,15 +136,35 @@ class Institution extends Model
 
         foreach ($candidates as $candidate) {
             if ($candidate && file_exists($candidate) && is_file($candidate)) {
-                $ext = strtolower(pathinfo($candidate, PATHINFO_EXTENSION)) ?: 'png';
+                $realCandidate = realpath($candidate);
+                if ($realCandidate === false) {
+                    continue;
+                }
+
+                // Vérification anti-LFI (Path Traversal) : le fichier résolu doit résider dans public/ ou storage/app/public/
+                $isInsideAllowedRoot = false;
+                foreach ($allowedRoots as $root) {
+                    if (str_starts_with($realCandidate, $root.DIRECTORY_SEPARATOR) || $realCandidate === $root) {
+                        $isInsideAllowedRoot = true;
+                        break;
+                    }
+                }
+                if (! $isInsideAllowedRoot) {
+                    continue;
+                }
+
+                $ext = strtolower(pathinfo($realCandidate, PATHINFO_EXTENSION));
+                if (! in_array($ext, $allowedExtensions, true)) {
+                    continue;
+                }
+
                 $mime = match ($ext) {
                     'jpg', 'jpeg' => 'image/jpeg',
                     'gif' => 'image/gif',
                     'webp' => 'image/webp',
-                    'svg' => 'image/svg+xml',
                     default => 'image/png',
                 };
-                $content = @file_get_contents($candidate);
+                $content = @file_get_contents($realCandidate);
                 if ($content !== false) {
                     return 'data:'.$mime.';base64,'.base64_encode($content);
                 }

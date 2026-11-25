@@ -161,11 +161,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
             if (str_contains($path, '/administration/statistiques') || str_contains($path, '/administration/eleves')) {
                 unset($queryParams['classe_id'], $queryParams['niveau_id'], $queryParams['cycle_id']);
             }
-            $schemeHost = (isset($parts['scheme']) && isset($parts['host']))
-                ? $parts['scheme'].'://'.$parts['host'].(isset($parts['port']) ? ':'.$parts['port'] : '')
-                : '';
+            // Redirection strictement relative (chemin local uniquement) pour prévenir toute redirection ouverte (Open Redirect) via l'en-tête Referer
+            $safePath = '/'.ltrim($path, '/');
             $newQuery = http_build_query($queryParams);
-            $targetUrl = $schemeHost.$path.($newQuery !== '' ? '?'.$newQuery : '');
+            $targetUrl = $safePath.($newQuery !== '' ? '?'.$newQuery : '');
 
             return redirect()->to($targetUrl)->with('success', $flashMessage);
         }

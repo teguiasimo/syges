@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AnneeScolaire;
 use App\Models\Attribution;
 use App\Models\Classe;
+use App\Models\Etablissement;
 use App\Models\Evaluation;
 use App\Models\Inscription;
 use App\Models\Note;
@@ -34,6 +35,7 @@ use Inertia\Response as InertiaResponse;
 class NoteController extends Controller implements HasMiddleware
 {
     use ScopesEtablissement;
+
     /**
      * Définition de la matrice des middlewares d'autorisation pour le module Notes & Évaluations.
      *
@@ -43,7 +45,7 @@ class NoteController extends Controller implements HasMiddleware
     {
         return [
             new Middleware('can:notes.view', only: ['index', 'getGrille']),
-            new Middleware('can:notes.create|notes.manage|notes.view', only: ['sauvegarder']),
+            new Middleware('can:notes.create|notes.manage', only: ['sauvegarder']),
             new Middleware('can:notes.lock|evaluations.lock|notes.manage', only: ['verrouiller']),
             new Middleware('can:notes.unlock|notes.lock|evaluations.lock|notes.manage', only: ['deverrouiller']),
         ];
@@ -68,12 +70,13 @@ class NoteController extends Controller implements HasMiddleware
         $annees = AnneeScolaire::orderByDesc('date_debut')->get()->map(function ($annee) {
             $nomEpure = $annee->session ?: (preg_match('/\b(\d{4}[\/\-]\d{4})\b/', $annee->nom, $m) ? $m[1] : trim(preg_replace('/^\s*Ann[ée]e\s+scolaire\s*[:\-]?\s*/ui', '', $annee->nom)));
             $annee->nom = $nomEpure;
+
             return $annee;
         });
         $anneeActive = AnneeScolaire::current() ?? $annees->first();
         $anneeId = $request->query('annee_id', $anneeActive?->id);
 
-        $allEtablissements = \App\Models\Etablissement::select('id', 'nom', 'code')->orderBy('nom')->get();
+        $allEtablissements = Etablissement::select('id', 'nom', 'code')->orderBy('nom')->get();
 
         $effectiveEtabId = $user?->getEffectiveEtablissementId();
         if (! $canAccessAll && $effectiveEtabId) {
@@ -230,7 +233,7 @@ class NoteController extends Controller implements HasMiddleware
      * Enregistre en masse les notes saisies pour une classe, matière et évaluation.
      * Vérifie hermétiquement le verrouillage global de l'évaluation ainsi que le verrouillage individuel de la grille.
      *
-     * @param Request $request Requête HTTP contenant les notes.
+     * @param  Request  $request  Requête HTTP contenant les notes.
      * @return RedirectResponse|JsonResponse Réponse de redirection ou JSON.
      */
     public function sauvegarder(Request $request): RedirectResponse|JsonResponse
@@ -302,6 +305,23 @@ class NoteController extends Controller implements HasMiddleware
             }
         }
 
+        // Vérification anti-IDOR : chaque inscription_id soumise doit appartenir à la classe et à l'année de l'attribution
+        $validInscriptionIds = Inscription::withoutGlobalScopes()
+            ->where('classe_id', $attribution->classe_id)
+            ->where('annee_scolaire_id', $attribution->annee_scolaire_id)
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        foreach ($validated['notes'] as $ligne) {
+            if (! in_array((int) $ligne['inscription_id'], $validInscriptionIds, true)) {
+                if ($request->wantsJson()) {
+                    return response()->json(['message' => 'Action non autorisée : une inscription ne correspond pas à la classe de ce cours.'], 403);
+                }
+                abort(403, 'Action non autorisée : une inscription ne correspond pas à la classe de ce cours.');
+            }
+        }
+
         DB::transaction(function () use ($validated, $user) {
             foreach ($validated['notes'] as $ligne) {
                 $valNote = $ligne['valeur_note'];
@@ -358,7 +378,7 @@ class NoteController extends Controller implements HasMiddleware
      * Verrouille définitivement la saisie des notes pour cette session (grille de cours).
      * Accessible à l'enseignant titulaire du cours ainsi qu'aux gestionnaires pédagogiques.
      *
-     * @param Request $request Requête HTTP.
+     * @param  Request  $request  Requête HTTP.
      * @return RedirectResponse|JsonResponse Redirection ou confirmation JSON.
      */
     public function verrouiller(Request $request): RedirectResponse|JsonResponse

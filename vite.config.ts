@@ -30,13 +30,49 @@ export default defineConfig({
         }),
     ]),
     /**
-     * Configuration de compilation des assets (JS/CSS)
-     * On cible 'es2020' pour transpiler les Class Static Blocks (ES2022 `static { ... }`)
-     * et garantir une compatibilité totale sur les navigateurs clients (Chrome 80+, Edge 80+),
-     * évitant ainsi les erreurs `Uncaught SyntaxError: Unexpected token '{'` sur les postes non mis à jour.
+     * Configuration de compilation des assets (JS/CSS) :
+     * - Cible 'es2020' pour transpiler les Class Static Blocks (ES2022 `static { ... }`)
+     *   et garantir une compatibilité totale sur les postes clients (Chrome 80+, Edge 80+).
+     * - Regroupement intelligent des dépendances stables (`codeSplitting`) afin de réduire
+     *   drastiquement le nombre de micro-chunks HTTP/1.1 (de 35-56 requêtes JS à ~6-10)
+     *   tout en maximisant le cache navigateur longue durée entre toutes les pages.
      */
     build: {
         target: 'es2020',
+        rolldownOptions: {
+            output: {
+                codeSplitting: {
+                    minSize: 15000,
+                    groups: [
+                        {
+                            name: 'vendor-react',
+                            test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/,
+                            priority: 30,
+                        },
+                        {
+                            name: 'vendor-inertia',
+                            test: /node_modules[\\/]@inertiajs[\\/]/,
+                            priority: 25,
+                        },
+                        {
+                            name: 'vendor-ui',
+                            test: /node_modules[\\/](@radix-ui|sonner|class-variance-authority|clsx|tailwind-merge)[\\/]/,
+                            priority: 20,
+                        },
+                        {
+                            name: 'vendor-table',
+                            test: /node_modules[\\/]@tanstack[\\/]/,
+                            priority: 20,
+                        },
+                        {
+                            name: 'vendor-icons',
+                            test: /node_modules[\\/]lucide-react[\\/]/,
+                            priority: 15,
+                        },
+                    ],
+                },
+            },
+        },
     },
     server: {
         watch: {

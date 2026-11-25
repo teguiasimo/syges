@@ -192,13 +192,14 @@ test('le scanner detecte une paire de doublons et permet de l ignorer comme jume
         ]);
     }
 
-    // 1. Paire détectée dans le scan
+    // 1. Paire détectée dans le scan différé (`Inertia::defer`)
     actingAs($this->adminUser)
         ->get(route('administration.eleves.doublons.index', ['annee_scolaire_id' => $this->annee->id]))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('administration/eleves/doublons')
-            ->has('suspects', 1)
+            ->missing('suspects')
+            ->loadDeferredProps(fn ($reload) => $reload->has('suspects', 1))
         );
 
     // 2. Marquage comme jumeaux -> disparaît des suspects
@@ -216,11 +217,11 @@ test('le scanner detecte une paire de doublons et permet de l ignorer comme jume
         ->get(route('administration.eleves.doublons.index', ['annee_scolaire_id' => $this->annee->id]))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->has('suspects', 0)
             ->has('ignores', 1)
+            ->loadDeferredProps(fn ($reload) => $reload->has('suspects', 0))
         );
 
-    // 3. Rétablissement -> réapparaît dans le scan
+    // 3. Rétablissement -> réapparaît dans le scan différé
     actingAs($this->adminUser)
         ->delete(route('administration.eleves.doublons.unignore', $ignore))
         ->assertRedirect();
@@ -228,7 +229,9 @@ test('le scanner detecte une paire de doublons et permet de l ignorer comme jume
     actingAs($this->adminUser)
         ->get(route('administration.eleves.doublons.index', ['annee_scolaire_id' => $this->annee->id]))
         ->assertOk()
-        ->assertInertia(fn ($page) => $page->has('suspects', 1));
+        ->assertInertia(fn ($page) => $page
+            ->loadDeferredProps(fn ($reload) => $reload->has('suspects', 1))
+        );
 });
 
 test('la fusion atomique transfere versements recus options dedupliquees notes avec arbitrage de conflit discipline audit et recherche par ancien matricule', function () {

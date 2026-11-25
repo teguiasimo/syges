@@ -8,20 +8,23 @@ use App\Models\Classe;
 use App\Models\Eleve;
 use App\Models\Etablissement;
 use App\Models\Inscription;
+use App\Models\Institution;
 use App\Models\User;
 use App\Services\QrCodeService;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 
 /**
  * Contrôleur de gestion, prévisualisation et génération des Cartes d'Identité Scolaires (Phase 2).
- * 
+ *
  * Conçu selon les normes officielles camerounaises et inspiré du spécimen scanné réel
  * du Collège Bilingue St Abraham de Foumban :
  * - Recto : En-tête bilingue officiel, logo, drapeau tricolore, photo numérique, classe, cachet.
@@ -39,14 +42,12 @@ class CarteScolaireController extends Controller implements HasMiddleware
     {
         return [
             new Middleware('can:cartes_scolaires.view|eleves.view', only: ['index']),
-            new Middleware('can:cartes_scolaires.generate|eleves.manage', only: ['imprimerPlanche', 'imprimerIndividuel']),
+            new Middleware('can:cartes_scolaires.generate|eleves.manage', only: ['imprimerPlanche', 'imprimerUnitaire']),
         ];
     }
+
     /**
      * Affiche l'interface de gestion et prévisualisation des cartes scolaires.
-     *
-     * @param Request $request
-     * @return InertiaResponse
      */
     public function index(Request $request): InertiaResponse
     {
@@ -77,51 +78,112 @@ class CarteScolaireController extends Controller implements HasMiddleware
         $hasPhoto = $request->input('has_photo'); // 'all', 'with_photo', 'without_photo'
         $search = $request->input('search');
 
-        // Récupération des inscriptions
-        $inscriptionsQuery = Inscription::with([
-            'eleve',
-            'classe.niveau.cycle.section',
-            'etablissement.institution',
-            'anneeScolaire',
-        ])
-        ->where('annee_scolaire_id', $selectedAnneeId)
-        ->where('statut', 'validee');
+        // Récupération optimisée en une seule jointure SQL et projection légère (élimine la sérialisation
+        // redondante des 20 accesseurs Etablissement/Institution sur chaque élève, réduisant le payload de >1 Mo à ~95 Ko)
+        $anneeSelectionnee = AnneeScolaire::find($selectedAnneeId);
+        $anneePayload = $anneeSelectionnee ? [
+            'id' => $anneeSelectionnee->id,
+            'nom' => $anneeSelectionnee->nom,
+            'code' => $anneeSelectionnee->code,
+        ] : null;
+
+        $inscriptionsQuery = DB::table('inscriptions')
+            ->join('eleves', 'eleves.id', '=', 'inscriptions.eleve_id')
+            ->join('classes', 'classes.id', '=', 'inscriptions.classe_id')
+            ->leftJoin('niveaux', 'niveaux.id', '=', 'classes.niveau_id')
+            ->select([
+                'inscriptions.id',
+                'inscriptions.eleve_id',
+                'inscriptions.classe_id',
+                'inscriptions.etablissement_id',
+                'inscriptions.annee_scolaire_id',
+                'inscriptions.statut',
+                'eleves.matricule',
+                'eleves.nom as eleve_nom',
+                'eleves.prenom as eleve_prenom',
+                'eleves.sexe as eleve_sexe',
+                'eleves.date_naissance as eleve_date_naissance',
+                'eleves.lieu_naissance as eleve_lieu_naissance',
+                'eleves.photo_url as eleve_photo_url',
+                'classes.nom as classe_nom',
+                'classes.code as classe_code',
+                'niveaux.id as niveau_id',
+                'niveaux.nom as niveau_nom',
+            ])
+            ->where('inscriptions.annee_scolaire_id', $selectedAnneeId)
+            ->where('inscriptions.statut', 'validee');
 
         if ($selectedEtabId) {
-            $inscriptionsQuery->where('etablissement_id', $selectedEtabId);
+            $inscriptionsQuery->where('inscriptions.etablissement_id', $selectedEtabId);
         }
 
         if ($classeId) {
-            $inscriptionsQuery->where('classe_id', $classeId);
+            $inscriptionsQuery->where('inscriptions.classe_id', $classeId);
         }
 
         if ($hasPhoto === 'with_photo') {
-            $inscriptionsQuery->whereHas('eleve', function ($q) {
-                $q->whereNotNull('photo_url')->where('photo_url', '!=', '');
-            });
+            $inscriptionsQuery->whereNotNull('eleves.photo_url')->where('eleves.photo_url', '!=', '');
         } elseif ($hasPhoto === 'without_photo') {
-            $inscriptionsQuery->whereHas('eleve', function ($q) {
-                $q->whereNull('photo_url')->orWhere('photo_url', '');
+            $inscriptionsQuery->where(function ($q) {
+                $q->whereNull('eleves.photo_url')->orWhere('eleves.photo_url', '');
             });
         }
 
         if ($search) {
-            $inscriptionsQuery->whereHas('eleve', function ($q) use ($search) {
-                $q->where('nom', 'like', "%{$search}%")
-                  ->orWhere('prenom', 'like', "%{$search}%")
-                  ->orWhere('matricule', 'like', "%{$search}%");
+            $like = "%{$search}%";
+            $inscriptionsQuery->where(function ($q) use ($like) {
+                $q->where('eleves.nom', 'like', $like)
+                    ->orWhere('eleves.prenom', 'like', $like)
+                    ->orWhere('eleves.matricule', 'like', $like);
             });
         }
 
-        $inscriptions = $inscriptionsQuery->orderBy('classe_id')
-            ->orderBy(
-                Eleve::select('nom')->whereColumn('eleves.id', 'inscriptions.eleve_id')
-            )
+        $rawInscriptions = $inscriptionsQuery
+            ->orderBy('inscriptions.classe_id')
+            ->orderBy('eleves.nom')
+            ->orderBy('eleves.prenom')
             ->get();
 
-        // Statistiques globales de couverture de cartes
-        $totalInscrits = $inscriptions->count();
-        $totalAvecPhoto = $inscriptions->filter(fn ($i) => !empty($i->eleve->photo_url))->count();
+        $totalInscrits = $rawInscriptions->count();
+        $totalAvecPhoto = 0;
+
+        $inscriptions = [];
+        foreach ($rawInscriptions as $row) {
+            if (! empty($row->eleve_photo_url)) {
+                $totalAvecPhoto++;
+            }
+
+            $inscriptions[] = [
+                'id' => (int) $row->id,
+                'eleve_id' => (int) $row->eleve_id,
+                'classe_id' => (int) $row->classe_id,
+                'etablissement_id' => $row->etablissement_id ? (int) $row->etablissement_id : null,
+                'annee_scolaire_id' => (int) $row->annee_scolaire_id,
+                'statut' => (string) $row->statut,
+                'eleve' => [
+                    'id' => (int) $row->eleve_id,
+                    'matricule' => (string) $row->matricule,
+                    'nom' => (string) $row->eleve_nom,
+                    'prenom' => $row->eleve_prenom,
+                    'nom_complet' => trim(((string) $row->eleve_nom).' '.((string) ($row->eleve_prenom ?? ''))),
+                    'sexe' => $row->eleve_sexe,
+                    'date_naissance' => $row->eleve_date_naissance,
+                    'lieu_naissance' => $row->eleve_lieu_naissance,
+                    'photo_url' => $row->eleve_photo_url,
+                ],
+                'classe' => [
+                    'id' => (int) $row->classe_id,
+                    'nom' => (string) $row->classe_nom,
+                    'code' => $row->classe_code,
+                    'niveau' => $row->niveau_id ? [
+                        'id' => (int) $row->niveau_id,
+                        'nom' => (string) $row->niveau_nom,
+                    ] : null,
+                ],
+                'annee_scolaire' => $anneePayload,
+            ];
+        }
+
         $totalSansPhoto = $totalInscrits - $totalAvecPhoto;
 
         return Inertia::render('administration/eleves/cartes-scolaires', [
@@ -147,27 +209,32 @@ class CarteScolaireController extends Controller implements HasMiddleware
 
     /**
      * Génère et télécharge une planche A4 (recto, verso ou recto-verso) de 8 cartes par page.
-     *
-     * @param Request $request
-     * @param QrCodeService $qrCodeService
-     * @return Response
      */
     public function imprimerPlanche(Request $request, QrCodeService $qrCodeService): Response
     {
         $validated = $request->validate([
-            'inscription_ids' => ['required', 'array', 'min:1'],
+            'inscription_ids' => ['required', 'array', 'min:1', 'max:200'],
             'inscription_ids.*' => ['integer', 'exists:inscriptions,id'],
             'face' => ['required', 'string', 'in:recto,verso,recto_verso'],
         ]);
 
-        $inscriptions = Inscription::with([
+        /** @var User|null $user */
+        $user = Auth::user();
+        $canAccessAll = $user ? $user->canAccessAllEtablissements() : false;
+        $effectiveEtabId = $user?->getEffectiveEtablissementId();
+
+        $inscriptionsQuery = Inscription::with([
             'eleve',
             'classe.niveau.cycle.section',
             'etablissement.institution',
             'anneeScolaire',
-        ])
-        ->whereIn('id', $validated['inscription_ids'])
-        ->get();
+        ])->whereIn('id', $validated['inscription_ids']);
+
+        if (! $canAccessAll && $effectiveEtabId) {
+            $inscriptionsQuery->where('etablissement_id', $effectiveEtabId);
+        }
+
+        $inscriptions = $inscriptionsQuery->get();
 
         if ($inscriptions->isEmpty()) {
             abort(404, 'Aucune inscription sélectionnée pour la génération des cartes.');
@@ -190,24 +257,28 @@ class CarteScolaireController extends Controller implements HasMiddleware
             'planches' => $planches,
             'face' => $face,
         ])
-        ->setPaper('a4', 'portrait')
-        ->setOption('isHtml5ParserEnabled', true)
-        ->setOption('isRemoteEnabled', true);
+            ->setPaper('a4', 'portrait')
+            ->setOption('isHtml5ParserEnabled', true)
+            ->setOption('isRemoteEnabled', false);
 
-        $filename = "Cartes_Scolaires_{$face}_" . date('Ymd_His') . ".pdf";
+        $filename = "Cartes_Scolaires_{$face}_".date('Ymd_His').'.pdf';
 
         return $pdf->stream($filename);
     }
 
     /**
      * Génère et télécharge le badge unitaire au format standard ISO CR-80 (85.6mm x 54mm).
-     *
-     * @param Inscription $inscription
-     * @param QrCodeService $qrCodeService
-     * @return Response
      */
     public function imprimerUnitaire(Inscription $inscription, QrCodeService $qrCodeService): Response
     {
+        /** @var User|null $user */
+        $user = Auth::user();
+        $canAccessAll = $user ? $user->canAccessAllEtablissements() : false;
+        $effectiveEtabId = $user?->getEffectiveEtablissementId();
+        if (! $canAccessAll && $effectiveEtabId && (int) $inscription->etablissement_id !== (int) $effectiveEtabId) {
+            abort(403, 'Accès non autorisé : cet élève appartient à un autre établissement.');
+        }
+
         $inscription->load([
             'eleve',
             'classe.niveau.cycle.section',
@@ -223,7 +294,7 @@ class CarteScolaireController extends Controller implements HasMiddleware
         $pdf = Pdf::loadView('cartes.badge_unitaire', compact('carte'))
             ->setPaper($customPaper, 'landscape')
             ->setOption('isHtml5ParserEnabled', true)
-            ->setOption('isRemoteEnabled', true);
+            ->setOption('isRemoteEnabled', false);
 
         return $pdf->stream("Badge_{$carte['matricule']}.pdf");
     }
@@ -231,8 +302,6 @@ class CarteScolaireController extends Controller implements HasMiddleware
     /**
      * Prépare et normalise l'ensemble des données d'une carte scolaire avec conversions Base64 fiables.
      *
-     * @param Inscription $inscription
-     * @param QrCodeService $qrCodeService
      * @return array<string, mixed>
      */
     protected function preparerDonneesCarte(Inscription $inscription, QrCodeService $qrCodeService): array
@@ -251,43 +320,26 @@ class CarteScolaireController extends Controller implements HasMiddleware
         $anneeNomBrut = $inscription->anneeScolaire?->nom ?? ($inscription->anneeScolaire?->code ?? '');
         $anneeNom = trim(preg_replace('/^Ann[eé]e\s+Scolaire\s*/iu', '', $anneeNomBrut));
 
-        // Résolution du logo établissement en Data URI Base64 pour éliminer les échecs de rendu DomPDF
+        // Résolution sécurisée (anti-LFI) du logo et de la photo d'identité en Data URI Base64
         $logoBase64 = $etab?->getEffectiveLogoBase64();
         $logoUrl = $etab?->logo_url ?: ($etab?->effective_logo ?: ($etab?->logo ?: $inst?->logo));
-        if (!$logoBase64 && !empty($logoUrl)) {
-            $rawLogo = ltrim($logoUrl, '/');
-            $logoPath = file_exists(public_path($rawLogo))
-                ? public_path($rawLogo)
-                : (file_exists(storage_path('app/public/' . $rawLogo)) ? storage_path('app/public/' . $rawLogo) : null);
-
-            if ($logoPath && is_file($logoPath)) {
-                $mime = mime_content_type($logoPath) ?: 'image/png';
-                $logoBase64 = 'data:' . $mime . ';base64,' . base64_encode(file_get_contents($logoPath));
-            }
+        if (! $logoBase64 && ! empty($logoUrl)) {
+            $logoBase64 = Institution::resolveImageBase64($logoUrl);
         }
-        if (!$logoBase64 && file_exists(public_path('logo.png'))) {
-            $logoBase64 = 'data:image/png;base64,' . base64_encode(file_get_contents(public_path('logo.png')));
+        if (! $logoBase64) {
+            $logoBase64 = Institution::resolveImageBase64('/logo.png');
         }
 
-        // Résolution de la photo d'identité en Data URI Base64
-        $photoBase64 = null;
-        if (!empty($eleve->photo_url)) {
-            $rawPhoto = ltrim($eleve->photo_url, '/');
-            $photoPath = file_exists(public_path($rawPhoto))
-                ? public_path($rawPhoto)
-                : (file_exists(storage_path('app/public/' . $rawPhoto)) ? storage_path('app/public/' . $rawPhoto) : null);
-
-            if ($photoPath && is_file($photoPath)) {
-                $mime = mime_content_type($photoPath) ?: 'image/jpeg';
-                $photoBase64 = 'data:' . $mime . ';base64,' . base64_encode(file_get_contents($photoPath));
-            }
-        }
+        // Résolution sécurisée de la photo d'identité en Data URI Base64
+        $photoBase64 = ! empty($eleve->photo_url)
+            ? Institution::resolveImageBase64($eleve->photo_url)
+            : null;
 
         return [
             'inscription_id' => $inscription->id,
             'matricule' => $eleve->matricule,
             'matricule_national' => $eleve->matricule_national,
-            'nom_complet' => mb_strtoupper($eleve->nom) . ' ' . ($eleve->prenom ?? ''),
+            'nom_complet' => mb_strtoupper($eleve->nom).' '.($eleve->prenom ?? ''),
             'date_naissance' => $eleve->date_naissance ? $eleve->date_naissance->format('d-m-Y') : '---',
             'lieu_naissance' => $eleve->lieu_naissance ?: '---',
             'sexe' => $eleve->sexe ?: '--',
@@ -318,9 +370,7 @@ class CarteScolaireController extends Controller implements HasMiddleware
     /**
      * Page publique de contrôle d'authenticité accessible lors du scan du QR Code par smartphone.
      *
-     * @param string $matricule
-     * @param Request $request
-     * @return \Illuminate\Contracts\View\View
+     * @return View
      */
     public function verifier(string $matricule, Request $request)
     {
@@ -343,8 +393,8 @@ class CarteScolaireController extends Controller implements HasMiddleware
 
         return view('cartes.verification_publique', [
             'valide' => (bool) $inscription,
-            'message' => $inscription 
-                ? "Carte scolaire valide. Élève régulièrement inscrit(e)." 
+            'message' => $inscription
+                ? 'Carte scolaire valide. Élève régulièrement inscrit(e).'
                 : "Alerte : L'élève est enregistré mais n'a pas d'inscription active pour l'année scolaire en cours.",
             'eleve' => $eleve,
             'inscription' => $inscription,

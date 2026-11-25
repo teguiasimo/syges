@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Administration;
 
+use App\Concerns\ScopesEtablissement;
 use App\Http\Controllers\Controller;
 use App\Models\AnneeScolaire;
 use App\Models\Classe;
@@ -20,11 +21,13 @@ use App\Services\QrCodeService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 
 /**
- * Contrôleur de la Bibliothèque d'États Imprimables & Documents Officiels (Aurore §6.1 & Gesco V1.1).
+ * Contrôleur de la Bibliothèque d'États Imprimables & Documents Officiels.
  *
  * Génère les documents administratifs normalisés infalsifiables :
  * 1. Certificats de scolarité officiels avec QR Code d'authenticité.
@@ -32,8 +35,38 @@ use Illuminate\Support\Str;
  * 3. Fiches de babillard d'affichage public des notes par classe.
  * 4. Fiches de situation financière individuelle globale de l'élève.
  */
-class DocumentOfficielController extends Controller
+class DocumentOfficielController extends Controller implements HasMiddleware
 {
+    use ScopesEtablissement;
+
+    /**
+     * Définition de la matrice des middlewares d'autorisation pour les documents officiels.
+     *
+     * @return array<int, Middleware>
+     */
+    public static function middleware(): array
+    {
+        return [
+            new Middleware('can:eleves.view|inscriptions.manage', only: [
+                'certificatScolarite',
+                'certificatRadiation',
+                'ficheAppel',
+                'listeEleves',
+                'listeElevesNiveau',
+                'listeClasses',
+            ]),
+            new Middleware('can:finances.view|finances.manage|eleves.view', only: [
+                'situationFinanciereEleve',
+            ]),
+            new Middleware('can:notes.view|bulletins.view|bulletins.generate', only: [
+                'babillard',
+            ]),
+            new Middleware('can:personnels.view|personnels.manage', only: [
+                'listePersonnel',
+            ]),
+        ];
+    }
+
     /**
      * Génère et télécharge le Certificat de Scolarité officiel (Aurore §6.1).
      */
@@ -504,7 +537,7 @@ class DocumentOfficielController extends Controller
             'classes' => fn ($q) => $q->orderBy('nom'),
         ]);
 
-        $etabId = $request->input('etablissement_id');
+        $etabId = $this->authorizeEtablissementWrite($request, $request->input('etablissement_id'));
         $etablissement = $etabId
             ? Etablissement::find($etabId)
             : ($niveau->etablissement ?? (Auth::user()?->etablissement ?? Etablissement::first()));
@@ -587,7 +620,7 @@ class DocumentOfficielController extends Controller
      */
     public function listeClasses(Request $request): Response
     {
-        $etabId = $request->input('etablissement_id');
+        $etabId = $this->authorizeEtablissementWrite($request, $request->input('etablissement_id'));
         $etablissement = $etabId ? Etablissement::find($etabId) : (Auth::user()?->etablissement ?? Etablissement::first());
         $etablissement?->loadMissing('institution');
         $anneeId = $request->input('annee_id');
@@ -638,7 +671,7 @@ class DocumentOfficielController extends Controller
      */
     public function listePersonnel(Request $request): Response
     {
-        $etabId = $request->input('etablissement_id');
+        $etabId = $this->authorizeEtablissementWrite($request, $request->input('etablissement_id'));
         $etablissement = $etabId ? Etablissement::find($etabId) : (Auth::user()?->etablissement ?? Etablissement::first());
         $etablissement?->loadMissing('institution');
         $annee = AnneeScolaire::where('is_current', true)->first();

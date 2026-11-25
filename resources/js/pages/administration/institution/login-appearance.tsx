@@ -1087,6 +1087,8 @@ export default function LoginAppearancePage({
                                                     <img
                                                         src={slide.image_path}
                                                         alt={slide.titre}
+                                                        loading="lazy"
+                                                        decoding="async"
                                                         className="h-full w-full object-cover"
                                                     />
                                                 </div>
@@ -1190,6 +1192,8 @@ export default function LoginAppearancePage({
                                             <img
                                                 src={scene.image}
                                                 alt={scene.title}
+                                                loading="lazy"
+                                                decoding="async"
                                                 className="h-full w-full object-cover opacity-90"
                                             />
                                             <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-slate-950/90 to-transparent p-1.5">

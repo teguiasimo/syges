@@ -163,9 +163,17 @@ class UserController extends Controller implements HasMiddleware
                 'max:40',
                 'regex:/^[a-zA-Z0-9._-]+$/',
                 'unique:users,login',
+                ...(! $isSuperAdmin ? [Rule::notIn(['superadmin'])] : []),
             ],
             'name' => ['required', 'string', 'min:2', 'max:100'],
-            'email' => ['required', 'string', 'email', 'max:100', 'unique:users,email'],
+            'email' => [
+                'required',
+                'string',
+                'email',
+                'max:100',
+                'unique:users,email',
+                ...(! $isSuperAdmin ? [Rule::notIn(['admin@gmail.com'])] : []),
+            ],
             'password' => ['required', 'string', 'min:6', 'confirmed'],
             'etablissement_id' => ['nullable', 'integer', 'exists:etablissements,id'],
             'has_global_access' => ['nullable', 'boolean'],
@@ -250,6 +258,7 @@ class UserController extends Controller implements HasMiddleware
                 'max:40',
                 'regex:/^[a-zA-Z0-9._-]+$/',
                 Rule::unique('users', 'login')->ignore($user->id),
+                ...(! $context['isSuperAdmin'] ? [Rule::notIn(['superadmin'])] : []),
             ],
             'name' => ['required', 'string', 'min:2', 'max:100'],
             'email' => [
@@ -258,12 +267,17 @@ class UserController extends Controller implements HasMiddleware
                 'email',
                 'max:100',
                 Rule::unique('users', 'email')->ignore($user->id),
+                ...(! $context['isSuperAdmin'] ? [Rule::notIn(['admin@gmail.com'])] : []),
             ],
             'password' => ['nullable', 'string', 'min:6', 'confirmed'],
             'etablissement_id' => ['nullable', 'integer', 'exists:etablissements,id'],
             'has_global_access' => ['nullable', 'boolean'],
             'roles' => ['nullable', 'array'],
-            'roles.*' => ['string', 'exists:roles,name'],
+            'roles.*' => [
+                'string',
+                'exists:roles,name',
+                ...(! $context['isSuperAdmin'] ? [Rule::notIn(['super-admin'])] : []),
+            ],
         ], [
             'login.required' => 'Le login est obligatoire.',
             'login.unique' => 'Ce login est déjà utilisé.',
@@ -282,6 +296,9 @@ class UserController extends Controller implements HasMiddleware
         }
 
         $roles = $validated['roles'] ?? [];
+        if (! $context['isSuperAdmin'] && in_array('super-admin', $roles, true)) {
+            abort(403, 'Accès non autorisé : seul le Super Administrateur peut attribuer le rôle super-admin.');
+        }
         if ($isPrimarySuperAdmin && ! in_array('super-admin', $roles)) {
             $roles[] = 'super-admin';
         }

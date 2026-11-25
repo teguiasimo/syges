@@ -251,7 +251,7 @@ class BulletinController extends Controller implements HasMiddleware
         // Flux PDF direct en mode inline : affichage pleine page natif dans le nouvel onglet sans téléchargement forcé
         $pdf = Pdf::loadView($viewName, $viewData);
         $pdf->setPaper('a4', 'portrait')
-            ->setOption('isRemoteEnabled', true)
+            ->setOption('isRemoteEnabled', false)
             ->setOption('isHtml5ParserEnabled', true);
 
         return $pdf->stream($nomFichier, ['Attachment' => false]);
@@ -322,7 +322,7 @@ class BulletinController extends Controller implements HasMiddleware
 
         $pdf = Pdf::loadView($viewName, $viewData);
         $pdf->setPaper('a4', 'portrait')
-            ->setOption('isRemoteEnabled', true)
+            ->setOption('isRemoteEnabled', false)
             ->setOption('isHtml5ParserEnabled', true);
 
         return $pdf->download($nomFichier);
@@ -396,7 +396,7 @@ class BulletinController extends Controller implements HasMiddleware
 
         $pdf = Pdf::loadView('bulletins.bulletin_classe_bundle', $viewData);
         $pdf->setPaper('a4', 'portrait')
-            ->setOption('isRemoteEnabled', true)
+            ->setOption('isRemoteEnabled', false)
             ->setOption('isHtml5ParserEnabled', true);
 
         return $pdf->download($nomFichier);
@@ -420,10 +420,21 @@ class BulletinController extends Controller implements HasMiddleware
             'decision_conseil' => 'nullable|string',
         ]);
 
+        // Cloisonnement multi-campus : la résolution Eloquent applique EtablissementScope et vérifie la cohérence
+        $inscription = Inscription::findOrFail($validated['inscription_id']);
+        $periode = Periode::findOrFail($validated['periode_id']);
+        if (
+            $inscription->etablissement_id
+            && $periode->etablissement_id
+            && (int) $inscription->etablissement_id !== (int) $periode->etablissement_id
+        ) {
+            abort(403, 'Accès non autorisé : la période et l\'inscription n\'appartiennent pas au même établissement.');
+        }
+
         DisciplineBulletin::updateOrCreate(
             [
-                'inscription_id' => $validated['inscription_id'],
-                'periode_id' => $validated['periode_id'],
+                'inscription_id' => $inscription->id,
+                'periode_id' => $periode->id,
             ],
             [
                 'absences_justifiees' => $validated['absences_justifiees'] ?? 0,

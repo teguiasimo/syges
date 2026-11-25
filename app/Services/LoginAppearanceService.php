@@ -263,6 +263,21 @@ class LoginAppearanceService
     }
 
     /**
+     * Cache mémoire statique par requête HTTP pour éviter une double lecture du store Cache
+     * entre `app.blade.php` et `HandleInertiaRequests::share()`.
+     *
+     * @var array{
+     *     use_custom_app_branding: bool,
+     *     brand_name: string,
+     *     brand_subtitle: string,
+     *     logo_url: string,
+     *     sync_favicon: bool,
+     *     favicon_url: string|null
+     * }|null
+     */
+    protected static ?array $appBrandingMemoryCache = null;
+
+    /**
      * Retourne la configuration d'identité de la barre latérale (après connexion) et du favicon navigateur (mise en cache).
      *
      * Si `apply_branding_to_app` est désactivé, conserve la marque SYGES dans la barre latérale après connexion ;
@@ -280,7 +295,11 @@ class LoginAppearanceService
      */
     public function getAppBranding(): array
     {
-        return Cache::rememberForever(self::APP_BRANDING_CACHE_KEY, function (): array {
+        if (self::$appBrandingMemoryCache !== null) {
+            return self::$appBrandingMemoryCache;
+        }
+
+        return self::$appBrandingMemoryCache = Cache::rememberForever(self::APP_BRANDING_CACHE_KEY, function (): array {
             return $this->buildAppBrandingFromDatabase();
         });
     }
@@ -356,7 +375,7 @@ class LoginAppearanceService
     /**
      * Retourne l'identité par défaut SYGES pour l'espace connecté et le favicon.
      *
-     * @param string $defaultAppName Nom applicatif par défaut issu de la configuration
+     * @param  string  $defaultAppName  Nom applicatif par défaut issu de la configuration
      * @return array{
      *     use_custom_app_branding: bool,
      *     brand_name: string,
@@ -380,19 +399,16 @@ class LoginAppearanceService
 
     /**
      * Invalide le cache afin que la prochaine visite de `/login` et des vues connectées reflète immédiatement les modifications.
-     *
-     * @return void
      */
     public function clearCache(): void
     {
+        self::$appBrandingMemoryCache = null;
         Cache::forget(self::CACHE_KEY);
         Cache::forget(self::APP_BRANDING_CACHE_KEY);
     }
 
     /**
      * Retourne ou initialise l'unique enregistrement de configuration globale de connexion.
-     *
-     * @return LoginSetting
      */
     public function getOrCreateSettings(): LoginSetting
     {
@@ -420,17 +436,17 @@ class LoginAppearanceService
      * (redimensionnement au maximum à `maxDim` pixels pour éviter de charger des photos de téléphone
      * brutes de plusieurs mégaoctets sur la page de login).
      *
-     * @param UploadedFile $file Fichier image reçu
-     * @param string $directory Sous-répertoire du disque `public` (ex: `login-slides`)
-     * @param int $maxDim Dimension maximale en pixels (largeur ou hauteur)
+     * @param  UploadedFile  $file  Fichier image reçu
+     * @param  string  $directory  Sous-répertoire du disque `public` (ex: `login-slides`)
+     * @param  int  $maxDim  Dimension maximale en pixels (largeur ou hauteur)
      * @return string URL publique prête pour l'affichage (`Storage::url(...)`)
      */
     public function storeOptimizedImage(UploadedFile $file, string $directory, int $maxDim = 1600): string
     {
         $ext = strtolower($file->getClientOriginalExtension() ?: $file->extension() ?: 'jpg');
 
-        // SVG ou environnements sans GD : stockage direct sans transformation
-        if ($ext === 'svg' || ! extension_loaded('gd')) {
+        // Environnements sans GD : stockage direct uniquement pour les formats matriciels autorisés (jamais SVG)
+        if (! extension_loaded('gd')) {
             return $this->storeRawPublicFile($file, $directory);
         }
 
@@ -448,27 +464,28 @@ class LoginAppearanceService
     /**
      * Supprime physiquement une image précédemment stockée dans `/storage/login-*` lors d'un remplacement ou d'une suppression.
      *
-     * @param string|null $publicUrl URL publique enregistrée en base
-     * @return void
+     * @param  string|null  $publicUrl  URL publique enregistrée en base
      */
     public function deleteManagedStorageFile(?string $publicUrl): void
     {
-        if (empty($publicUrl) || ! str_starts_with($publicUrl, '/storage/')) {
+        if (empty($publicUrl) || ! str_starts_with($publicUrl, '/storage/') || str_contains($publicUrl, '..')) {
             return;
         }
 
         $relativePath = Str::after($publicUrl, '/storage/');
-        if (str_starts_with($relativePath, 'login-slides/') || str_starts_with($relativePath, 'login-branding/')) {
-            Storage::disk('public')->delete($relativePath);
+        if (str_starts_with($relativePath, 'login-slides/')) {
+            Storage::disk('public')->delete('login-slides/'.basename($relativePath));
+        } elseif (str_starts_with($relativePath, 'login-branding/')) {
+            Storage::disk('public')->delete('login-branding/'.basename($relativePath));
         }
     }
 
     /**
      * Tente de redimensionner et compresser l'image en mémoire via GD sans écrire hors disque `public`.
      *
-     * @param UploadedFile $file Fichier source
-     * @param string $ext Extension détectée
-     * @param int $maxDim Dimension max autorisée
+     * @param  UploadedFile  $file  Fichier source
+     * @param  string  $ext  Extension détectée
+     * @param  int  $maxDim  Dimension max autorisée
      * @return array{bytes: string, ext: string}|null
      */
     private function tryOptimizeImageBytes(UploadedFile $file, string $ext, int $maxDim): ?array
@@ -556,8 +573,8 @@ class LoginAppearanceService
     /**
      * Enregistre un fichier image brut sur le disque public en vérifiant le succès de l'écriture.
      *
-     * @param UploadedFile $file Fichier uploadé à sauvegarder tel quel
-     * @param string $directory Répertoire cible sur le disque `public`
+     * @param  UploadedFile  $file  Fichier uploadé à sauvegarder tel quel
+     * @param  string  $directory  Répertoire cible sur le disque `public`
      * @return string URL publique générée pour le fichier enregistré
      */
     private function storeRawPublicFile(UploadedFile $file, string $directory): string
@@ -573,10 +590,9 @@ class LoginAppearanceService
     /**
      * Corrige automatiquement l'orientation EXIF des photographies JPEG issues de smartphones.
      *
-     * @param \GdImage $image Ressource GD source
-     * @param string $realPath Chemin physique temporaire
-     * @param int $imageType Type `IMAGETYPE_*`
-     * @return \GdImage
+     * @param  \GdImage  $image  Ressource GD source
+     * @param  string  $realPath  Chemin physique temporaire
+     * @param  int  $imageType  Type `IMAGETYPE_*`
      */
     private function applyExifOrientationIfNeeded(\GdImage $image, string $realPath, int $imageType): \GdImage
     {
@@ -606,11 +622,10 @@ class LoginAppearanceService
     /**
      * Détecte sommairement si une image PNG/WebP comporte de la transparence afin de ne pas l'aplatir en JPEG.
      *
-     * @param \GdImage $image Ressource GD
-     * @param int $imageType Constante IMAGETYPE_*
-     * @param int $width Largeur
-     * @param int $height Hauteur
-     * @return bool
+     * @param  \GdImage  $image  Ressource GD
+     * @param  int  $imageType  Constante IMAGETYPE_*
+     * @param  int  $width  Largeur
+     * @param  int  $height  Hauteur
      */
     private function hasAlphaChannel(\GdImage $image, int $imageType, int $width, int $height): bool
     {
@@ -637,9 +652,8 @@ class LoginAppearanceService
     /**
      * Retourne une chaîne nettoyée ou sa valeur par défaut si nulle/vide.
      *
-     * @param string|null $value Valeur configurée
-     * @param string $fallback Valeur par défaut
-     * @return string
+     * @param  string|null  $value  Valeur configurée
+     * @param  string  $fallback  Valeur par défaut
      */
     private function resolveSettingString(?string $value, string $fallback): string
     {

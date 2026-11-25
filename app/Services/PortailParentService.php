@@ -8,7 +8,6 @@ use App\Models\Inscription;
 use App\Models\Periode;
 use App\Models\SeanceEmploiTemps;
 use App\Models\User;
-use App\Models\VersementCaisse;
 use App\Scopes\EtablissementScope;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Collection;
@@ -33,8 +32,6 @@ class PortailParentService
 
     /**
      * Constructeur injectant le calculateur de bulletins.
-     *
-     * @param BulletinCalculationService $bulletinService
      */
     public function __construct(BulletinCalculationService $bulletinService)
     {
@@ -47,7 +44,6 @@ class PortailParentService
      * Détecte les élèves dont le numéro `telephone_parent` ou `email_parent` correspond à l'utilisateur,
      * ou donne accès au répertoire pour les profils de direction/administration.
      *
-     * @param User $user
      * @return Collection<int, Eleve>
      */
     public function getEnfantsRattaches(User $user): Collection
@@ -57,9 +53,15 @@ class PortailParentService
             ->latest('date_inscription')
             ->with(['classe' => fn ($cq) => $cq->tousEtablissements()->with('niveau')]);
 
-        // 1. Profil Administrateur ou Direction (permet d'inspecter ou prévisualiser n'importe quel élève)
+        // 1. Profil Administrateur ou Direction (restreint à son établissement si non transversal)
         if ($user->hasRole('super-admin') || $user->hasRole('admin') || $user->hasRole('directeur-etudes') || $user->can('eleves.view')) {
-            return Eleve::where('is_active', true)
+            $query = Eleve::where('is_active', true);
+
+            if (! $user->canAccessAllEtablissements() && ($effectiveEtabId = $user->getEffectiveEtablissementId())) {
+                $query->whereHas('inscriptions', fn ($q) => $q->tousEtablissements()->where('etablissement_id', $effectiveEtabId));
+            }
+
+            return $query
                 ->with(['inscriptions' => $inscriptionRelation])
                 ->take(30)
                 ->get();
@@ -90,8 +92,8 @@ class PortailParentService
      * Vérifie que l'utilisateur connecté est autorisé à consulter les données portail d'un élève
      * (soit en tant que membre de l'équipe de direction/administration autorisé, soit en tant que parent rattaché).
      *
-     * @param User $user Utilisateur authentifié
-     * @param int $eleveId Identifiant de l'élève concerné
+     * @param  User  $user  Utilisateur authentifié
+     * @param  int  $eleveId  Identifiant de l'élève concerné
      * @return bool True si la consultation est autorisée
      */
     public function userCanAccessEleve(User $user, int $eleveId): bool
@@ -102,9 +104,6 @@ class PortailParentService
     /**
      * Récupère le profil complet d'un élève pour le portail parent (Gesco 16.2).
      *
-     * @param Eleve $eleve
-     * @param int|null $anneeId
-     * @param int|null $periodeId
      * @return array<string, mixed>
      */
     public function getProfilCompletEnfant(Eleve $eleve, ?int $anneeId = null, ?int $periodeId = null): array
@@ -271,10 +270,6 @@ class PortailParentService
     /**
      * Télécharge le bulletin officiel en PDF en appliquant le verrou de solvabilité (Gesco 11.5 & 16.3).
      *
-     * @param Inscription $inscription
-     * @param int|null $periodeId
-     * @param User $user
-     * @return Response
      * @throws ValidationException
      */
     public function telechargerBulletin(Inscription $inscription, ?int $periodeId, User $user): Response
@@ -303,7 +298,7 @@ class PortailParentService
         $donneesEleve = collect($donneesClasse['eleves'])->firstWhere('inscription_id', $inscription->id);
 
         if (! $donneesEleve) {
-            abort(404, "Données de bulletin introuvables.");
+            abort(404, 'Données de bulletin introuvables.');
         }
 
         $vueBlade = $periode ? 'bulletins.bulletin_trimestriel' : 'bulletins.bulletin_annuel';
@@ -321,7 +316,7 @@ class PortailParentService
 
         $pdf = Pdf::loadView($vueBlade, $viewData)->setPaper('a4', 'portrait');
 
-        $nomFichier = 'Bulletin_' . $inscription->eleve->matricule . '_' . date('Ymd') . '.pdf';
+        $nomFichier = 'Bulletin_'.$inscription->eleve->matricule.'_'.date('Ymd').'.pdf';
 
         return $pdf->stream($nomFichier);
     }

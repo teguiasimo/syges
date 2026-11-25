@@ -76,6 +76,8 @@ import TypeFraisModal from './modals/type-frais-modal';
 interface FinancesIndexProps {
     versements: VersementCaisse[];
     comptes: CompteFinancierEleve[];
+    /** Effectif total de comptes financiers actifs (évite de sérialiser les 500+ comptes complets sur l'écran de paramétrage). */
+    comptesCount?: number;
     categoriesFrais?: CategorieFrais[];
     typesFrais: TypeFrais[];
     tarifs: FraisScolaire[];
@@ -123,6 +125,7 @@ type FinanceTabKey =
 export default function FinancesIndex({
     versements,
     comptes,
+    comptesCount,
     categoriesFrais = [],
     typesFrais,
     tarifs,
@@ -1414,7 +1417,7 @@ export default function FinancesIndex({
                                         </span>
                                     )}
                                     <span>
-                                        | Effectif suivi : <strong>{comptes.length} élèves</strong>
+                                        | Effectif suivi : <strong>{comptesCount ?? comptes.length} élèves</strong>
                                     </span>
                                 </p>
                             </div>
@@ -1466,7 +1469,7 @@ export default function FinancesIndex({
                                 className="flex items-center gap-1.5"
                             >
                                 <FolderOpen className="w-4 h-4 shrink-0" />
-                                Encaisser Scolarité ({comptes.length} élèves)
+                                Encaisser Scolarité ({comptesCount ?? comptes.length} élèves)
                             </Link>
                         </Button>
                     </div>

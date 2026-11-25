@@ -113,7 +113,7 @@ class BulletinCalculationService
         $competencesOfficielles = CompetencePeriodique::where('classe_id', $classe->id)
             ->where(function ($q) use ($periode, $evaluationIds) {
                 $q->where('periode_id', $periode->id)
-                  ->orWhereIn('evaluation_id', $evaluationIds);
+                    ->orWhereIn('evaluation_id', $evaluationIds);
             })
             ->where('is_active', true)
             ->get()
@@ -122,6 +122,7 @@ class BulletinCalculationService
         // Total théorique des coefficients de la classe et quota minimal pour être classé (MINESEC / Gesco)
         $totalCoefficientsTheoriqueClasse = (float) $attributions->sum(function ($attr) use ($coefficients) {
             $matiereNiveau = $coefficients->get($attr->matiere_id);
+
             return (float) ($matiereNiveau ? $matiereNiveau->coefficient : $attr->matiere->coefficient_defaut);
         });
         $seuilCoeffsMinimalClasse = $etablissement
@@ -249,7 +250,7 @@ class BulletinCalculationService
                     : ($competencesOfficielles->get($attr->matiere_id)?->pluck('libelle_competence')->implode(' ; ') ?: '');
 
                 $appreciationFinale = $estDispense
-                    ? 'Dispensé(e) (' . ucfirst($dispenseEleve->type_dispense) . ')'
+                    ? 'Dispensé(e) ('.ucfirst($dispenseEleve->type_dispense).')'
                     : ($derniereAppreciation ?: self::genererAppreciationParDefaut($moyenneMatiere));
 
                 $lignesMatieres[$attr->id] = [
@@ -282,6 +283,7 @@ class BulletinCalculationService
                 if ($a['groupe_ordre'] === $b['groupe_ordre']) {
                     return strcmp($a['matiere_code'], $b['matiere_code']);
                 }
+
                 return $a['groupe_ordre'] <=> $b['groupe_ordre'];
             });
 
@@ -297,6 +299,7 @@ class BulletinCalculationService
                     return 0.0;
                 }
                 $matiereNiveau = $coefficients->get($attr->matiere_id);
+
                 return (float) ($matiereNiveau ? $matiereNiveau->coefficient : $attr->matiere->coefficient_defaut);
             });
             $totalTheoriqueEleve = max(0.0, $totalCoefficientsTheoriqueClasse - $coeffsDispensesEleve);
@@ -732,6 +735,7 @@ class BulletinCalculationService
 
         $totalCoefficientsTheoriqueClasse = (float) $attributions->sum(function ($attr) use ($coefficients) {
             $matiereNiveau = $coefficients->get($attr->matiere_id);
+
             return (float) ($matiereNiveau ? $matiereNiveau->coefficient : $attr->matiere->coefficient_defaut);
         });
         $seuilCoeffsMinimalClasse = $etablissement
@@ -816,6 +820,7 @@ class BulletinCalculationService
                 if ($a['groupe_ordre'] === $b['groupe_ordre']) {
                     return strcmp($a['matiere_code'], $b['matiere_code']);
                 }
+
                 return $a['groupe_ordre'] <=> $b['groupe_ordre'];
             });
 
@@ -830,6 +835,7 @@ class BulletinCalculationService
                     return 0.0;
                 }
                 $matiereNiveau = $coefficients->get($attr->matiere_id);
+
                 return (float) ($matiereNiveau ? $matiereNiveau->coefficient : $attr->matiere->coefficient_defaut);
             });
             $totalTheoriqueEleve = max(0.0, $totalCoefficientsTheoriqueClasse - $coeffsDispensesEleve);
@@ -1125,6 +1131,7 @@ class BulletinCalculationService
 
         $totalCoefficientsTheoriqueClasse = (float) $attributions->sum(function ($attr) use ($coefficients) {
             $matiereNiveau = $coefficients->get($attr->matiere_id);
+
             return (float) ($matiereNiveau ? $matiereNiveau->coefficient : $attr->matiere->coefficient_defaut);
         });
         $seuilCoeffsMinimalClasse = $etablissement
@@ -1141,6 +1148,12 @@ class BulletinCalculationService
         foreach ($attributions as $attr) {
             $matieresStats[$attr->id] = ['notes_classe' => []];
         }
+
+        // Préchargement groupé des dispenses validées pour toute la classe (évite un N+1 par élève)
+        $dispensesAnnuellesParInscription = DispenseEleve::validees()
+            ->whereIn('inscription_id', $inscriptions->pluck('id'))
+            ->get()
+            ->groupBy('inscription_id');
 
         $rangsAnnuelsPrepares = [];
 
@@ -1277,6 +1290,7 @@ class BulletinCalculationService
                 if ($a['groupe_ordre'] === $b['groupe_ordre']) {
                     return strcmp($a['matiere_code'], $b['matiere_code']);
                 }
+
                 return $a['groupe_ordre'] <=> $b['groupe_ordre'];
             });
 
@@ -1290,15 +1304,14 @@ class BulletinCalculationService
                 : ($mga >= 8.5 ? "Redouble la classe de {$nomNiveauActuel}." : 'Exclu(e) / Non admis(e)');
 
             // Calcul de l'éligibilité au classement selon le quota de coefficients (MINESEC / Gesco)
-            $dispensesEleve = DispenseEleve::validees()
-                ->where('inscription_id', $insc->id)
-                ->get();
+            $dispensesEleve = $dispensesAnnuellesParInscription->get($insc->id) ?? collect();
             $coeffsDispensesEleve = (float) $dispensesEleve->where('neutraliser_coefficient', true)->sum(function ($disp) use ($coefficients, $attributions) {
                 $attr = $attributions->firstWhere('matiere_id', $disp->matiere_id);
                 if (! $attr) {
                     return 0.0;
                 }
                 $matiereNiveau = $coefficients->get($attr->matiere_id);
+
                 return (float) ($matiereNiveau ? $matiereNiveau->coefficient : $attr->matiere->coefficient_defaut);
             });
             $totalTheoriqueEleve = max(0.0, $totalCoefficientsTheoriqueClasse - $coeffsDispensesEleve);
@@ -1519,7 +1532,6 @@ class BulletinCalculationService
      * (même cycle d'abord, puis même établissement pour le passage inter-cycles).
      *
      * @param  Niveau  $niveauActuel  Le niveau pédagogique courant
-     * @return Niveau|null
      */
     private function trouverNiveauSuivantStandard(Niveau $niveauActuel): ?Niveau
     {
@@ -1568,7 +1580,7 @@ class BulletinCalculationService
         $paliersDistincts = $classesDuNiveau
             ->map(fn (Classe $c) => $this->extrairePalierPrimaire($c->nom, $c->code))
             ->filter()
-            ->map(fn (array $p) => $p['langue'] . ':' . $p['index'])
+            ->map(fn (array $p) => $p['langue'].':'.$p['index'])
             ->unique();
 
         $nomNiveauNormalise = mb_strtoupper(trim($niveauActuel->nom), 'UTF-8');

@@ -237,6 +237,9 @@ class CompteFinancierEleve extends Model
                 }
             }
             $this->remise_bourse = min($baseObligatoireApresDispense, $cumulBourses);
+        } else {
+            // Plafonne également toute remise saisie manuellement au montant obligatoire net après dispense
+            $this->remise_bourse = min($baseObligatoireApresDispense, max(0.0, (float) $this->remise_bourse));
         }
 
         // 3. Cumul des prestations optionnelles actives souscrites par l'élève (Bus, Cantine, Activités...)

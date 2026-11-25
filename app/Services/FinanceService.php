@@ -30,6 +30,7 @@ use App\Models\VersementCaisse;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
@@ -236,55 +237,116 @@ class FinanceService
     }
 
     /**
-     * Synchronise automatiquement les comptes financiers de tous les élèves inscrits d'un établissement.
+     * Invalide le marqueur journalier de synchronisation financière pour un établissement et une année scolaire.
+     * À appeler après toute modification de grille tarifaire ou de date limite d'échéance.
      *
-     * Garantit qu'aucun élève inscrit (y compris par import CSV ou avant configuration des tarifs)
-     * ne soit absent du guichet d'encaissement ou de la liste des comptes élèves.
+     * @param  int  $etablissementId  Identifiant de l'établissement
+     * @param  int|null  $anneeId  Identifiant de l'année scolaire concernée
+     */
+    public static function invaliderCacheSynchronisation(int $etablissementId, ?int $anneeId = null): void
+    {
+        if ($anneeId) {
+            Cache::forget("syges.finance_echeance_sync.{$etablissementId}.{$anneeId}");
+        }
+    }
+
+    /**
+     * Synchronise automatiquement les comptes financiers des élèves inscrits d'un établissement
+     * avec un chemin rapide incrémental afin de ne pas recharger les 500+ comptes à chaque visite GET.
+     *
+     * Fonctionnement en 3 étapes optimisées :
+     * 1. Initialise immédiatement toute inscription active encore dépourvue de `CompteFinancierEleve` (~2 ms si 0 manquant).
+     * 2. Recalcule immédiatement les comptes restés à `debit_initial <= 0` dès que la grille tarifaire est configurée.
+     * 3. Actualise les statuts d'échéance calendaire au maximum 1 fois par jour et par campus (ou si `$force = true`),
+     *    évitant ainsi de recharger 8 relations imbriquées sur tous les élèves à chaque chargement de page.
      *
      * @param  int  $etablissementId  Identifiant de l'établissement
      * @param  int|null  $anneeId  Identifiant de l'année scolaire active
+     * @param  bool  $force  Force la réévaluation complète des statuts d'échéance sans tenir compte du cache journalier
      */
-    public function synchroniserComptesEtablissement(int $etablissementId, ?int $anneeId): void
+    public function synchroniserComptesEtablissement(int $etablissementId, ?int $anneeId, bool $force = false): void
     {
         if (! $etablissementId || ! $anneeId) {
             return;
         }
 
-        // Préchargement complet pour recalculer efficacement débits initiaux et statuts basés sur les dates d'échéance.
-        $inscriptions = Inscription::withoutGlobalScopes()
-            ->with([
-                'classe.niveau',
-                'compteFinancier.inscription.classe.niveau',
-                'compteFinancier.boursesRemises.bourseRemise',
-                'compteFinancier.dispensesFinancieres.fraisScolaire',
-                'compteFinancier.souscriptionsOptionnelles.fraisScolaire.typeFrais.categorieFrais',
-                'compteFinancier.penalites',
-                'compteFinancier.versements.ventilations',
-            ])
+        // Étape 1 (incrémentale) : initialiser uniquement les inscriptions actives sans compte financier
+        $inscriptionsSansCompte = Inscription::withoutGlobalScopes()
+            ->with('classe')
             ->where('annee_scolaire_id', $anneeId)
             ->where(function ($q) use ($etablissementId) {
                 $q->where('etablissement_id', $etablissementId)
                     ->orWhereHas('classe', fn ($cq) => $cq->where('etablissement_id', $etablissementId));
             })
             ->whereNotIn('statut', ['annulee', 'radie'])
+            ->whereDoesntHave('compteFinancier')
             ->get();
 
-        // Caches locaux par couple (niveau_id, serie) pour éviter les requêtes N+1
+        foreach ($inscriptionsSansCompte as $inscription) {
+            $this->initialiserCompteEleve($inscription);
+        }
+
+        // Étape 2 (incrémentale) : actualiser uniquement les comptes restés à débit initial nul (créés avant la grille tarifaire)
+        $comptesDebitNul = CompteFinancierEleve::withoutGlobalScopes()
+            ->with('inscription.classe')
+            ->where('etablissement_id', $etablissementId)
+            ->where('annee_scolaire_id', $anneeId)
+            ->where('debit_initial', '<=', 0)
+            ->get();
+
         $tarifsParNiveauSerie = [];
         $debitParNiveauSerie = [];
-        $aujourdhui = Carbon::today();
 
-        foreach ($inscriptions as $inscription) {
-            $compte = $inscription->compteFinancier;
+        if ($comptesDebitNul->isNotEmpty()) {
+            foreach ($comptesDebitNul as $compte) {
+                $nivId = $compte->inscription?->classe?->niveau_id;
+                $ser = $compte->inscription?->classe?->serie ? mb_strtoupper(trim($compte->inscription->classe->serie)) : '';
+                $cleCache = ($nivId ?? 0).'_'.$ser;
 
-            if (! $compte) {
-                $this->initialiserCompteEleve($inscription);
+                if (! array_key_exists($cleCache, $tarifsParNiveauSerie)) {
+                    $tarifs = $this->obtenirTarifsObligatoiresApplicables(
+                        $anneeId,
+                        $etablissementId,
+                        $nivId,
+                        $compte->inscription?->classe?->serie
+                    )->values();
+                    $tarifsParNiveauSerie[$cleCache] = $tarifs;
+                    $debitParNiveauSerie[$cleCache] = (float) $tarifs->sum('montant');
+                }
 
-                continue;
+                $nouveauDebit = $debitParNiveauSerie[$cleCache];
+                if ($nouveauDebit > 0) {
+                    $compte->debit_initial = $nouveauDebit;
+                    $compte->actualiserSolde();
+                }
             }
+        }
 
-            $nivId = $inscription->classe?->niveau_id;
-            $ser = $inscription->classe?->serie ? mb_strtoupper(trim($inscription->classe->serie)) : '';
+        // Étape 3 (journalière via cache) : réévaluation complète des statuts selon les dates limites d'échéance
+        $aujourdhui = Carbon::today();
+        $dateCle = $aujourdhui->toDateString();
+        $cacheKey = "syges.finance_echeance_sync.{$etablissementId}.{$anneeId}";
+
+        if (! $force && Cache::get($cacheKey) === $dateCle) {
+            return;
+        }
+
+        $comptes = CompteFinancierEleve::withoutGlobalScopes()
+            ->with([
+                'inscription.classe.niveau',
+                'boursesRemises.bourseRemise',
+                'dispensesFinancieres.fraisScolaire',
+                'souscriptionsOptionnelles.fraisScolaire.typeFrais.categorieFrais',
+                'penalites',
+                'versements.ventilations',
+            ])
+            ->where('etablissement_id', $etablissementId)
+            ->where('annee_scolaire_id', $anneeId)
+            ->get();
+
+        foreach ($comptes as $compte) {
+            $nivId = $compte->inscription?->classe?->niveau_id;
+            $ser = $compte->inscription?->classe?->serie ? mb_strtoupper(trim($compte->inscription->classe->serie)) : '';
             $cleCache = ($nivId ?? 0).'_'.$ser;
 
             if (! array_key_exists($cleCache, $tarifsParNiveauSerie)) {
@@ -292,24 +354,12 @@ class FinanceService
                     $anneeId,
                     $etablissementId,
                     $nivId,
-                    $inscription->classe?->serie
+                    $compte->inscription?->classe?->serie
                 )->values();
                 $tarifsParNiveauSerie[$cleCache] = $tarifs;
                 $debitParNiveauSerie[$cleCache] = (float) $tarifs->sum('montant');
             }
 
-            // Si le compte avait été créé avec un débit nul avant le paramétrage de la grille tarifaire, on l'actualise
-            if ((float) $compte->debit_initial <= 0) {
-                $nouveauDebit = $debitParNiveauSerie[$cleCache];
-                if ($nouveauDebit > 0) {
-                    $compte->debit_initial = $nouveauDebit;
-                    $compte->actualiserSolde();
-
-                    continue;
-                }
-            }
-
-            // Rafraîchit le statut stocké en base dès qu'une date limite d'échéance change l'éligibilité.
             $statutAttendu = $this->determinerStatutFinancierCompte(
                 $compte,
                 $aujourdhui,
@@ -321,6 +371,8 @@ class FinanceService
                 $compte->saveQuietly();
             }
         }
+
+        Cache::put($cacheKey, $dateCle, now()->endOfDay());
     }
 
     /**
@@ -333,6 +385,8 @@ class FinanceService
      */
     public function recalculerComptesNiveau(int $etablissementId, int $anneeId, int $niveauId): void
     {
+        self::invaliderCacheSynchronisation($etablissementId, $anneeId);
+
         $inscriptions = Inscription::withoutGlobalScopes()
             ->with(['classe', 'compteFinancier'])
             ->where('annee_scolaire_id', $anneeId)
@@ -545,14 +599,7 @@ class FinanceService
      */
     private function trouverModeleRemiseAnticipee(int $etablissementId, ?int $modeleId = null): ?BourseRemise
     {
-        if ($modeleId) {
-            return BourseRemise::where('etablissement_id', $etablissementId)
-                ->where('id', $modeleId)
-                ->where('is_active', true)
-                ->first();
-        }
-
-        return BourseRemise::where('etablissement_id', $etablissementId)
+        $query = BourseRemise::where('etablissement_id', $etablissementId)
             ->where('is_active', true)
             ->where(function ($q) {
                 $q->where('code', 'REM-ANTICIPE-4')
@@ -560,7 +607,13 @@ class FinanceService
                         $sub->where('type', 'remise')
                             ->where('nom', 'like', '%anticip%');
                     });
-            })
+            });
+
+        if ($modeleId) {
+            return (clone $query)->where('id', $modeleId)->first();
+        }
+
+        return $query
             ->orderByRaw("CASE WHEN code = 'REM-ANTICIPE-4' THEN 0 ELSE 1 END")
             ->first();
     }
@@ -572,10 +625,15 @@ class FinanceService
         $dateVersement = $this->resoudreDateVersement($data['date_versement'] ?? null, $compte);
         $dateCible = $dateVersement->toDateString();
 
-        // 1. Vérification anti-fraude : la journée ciblée ne doit pas être déjà clôturée pour ce caissier
+        // 1. Vérification anti-fraude : la journée ciblée ne doit pas être déjà clôturée (clôture globale ou clôture du caissier)
         $clotureExistante = ClotureCaisse::where('etablissement_id', $etablissementId)
             ->whereDate('date_cloture', $dateCible)
-            ->where('personnel_id', $caissier?->id)
+            ->where(function ($q) use ($caissier) {
+                $q->whereNull('personnel_id');
+                if ($caissier?->id) {
+                    $q->orWhere('personnel_id', $caissier->id);
+                }
+            })
             ->where('statut', 'cloturee')
             ->first();
 
@@ -898,6 +956,24 @@ class FinanceService
             throw new InvalidArgumentException('Ce versement a déjà été annulé.');
         }
 
+        // Interdiction d'annuler un versement appartenant à une journée de caisse déjà clôturée
+        $dateOp = Carbon::parse($versement->date_versement)->toDateString();
+        $estCloture = $versement->cloture_caisse_id !== null
+            || ClotureCaisse::where('etablissement_id', $versement->etablissement_id)
+                ->whereDate('date_cloture', $dateOp)
+                ->where(function ($q) use ($versement) {
+                    $q->whereNull('personnel_id');
+                    if ($versement->personnel_id) {
+                        $q->orWhere('personnel_id', $versement->personnel_id);
+                    }
+                })
+                ->where('statut', 'cloturee')
+                ->exists();
+
+        if ($estCloture) {
+            throw new InvalidArgumentException("Impossible d'annuler ce versement : la caisse de cette journée est déjà clôturée.");
+        }
+
         return DB::transaction(function () use ($versement, $motif, $annulateur) {
             $versement->update([
                 'statut' => 'annule',
@@ -956,6 +1032,23 @@ class FinanceService
             $comptesImpactes = [];
 
             foreach ($versements as $versement) {
+                $dateOp = Carbon::parse($versement->date_versement)->toDateString();
+                $estCloture = $versement->cloture_caisse_id !== null
+                    || ClotureCaisse::where('etablissement_id', $versement->etablissement_id)
+                        ->whereDate('date_cloture', $dateOp)
+                        ->where(function ($q) use ($versement) {
+                            $q->whereNull('personnel_id');
+                            if ($versement->personnel_id) {
+                                $q->orWhere('personnel_id', $versement->personnel_id);
+                            }
+                        })
+                        ->where('statut', 'cloturee')
+                        ->exists();
+
+                if ($estCloture) {
+                    throw new InvalidArgumentException("Impossible d'annuler le reçu {$versement->reference_recu} : la caisse de cette journée est déjà clôturée.");
+                }
+
                 $versement->update([
                     'statut' => 'annule',
                     'motif_annulation' => $motif,
@@ -1147,17 +1240,21 @@ class FinanceService
         }
 
         $etablissementId = $caisse->etablissement_id;
-        $today = Carbon::today()->toDateString();
+        $dateCible = ! empty($data['date_paiement'])
+            ? Carbon::parse($data['date_paiement'])->toDateString()
+            : (! empty($data['date_reglement']) ? Carbon::parse($data['date_reglement'])->toDateString() : Carbon::today()->toDateString());
 
-        // Contrôle anti-fraude caisse clôturée
+        // Contrôle anti-fraude caisse clôturée (clôture d'établissement ou de caisse spécifique)
         $clotureExistante = ClotureCaisse::where('etablissement_id', $etablissementId)
-            ->where('caisse_id', $caisse->id)
-            ->whereDate('date_cloture', $today)
+            ->where(function ($q) use ($caisse) {
+                $q->whereNull('caisse_id')->orWhere('caisse_id', $caisse->id);
+            })
+            ->whereDate('date_cloture', $dateCible)
             ->where('statut', 'cloturee')
             ->first();
 
         if ($clotureExistante) {
-            throw new InvalidArgumentException("Impossible d'encaisser : cette caisse a déjà été clôturée pour aujourd'hui.");
+            throw new InvalidArgumentException("Impossible d'encaisser : cette caisse a déjà été clôturée pour la journée sélectionnée.");
         }
 
         return DB::transaction(function () use ($data, $caisse, $etablissementId, $caissier, $user) {
@@ -1197,6 +1294,19 @@ class FinanceService
     {
         if ($reglement->statut === 'annule') {
             throw new InvalidArgumentException('Ce règlement a déjà été annulé.');
+        }
+
+        $dateOp = Carbon::parse($reglement->date_reglement)->toDateString();
+        $estCloture = ClotureCaisse::where('etablissement_id', $reglement->etablissement_id)
+            ->whereDate('date_cloture', $dateOp)
+            ->where(function ($q) use ($reglement) {
+                $q->whereNull('caisse_id')->orWhere('caisse_id', $reglement->caisse_id);
+            })
+            ->where('statut', 'cloturee')
+            ->exists();
+
+        if ($estCloture) {
+            throw new InvalidArgumentException("Impossible d'annuler cette recette diverse : la caisse de cette journée est déjà clôturée.");
         }
 
         $reglement->update([
@@ -1385,6 +1495,16 @@ class FinanceService
         ?User $user = null
     ): DispenseFinanciere {
         $frais->loadMissing('typeFrais');
+        $compte->loadMissing('inscription.classe');
+
+        if ((int) $frais->etablissement_id !== (int) $compte->etablissement_id || (int) $frais->annee_scolaire_id !== (int) $compte->annee_scolaire_id) {
+            throw new InvalidArgumentException('Ce frais scolaire ne correspond pas à l’établissement ou à l’année scolaire du compte de l’élève.');
+        }
+
+        $niveauEleveId = $compte->inscription?->classe?->niveau_id;
+        if ($niveauEleveId && $frais->niveau_id && (int) $frais->niveau_id !== (int) $niveauEleveId) {
+            throw new InvalidArgumentException('Ce frais scolaire appartient à un autre niveau d’étude que celui de l’élève.');
+        }
 
         $estObligatoire = $frais->obligatoire !== null
             ? (bool) $frais->obligatoire

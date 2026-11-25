@@ -8,7 +8,6 @@ use App\Models\AnneeScolaire;
 use App\Models\Assiduite;
 use App\Models\Classe;
 use App\Models\DisciplineBulletin;
-use App\Models\Etablissement;
 use App\Models\Inscription;
 use App\Models\Matiere;
 use App\Models\Periode;
@@ -18,6 +17,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 
@@ -56,9 +56,6 @@ class DisciplineController extends Controller implements HasMiddleware
 
     /**
      * Affiche l'espace de gestion de l'assiduité et de la discipline.
-     *
-     * @param Request $request
-     * @return InertiaResponse
      */
     public function index(Request $request): InertiaResponse
     {
@@ -147,14 +144,50 @@ class DisciplineController extends Controller implements HasMiddleware
 
         $syntheses = $synthesesQuery->get();
 
-        // Matières pour le formulaire d'absence
-        $matieres = Matiere::orderBy('nom')->get();
-
-        // Élèves inscrits pour les sélecteurs
-        $inscriptions = Inscription::with(['eleve', 'classe'])
-            ->where('annee_scolaire_id', $anneeId)
-            ->whereHas('classe.niveau.cycle.section', fn ($q) => $q->where('etablissement_id', $etablissementId))
+        // Matières allégées pour le formulaire d'absence (colonnes strictement nécessaires au sélecteur)
+        $matieres = Matiere::query()
+            ->select('id', 'code', 'nom')
+            ->orderBy('nom')
             ->get();
+
+        // Projection SQL directe ultra-légère des élèves inscrits pour les sélecteurs modaux (évite 235+ Ko d'objets Eloquent)
+        $inscriptions = DB::table('inscriptions')
+            ->join('eleves', 'eleves.id', '=', 'inscriptions.eleve_id')
+            ->join('classes', 'classes.id', '=', 'inscriptions.classe_id')
+            ->join('niveaux', 'niveaux.id', '=', 'classes.niveau_id')
+            ->join('cycles', 'cycles.id', '=', 'niveaux.cycle_id')
+            ->join('sections', 'sections.id', '=', 'cycles.section_id')
+            ->where('inscriptions.annee_scolaire_id', $anneeId)
+            ->where('sections.etablissement_id', $etablissementId)
+            ->orderBy('eleves.nom')
+            ->orderBy('eleves.prenom')
+            ->select([
+                'inscriptions.id',
+                'inscriptions.eleve_id',
+                'inscriptions.classe_id',
+                'eleves.matricule',
+                'eleves.nom as eleve_nom',
+                'eleves.prenom as eleve_prenom',
+                'classes.nom as classe_nom',
+            ])
+            ->get()
+            ->map(static fn (object $row): array => [
+                'id' => (int) $row->id,
+                'eleve_id' => (int) $row->eleve_id,
+                'classe_id' => (int) $row->classe_id,
+                'eleve' => [
+                    'id' => (int) $row->eleve_id,
+                    'matricule' => (string) $row->matricule,
+                    'nom' => (string) $row->eleve_nom,
+                    'prenom' => $row->eleve_prenom,
+                    'nom_complet' => trim(((string) $row->eleve_nom).' '.((string) ($row->eleve_prenom ?? ''))),
+                ],
+                'classe' => [
+                    'id' => (int) $row->classe_id,
+                    'nom' => (string) $row->classe_nom,
+                ],
+            ])
+            ->all();
 
         return Inertia::render('administration/discipline/index', [
             'assiduites' => $assiduites,
@@ -183,10 +216,6 @@ class DisciplineController extends Controller implements HasMiddleware
 
     /**
      * Enregistre un événement d'assiduité (absence ou retard).
-     *
-     * @param Request $request
-     * @param DisciplineService $disciplineService
-     * @return RedirectResponse
      */
     public function storeAssiduite(Request $request, DisciplineService $disciplineService): RedirectResponse
     {
@@ -218,11 +247,6 @@ class DisciplineController extends Controller implements HasMiddleware
 
     /**
      * Justifie une absence ou un retard.
-     *
-     * @param Request $request
-     * @param Assiduite $assiduite
-     * @param DisciplineService $disciplineService
-     * @return RedirectResponse
      */
     public function justifierAssiduite(Request $request, Assiduite $assiduite, DisciplineService $disciplineService): RedirectResponse
     {
@@ -245,10 +269,6 @@ class DisciplineController extends Controller implements HasMiddleware
 
     /**
      * Supprime un enregistrement d'assiduité et recalcule le bulletin.
-     *
-     * @param Assiduite $assiduite
-     * @param DisciplineService $disciplineService
-     * @return RedirectResponse
      */
     public function destroyAssiduite(Assiduite $assiduite, DisciplineService $disciplineService): RedirectResponse
     {
@@ -272,10 +292,6 @@ class DisciplineController extends Controller implements HasMiddleware
 
     /**
      * Prononce et enregistre une sanction disciplinaire officielle.
-     *
-     * @param Request $request
-     * @param DisciplineService $disciplineService
-     * @return RedirectResponse
      */
     public function storeSanction(Request $request, DisciplineService $disciplineService): RedirectResponse
     {
@@ -299,15 +315,11 @@ class DisciplineController extends Controller implements HasMiddleware
 
         $disciplineService->enregistrerSanction($validated);
 
-        return back()->with('success', "Sanction disciplinaire enregistrée. Synthèse du bulletin actualisée.");
+        return back()->with('success', 'Sanction disciplinaire enregistrée. Synthèse du bulletin actualisée.');
     }
 
     /**
      * Supprime une sanction disciplinaire.
-     *
-     * @param SanctionDisciplinaire $sanction
-     * @param DisciplineService $disciplineService
-     * @return RedirectResponse
      */
     public function destroySanction(SanctionDisciplinaire $sanction, DisciplineService $disciplineService): RedirectResponse
     {
@@ -326,6 +338,6 @@ class DisciplineController extends Controller implements HasMiddleware
 
         $disciplineService->actualiserSyntheseBulletin($inscriptionId, $periodeId);
 
-        return back()->with('success', "Sanction disciplinaire annulée.");
+        return back()->with('success', 'Sanction disciplinaire annulée.');
     }
 }

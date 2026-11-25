@@ -7,7 +7,7 @@ use App\Models\Personnel;
 use App\Services\LoginAppearanceService;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
-use Spatie\Permission\Models\Permission;
+use Spatie\Permission\PermissionRegistrar;
 
 class HandleInertiaRequests extends Middleware
 {
@@ -89,7 +89,7 @@ class HandleInertiaRequests extends Middleware
                     'can_access_all_etablissements' => $canAccessAll,
                     'roles' => $user->roles->pluck('name')->toArray(),
                     'permissions' => $isSuperAdmin
-                        ? Permission::pluck('name')->toArray()
+                        ? app(PermissionRegistrar::class)->getPermissions()->pluck('name')->values()->all()
                         : $user->getAllPermissions()->pluck('name')->toArray(),
                 ] : null,
             ],

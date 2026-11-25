@@ -98,4 +98,33 @@ trait ScopesEtablissement
             'etablissements' => $etablissements,
         ];
     }
+
+    /**
+     * Vérifie et résout l'identifiant d'établissement autorisé pour une opération d'écriture.
+     * Si l'utilisateur connecté est restreint à un seul campus, toute tentative de cibler un autre
+     * établissement déclenche un rejet HTTP 403.
+     *
+     * @param  Request  $request  Requête HTTP entrante.
+     * @param  int|string|null  $requestedEtablissementId  Identifiant d'établissement transmis dans le payload ou l'URL.
+     * @return int|null Identifiant d'établissement validé et autorisé.
+     */
+    protected function authorizeEtablissementWrite(Request $request, int|string|null $requestedEtablissementId = null): ?int
+    {
+        $context = $this->resolveEtablissementContext($request);
+        $canAccessAll = (bool) ($context['canAccessAll'] ?? $context['isSuperAdmin']);
+        $scopedEtabId = $context['etablissementId'] ? (int) $context['etablissementId'] : null;
+        $targetId = ($requestedEtablissementId !== null && $requestedEtablissementId !== '' && is_numeric($requestedEtablissementId))
+            ? (int) $requestedEtablissementId
+            : null;
+
+        if (! $canAccessAll && $scopedEtabId !== null) {
+            if ($targetId !== null && $targetId !== $scopedEtabId) {
+                abort(403, 'Accès non autorisé : vous ne pouvez pas effectuer cette opération sur un autre établissement.');
+            }
+
+            return $scopedEtabId;
+        }
+
+        return $targetId ?? $scopedEtabId;
+    }
 }

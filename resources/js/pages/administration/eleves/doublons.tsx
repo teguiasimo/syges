@@ -199,7 +199,8 @@ interface MergePreviewPayload {
  * Propriétés Inertia transmises par EleveDoublonController::index.
  */
 interface ElevesDoublonsPageProps {
-    suspects: DoublonPair[];
+    /** Paires suspectes chargées en différé via `Inertia::defer()` pour une ouverture instantanée de la page. */
+    suspects?: DoublonPair[];
     elevesOptions: EleveOptionItem[];
     ignores: IgnoredPairItem[];
     audits: FusionAuditItem[];
@@ -300,13 +301,17 @@ export default function ElevesDoublonsPage({
         [elevesOptions]
     );
 
+    // État de chargement de la prop différée `suspects` (`undefined` tant que le scan serveur tourne en arrière-plan)
+    const isScanningSuspects = suspects === undefined;
+    const suspectsList = useMemo(() => suspects ?? [], [suspects]);
+
     /**
      * Filtrage local rapide sur les paires suspectes détectées.
      */
     const filteredSuspects = useMemo(() => {
         const q = searchSuspect.trim().toLowerCase();
-        if (!q) return suspects;
-        return suspects.filter(
+        if (!q) return suspectsList;
+        return suspectsList.filter(
             (s) =>
                 s.master.nom_complet.toLowerCase().includes(q) ||
                 s.duplicate.nom_complet.toLowerCase().includes(q) ||
@@ -315,7 +320,7 @@ export default function ElevesDoublonsPage({
                 s.master.classe_nom.toLowerCase().includes(q) ||
                 s.duplicate.classe_nom.toLowerCase().includes(q)
         );
-    }, [suspects, searchSuspect]);
+    }, [suspectsList, searchSuspect]);
 
     /**
      * Charge la prévisualisation comparative détaillée entre deux élèves et ouvre la modale de fusion.
@@ -547,7 +552,7 @@ export default function ElevesDoublonsPage({
         []
     );
 
-    const highConfidenceCount = suspects.filter((s) => s.niveau_confiance === 'eleve').length;
+    const highConfidenceCount = suspectsList.filter((s) => s.niveau_confiance === 'eleve').length;
 
     return (
         <>
@@ -616,12 +621,26 @@ export default function ElevesDoublonsPage({
                         <CardContent className="py-4 flex items-center justify-between gap-3">
                             <div>
                                 <p className="text-xs font-medium text-muted-foreground">Paires suspectes</p>
-                                <p className="text-2xl font-bold tracking-tight tabular-nums text-foreground mt-0.5">
-                                    {suspects.length}
-                                </p>
-                                <p className="text-[11px] text-amber-700 font-medium mt-0.5">
-                                    {highConfidenceCount} forte(s) probabilité(s)
-                                </p>
+                                {isScanningSuspects ? (
+                                    <>
+                                        <p className="text-sm font-semibold text-amber-700 mt-1.5 flex items-center gap-1.5">
+                                            <Loader2 className="size-4 animate-spin" />
+                                            <span>Analyse...</span>
+                                        </p>
+                                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                                            Comparaison en cours
+                                        </p>
+                                    </>
+                                ) : (
+                                    <>
+                                        <p className="text-2xl font-bold tracking-tight tabular-nums text-foreground mt-0.5">
+                                            {suspectsList.length}
+                                        </p>
+                                        <p className="text-[11px] text-amber-700 font-medium mt-0.5">
+                                            {highConfidenceCount} forte(s) probabilité(s)
+                                        </p>
+                                    </>
+                                )}
                             </div>
                             <div className="size-10 rounded-xl bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center shrink-0">
                                 <AlertTriangle className="size-5" />
@@ -750,7 +769,13 @@ export default function ElevesDoublonsPage({
                     >
                         <AlertTriangle className="size-4" />
                         <span>Doublons détectés</span>
-                        <Badge variant="secondary" className="text-xs">{suspects.length}</Badge>
+                        <Badge variant="secondary" className="text-xs">
+                            {isScanningSuspects ? (
+                                <Loader2 className="size-3 animate-spin" />
+                            ) : (
+                                suspectsList.length
+                            )}
+                        </Badge>
                     </button>
 
                     <button
@@ -795,7 +820,19 @@ export default function ElevesDoublonsPage({
                             />
                         </div>
 
-                        {filteredSuspects.length === 0 ? (
+                        {isScanningSuspects ? (
+                            <div className="rounded-2xl border border-dashed border-amber-300 bg-amber-50/40 p-10 text-center space-y-2.5">
+                                <div className="size-12 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center mx-auto">
+                                    <Loader2 className="size-6 animate-spin" />
+                                </div>
+                                <h3 className="text-sm font-bold text-amber-950">
+                                    Analyse intelligente des doublons en cours...
+                                </h3>
+                                <p className="text-xs text-muted-foreground max-w-md mx-auto">
+                                    Comparaison des {elevesOptions.length} dossier(s) sur le périmètre sélectionné. Vous pouvez déjà utiliser la fusion manuelle ci-dessus.
+                                </p>
+                            </div>
+                        ) : filteredSuspects.length === 0 ? (
                             <div className="rounded-2xl border border-dashed border-emerald-300 bg-emerald-50/40 p-10 text-center space-y-2">
                                 <div className="size-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto">
                                     <CheckCircle2 className="size-6" />

@@ -9,7 +9,6 @@ use App\Models\DossierConseilDiscipline;
 use App\Models\Etablissement;
 use App\Models\HeureConsigne;
 use App\Models\Inscription;
-use App\Models\SanctionDisciplinaire;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -17,6 +16,7 @@ use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -41,18 +41,16 @@ class ConseilDisciplineController extends Controller implements HasMiddleware
     {
         return [
             new Middleware('can:conseil_discipline.view|discipline.view', only: ['index']),
-            new Middleware('can:conseil_discipline.create|discipline.manage', only: ['store', 'storeDossier']),
-            new Middleware('can:conseil_discipline.edit|discipline.manage', only: ['update', 'updateDossier']),
-            new Middleware('can:conseil_discipline.delete|discipline.manage', only: ['destroy', 'destroyDossier']),
+            new Middleware('can:conseil_discipline.create|discipline.manage', only: ['store', 'storeSession', 'storeDossier']),
+            new Middleware('can:conseil_discipline.edit|discipline.manage', only: ['update', 'updateSession', 'updateDossier']),
+            new Middleware('can:conseil_discipline.delete|discipline.manage', only: ['destroy', 'destroySession', 'destroyDossier']),
             new Middleware('can:consignes.pointage|discipline.manage', only: ['storeHeureConsigne', 'updateHeureConsigne', 'destroyHeureConsigne']),
             new Middleware('can:conseil_discipline.print|conseil_discipline.view|discipline.view', only: ['imprimerConvocation', 'imprimerPv']),
         ];
     }
+
     /**
      * Affiche l'espace de gestion du Conseil de Discipline et des Heures de Consigne.
-     *
-     * @param Request $request
-     * @return Response
      */
     public function index(Request $request): Response
     {
@@ -84,8 +82,8 @@ class ConseilDisciplineController extends Controller implements HasMiddleware
             'dossiers.eleve',
             'dossiers.inscription.classe.niveau',
         ])
-        ->where('etablissement_id', $selectedEtabId)
-        ->where('annee_scolaire_id', $selectedAnneeId);
+            ->where('etablissement_id', $selectedEtabId)
+            ->where('annee_scolaire_id', $selectedAnneeId);
 
         if ($statut) {
             $sessionsQuery->where('statut', $statut);
@@ -94,13 +92,13 @@ class ConseilDisciplineController extends Controller implements HasMiddleware
         if ($search) {
             $sessionsQuery->where(function ($q) use ($search) {
                 $q->where('numero_session', 'like', "%{$search}%")
-                  ->orWhere('president_seance', 'like', "%{$search}%")
-                  ->orWhere('observations_generales', 'like', "%{$search}%")
-                  ->orWhereHas('dossiers.eleve', function ($sq) use ($search) {
-                      $sq->where('nom', 'like', "%{$search}%")
-                         ->orWhere('prenom', 'like', "%{$search}%")
-                         ->orWhere('matricule', 'like', "%{$search}%");
-                  });
+                    ->orWhere('president_seance', 'like', "%{$search}%")
+                    ->orWhere('observations_generales', 'like', "%{$search}%")
+                    ->orWhereHas('dossiers.eleve', function ($sq) use ($search) {
+                        $sq->where('nom', 'like', "%{$search}%")
+                            ->orWhere('prenom', 'like', "%{$search}%")
+                            ->orWhere('matricule', 'like', "%{$search}%");
+                    });
             });
         }
 
@@ -111,10 +109,10 @@ class ConseilDisciplineController extends Controller implements HasMiddleware
             'eleve',
             'inscription.classe.niveau',
         ])
-        ->where('etablissement_id', $selectedEtabId)
-        ->where('annee_scolaire_id', $selectedAnneeId)
-        ->latest('date_consigne')
-        ->get();
+            ->where('etablissement_id', $selectedEtabId)
+            ->where('annee_scolaire_id', $selectedAnneeId)
+            ->latest('date_consigne')
+            ->get();
 
         // Statistiques
         $stats = [
@@ -128,14 +126,42 @@ class ConseilDisciplineController extends Controller implements HasMiddleware
             'total_heures_consigne' => (int) HeureConsigne::where('etablissement_id', $selectedEtabId)->where('annee_scolaire_id', $selectedAnneeId)->sum('nombre_heures'),
         ];
 
-        // Inscriptions actives pour sélection
-        $inscriptions = Inscription::with(['eleve', 'classe.niveau'])
-            ->where('etablissement_id', $selectedEtabId)
-            ->where('annee_scolaire_id', $selectedAnneeId)
-            ->where('statut', 'validee')
+        // Projection SQL directe ultra-légère des inscriptions actives pour les sélecteurs modaux (évite 280+ Ko d'objets Eloquent)
+        $inscriptions = DB::table('inscriptions')
+            ->join('eleves', 'eleves.id', '=', 'inscriptions.eleve_id')
+            ->join('classes', 'classes.id', '=', 'inscriptions.classe_id')
+            ->where('inscriptions.etablissement_id', $selectedEtabId)
+            ->where('inscriptions.annee_scolaire_id', $selectedAnneeId)
+            ->where('inscriptions.statut', 'validee')
+            ->orderBy('eleves.nom')
+            ->orderBy('eleves.prenom')
+            ->select([
+                'inscriptions.id',
+                'inscriptions.eleve_id',
+                'inscriptions.classe_id',
+                'eleves.matricule',
+                'eleves.nom as eleve_nom',
+                'eleves.prenom as eleve_prenom',
+                'classes.nom as classe_nom',
+            ])
             ->get()
-            ->sortBy(fn ($i) => $i->eleve->nom . ' ' . $i->eleve->prenom)
-            ->values();
+            ->map(static fn (object $row): array => [
+                'id' => (int) $row->id,
+                'eleve_id' => (int) $row->eleve_id,
+                'classe_id' => (int) $row->classe_id,
+                'eleve' => [
+                    'id' => (int) $row->eleve_id,
+                    'matricule' => (string) $row->matricule,
+                    'nom' => (string) $row->eleve_nom,
+                    'prenom' => $row->eleve_prenom,
+                    'nom_complet' => trim(((string) $row->eleve_nom).' '.((string) ($row->eleve_prenom ?? ''))),
+                ],
+                'classe' => [
+                    'id' => (int) $row->classe_id,
+                    'nom' => (string) $row->classe_nom,
+                ],
+            ])
+            ->all();
 
         return Inertia::render('administration/discipline/conseil/index', [
             'sessions' => $sessions,
@@ -165,9 +191,6 @@ class ConseilDisciplineController extends Controller implements HasMiddleware
 
     /**
      * Crée une nouvelle session de Conseil de Discipline.
-     *
-     * @param Request $request
-     * @return RedirectResponse
      */
     public function storeSession(Request $request): RedirectResponse
     {
@@ -193,10 +216,6 @@ class ConseilDisciplineController extends Controller implements HasMiddleware
 
     /**
      * Met à jour une session de Conseil de Discipline.
-     *
-     * @param Request $request
-     * @param ConseilDiscipline $conseil
-     * @return RedirectResponse
      */
     public function updateSession(Request $request, ConseilDiscipline $conseil): RedirectResponse
     {
@@ -218,9 +237,6 @@ class ConseilDisciplineController extends Controller implements HasMiddleware
 
     /**
      * Supprime une session de Conseil de Discipline.
-     *
-     * @param ConseilDiscipline $conseil
-     * @return RedirectResponse
      */
     public function destroySession(ConseilDiscipline $conseil): RedirectResponse
     {
@@ -231,10 +247,6 @@ class ConseilDisciplineController extends Controller implements HasMiddleware
 
     /**
      * Ajoute un dossier d'élève traduit devant une session de CD.
-     *
-     * @param Request $request
-     * @param ConseilDiscipline $conseil
-     * @return RedirectResponse
      */
     public function storeDossier(Request $request, ConseilDiscipline $conseil): RedirectResponse
     {
@@ -272,7 +284,7 @@ class ConseilDisciplineController extends Controller implements HasMiddleware
                 'eleve_id' => $inscription->eleve_id,
                 'date_consigne' => now()->next('Saturday')->format('Y-m-d'),
                 'nombre_heures' => $validated['nombre_heures_consigne'],
-                'motif' => "Sanction CD ({$conseil->numero_session}) : " . $validated['motifs_renvoi'],
+                'motif' => "Sanction CD ({$conseil->numero_session}) : ".$validated['motifs_renvoi'],
                 'statut' => 'programmee',
                 'created_by' => Auth::id(),
             ]);
@@ -283,13 +295,12 @@ class ConseilDisciplineController extends Controller implements HasMiddleware
 
     /**
      * Met à jour un dossier d'élève traduit en CD.
-     *
-     * @param Request $request
-     * @param DossierConseilDiscipline $dossier
-     * @return RedirectResponse
      */
     public function updateDossier(Request $request, DossierConseilDiscipline $dossier): RedirectResponse
     {
+        // Cloisonnement multi-campus : vérifie que le conseil parent est accessible dans l'établissement de l'utilisateur
+        ConseilDiscipline::findOrFail($dossier->conseil_discipline_id);
+
         $validated = $request->validate([
             'motifs_renvoi' => ['required', 'string', 'max:2000'],
             'plaidoirie_eleve' => ['nullable', 'string', 'max:2000'],
@@ -315,12 +326,10 @@ class ConseilDisciplineController extends Controller implements HasMiddleware
 
     /**
      * Supprime un dossier de comparution.
-     *
-     * @param DossierConseilDiscipline $dossier
-     * @return RedirectResponse
      */
     public function destroyDossier(DossierConseilDiscipline $dossier): RedirectResponse
     {
+        ConseilDiscipline::findOrFail($dossier->conseil_discipline_id);
         $dossier->delete();
 
         return back()->with('success', 'Dossier élève retiré du conseil.');
@@ -328,9 +337,6 @@ class ConseilDisciplineController extends Controller implements HasMiddleware
 
     /**
      * Enregistre une séance d'heures de consigne / retenue du samedi.
-     *
-     * @param Request $request
-     * @return RedirectResponse
      */
     public function storeHeureConsigne(Request $request): RedirectResponse
     {
@@ -359,10 +365,6 @@ class ConseilDisciplineController extends Controller implements HasMiddleware
 
     /**
      * Met à jour une séance de consigne (ex: marquer comme effectuée).
-     *
-     * @param Request $request
-     * @param HeureConsigne $consigne
-     * @return RedirectResponse
      */
     public function updateHeureConsigne(Request $request, HeureConsigne $consigne): RedirectResponse
     {
@@ -378,9 +380,6 @@ class ConseilDisciplineController extends Controller implements HasMiddleware
 
     /**
      * Supprime une consigne.
-     *
-     * @param HeureConsigne $consigne
-     * @return RedirectResponse
      */
     public function destroyHeureConsigne(HeureConsigne $consigne): RedirectResponse
     {
@@ -391,12 +390,11 @@ class ConseilDisciplineController extends Controller implements HasMiddleware
 
     /**
      * Génère la Lettre Officielle de Convocation au Conseil de Discipline avec coupon réponse parents.
-     *
-     * @param DossierConseilDiscipline $dossier
-     * @return HttpResponse
      */
     public function imprimerConvocation(DossierConseilDiscipline $dossier): HttpResponse
     {
+        ConseilDiscipline::findOrFail($dossier->conseil_discipline_id);
+
         $dossier->load([
             'conseilDiscipline.etablissement.institution',
             'conseilDiscipline.anneeScolaire',
@@ -425,9 +423,6 @@ class ConseilDisciplineController extends Controller implements HasMiddleware
 
     /**
      * Génère le Procès-Verbal Officiel des Délibérations du Conseil de Discipline (PV de CD).
-     *
-     * @param ConseilDiscipline $conseil
-     * @return HttpResponse
      */
     public function imprimerPv(ConseilDiscipline $conseil): HttpResponse
     {

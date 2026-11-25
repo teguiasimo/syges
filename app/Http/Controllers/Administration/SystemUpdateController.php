@@ -7,6 +7,7 @@ use App\Services\DatabaseBackupService;
 use App\Services\SystemUpdateService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -51,6 +52,12 @@ class SystemUpdateController extends Controller
      * Affiche le tableau de bord du gestionnaire de versions SemVer, de vérification Internet,
      * de mise à jour en 1 clic et des sauvegardes SQL.
      *
+     * Optimisations de latence :
+     * - Les métadonnées Git locales (`versionInfo`, `tagsCatalog`) sont mises en cache 5 minutes
+     *   avec invalidation automatique dès que `.git/HEAD` change ou après `check()` / `update()`.
+     * - La sonde réseau distante (`hasInternet` vers GitHub:443) est différée via `Inertia::defer()`
+     *   et mise en cache 2 minutes avec un timeout court (1,5 s) afin de ne jamais bloquer le rendu initial.
+     *
      * @param  Request  $request  Requête HTTP entrante.
      * @return Response Vue Inertia `administration/system-update/index`.
      */
@@ -58,17 +65,70 @@ class SystemUpdateController extends Controller
     {
         $this->authorizeSuperAdmin($request);
 
-        $versionInfo = $this->updateService->getLocalVersionInfo();
+        $headStamp = $this->resolveGitHeadFingerprint();
+        $versionInfo = Cache::remember(
+            "syges.system_update.version_info.{$headStamp}",
+            now()->addMinutes(5),
+            fn (): array => $this->updateService->getLocalVersionInfo(),
+        );
+
+        $tagsCatalog = Cache::remember(
+            "syges.system_update.tags_catalog.{$headStamp}",
+            now()->addMinutes(5),
+            fn (): array => $this->updateService->getTagsCatalog($versionInfo['version']),
+        );
 
         return Inertia::render('administration/system-update/index', [
             'versionInfo' => $versionInfo,
-            'tagsCatalog' => $this->updateService->getTagsCatalog($versionInfo['version']),
+            'tagsCatalog' => $tagsCatalog,
             'backups' => $this->backupService->getBackupsList(),
             'history' => $this->updateService->getUpdateHistory(),
-            'hasInternet' => $this->updateService->hasInternetConnection(),
+            'hasInternet' => Inertia::defer(
+                fn (): bool => Cache::remember(
+                    'syges.system_update.has_internet',
+                    now()->addMinutes(2),
+                    fn (): bool => $this->updateService->hasInternetConnection(timeout: 1.5),
+                )
+            ),
             'developerEmail' => (string) config('app.developer_email', 'teguiasimo@gmail.com'),
             'csrfToken' => csrf_token(),
         ]);
+    }
+
+    /**
+     * Calcule une empreinte rapide (sans processus shell `git`) de l'état local `.git/HEAD`
+     * afin d'invalider instantanément le cache des versions après tout checkout ou commit.
+     *
+     * @return string Empreinte MD5 courte de `.git/HEAD` (ou `'no-git'`).
+     */
+    protected function resolveGitHeadFingerprint(): string
+    {
+        $headFile = base_path('.git/HEAD');
+        if (! is_file($headFile)) {
+            return 'no-git';
+        }
+
+        $headContent = trim((string) @file_get_contents($headFile));
+        $refMtime = (string) @filemtime($headFile);
+        if (str_starts_with($headContent, 'ref:')) {
+            $refPath = base_path('.git/'.trim(substr($headContent, 4)));
+            if (is_file($refPath)) {
+                $headContent .= '|'.trim((string) @file_get_contents($refPath));
+            }
+        }
+
+        return md5($headContent.'|'.$refMtime);
+    }
+
+    /**
+     * Invalide les caches du gestionnaire de mises à jour (après contrôle distant ou déploiement).
+     */
+    protected function flushUpdateMetadataCache(): void
+    {
+        $headStamp = $this->resolveGitHeadFingerprint();
+        Cache::forget("syges.system_update.version_info.{$headStamp}");
+        Cache::forget("syges.system_update.tags_catalog.{$headStamp}");
+        Cache::forget('syges.system_update.has_internet');
     }
 
     /**
@@ -82,6 +142,7 @@ class SystemUpdateController extends Controller
     {
         $this->authorizeSuperAdmin($request);
 
+        $this->flushUpdateMetadataCache();
         $result = $this->updateService->checkForUpdates();
 
         return response()->json($result);
@@ -109,6 +170,8 @@ class SystemUpdateController extends Controller
             requestedTag: $validated['tag'] ?? null,
             triggeredBy: (string) $actor,
         );
+
+        $this->flushUpdateMetadataCache();
 
         return response()->json($result, $result['success'] ? 200 : 422);
     }

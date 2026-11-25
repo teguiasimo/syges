@@ -6,6 +6,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 
@@ -64,6 +65,19 @@ class AppServiceProvider extends ServiceProvider
         DB::prohibitDestructiveCommands(
             app()->isProduction(),
         );
+
+        // Force automatiquement le HTTPS et les cookies sécurisés lors de la mise en ligne en production
+        // dès que APP_URL est en https:// ou que FORCE_HTTPS=true est activé dans le fichier .env
+        if (
+            $this->app->isProduction()
+            && (
+                filter_var(env('FORCE_HTTPS', false), FILTER_VALIDATE_BOOLEAN)
+                || str_starts_with((string) config('app.url'), 'https://')
+            )
+        ) {
+            URL::forceScheme('https');
+            config(['session.secure' => true]);
+        }
 
         Password::defaults(fn (): ?Password => app()->isProduction()
             ? Password::min(12)

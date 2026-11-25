@@ -32,7 +32,7 @@ class LoginAppearanceController extends Controller implements HasMiddleware
     /**
      * Constructeur injectant le service d'apparence de connexion.
      *
-     * @param LoginAppearanceService $appearanceService Service de configuration login
+     * @param  LoginAppearanceService  $appearanceService  Service de configuration login
      */
     public function __construct(LoginAppearanceService $appearanceService)
     {
@@ -54,7 +54,7 @@ class LoginAppearanceController extends Controller implements HasMiddleware
     /**
      * Affiche l'interface de configuration du carrousel et du branding de la page de connexion.
      *
-     * @param Request $request Requête HTTP entrante
+     * @param  Request  $request  Requête HTTP entrante
      * @return Response Vue Inertia de configuration
      */
     public function index(Request $request): Response
@@ -83,8 +83,7 @@ class LoginAppearanceController extends Controller implements HasMiddleware
     /**
      * Met à jour les paramètres généraux d'apparence et le mode du carrousel de connexion.
      *
-     * @param Request $request Requête HTTP validée (avec logo optionnel multipart)
-     * @return RedirectResponse
+     * @param  Request  $request  Requête HTTP validée (avec logo optionnel multipart)
      */
     public function updateSettings(Request $request): RedirectResponse
     {
@@ -94,7 +93,7 @@ class LoginAppearanceController extends Controller implements HasMiddleware
             'brand_name' => ['nullable', 'string', 'max:120'],
             'brand_subtitle' => ['nullable', 'string', 'max:160'],
             'logo_path' => ['nullable', 'string', 'max:255'],
-            'logo_file' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,svg,webp', 'max:5120'],
+            'logo_file' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,webp', 'max:5120'],
             'footer_left' => ['nullable', 'string', 'max:160'],
             'footer_right' => ['nullable', 'string', 'max:80'],
             'support_label' => ['nullable', 'string', 'max:80'],
@@ -104,7 +103,7 @@ class LoginAppearanceController extends Controller implements HasMiddleware
             'app_brand_name' => ['nullable', 'string', 'max:80'],
             'app_brand_subtitle' => ['nullable', 'string', 'max:120'],
             'app_logo_path' => ['nullable', 'string', 'max:255'],
-            'app_logo_file' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,svg,webp', 'max:5120'],
+            'app_logo_file' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,webp', 'max:5120'],
             'sync_favicon' => ['sometimes', 'boolean'],
         ]);
 
@@ -127,6 +126,9 @@ class LoginAppearanceController extends Controller implements HasMiddleware
                 $this->appearanceService->deleteManagedStorageFile($oldLogoPath);
             }
             $validated['logo_path'] = LoginAppearanceService::DEFAULT_BRANDING['logo_url'];
+        } else {
+            // Protection anti-Path Traversal : empêche l'injection d'un chemin arbitraire dans logo_path
+            unset($validated['logo_path']);
         }
 
         if ($request->hasFile('app_logo_file')) {
@@ -144,6 +146,8 @@ class LoginAppearanceController extends Controller implements HasMiddleware
                 $this->appearanceService->deleteManagedStorageFile($oldAppLogoPath);
             }
             $validated['app_logo_path'] = null;
+        } else {
+            unset($validated['app_logo_path']);
         }
 
         unset($validated['logo_file'], $validated['app_logo_file']);
@@ -155,8 +159,6 @@ class LoginAppearanceController extends Controller implements HasMiddleware
 
     /**
      * Réinitialise l'apparence globale aux réglages par défaut SYGES (10 slides + branding d'origine).
-     *
-     * @return RedirectResponse
      */
     public function resetToDefaults(): RedirectResponse
     {
@@ -191,8 +193,7 @@ class LoginAppearanceController extends Controller implements HasMiddleware
      * Ajoute un nouveau slide personnalisé (photo importée + titre + message).
      * Active automatiquement le mode personnalisé lorsque ce slide est actif afin que l'effet soit immédiat.
      *
-     * @param Request $request Requête multipart contenant l'image et ses textes
-     * @return RedirectResponse
+     * @param  Request  $request  Requête multipart contenant l'image et ses textes
      */
     public function storeSlide(Request $request): RedirectResponse
     {
@@ -237,9 +238,8 @@ class LoginAppearanceController extends Controller implements HasMiddleware
     /**
      * Met à jour un slide existant (textes, activation ou remplacement de la photo).
      *
-     * @param Request $request Requête HTTP entrante
-     * @param LoginSlide $slide Diapositive ciblée
-     * @return RedirectResponse
+     * @param  Request  $request  Requête HTTP entrante
+     * @param  LoginSlide  $slide  Diapositive ciblée
      */
     public function updateSlide(Request $request, LoginSlide $slide): RedirectResponse
     {
@@ -275,9 +275,8 @@ class LoginAppearanceController extends Controller implements HasMiddleware
     /**
      * Déplace un slide vers le haut ou vers le bas dans l'ordre d'affichage du carrousel.
      *
-     * @param Request $request Requête contenant `direction` ('up' ou 'down')
-     * @param LoginSlide $slide Diapositive à déplacer
-     * @return RedirectResponse
+     * @param  Request  $request  Requête contenant `direction` ('up' ou 'down')
+     * @param  LoginSlide  $slide  Diapositive à déplacer
      */
     public function reorderSlide(Request $request, LoginSlide $slide): RedirectResponse
     {
@@ -311,8 +310,7 @@ class LoginAppearanceController extends Controller implements HasMiddleware
      * Supprime définitivement un slide personnalisé et nettoie son fichier image associé.
      * Si plus aucun slide actif ne subsiste, l'écran `/login` rebascule automatiquement sur les 10 photos SYGES par défaut.
      *
-     * @param LoginSlide $slide Diapositive à supprimer
-     * @return RedirectResponse
+     * @param  LoginSlide  $slide  Diapositive à supprimer
      */
     public function destroySlide(LoginSlide $slide): RedirectResponse
     {

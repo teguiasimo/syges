@@ -15,7 +15,6 @@ use App\Models\ClotureCaisse;
 use App\Models\CompteFinancierEleve;
 use App\Models\DispenseFinanciere;
 use App\Models\EcheanceTranche;
-use App\Models\Eleve;
 use App\Models\EleveBourseRemise;
 use App\Models\Etablissement;
 use App\Models\FraisScolaire;
@@ -96,6 +95,7 @@ class FinanceController extends Controller implements HasMiddleware
             ]),
             new Middleware('can:recettes_diverses.create|finances.manage', only: [
                 'storeReglementDivers',
+                'updateReglementDivers',
                 'storeCategorieRecette',
                 'destroyCategorieRecette',
             ]),
@@ -141,6 +141,8 @@ class FinanceController extends Controller implements HasMiddleware
                 'storeSouscriptionOptionnelle',
                 'storeSouscriptionOptionnelleClasse',
                 'destroySouscriptionOptionnelle',
+            ]),
+            new Middleware('can:bourses.attribuer|bourses.manage|finances.manage', only: [
                 'ajusterCompte',
             ]),
             new Middleware('can:penalites.manage|finances.manage', only: [
@@ -286,15 +288,10 @@ class FinanceController extends Controller implements HasMiddleware
 
         $versements = $versementsQuery->take(100)->get();
 
-        // 2. Liste des comptes financiers des élèves
-        $comptesQuery = CompteFinancierEleve::with([
-            'eleve',
-            'inscription.classe.niveau',
-            'boursesRemises.bourseRemise',
-            'souscriptionsOptionnelles.fraisScolaire.typeFrais',
-            'penalites',
-            'versements',
-        ])
+        // 2. Effectif agrégé des comptes financiers actifs (évite de charger et sérialiser ~400 Ko
+        //    de comptes complets sur l'écran de paramétrage/caisse qui n'affiche que le compteur global ;
+        //    la liste détaillée est servie par la page dédiée `scolarites`).
+        $comptesQuery = CompteFinancierEleve::query()
             ->where('etablissement_id', $etablissementId)
             ->where('annee_scolaire_id', $anneeId);
 
@@ -316,7 +313,8 @@ class FinanceController extends Controller implements HasMiddleware
             });
         }
 
-        $comptes = $comptesQuery->get();
+        $comptesCount = $comptesQuery->count();
+        $comptes = [];
 
         // 3. Catégories de frais et Catalogue des frais configurés pour l'établissement
         $categoriesFrais = CategorieFrais::obtenirOuInitialiserPourEtablissement((int) $etablissementId);
@@ -452,6 +450,7 @@ class FinanceController extends Controller implements HasMiddleware
         return Inertia::render('administration/finances/index', [
             'versements' => $versements,
             'comptes' => $comptes,
+            'comptesCount' => $comptesCount,
             'categoriesFrais' => $categoriesFrais,
             'typesFrais' => $typesFrais,
             'tarifs' => $tarifs,
@@ -519,21 +518,51 @@ class FinanceController extends Controller implements HasMiddleware
 
         $categoriesFrais = CategorieFrais::obtenirOuInitialiserPourEtablissement((int) $etablissementId);
 
-        $comptes = CompteFinancierEleve::with([
-            'eleve',
-            'inscription.classe.niveau.cycle.section',
-            'boursesRemises.bourseRemise',
-            'dispensesFinancieres.fraisScolaire.typeFrais',
-            'souscriptionsOptionnelles.fraisScolaire.typeFrais.categorieFrais',
-            'penalites',
-            'versements' => fn ($q) => $q->where('statut', 'valide')->with('ventilations'),
-        ])
-            ->where('etablissement_id', $etablissementId)
-            ->where('annee_scolaire_id', $anneeId)
-            ->orderBy(
-                Eleve::select('nom')->whereColumn('eleves.id', 'comptes_financiers_eleves.eleve_id')
-            )
-            ->get();
+        // Chargement optimisé des comptes financiers avec jointure directe (sans sous-requête corrélée)
+        // et sélection stricte des colonnes utiles, puis projection en tableaux PHP légers pour Inertia.
+        $comptes = CompteFinancierEleve::query()
+            ->select([
+                'comptes_financiers_eleves.id',
+                'comptes_financiers_eleves.inscription_id',
+                'comptes_financiers_eleves.eleve_id',
+                'comptes_financiers_eleves.etablissement_id',
+                'comptes_financiers_eleves.annee_scolaire_id',
+                'comptes_financiers_eleves.debit_initial',
+                'comptes_financiers_eleves.total_dispense',
+                'comptes_financiers_eleves.arrieres_anterieurs',
+                'comptes_financiers_eleves.remise_bourse',
+                'comptes_financiers_eleves.montant_net_exigible',
+                'comptes_financiers_eleves.total_paye',
+                'comptes_financiers_eleves.solde_restant',
+                'comptes_financiers_eleves.statut_financier',
+                'comptes_financiers_eleves.observations',
+            ])
+            ->join('eleves', 'eleves.id', '=', 'comptes_financiers_eleves.eleve_id')
+            ->with([
+                'eleve:id,matricule,nom,prenom,sexe,telephone_parent,photo_url',
+                'inscription:id,eleve_id,classe_id,etablissement_id,annee_scolaire_id,statut',
+                'inscription.classe:id,etablissement_id,niveau_id,nom,code,serie',
+                'inscription.classe.niveau:id,cycle_id,nom,ordre',
+                'boursesRemises:id,compte_financier_id,bourse_remise_id,frais_scolaire_id,montant_calcule',
+                'boursesRemises.bourseRemise:id,nom,type,mode_calcul,valeur',
+                'dispensesFinancieres:id,compte_financier_id,frais_scolaire_id,montant_dispense,motif',
+                'dispensesFinancieres.fraisScolaire:id,type_frais_id,libelle_tranche,tranche_numero,montant',
+                'souscriptionsOptionnelles:id,compte_financier_id,frais_scolaire_id,montant,statut',
+                'souscriptionsOptionnelles.fraisScolaire:id,type_frais_id,niveau_id,libelle_tranche,tranche_numero,montant,obligatoire',
+                'souscriptionsOptionnelles.fraisScolaire.typeFrais:id,categorie_frais_id,libelle,obligatoire,ordre_priorite',
+                'souscriptionsOptionnelles.fraisScolaire.typeFrais.categorieFrais:id,nom,description',
+                'penalites:id,compte_financier_id,montant,statut,motif',
+                'versements' => fn ($q) => $q
+                    ->select('id', 'compte_financier_id', 'montant_total', 'statut', 'date_versement')
+                    ->where('statut', 'valide')
+                    ->with('ventilations:id,versement_id,frais_scolaire_id,type_frais_id,montant'),
+            ])
+            ->where('comptes_financiers_eleves.etablissement_id', $etablissementId)
+            ->where('comptes_financiers_eleves.annee_scolaire_id', $anneeId)
+            ->orderBy('eleves.nom')
+            ->orderBy('eleves.prenom')
+            ->get()
+            ->toArray();
 
         $typesFrais = TypeFrais::with('categorieFrais')
             ->where('etablissement_id', $etablissementId)
@@ -654,26 +683,39 @@ class FinanceController extends Controller implements HasMiddleware
         }
         $caisses = $caissesQuery->get();
 
-        // Élèves pour la sélection rapide du Relevé Individuel
-        $elevesQuery = Inscription::with(['eleve', 'classe'])
-            ->where('annee_scolaire_id', $anneeId);
+        // Projection SQL directe ultra-légère des élèves pour la sélection rapide du Relevé Individuel
+        $elevesQuery = DB::table('inscriptions')
+            ->join('eleves', 'eleves.id', '=', 'inscriptions.eleve_id')
+            ->leftJoin('classes', 'classes.id', '=', 'inscriptions.classe_id')
+            ->where('inscriptions.annee_scolaire_id', $anneeId)
+            ->select([
+                'inscriptions.eleve_id as id',
+                'eleves.matricule',
+                'eleves.nom',
+                'eleves.prenom',
+                'inscriptions.classe_id',
+                'classes.nom as classe_nom',
+                'inscriptions.etablissement_id',
+            ])
+            ->orderBy('eleves.nom')
+            ->orderBy('eleves.prenom');
+
         if ($etablissementId) {
-            $elevesQuery->where('etablissement_id', $etablissementId);
+            $elevesQuery->where('inscriptions.etablissement_id', $etablissementId);
         } elseif (! empty($accessibleEtabIds)) {
-            $elevesQuery->whereIn('etablissement_id', $accessibleEtabIds);
+            $elevesQuery->whereIn('inscriptions.etablissement_id', $accessibleEtabIds);
         }
-        $elevesList = $elevesQuery->get()->map(function ($insc) {
-            return [
-                'id' => $insc->eleve_id,
-                'matricule' => $insc->eleve?->matricule ?? 'N/A',
-                'nom' => $insc->eleve?->nom ?? '',
-                'prenom' => $insc->eleve?->prenom ?? '',
-                'nom_complet' => trim(($insc->eleve?->nom ?? '').' '.($insc->eleve?->prenom ?? '')),
-                'classe_id' => $insc->classe_id,
-                'classe' => $insc->classe?->nom ?? 'N/A',
-                'etablissement_id' => $insc->etablissement_id,
-            ];
-        })->sortBy('nom_complet')->values();
+
+        $elevesList = $elevesQuery->get()->map(static fn (object $row): array => [
+            'id' => (int) $row->id,
+            'matricule' => (string) ($row->matricule ?? 'N/A'),
+            'nom' => (string) ($row->nom ?? ''),
+            'prenom' => (string) ($row->prenom ?? ''),
+            'nom_complet' => trim(((string) ($row->nom ?? '')).' '.((string) ($row->prenom ?? ''))),
+            'classe_id' => $row->classe_id ? (int) $row->classe_id : null,
+            'classe' => (string) ($row->classe_nom ?? 'N/A'),
+            'etablissement_id' => $row->etablissement_id ? (int) $row->etablissement_id : null,
+        ])->all();
 
         // Catégories et types de frais disponibles pour les filtres avancés des états
         $categoriesQuery = CategorieFrais::withoutGlobalScopes()->where('is_active', true)->orderBy('nom')->orderBy('id');
@@ -990,9 +1032,11 @@ class FinanceController extends Controller implements HasMiddleware
         $validated = $request->validate([
             'etablissement_id' => 'required|exists:etablissements,id',
             'personnel_id' => 'nullable|exists:personnels,id',
-            'date_cloture' => 'required|date',
+            'date_cloture' => 'required|date|before_or_equal:today',
             'observations' => 'nullable|string|max:500',
         ]);
+
+        $validated['etablissement_id'] = (int) $this->authorizeEtablissementWrite($request, $validated['etablissement_id']);
 
         $financeService->cloturerCaisse(
             $validated['etablissement_id'],
@@ -1044,11 +1088,12 @@ class FinanceController extends Controller implements HasMiddleware
             'description' => 'nullable|string|max:500',
         ]);
 
+        $etabId = (int) $this->authorizeEtablissementWrite($request, $validated['etablissement_id']);
         $nom = trim($validated['nom']);
 
         CategorieFrais::withoutGlobalScopes()->updateOrCreate(
             [
-                'etablissement_id' => (int) $validated['etablissement_id'],
+                'etablissement_id' => $etabId,
                 'nom' => $nom,
             ],
             [
@@ -1148,7 +1193,8 @@ class FinanceController extends Controller implements HasMiddleware
             'date_limite_defaut' => 'nullable|date',
         ]);
 
-        $etabId = (int) $validated['etablissement_id'];
+        $etabId = (int) $this->authorizeEtablissementWrite($request, $validated['etablissement_id']);
+        $validated['etablissement_id'] = $etabId;
         $codeExplicite = isset($validated['code']) && trim((string) $validated['code']) !== '';
 
         if ($codeExplicite) {
@@ -1332,7 +1378,7 @@ class FinanceController extends Controller implements HasMiddleware
         ]);
 
         $anneeId = (int) $validated['annee_scolaire_id'];
-        $etabId = (int) $validated['etablissement_id'];
+        $etabId = (int) $this->authorizeEtablissementWrite($request, $validated['etablissement_id']);
         $serie = isset($validated['serie']) && trim((string) $validated['serie']) !== ''
             ? trim((string) $validated['serie'])
             : null;
@@ -1427,6 +1473,7 @@ class FinanceController extends Controller implements HasMiddleware
             'date_limite' => 'nullable|date',
         ]);
 
+        $validated['etablissement_id'] = (int) $this->authorizeEtablissementWrite($request, $validated['etablissement_id']);
         if (isset($validated['serie']) && trim((string) $validated['serie']) === '') {
             $validated['serie'] = null;
         }
@@ -1434,6 +1481,11 @@ class FinanceController extends Controller implements HasMiddleware
             $validated['ordre_priorite'] = null;
         }
         $validated['obligatoire'] = $request->has('obligatoire') ? $request->boolean('obligatoire') : true;
+
+        // Vérifie que le niveau et le type de frais appartiennent à l'établissement cible
+        $niveauValide = Niveau::where('id', $validated['niveau_id'])->where('etablissement_id', $validated['etablissement_id'])->exists();
+        $typeValide = TypeFrais::where('id', $validated['type_frais_id'])->where('etablissement_id', $validated['etablissement_id'])->exists();
+        abort_unless($niveauValide && $typeValide, 403, 'Accès non autorisé : le niveau ou le type de frais n\'appartient pas à cet établissement.');
 
         FraisScolaire::create($validated);
 
@@ -1554,6 +1606,8 @@ class FinanceController extends Controller implements HasMiddleware
      */
     public function toggleVerrouSolvabilite(Request $request, Etablissement $etablissement): RedirectResponse
     {
+        $this->authorizeEtablissementWrite($request, $etablissement->id);
+
         $validated = $request->validate([
             'verrou_solvabilite_actif' => 'required|boolean',
         ]);
@@ -1582,6 +1636,8 @@ class FinanceController extends Controller implements HasMiddleware
             'is_active' => 'nullable|boolean',
             'description' => 'nullable|string|max:500',
         ]);
+
+        $validated['etablissement_id'] = (int) $this->authorizeEtablissementWrite($request, $validated['etablissement_id']);
 
         if (! empty($validated['is_principale'])) {
             Caisse::where('etablissement_id', $validated['etablissement_id'])
@@ -1663,9 +1719,10 @@ class FinanceController extends Controller implements HasMiddleware
             $validated['libelle'] = $validated['categorie'];
         }
 
-        if (empty($validated['caisse_id']) && empty($validated['etablissement_id'])) {
-            $context = $this->resolveEtablissementContext($request);
-            $validated['etablissement_id'] = $context['etablissementId'];
+        $validated['etablissement_id'] = $this->authorizeEtablissementWrite($request, $validated['etablissement_id'] ?? null);
+        if (! empty($validated['caisse_id'])) {
+            $caisse = Caisse::withoutGlobalScopes()->findOrFail($validated['caisse_id']);
+            $this->authorizeEtablissementWrite($request, $caisse->etablissement_id);
         }
 
         $caissier = null;
@@ -1690,6 +1747,19 @@ class FinanceController extends Controller implements HasMiddleware
      */
     public function updateReglementDivers(Request $request, ReglementDivers $reglementDivers): RedirectResponse
     {
+        if ($reglementDivers->statut === 'annule') {
+            return back()->withErrors(['error' => 'Impossible de modifier une recette diverse annulée.']);
+        }
+
+        $dateOrigine = Carbon::parse($reglementDivers->date_reglement)->toDateString();
+        $clotureOrigine = ClotureCaisse::where('etablissement_id', $reglementDivers->etablissement_id)
+            ->whereDate('date_cloture', $dateOrigine)
+            ->where('statut', 'cloturee')
+            ->exists();
+        if ($clotureOrigine) {
+            return back()->withErrors(['error' => 'Impossible de modifier cette recette diverse : la caisse de sa journée est déjà clôturée.']);
+        }
+
         $validated = $request->validate([
             'payeur_nom' => 'required|string|max:150',
             'payeur_telephone' => 'nullable|string|max:50',
@@ -1736,7 +1806,7 @@ class FinanceController extends Controller implements HasMiddleware
             'nom' => 'required|string|max:100',
         ]);
 
-        $etabId = $validated['etablissement_id'] ?? $this->resolveEtablissementContext($request)['etablissementId'];
+        $etabId = $this->authorizeEtablissementWrite($request, $validated['etablissement_id'] ?? null);
         $nom = trim($validated['nom']);
 
         CategorieRecetteDiverse::updateOrCreate(
@@ -1750,8 +1820,16 @@ class FinanceController extends Controller implements HasMiddleware
     /**
      * Supprime une catégorie personnalisée de recette diverse si aucune recette ne l'utilise.
      */
-    public function destroyCategorieRecette(CategorieRecetteDiverse $categorie): RedirectResponse
+    public function destroyCategorieRecette(Request $request, CategorieRecetteDiverse $categorie): RedirectResponse
     {
+        $context = $this->resolveEtablissementContext($request);
+        if ($categorie->etablissement_id === null && ! $context['isSuperAdmin']) {
+            abort(403, 'Seul le Super Administrateur peut supprimer une catégorie globale.');
+        }
+        if ($categorie->etablissement_id !== null) {
+            $this->authorizeEtablissementWrite($request, $categorie->etablissement_id);
+        }
+
         $utilisee = ReglementDivers::withoutGlobalScopes()
             ->where('etablissement_id', $categorie->etablissement_id)
             ->where('categorie', $categorie->nom)
@@ -1894,6 +1972,7 @@ class FinanceController extends Controller implements HasMiddleware
     public function storeBourseRemise(Request $request): RedirectResponse
     {
         $validated = $this->validerDonneesBourseRemise($request);
+        $validated['etablissement_id'] = (int) $this->authorizeEtablissementWrite($request, $validated['etablissement_id'] ?? null);
 
         BourseRemise::create($validated);
 
@@ -1926,7 +2005,7 @@ class FinanceController extends Controller implements HasMiddleware
             'nom' => 'required|string|max:100',
         ]);
 
-        $etabId = $validated['etablissement_id'] ?? $this->resolveEtablissementContext($request)['etablissementId'];
+        $etabId = $this->authorizeEtablissementWrite($request, $validated['etablissement_id'] ?? null);
         $nom = trim($validated['nom']);
 
         CategorieBourseRemise::updateOrCreate(
@@ -1940,8 +2019,16 @@ class FinanceController extends Controller implements HasMiddleware
     /**
      * Supprime une catégorie personnalisée de bourse ou remise si aucun modèle ne l'utilise.
      */
-    public function destroyCategorieBourse(CategorieBourseRemise $categorie): RedirectResponse
+    public function destroyCategorieBourse(Request $request, CategorieBourseRemise $categorie): RedirectResponse
     {
+        $context = $this->resolveEtablissementContext($request);
+        if ($categorie->etablissement_id === null && ! $context['isSuperAdmin']) {
+            abort(403, 'Seul le Super Administrateur peut supprimer une catégorie globale.');
+        }
+        if ($categorie->etablissement_id !== null) {
+            $this->authorizeEtablissementWrite($request, $categorie->etablissement_id);
+        }
+
         $utilisee = BourseRemise::withoutGlobalScopes()
             ->where('etablissement_id', $categorie->etablissement_id)
             ->where('categorie', $categorie->nom)
@@ -2123,6 +2210,8 @@ class FinanceController extends Controller implements HasMiddleware
             'tranches.*.pourcentage_exigible' => 'required|numeric|min:0|max:100',
         ]);
 
+        $validated['etablissement_id'] = (int) $this->authorizeEtablissementWrite($request, $validated['etablissement_id']);
+
         if (! empty($validated['is_default'])) {
             ModeleEcheance::where('etablissement_id', $validated['etablissement_id'])
                 ->where('annee_scolaire_id', $validated['annee_scolaire_id'])
@@ -2180,6 +2269,8 @@ class FinanceController extends Controller implements HasMiddleware
             'is_active' => 'nullable|boolean',
         ]);
 
+        $validated['etablissement_id'] = (int) $this->authorizeEtablissementWrite($request, $validated['etablissement_id']);
+
         PenaliteConfiguration::updateOrCreate(
             ['etablissement_id' => $validated['etablissement_id']],
             $validated
@@ -2198,6 +2289,8 @@ class FinanceController extends Controller implements HasMiddleware
             'annee_scolaire_id' => 'required|exists:annees_scolaires,id',
         ]);
 
+        $validated['etablissement_id'] = (int) $this->authorizeEtablissementWrite($request, $validated['etablissement_id']);
+
         $res = $financeService->appliquerPenalitesAutomatiquesEcheances(
             $validated['etablissement_id'],
             $validated['annee_scolaire_id'],
@@ -2214,9 +2307,14 @@ class FinanceController extends Controller implements HasMiddleware
     /**
      * Annule une pénalité appliquée sur le compte d'un élève.
      */
-    public function annulerPenaliteEleve(PenaliteEleve $penalite, FinanceService $financeService): RedirectResponse
+    public function annulerPenaliteEleve(int $penalite, FinanceService $financeService): RedirectResponse
     {
-        $financeService->annulerPenalite($penalite);
+        $penaliteModel = $this->resolveDossierItemForRemoval(PenaliteEleve::class, $penalite);
+        if (! $penaliteModel) {
+            return back()->with('success', 'Cette pénalité de retard a déjà été annulée.');
+        }
+
+        $financeService->annulerPenalite($penaliteModel);
 
         return back()->with('success', 'Pénalité de retard annulée avec succès.');
     }

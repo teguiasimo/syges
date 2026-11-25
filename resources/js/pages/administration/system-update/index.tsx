@@ -163,7 +163,8 @@ interface SystemUpdatePageProps {
     tagsCatalog: SemverTagItem[];
     backups: BackupFileItem[];
     history: UpdateHistoryItem[];
-    hasInternet: boolean;
+    /** Propriété différée via `Inertia::defer()` afin de ne pas bloquer le chargement initial. */
+    hasInternet?: boolean;
     developerEmail: string;
     csrfToken: string;
 }
@@ -268,7 +269,16 @@ export default function SystemUpdateIndex({
     const [tagsCatalog, setTagsCatalog] = useState<SemverTagItem[]>(initialTagsCatalog);
     const [backups, setBackups] = useState<BackupFileItem[]>(initialBackups);
     const [history, setHistory] = useState<UpdateHistoryItem[]>(initialHistory);
-    const [isOnline, setIsOnline] = useState<boolean>(initialHasInternet);
+    const [isOnline, setIsOnline] = useState<boolean>(
+        initialHasInternet ?? (typeof navigator !== 'undefined' ? navigator.onLine : true),
+    );
+
+    // Synchronise l'état de connectivité serveur dès que la prop différée `hasInternet` arrive
+    useEffect(() => {
+        if (typeof initialHasInternet === 'boolean') {
+            setIsOnline(initialHasInternet);
+        }
+    }, [initialHasInternet]);
 
     // États d'opération asynchrone
     const [isChecking, setIsChecking] = useState<boolean>(false);

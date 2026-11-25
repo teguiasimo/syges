@@ -193,7 +193,7 @@ class DatabaseBackupService
 
             $diagnostic = $isOfflineOrNetwork
                 ? 'envoi email ignoré car aucune connexion Internet active pour joindre le serveur de messagerie'
-                : 'envoi email non abouti : ' . mb_substr($safeMsg, 0, 160);
+                : 'envoi email non abouti : '.mb_substr($safeMsg, 0, 160);
 
             return [
                 'sent' => false,
@@ -243,16 +243,21 @@ class DatabaseBackupService
         $tablesStmt = $pdo->query("SELECT name, sql FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'");
         $tables = $tablesStmt ? $tablesStmt->fetchAll(\PDO::FETCH_ASSOC) : [];
 
+        // Tables techniques éphémères dont la structure est exportée mais pas les lignes (évite toute fuite de sessions actives)
+        $excludedDataTables = ['sessions', 'cache', 'cache_locks'];
+
         foreach ($tables as $tableInfo) {
             $tableName = $tableInfo['name'];
             $createSql = $tableInfo['sql'];
             fwrite($handle, "DROP TABLE IF EXISTS \"{$tableName}\";\n{$createSql};\n");
 
-            $rowsStmt = $pdo->query("SELECT * FROM \"{$tableName}\"");
-            if ($rowsStmt !== false) {
-                while ($row = $rowsStmt->fetch(\PDO::FETCH_NUM)) {
-                    $values = array_map(fn ($v) => $this->quoteValue($pdo, $v), $row);
-                    fwrite($handle, "INSERT INTO \"{$tableName}\" VALUES (".implode(', ', $values).");\n");
+            if (! in_array($tableName, $excludedDataTables, true)) {
+                $rowsStmt = $pdo->query("SELECT * FROM \"{$tableName}\"");
+                if ($rowsStmt !== false) {
+                    while ($row = $rowsStmt->fetch(\PDO::FETCH_NUM)) {
+                        $values = array_map(fn ($v) => $this->quoteValue($pdo, $v), $row);
+                        fwrite($handle, "INSERT INTO \"{$tableName}\" VALUES (".implode(', ', $values).");\n");
+                    }
                 }
             }
             fwrite($handle, "\n");
@@ -325,6 +330,11 @@ class DatabaseBackupService
                 if (is_array($createRow) && isset($createRow[1])) {
                     fwrite($handle, $createRow[1].";\n\n");
                 }
+            }
+
+            // Exclusion des données de sessions actives et caches éphémères (seule leur structure DDL est exportée)
+            if (in_array($table, ['sessions', 'cache', 'cache_locks'], true)) {
+                continue;
             }
 
             // Export des lignes par lots de 200 pour maîtriser l'empreinte mémoire RAM

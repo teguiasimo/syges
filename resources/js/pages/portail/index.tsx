@@ -334,9 +334,9 @@ export default function PortailParentIndex({
                                         {profil.eleve.nom.charAt(0)}
                                     </div>
                                     <div className="space-y-0.5 min-w-0 flex-1">
-                                        <h2 className="text-lg sm:text-xl font-bold text-foreground wrap-break-word">
+                                        <h1 className="text-lg sm:text-xl font-bold text-foreground wrap-break-word">
                                             {profil.eleve.nom_complet}
-                                        </h2>
+                                        </h1>
                                         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                                             <span className="font-semibold text-primary">{profil.classe?.nom}</span>
                                             <span>•</span>
